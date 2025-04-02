@@ -40,3 +40,11 @@ def pages(request):
     except:
         html_template = loader.get_template('home/page-500.html')
         return HttpResponse(html_template.render(context, request))
+
+
+@login_required(login_url="/login/")
+def lessons_list(request):
+    context = {'segment': 'lessons'}
+    html_template = loader.get_template('home/lessons.html')
+
+    return HttpResponse(html_template.render(context, request))
