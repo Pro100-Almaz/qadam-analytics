@@ -4,12 +4,12 @@
 
 {% block content %}
 
-  <div class="header bg-primary pb-6">
+  <div class="header bg-white pb-6">
     <div class="container-fluid">
       <div class="header-body">
         <div class="row align-items-center py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 text-white d-inline-block mb-0">Предметы</h6>
+            <h6 class="h2 d-inline-block mb-0">Предметы</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
@@ -17,10 +17,11 @@
               </ol>
             </nav>
           </div>
-          <div class="col-lg-6 col-5 text-right">
-            <a href="#" class="btn btn-sm btn-neutral">New</a>
-            <a href="#" class="btn btn-sm btn-neutral">Filters</a>
-          </div>
+          {% if user.is_teacher %}
+            <div class="col-lg-6 col-5 text-right">
+              <a href="{% url 'new_lesson' %}" class="btn btn-sm btn-neutral">Новый</a>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -33,18 +34,18 @@
         <div class="card">
           <!-- Card header -->
           <div class="card-header border-0">
-            <h3 class="mb-0">Light table</h3>
+            <h3 class="mb-0">Все занятия</h3>
           </div>
           <!-- Light table -->
           <div class="table-responsive">
             <table class="table align-items-center table-flush">
               <thead class="thead-light">
                 <tr>
-                  <th scope="col" class="sort" data-sort="name">Project</th>
-                  <th scope="col" class="sort" data-sort="budget">Budget</th>
-                  <th scope="col" class="sort" data-sort="status">Status</th>
-                  <th scope="col">Users</th>
-                  <th scope="col" class="sort" data-sort="completion">Completion</th>
+                  <th scope="col" class="sort" data-sort="name">Имя</th>
+                  <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
+                  <th scope="col" class="sort" data-sort="status">Статус</th>
+                  <th scope="col">Учитель</th>
+                  <th scope="col" class="sort" data-sort="completion">Прогресс</th>
                   <th scope="col"></th>
                 </tr>
               </thead>

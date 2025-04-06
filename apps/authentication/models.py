@@ -26,11 +26,41 @@ class CustomUser(AbstractUser):
         (ROLE_ADMIN, 'Admin'),
     ]
 
+    SCHOOL_CHOICES = [
+        ('muzafar_alimbayev', 'Muzafar Alimbayev 21'),
+        ('bukhar_zhyrau', 'Bukhar Zhyrau 19/1'),
+    ]
+
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_STUDENT)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     avatar = models.ImageField(upload_to=user_avatar_upload_path, blank=True, null=True)
+    school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
+
 
     def __str__(self):
-        return self.username
+        return self.first_name + " " + self.last_name
+
+    def is_teacher(self):
+        return self.role == CustomUser.ROLE_TEACHER
+
+    def is_manager(self):
+        return self.role == CustomUser.ROLE_SUPERVISOR
+
+    def is_principal(self):
+        return self.role == CustomUser.ROLE_PRINCIPAL
+
+
+class Student(CustomUser):
+    grade = models.PositiveIntegerField(blank=True, null=True)
+
+
+class Parent(CustomUser):
+    children = models.ForeignKey(Student, related_name='parent', on_delete=models.DO_NOTHING, blank=True, null=True)
+
+
+class Teacher(CustomUser):
+    supervisor = models.ForeignKey('self', related_name='teacher', on_delete=models.DO_NOTHING, blank=True, null=True)
+
+
