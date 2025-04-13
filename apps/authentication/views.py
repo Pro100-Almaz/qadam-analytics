@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 
 from .forms import LoginForm, SignUpForm
+from .models import CustomUser
 
 
 def login_view(request):
@@ -36,11 +37,22 @@ def login_view(request):
 def register_user(request):
     msg = None
     success = False
+    context = {}
+    form = SignUpForm()
 
     if request.method == "POST":
         data = request.POST
-
+        form = SignUpForm(request.POST, request.FILES)
         print(data)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.username = user.email
+            if CustomUser.objects.filter(username=user.username).exists():
+                form.add_error('email', "Email already registered")
+            else:
+                user.save()
+                login(request, user)
+                return redirect("/")
     else:
         school_list = [
             'Muzafar Alimbayev 21',
@@ -53,7 +65,7 @@ def register_user(request):
             'roles': roles,
         }
 
-    return render(request, "accounts/register.html", {"context": context, "msg": msg, "success": success})
+    return render(request, "accounts/register.html", {"context": context, "msg": msg, "success": success, "form": form})
 
 
 @login_required

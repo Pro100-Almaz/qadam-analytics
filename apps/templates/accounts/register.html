@@ -56,8 +56,14 @@
             <div class="card-body px-lg-5 py-lg-3">
               <div class="text-center text-muted mb-4">
 
-                {% if msg %}
-                  <small>{{ msg | safe }}</small>
+                {% if form.errors %}
+                  <ul class="errorlist">
+                    {% for field in form %}
+                      {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                      {% endfor %}
+                    {% endfor %}
+                  </ul>
                 {% else %}
                   Заполните обязательные поля
                 {% endif %}  
@@ -66,7 +72,7 @@
 
               {% if not success %}
 
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
 
                   {% csrf_token %}
             
@@ -74,7 +80,7 @@
                   <!--form panels-->
                   <div class="row">
                     <div class="col-12 col-lg-8 m-auto">
-                      <form class="multisteps-form__form mb-8" style="height: 411px;">
+                      <form class="multisteps-form__form mb-8" style="height: 411px;" enctype="multipart/form-data">
                         <!--single form panel-->
                         <div class="card multisteps-form__panel p-3 border-radius-xl bg-white js-active" id="card-1">
                           <h5 class="font-weight-bolder mb-0">Информация о пользователе</h5>
@@ -83,35 +89,31 @@
                             <div class="row mt-3">
                               <div class="col-12 col-sm-6">
                                 <label>Имя *</label>
-                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Азамат" name="first_name" required>
+                                {{ form.first_name }}
                               </div>
                               <div class="col-12 col-sm-6 mt-3 mt-sm-0">
                                 <label>Фамилия *</label>
-                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Ибрагимов" name="last_name" required>
+                                {{ form.last_name }}
                               </div>
                             </div>
                             <div class="row mt-3">
                               <div class="col-12 col-sm-6">
                                 <label>Школа</label>
-                                <select class="form-control" name="school">
-                                  {% for school in context.school_list %}
-                                    <option value="{{ school }}">{{ school }}</option>
-                                  {% endfor %}
-                                </select>
+                                {{ form.school }}
                               </div>
                               <div class="col-12 col-sm-6 mt-3 mt-sm-0">
                                 <label>Почта *</label>
-                                <input class="multisteps-form__input form-control" type="email" placeholder="eg. argon@dashboard.com" name="email" required>
+                                {{ form.email }}
                               </div>
                             </div>
                             <div class="row mt-3">
                               <div class="col-12 col-sm-6">
                                 <label>Пароль *</label>
-                                <input class="multisteps-form__input form-control" type="password" placeholder="******" name="password1" required>
+                                {{ form.password1 }}
                               </div>
                               <div class="col-12 col-sm-6 mt-3 mt-sm-0">
                                 <label>Повторите Пароль</label>
-                                <input class="multisteps-form__input form-control" type="password" placeholder="******" name="password2" required>
+                                {{ form.password2 }}
                               </div>
                             </div>
                           </div>
@@ -123,37 +125,28 @@
                             <div class="row mt-3">
                               <div class="col">
                                 <label>Адрес</label>
-                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Бухар жырау 40" >
+                                {{ form.address }}
                               </div>
                             </div>
                             <div class="row mt-3">
                               <div class="col">
                                 <label>Роль *</label>
-                                <select class="form-control" name="role">
-                                  {% for role in context.roles %}
-                                    <option value="{{ role }}">{{ role }}</option>
-                                  {% endfor %}
-                                </select>
+                                {{ form.role }}
                               </div>
                             </div>
                             <div class="row mt-3">
                               <div class="col-12 col-sm-6">
                                 <label>Номер телефона</label>
-                                <input class="multisteps-form__input form-control"
-                                       type="number"
-                                       name="phone"
-                                       placeholder="+7 (___) ___ ____"
-                                       pattern="\d*"
-                                       inputmode="numeric">
+                                {{ form.phone_number }}
                               </div>
                               <div class="col-6 col-sm-3 mt-3 mt-sm-0">
                                 <label>Дата рождения</label>
-                                <input type="date" name="birtday" class="form-control" required>
+                                {{ form.date_of_birth }}
                               </div>
                               <div class="col-6 col-sm-3 mt-3 mt-sm-0">
                                 <label>Выберите файл</label>
                                 <label class="input-file">
-                                    <input type="file" name="avatar">
+                                    {{ form.avatar }}
                                     <span>+</span>
                                 </label>
                               </div>

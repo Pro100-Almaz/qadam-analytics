@@ -2,10 +2,12 @@
 """
 Copyright (c) 2019 - present AppSeed.us
 """
+from random import choices
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
+from . import models
 from .models import CustomUser
 
 
@@ -28,34 +30,103 @@ class LoginForm(forms.Form):
 
 class SignUpForm(UserCreationForm):
     username = forms.CharField(
+        required=False,
         widget=forms.TextInput(
             attrs={
                 "placeholder": "Username",
                 "class": "form-control"
             }
         ))
+    first_name = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Например, Азамат",
+                "class": "multisteps-form__input form-control"
+            }
+        )
+    )
+    last_name = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Например, Ибрагимов",
+                "class": "multisteps-form__input form-control"
+            }
+        )
+    )
+    school = forms.ChoiceField(
+        choices = CustomUser.SCHOOL_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
     email = forms.EmailField(
         widget=forms.EmailInput(
             attrs={
-                "placeholder": "Email",
-                "class": "form-control"
+                "placeholder": "eg. argon@dashboard.com",
+                "class": "multisteps-form__input form-control"
             }
         ))
     password1 = forms.CharField(
         widget=forms.PasswordInput(
             attrs={
-                "placeholder": "Password",
-                "class": "form-control"
+                "placeholder": "******",
+                "class": "multisteps-form__input form-control"
             }
         ))
     password2 = forms.CharField(
         widget=forms.PasswordInput(
             attrs={
-                "placeholder": "Password check",
-                "class": "form-control"
+                "placeholder": "******",
+                "class": "multisteps-form__input form-control"
             }
         ))
+    address = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Например, Бухар жырау 40",
+                "class": "multisteps-form__input form-control"
+            }
+        )
+    )
+    role = forms.ChoiceField(
+        choices = CustomUser.ROLE_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    phone_number = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "+7 (___) ___ ____",
+                "class": "multisteps-form__input form-control",
+                "type": "number",
+                "pattern": "\d*",
+                "inputmode": "numeric"
+            }
+        )
+    )
+    date_of_birth = forms.DateField(
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "type": "date"
+            }
+        )
+    )
+    avatar = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(
+            attrs={
+                "type": "file",
+                "class": "input-file"
+            }
+        )
+    )
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'password1', 'password2')
+        fields = ('username', 'first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
