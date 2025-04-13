@@ -3,7 +3,41 @@
 {% block title %} Register {% endblock title %}
 
 <!-- Specific CSS goes HERE -->
-{% block stylesheets %}{% endblock stylesheets %}
+{% block stylesheets %}
+<style>
+.input-file {
+	position: relative;
+	display: inline-block;
+}
+.input-file span {
+	position: relative;
+	display: inline-block;
+	cursor: pointer;
+	outline: none;
+	text-decoration: none;
+	font-size: 28px;
+	vertical-align: middle;
+	color: black;
+	text-align: center;
+	border-radius: 4px;
+	line-height: 22px;
+	height: 40px;
+	padding: 10px 20px;
+	box-sizing: border-box;
+	border: none;
+	margin: 0;
+	transition: background-color 0.2s;
+}
+.input-file input[type=file] {
+	position: absolute;
+	z-index: -1;
+	opacity: 0;
+	display: block;
+	width: 0;
+	height: 0;
+}
+</style>
+{% endblock stylesheets %}
 
 {% block content %}
 
@@ -11,21 +45,21 @@
     <div class="container mt--8 pb-5">
       <!-- Table -->
       <div class="row justify-content-center">
-        <div class="col-lg-6 col-md-8">
+        <div class="col-lg-12 col-md-8">
         
           <div class="card bg-secondary shadow border-0">
-            <div class="card-header bg-transparent pb-5">
-              <div class="text-muted text-center mt-2 mb-4">
-                Sign UP
+            <div class="card-header bg-transparent pb-3">
+              <div class="text-center mt-2">
+                Добавить нового пользователя
               </div>
             </div>
-            <div class="card-body px-lg-5 py-lg-5">
+            <div class="card-body px-lg-5 py-lg-3">
               <div class="text-center text-muted mb-4">
 
                 {% if msg %}
                   <small>{{ msg | safe }}</small>
                 {% else %}
-                  Add your credentials
+                  Заполните обязательные поля
                 {% endif %}  
               
               </div>
@@ -36,59 +70,107 @@
 
                   {% csrf_token %}
             
-                  <div class="form-group">
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-hat-3"></i></span>
-                      </div>
-                      {{ form.username }}
+                  <div class="multisteps-form mb-5">
+                  <!--form panels-->
+                  <div class="row">
+                    <div class="col-12 col-lg-8 m-auto">
+                      <form class="multisteps-form__form mb-8" style="height: 411px;">
+                        <!--single form panel-->
+                        <div class="card multisteps-form__panel p-3 border-radius-xl bg-white js-active" id="card-1">
+                          <h5 class="font-weight-bolder mb-0">Информация о пользователе</h5>
+                          <p class="mb-0 text-sm">Основная информаций</p>
+                          <div class="multisteps-form__content">
+                            <div class="row mt-3">
+                              <div class="col-12 col-sm-6">
+                                <label>Имя *</label>
+                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Азамат" name="first_name" required>
+                              </div>
+                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                                <label>Фамилия *</label>
+                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Ибрагимов" name="last_name" required>
+                              </div>
+                            </div>
+                            <div class="row mt-3">
+                              <div class="col-12 col-sm-6">
+                                <label>Школа</label>
+                                <select class="form-control" name="school">
+                                  {% for school in context.school_list %}
+                                    <option value="{{ school }}">{{ school }}</option>
+                                  {% endfor %}
+                                </select>
+                              </div>
+                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                                <label>Почта *</label>
+                                <input class="multisteps-form__input form-control" type="email" placeholder="eg. argon@dashboard.com" name="email" required>
+                              </div>
+                            </div>
+                            <div class="row mt-3">
+                              <div class="col-12 col-sm-6">
+                                <label>Пароль *</label>
+                                <input class="multisteps-form__input form-control" type="password" placeholder="******" name="password1" required>
+                              </div>
+                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                                <label>Повторите Пароль</label>
+                                <input class="multisteps-form__input form-control" type="password" placeholder="******" name="password2" required>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <!--single form panel-->
+                        <div class="card multisteps-form__panel p-3 border-radius-xl bg-white" id="card-2" style="display: none">
+                          <h5 class="font-weight-bolder">Дополнительные данные</h5>
+                          <div class="multisteps-form__content">
+                            <div class="row mt-3">
+                              <div class="col">
+                                <label>Адрес</label>
+                                <input class="multisteps-form__input form-control" type="text" placeholder="Например, Бухар жырау 40" >
+                              </div>
+                            </div>
+                            <div class="row mt-3">
+                              <div class="col">
+                                <label>Роль *</label>
+                                <select class="form-control" name="role">
+                                  {% for role in context.roles %}
+                                    <option value="{{ role }}">{{ role }}</option>
+                                  {% endfor %}
+                                </select>
+                              </div>
+                            </div>
+                            <div class="row mt-3">
+                              <div class="col-12 col-sm-6">
+                                <label>Номер телефона</label>
+                                <input class="multisteps-form__input form-control"
+                                       type="number"
+                                       name="phone"
+                                       placeholder="+7 (___) ___ ____"
+                                       pattern="\d*"
+                                       inputmode="numeric">
+                              </div>
+                              <div class="col-6 col-sm-3 mt-3 mt-sm-0">
+                                <label>Дата рождения</label>
+                                <input type="date" name="birtday" class="form-control" required>
+                              </div>
+                              <div class="col-6 col-sm-3 mt-3 mt-sm-0">
+                                <label>Выберите файл</label>
+                                <label class="input-file">
+                                    <input type="file" name="avatar">
+                                    <span>+</span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="button-row row-cols-2 flex-row mt-4">
+                          <button class="btn text-white bg-orange" type="button" title="Prev" id="prev" style="display: none;">Назад</button>
+                          <button class="btn text-white bg-green ms-auto" type="button" title="Send" id="next">Следующий</button>
+                          <button class="btn text-white bg-green" type="submit" id="submit" style="display: none;">Создать аккаунт</button>
+                        </div>
+                      </form>
                     </div>
                   </div>
-                  <span class="text-error">{{ form.username.errors }}</span>
+                </div>
 
-                  <div class="form-group">
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-email-83"></i></span>
-                      </div>
-                      {{ form.email }}
-                    </div>
-                  </div>
-                  <span class="text-error">{{ form.email.errors }}</span>
 
-                  <div class="form-group">
-                    <div class="input-group input-group-alternative">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-lock-circle-open"></i></span>
-                      </div>
-                      {{ form.password1 }}
-                    </div>
-                  </div>
-                  <span class="text-error">{{ form.password1.errors }}</span>
-
-                  <div class="form-group">
-                    <div class="input-group input-group-alternative">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-lock-circle-open"></i></span>
-                      </div>
-                      {{ form.password2 }}
-                    </div>
-                  </div>
-                  <span class="text-error">{{ form.password2.errors }}</span>
-
-                  <div class="row my-4">
-                    <div class="col-12">
-                      <div class="custom-control custom-control-alternative custom-checkbox">
-                        <input class="custom-control-input" id="customCheckRegister" type="checkbox">
-                        <label class="custom-control-label" for="customCheckRegister">
-                          <span class="text-muted">I agree with the <a href="#!">Privacy Policy</a></span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="text-center">
-                    <button type="submit" class="btn btn-primary mt-4">Create account</button>
-                  </div>
                 </form>
 
               {% endif %}  
@@ -98,18 +180,69 @@
 
         </div>
       </div>
-
-      <div class="row mt-3">
-        <div class="col-3"></div>
-        <div class="col-3">
-          <a href="{% url 'login' %}" class="text-light"><small>Login</small></a>
-        </div>
-      </div>
-
     </div>
   </div>
 
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+{% block javascripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    let nextButton = document.getElementById('next');
+    let prevButton = document.getElementById('prev');
+    let submitButton = document.getElementById('submit');
+    let oldFormBlock = false, newFormBlock = false;
+    let formStep = 1;
+
+    if (nextButton) {
+        nextButton.addEventListener('click', function (event) {
+            if (formStep !== 2) {
+                oldFormBlock = document.getElementById('card-' + formStep);
+                newFormBlock = document.getElementById('card-' + (formStep + 1).toString());
+
+                if (oldFormBlock && newFormBlock) {
+                    oldFormBlock.style.display = 'none';
+                    newFormBlock.style.display = 'block';
+                }
+
+                formStep++;
+
+                if (formStep === 2) {
+                    nextButton.style.display = 'none';
+                    prevButton.style.display = 'inline';
+                    submitButton.style.display = 'inline';
+                }
+                else {
+                    nextButton.style.display = 'inline';
+                    prevButton.style.display = 'inline';
+                    submitButton.style.display = 'none';
+                }
+            }
+        });
+    }
+
+    if (prevButton) {
+        prevButton.addEventListener('click', function (event) {
+            if (formStep !== 1) {
+                oldFormBlock = document.getElementById('card-' + formStep);
+                newFormBlock = document.getElementById('card-' + (formStep - 1).toString());
+
+                if (oldFormBlock && newFormBlock) {
+                    oldFormBlock.style.display = 'none';
+                    newFormBlock.style.display = 'block';
+                }
+
+                formStep--;
+                prevButton.style.display = 'none';
+                nextButton.style.display = 'inline';
+                submitButton.style.display = 'none';
+            }
+        });
+    }
+});
+$('.input-file input[type=file]').on('change', function(){
+	let file = this.files[0];
+	$(this).next().html(file.name);
+});
+</script>
+{% endblock javascripts %}

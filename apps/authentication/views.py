@@ -38,24 +38,22 @@ def register_user(request):
     success = False
 
     if request.method == "POST":
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            form.save()
-            username = form.cleaned_data.get("username")
-            raw_password = form.cleaned_data.get("password1")
-            user = authenticate(username=username, password=raw_password)
+        data = request.POST
 
-            msg = 'User created - please <a href="/login">login</a>.'
-            success = True
-
-            # return redirect("/login/")
-
-        else:
-            msg = 'Form is not valid'
+        print(data)
     else:
-        form = SignUpForm()
+        school_list = [
+            'Muzafar Alimbayev 21',
+            'Bukhar Zhyrau 19/1'
+        ]
 
-    return render(request, "accounts/register.html", {"form": form, "msg": msg, "success": success})
+        roles = ['Учитель', 'Ученик', 'Родитель']
+        context = {
+            'school_list': school_list,
+            'roles': roles,
+        }
+
+    return render(request, "accounts/register.html", {"context": context, "msg": msg, "success": success})
 
 
 @login_required
