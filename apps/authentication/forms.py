@@ -2,12 +2,10 @@
 """
 Copyright (c) 2019 - present AppSeed.us
 """
-from random import choices
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from . import models
 from .models import CustomUser
 
 
