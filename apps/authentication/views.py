@@ -41,11 +41,12 @@ def register_user(request):
     form = SignUpForm()
 
     if request.method == "POST":
-        data = request.POST
-        form = SignUpForm(request.POST, request.FILES)
-        print(data)
+        avatar_file = request.FILES.get('avatar')
+        form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
+
+            user.avatar = avatar_file
             user.username = user.email
             if CustomUser.objects.filter(username=user.username).exists():
                 form.add_error('email', "Email already registered")
@@ -53,17 +54,6 @@ def register_user(request):
                 user.save()
                 login(request, user)
                 return redirect("/")
-    else:
-        school_list = [
-            'Muzafar Alimbayev 21',
-            'Bukhar Zhyrau 19/1'
-        ]
-
-        roles = ['Учитель', 'Ученик', 'Родитель']
-        context = {
-            'school_list': school_list,
-            'roles': roles,
-        }
 
     return render(request, "accounts/register.html", {"context": context, "msg": msg, "success": success, "form": form})
 

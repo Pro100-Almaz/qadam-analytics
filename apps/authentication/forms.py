@@ -27,14 +27,6 @@ class LoginForm(forms.Form):
 
 
 class SignUpForm(UserCreationForm):
-    username = forms.CharField(
-        required=False,
-        widget=forms.TextInput(
-            attrs={
-                "placeholder": "Username",
-                "class": "form-control"
-            }
-        ))
     first_name = forms.CharField(
         widget=forms.TextInput(
             attrs={
@@ -115,16 +107,7 @@ class SignUpForm(UserCreationForm):
             }
         )
     )
-    avatar = forms.ImageField(
-        required=False,
-        widget=forms.FileInput(
-            attrs={
-                "type": "file",
-                "class": "input-file"
-            }
-        )
-    )
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth')
