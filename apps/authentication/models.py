@@ -1,4 +1,5 @@
 import os
+import hashlib
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -6,8 +7,14 @@ from django.db import models
 
 def user_avatar_upload_path(instance, filename):
     ext = filename.split('.')[-1]
-    filename = f"avatar_{instance.id}.{ext}"
-    return os.path.join('user_avatars', str(instance.id), filename)
+    salt = os.urandom(16)
+
+    encoded_str = salt + instance.email.encode('utf-8')
+    hash_object = hashlib.sha256(encoded_str)
+    hex_digest = hash_object.hexdigest()
+
+    filename = f"avatar_{hex_digest}.{ext}"
+    return os.path.join('user_avatars', str(instance.email), filename)
 
 class CustomUser(AbstractUser):
     ROLE_PARENT = 'parent'
