@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 
 from .forms import LoginForm, SignUpForm
 from .models import CustomUser
+from django.forms.utils import ErrorList
 
 
 def login_view(request):
@@ -33,11 +34,8 @@ def login_view(request):
 
     return render(request, "accounts/login.html", {"form": form, "msg": msg})
 
-
+REGISTER_USER_ERRORS = {"password1": "Пароль слишком простой", "password2": "Пароли не совпадают", "email": "Адрес электронной почты уже зарегистрирован"}
 def register_user(request):
-    msg = None
-    success = False
-    context = {}
     form = SignUpForm()
 
     if request.method == "POST":
@@ -49,13 +47,16 @@ def register_user(request):
             user.avatar = avatar_file
             user.username = user.email
             if CustomUser.objects.filter(username=user.username).exists():
-                form.add_error('email', "Email already registered")
+                form.add_error('email', "Адрес электронной почты уже зарегистрирован")
             else:
                 user.save()
                 login(request, user)
                 return redirect("/")
-
-    return render(request, "accounts/register.html", {"context": context, "msg": msg, "success": success, "form": form})
+    for error in form.errors.keys():
+        print(form.errors[error])
+        form.errors[error] = ErrorList([REGISTER_USER_ERRORS[error]])
+        print(error)
+    return render(request, "accounts/register.html", {"form": form})
 
 
 @login_required

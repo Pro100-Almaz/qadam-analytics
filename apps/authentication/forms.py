@@ -44,6 +44,7 @@ class SignUpForm(UserCreationForm):
         )
     )
     school = forms.ChoiceField(
+        required=False,
         choices = CustomUser.SCHOOL_CHOICES,
         widget=forms.Select(
             attrs={
@@ -73,6 +74,7 @@ class SignUpForm(UserCreationForm):
             }
         ))
     address = forms.CharField(
+        required=False,
         widget=forms.TextInput(
             attrs={
                 "placeholder": "Например, Бухар жырау 40",
@@ -89,6 +91,7 @@ class SignUpForm(UserCreationForm):
         )
     )
     phone_number = forms.CharField(
+        required=False,
         widget=forms.TextInput(
             attrs={
                 "placeholder": "+7 (___) ___ ____",
@@ -100,6 +103,7 @@ class SignUpForm(UserCreationForm):
         )
     )
     date_of_birth = forms.DateField(
+        required=False,
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",

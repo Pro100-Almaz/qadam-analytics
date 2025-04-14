@@ -57,10 +57,10 @@
               <div class="text-center text-muted mb-4">
 
                 {% if form.errors %}
-                  <ul class="errorlist">
+                  <ul style="list-style-type: none">
                     {% for field in form %}
                       {% for error in field.errors %}
-                        <li>{{ error }}</li>
+                        <li style="color: #F32013">{{ error }} *</li>
                       {% endfor %}
                     {% endfor %}
                   </ul>
@@ -69,8 +69,6 @@
                 {% endif %}  
               
               </div>
-
-              {% if not success %}
 
                 <form method="POST" enctype="multipart/form-data">
 
@@ -161,12 +159,9 @@
                       </form>
                     </div>
                   </div>
-                </div>
-
+                  </div>
 
                 </form>
-
-              {% endif %}  
   
             </div>
           </div>
