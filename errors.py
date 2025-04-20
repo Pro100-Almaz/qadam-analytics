@@ -23,7 +23,6 @@ def register_class(cls):
 
 
 def find_error_by_key(searched_key):
-    print(ERROR_LIST)
     for error_cls in ERROR_LIST:
         error_instance = error_cls()
         if searched_key in error_instance.error_key:
