@@ -57,17 +57,3 @@ class CustomUser(AbstractUser):
 
     def is_principal(self):
         return self.role == CustomUser.ROLE_PRINCIPAL
-
-
-class Student(CustomUser):
-    grade = models.PositiveIntegerField(blank=True, null=True)
-
-
-class Parent(CustomUser):
-    children = models.ForeignKey(Student, related_name='parent', on_delete=models.DO_NOTHING, blank=True, null=True)
-
-
-class Teacher(CustomUser):
-    supervisor = models.ForeignKey('self', related_name='teacher', on_delete=models.DO_NOTHING, blank=True, null=True)
-
-

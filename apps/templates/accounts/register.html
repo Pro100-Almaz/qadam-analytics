@@ -56,14 +56,8 @@
             <div class="card-body px-lg-5 py-lg-3">
               <div class="text-center text-muted mb-4">
 
-                {% if form.errors %}
-                  <ul style="list-style-type: none">
-                    {% for field in form %}
-                      {% for error in field.errors %}
-                        <li style="color: #F32013">{{ error }} *</li>
-                      {% endfor %}
-                    {% endfor %}
-                  </ul>
+                {% if error %}
+                  <p style="color: #F32013">{{ error }} *</p>
                 {% else %}
                   Заполните обязательные поля
                 {% endif %}  
