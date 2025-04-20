@@ -27,25 +27,25 @@ class Lesson(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
         limit_choices_to={'role': 'teacher'},
-        related_name='lessons',
+        related_name='teacher',
         help_text="Teacher responsible for this lesson"
     )
 
     subject = models.ForeignKey(
         Subject,
         on_delete=models.DO_NOTHING,
-        related_name='lessons',
+        related_name='subject',
         help_text="Subject of the lesson"
 
     )
     classroom = models.ForeignKey(
         ClassRoom,
         on_delete=models.DO_NOTHING,
-        related_name='lessons',
+        related_name='classroom',
         help_text="Classroom of the lesson"
     )
 
-    grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
+    average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
 
     students = models.ManyToManyField(
@@ -65,3 +65,12 @@ class Lesson(models.Model):
 
     def __str__(self):
         return f"{self.title}"
+
+
+class StudentGrade(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.DO_NOTHING)
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING)
+    grade = models.PositiveIntegerField(default=0, help_text="Grade of the lesson")
+
+    def __str__(self):
+        return f"{self.lesson.title} - {self.student}"
