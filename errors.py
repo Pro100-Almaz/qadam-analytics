@@ -38,7 +38,18 @@ class CommonPassword(Error):
             error="to_common_password",
             text="Пароль слишком простой",
             code=400,
-            error_key=['password1', 'password2']
+            error_key=['password1']
+        )
+
+
+@register_class
+class PasswordIsNotIdentical(Error):
+    def __init__(self):
+        super().__init__(
+            error="different_password",
+            text="Пароль не совподает",
+            code=400,
+            error_key=['password2']
         )
 
 
@@ -51,5 +62,3 @@ class EmailExists(Error):
             code=404,
             error_key=['email']
         )
-
-

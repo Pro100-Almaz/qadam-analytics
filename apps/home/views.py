@@ -57,9 +57,23 @@ def lessons_list(request):
     return HttpResponse(html_template.render(context, request))
 
 
+@login_required(login_url="/login/")
+def teachers_list(request):
+    context = {'segment': 'teachers'}
+    html_template = loader.get_template('home/teachers.html')
+
+    if request.method == 'POST':
+        pass
+
+    return HttpResponse(html_template.render(context, request))
+
+
 class LessonCreateView(CreateView):
     model = Lesson
     form_class = LessonForm
     template_name = 'home/new_lesson.html'
     success_url = reverse_lazy('lessons')
+
+
+
 
