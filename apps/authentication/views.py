@@ -11,7 +11,6 @@ from django.contrib.auth.decorators import login_required
 from .forms import LoginForm, SignUpForm
 from .models import CustomUser
 from errors import find_error_by_key
-from django.forms.utils import ErrorList
 
 
 def login_view(request):

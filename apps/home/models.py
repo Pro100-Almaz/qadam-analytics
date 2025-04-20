@@ -47,6 +47,7 @@ class Lesson(models.Model):
 
     average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
+    maximum_points = models.PositiveIntegerField(default=0, help_text="Maximum points of the lesson")
 
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
