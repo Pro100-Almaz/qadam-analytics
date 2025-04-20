@@ -97,7 +97,7 @@ class SignUpForm(UserCreationForm):
                 "placeholder": "+7 (___) ___ ____",
                 "class": "multisteps-form__input form-control",
                 "type": "number",
-                "pattern": "\d*",
+                "pattern": r"\d*",
                 "inputmode": "numeric"
             }
         )
