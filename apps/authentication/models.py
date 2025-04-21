@@ -4,6 +4,8 @@ import hashlib
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from apps.home.models import ClassRoom
+
 
 def user_avatar_upload_path(instance, filename):
     ext = filename.split('.')[-1]
@@ -57,3 +59,13 @@ class CustomUser(AbstractUser):
 
     def is_principal(self):
         return self.role == CustomUser.ROLE_PRINCIPAL
+
+
+class Student(CustomUser):
+    class_room = models.ForeignKey(
+        ClassRoom,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+

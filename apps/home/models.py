@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Subject(models.Model):
@@ -32,29 +33,44 @@ class Lesson(models.Model):
     # Assuming you are using a custom user model that includes a 'teacher' role.
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.DO_NOTHING,
         limit_choices_to={'role': 'teacher'},
         related_name='teacher',
-        help_text="Teacher responsible for this lesson"
+        help_text="Teacher responsible for this lesson",
+        on_delete = models.SET_NULL,
+        null = True,
+        blank = True
     )
 
     subject = models.ForeignKey(
         Subject,
-        on_delete=models.DO_NOTHING,
         related_name='subject',
-        help_text="Subject of the lesson"
+        help_text="Subject of the lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
+
     classroom = models.ForeignKey(
         ClassRoom,
-        on_delete=models.DO_NOTHING,
         related_name='classroom',
-        help_text="Classroom of the lesson"
+        help_text="Classroom of the lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
 
     average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
     maximum_points = models.PositiveIntegerField(default=0, help_text="Maximum points of the lesson")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    quarter = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(4)
+        ],
+        help_text="Quarter of the lesson"
+    )
 
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -79,6 +95,25 @@ class StudentGrade(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.DO_NOTHING)
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING)
     grade = models.PositiveIntegerField(default=0, help_text="Grade of the lesson")
+    points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
+
+    comment = models.TextField(blank=True, help_text="Comment of the lesson")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.lesson.title} - {self.student}"
+
+
+class Comment(models.Model):
+    lesson = models.ForeignKey(
+        Lesson,
+        related_name='lesson',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    from_points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
+    to_points = models.PositiveIntegerField(default=100, help_text="Points of the lesson")
+
+
