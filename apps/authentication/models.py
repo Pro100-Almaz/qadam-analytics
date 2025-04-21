@@ -47,6 +47,13 @@ class CustomUser(AbstractUser):
     avatar = models.ImageField(upload_to=user_avatar_upload_path, blank=True, null=True)
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
 
+    class_room = models.ForeignKey(
+        ClassRoom,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
 
     def __str__(self):
         return self.first_name + " " + self.last_name
@@ -59,13 +66,4 @@ class CustomUser(AbstractUser):
 
     def is_principal(self):
         return self.role == CustomUser.ROLE_PRINCIPAL
-
-
-class Student(CustomUser):
-    class_room = models.ForeignKey(
-        ClassRoom,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
 
