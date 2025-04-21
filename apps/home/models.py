@@ -19,6 +19,13 @@ class ClassRoom(models.Model):
 
 
 class Lesson(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('delayed', 'Delayed'),
+        ('on schedule', 'On Schedule'),
+    )
+
     title = models.CharField(max_length=255, help_text="Title of the lesson")
     description = models.TextField(blank=True, help_text="Detailed description of the lesson")
 
@@ -36,7 +43,6 @@ class Lesson(models.Model):
         on_delete=models.DO_NOTHING,
         related_name='subject',
         help_text="Subject of the lesson"
-
     )
     classroom = models.ForeignKey(
         ClassRoom,
@@ -48,6 +54,7 @@ class Lesson(models.Model):
     average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
     maximum_points = models.PositiveIntegerField(default=0, help_text="Maximum points of the lesson")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
