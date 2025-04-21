@@ -10,7 +10,7 @@ class DateInput(forms.DateInput):
 class LessonForm(forms.ModelForm):
     class Meta:
         model = Lesson
-        fields = ['title', 'description', 'teacher', 'subject', 'classroom']
+        fields = ['title', 'description', 'subject']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
