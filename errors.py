@@ -46,7 +46,7 @@ class PasswordIsNotIdentical(Error):
     def __init__(self):
         super().__init__(
             error="different_password",
-            text="Пароль не совподает",
+            text="Пароль не совпадает",
             code=400,
             error_key=['password2']
         )
@@ -60,4 +60,15 @@ class EmailExists(Error):
             text="Адрес электронной почты уже зарегистрирован",
             code=404,
             error_key=['email']
+        )
+
+
+@register_class
+class EmailIsNotIdentical(Error):
+    def __init__(self):
+        super().__init__(
+            error="login_password",
+            text="Логин не совпадает",
+            code=404,
+            error_key=['email_log']
         )
