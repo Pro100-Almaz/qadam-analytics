@@ -17,6 +17,7 @@ def login_view(request):
     form = LoginForm(request.POST or None)
 
     msg = None
+    context = {"form": form}
 
     if request.method == "POST":
 
@@ -24,15 +25,21 @@ def login_view(request):
             username = form.cleaned_data.get("username")
             password = form.cleaned_data.get("password")
             user = authenticate(username=username, password=password)
-            if user is not None:
+            if user:
                 login(request, user)
                 return redirect("/")
             else:
-                msg = 'Invalid credentials'
-        else:
-            msg = 'Error validating the form'
+                if not CustomUser.objects.filter(username=username).exists():
+                    context["error"] = find_error_by_key("email_log")
+                else:
+                    context["error"] = find_error_by_key("password2")
 
-    return render(request, "accounts/login.html", {"form": form, "msg": msg})
+        for error in form.errors.keys():
+            error_text = find_error_by_key(error)
+            context["error"] = error_text
+            break
+
+    return render(request, "accounts/login.html", context)
 
 
 def register_user(request):
