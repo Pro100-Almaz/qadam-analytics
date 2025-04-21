@@ -32,3 +32,5 @@ apps/static/assets/.temp
 .env
 .idea
 
+db.sqlite3
+
