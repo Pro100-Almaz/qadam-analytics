@@ -3,17 +3,40 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
-class Subject(models.Model):
-    name = models.CharField(max_length=100, help_text="Subject taught in the lesson")
-    status = models.BooleanField(default=True)
+class ClassRoom(models.Model):
+    name = models.CharField(max_length=100, help_text="Optional classroom or location info")
+    capacity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
         return f"{self.name}"
 
 
-class ClassRoom(models.Model):
-    name = models.CharField(max_length=100, help_text="Optional classroom or location info")
-    capacity = models.PositiveIntegerField(default=1)
+class Subject(models.Model):
+    name = models.CharField(max_length=100, help_text="Subject taught in the lesson")
+    status = models.BooleanField(default=True)
+
+    progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
+    average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
+    maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
+
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        limit_choices_to={'role': 'teacher'},
+        related_name='teacher',
+        help_text="Teacher responsible for this lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    classroom = models.ForeignKey(
+        ClassRoom,
+        related_name='classroom',
+        help_text="Classroom of the lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return f"{self.name}"
@@ -31,16 +54,6 @@ class Lesson(models.Model):
     description = models.TextField(blank=True, help_text="Detailed description of the lesson")
 
     # Assuming you are using a custom user model that includes a 'teacher' role.
-    teacher = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        limit_choices_to={'role': 'teacher'},
-        related_name='teacher',
-        help_text="Teacher responsible for this lesson",
-        on_delete = models.SET_NULL,
-        null = True,
-        blank = True
-    )
-
     subject = models.ForeignKey(
         Subject,
         related_name='subject',
@@ -50,18 +63,8 @@ class Lesson(models.Model):
         blank=True
     )
 
-    classroom = models.ForeignKey(
-        ClassRoom,
-        related_name='classroom',
-        help_text="Classroom of the lesson",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
     average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
-    progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
-    maximum_points = models.PositiveIntegerField(default=0, help_text="Maximum points of the lesson")
+    maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     quarter = models.PositiveIntegerField(
         default=1,
@@ -70,13 +73,6 @@ class Lesson(models.Model):
             MaxValueValidator(4)
         ],
         help_text="Quarter of the lesson"
-    )
-
-    students = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        limit_choices_to={'role': 'student'},
-        related_name='lessons_attended',
-        blank=True
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
