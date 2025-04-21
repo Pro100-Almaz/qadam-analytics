@@ -48,7 +48,11 @@ def pages(request):
 
 @login_required(login_url="/login/")
 def lessons_list(request):
-    context = {'segment': 'lessons'}
+    lessons = Lesson.objects.all()
+    number_of_students = {}
+    for lesson in lessons:
+        number_of_students[lesson] = lesson.students.count()
+    context = {'lessons': lessons, "number_of_students": number_of_students}
     html_template = loader.get_template('home/lessons.html')
 
     if request.method == 'POST':
