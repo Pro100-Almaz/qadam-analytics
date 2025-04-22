@@ -12,8 +12,14 @@ class ClassRoom(models.Model):
 
 
 class Subject(models.Model):
+    STATUS_CHOICES = (
+        ('active', 'Active'),
+        ('planned', 'Planned'),
+        ('disabled', 'Disabled')
+    )
+
     name = models.CharField(max_length=100, help_text="Subject taught in the lesson")
-    status = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
 
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
     average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")

@@ -12,9 +12,15 @@
         <!-- Nav items -->
         <ul class="navbar-nav">
           <li class="nav-item">
-            <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lessons' %}">
+            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'subjects' %}">
               <i class="ni ni-bullet-list-67 text-primary"></i>
               <span class="nav-link-text">Список предметов</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lessons' %}">
+              <i class="ni ni-bullet-list-67 text-primary"></i>
+              <span class="nav-link-text">Список занятии</span>
             </a>
           </li>
           <li class="nav-item">
