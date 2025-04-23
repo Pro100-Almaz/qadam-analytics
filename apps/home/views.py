@@ -6,7 +6,7 @@ from django.template import loader
 from django.urls import reverse, reverse_lazy
 
 from .forms import LessonForm
-from .models import Lesson
+from .models import Lesson, Subject
 
 
 @login_required(login_url="/login/")
@@ -60,6 +60,17 @@ def lessons_list(request):
 
     return HttpResponse(html_template.render(context, request))
 
+@login_required(login_url="/login/")
+def subjects_list(request):
+    subjects = Subject.objects.all()
+    context = {'subjects': subjects}
+    html_template = loader.get_template('home/subjects.html')
+
+    if request.method == 'POST':
+        pass
+
+    return HttpResponse(html_template.render(context, request))
+
 
 @login_required(login_url="/login/")
 def teachers_list(request):
@@ -77,3 +88,7 @@ class LessonCreateView(CreateView):
     form_class = LessonForm
     template_name = 'home/new_lesson.html'
     success_url = reverse_lazy('lessons')
+
+
+class SubjectCreateView(CreateView):
+    pass
