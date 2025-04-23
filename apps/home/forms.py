@@ -12,9 +12,9 @@ class LessonForm(forms.ModelForm):
         model = Lesson
         fields = ['title', 'description', 'subject']
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['teacher'].queryset = User.objects.filter(role=User.ROLE_TEACHER)
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     self.fields['teacher'].queryset = User.objects.filter(role=User.ROLE_TEACHER)
 
 class SubjectForm(forms.ModelForm):
     class Meta:
