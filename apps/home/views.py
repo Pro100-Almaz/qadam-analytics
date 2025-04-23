@@ -77,7 +77,3 @@ class LessonCreateView(CreateView):
     form_class = LessonForm
     template_name = 'home/new_lesson.html'
     success_url = reverse_lazy('lessons')
-
-
-
-
