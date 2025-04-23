@@ -13,6 +13,8 @@ urlpatterns = [
     path('lessons', views.lessons_list, name='lessons'),
     path('lessons/new', views.LessonCreateView.as_view(), name='new_lesson'),
     path('teachers', views.teachers_list, name='teachers'),
+    path('subjects', views.subjects_list, name='subjects'),
+    path('subjects/new', views.SubjectCreateView.as_view(), name='new_subject'),
     # Matches any html file
     re_path(r'^.*\.*', views.pages, name='pages'),
 
