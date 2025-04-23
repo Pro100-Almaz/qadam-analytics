@@ -9,11 +9,11 @@
       <div class="header-body">
         <div class="row align-items-center py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Предметы</h6>
+            <h6 class="h2 d-inline-block mb-0">Занятия</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="#">Новый предмет</a></li>
+                <li class="breadcrumb-item"><a href="#">Новое Занятие</a></li>
               </ol>
             </nav>
           </div>
@@ -28,8 +28,8 @@
         <div class="col-12 col-lg-8 col-xl-6">
           <div class="card bg-secondary shadow border-0">
             <div class="card-header bg-transparent pb-4">
-              <h3 class="text-center text-muted mb-0">Добавить новый урок</h3>
-              <p class="text-center text-muted small">Заполните данные урока ниже</p>
+              <h3 class="text-center text-muted mb-0">Добавить новое занятие</h3>
+              <p class="text-center text-muted small">Заполните данные заятия ниже</p>
             </div>
             <div class="card-body px-lg-5 py-lg-4">
               {% if msg %}
@@ -43,12 +43,12 @@
                   {% csrf_token %}
 
                   <div class="form-group">
-                    <label for="id_title" class="form-control-label">Название урока</label>
+                    <label for="id_title" class="form-control-label">Название занятия</label>
                     <div class="input-group input-group-alternative mb-3">
                       <div class="input-group-prepend">
                         <span class="input-group-text"><i class="ni ni-single-copy-04"></i></span>
                       </div>
-                      <input name="title" type="text" class="form-control" placeholder="Введите название урока"
+                      <input name="title" type="text" class="form-control" placeholder="Введите название занятия"
                              value="{{ form.title.value|default:'' }}">
                     </div>
                     {% if form.title.errors %}
@@ -57,37 +57,39 @@
                   </div>
 
                   <div class="form-group">
-                    <label for="id_description" class="form-control-label">Описание урока</label>
-                    <div class="input-group input-group-lg mb-3">
+                    <label for="id_description" class="form-control-label">Описание занятия</label>
+                    <div class="input-group input-group-alternative mb-3">
                       <div class="input-group-prepend">
                         <span class="input-group-text"><i class="ni ni-book-bookmark"></i></span>
                       </div>
+                        <input name="title" type="text" class="form-control" placeholder="Введите описание занятия"
+                             value="{{ form.description.value|default:'' }}">
                       {{ form.description }}
                     </div>
                     {% if form.description.errors %}
                       <div class="text-danger small">{{ form.description.errors }}</div>
                     {% endif %}
                   </div>
+{##}
+{#                  <div class="form-group">#}
+{#                    <label for="id_teacher" class="form-control-label">Преподаватель</label>#}
+{#                    <div class="input-group input-group-alternative mb-3">#}
+{#                      <div class="input-group-prepend">#}
+{#                        <span class="input-group-text"><i class="ni ni-hat-3"></i></span>#}
+{#                      </div>#}
+{#                      <select class="form-control" name="{{ form.teacher.name }}">#}
+{#                        {% for teacher in form.teacher %}#}
+{#                          <option value="{{ teacher.id }}">{{ teacher }}</option>#}
+{#                        {% endfor %}#}
+{#                      </select>#}
+{#                    </div>#}
+{#                    {% if form.teacher.errors %}#}
+{#                      <div class="text-danger small">{{ form.teacher.errors }}</div>#}
+{#                    {% endif %}#}
+{#                  </div>#}
 
                   <div class="form-group">
-                    <label for="id_teacher" class="form-control-label">Преподаватель</label>
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-hat-3"></i></span>
-                      </div>
-                      <select class="form-control" name="{{ form.teacher.name }}">
-                        {% for teacher in form.teacher %}
-                          <option value="{{ teacher.id }}">{{ teacher }}</option>
-                        {% endfor %}
-                      </select>
-                    </div>
-                    {% if form.teacher.errors %}
-                      <div class="text-danger small">{{ form.teacher.errors }}</div>
-                    {% endif %}
-                  </div>
-
-                  <div class="form-group">
-                    <label for="id_subject" class="form-control-label">Предмет</label>
+                    <label for="id_subject" class="form-control-label">Занятие</label>
                     <div class="input-group input-group-alternative mb-3">
                       <div class="input-group-prepend">
                         <span class="input-group-text"><i class="ni ni-bell-55"></i></span>
@@ -103,25 +105,8 @@
                     {% endif %}
                   </div>
 
-                  <div class="form-group">
-                    <label for="id_classroom" class="form-control-label">Класс</label>
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-bell-55"></i></span>
-                      </div>
-                      <select class="form-control" name="{{ form.classroom.name }}">
-                        {% for classroom in form.classroom %}
-                          <option value="{{ classroom.id }}">{{ classroom }}</option>
-                        {% endfor %}
-                      </select>
-                    </div>
-                    {% if form.classroom.errors %}
-                      <div class="text-danger small">{{ form.classroom.errors }}</div>
-                    {% endif %}
-                  </div>
-
                   <div class="text-center">
-                    <button type="submit" class="btn btn-primary mt-4">Создать урок</button>
+                    <button type="submit" class="btn btn-primary mt-4">Создать занятие</button>
                   </div>
                 </form>
               {% endif %}
