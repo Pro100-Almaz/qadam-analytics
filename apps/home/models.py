@@ -58,15 +58,7 @@ class Lesson(models.Model):
 
     title = models.CharField(max_length=255, help_text="Title of the lesson")
     description = models.TextField(blank=True, help_text="Detailed description of the lesson")
-    # teacher = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     limit_choices_to={'role': 'teacher'},
-    #     related_name='teacher',
-    #     help_text="Teacher responsible for this lesson",
-    #     on_delete=models.SET_NULL,
-    #     null=True,
-    #     blank=True
-    # )
+
     # Assuming you are using a custom user model that includes a 'teacher' role.
     subject = models.ForeignKey(
         Subject,
