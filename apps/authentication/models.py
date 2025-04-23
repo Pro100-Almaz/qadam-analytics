@@ -46,6 +46,7 @@ class CustomUser(AbstractUser):
     address = models.TextField(blank=True, null=True)
     avatar = models.ImageField(upload_to=user_avatar_upload_path, blank=True, null=True)
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
+    occupation = models.CharField(max_length=50, blank=True, null=True)
 
     class_room = models.ForeignKey(
         ClassRoom,
