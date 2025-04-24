@@ -76,7 +76,8 @@ def subjects_list(request):
 
 @login_required(login_url="/login/")
 def teachers_list(request):
-    context = {'segment': 'teachers'}
+    teachers = CustomUser.objects.filter(role='teacher')
+    context = {'teachers': teachers}
     html_template = loader.get_template('home/teachers.html')
 
     if request.method == 'POST':
@@ -114,9 +115,6 @@ class LessonCreateView(CreateView):
     template_name = 'home/new_lesson.html'
     success_url = reverse_lazy('lessons')
 
+
 class SubjectCreateView(CreateView):
     pass
-
-
-
-
