@@ -6,7 +6,8 @@ from django.template import loader
 from django.urls import reverse, reverse_lazy
 
 from .forms import LessonForm
-from .models import Lesson, Subject
+from .models import Lesson, ClassRoom
+from ..authentication.models import CustomUser
 
 
 @login_required(login_url="/login/")
@@ -74,7 +75,8 @@ def subjects_list(request):
 
 @login_required(login_url="/login/")
 def teachers_list(request):
-    context = {'segment': 'teachers'}
+    teachers = CustomUser.objects.filter(role='teacher')
+    context = {'teachers': teachers}
     html_template = loader.get_template('home/teachers.html')
 
     if request.method == 'POST':
