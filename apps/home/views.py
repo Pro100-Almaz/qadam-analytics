@@ -6,8 +6,9 @@ from django.template import loader
 from django.urls import reverse, reverse_lazy
 
 from .forms import LessonForm
-from .models import Lesson, ClassRoom
+from .models import Lesson, Subject, StudentGrade
 from ..authentication.models import CustomUser
+from django.shortcuts import render, redirect
 
 
 @login_required(login_url="/login/")
@@ -84,6 +85,29 @@ def teachers_list(request):
 
     return HttpResponse(html_template.render(context, request))
 
+@login_required(login_url="/login/")
+def grading(request):
+    if request.method == 'POST':
+        new_grade = StudentGrade()
+
+        lesson_id = request.POST.get('lesson_id')
+        if not Lesson.objects.filter(id=lesson_id).exists():
+            return render(request, 'home/page-404.html')  # error lesson does not exist
+        new_grade.lesson = Lesson.objects.get(id=lesson_id)
+
+        student_id =  request.POST.get('student_id')
+        if not CustomUser.objects.filter(id=student_id, role='student').exists():
+            return render(request, 'home/page-404.html')  # error student does not exist
+        new_grade.student = CustomUser.objects.get(id=student_id)
+
+        new_grade.grade = request.POST.get('grade')
+        new_grade.points = request.POST.get('points')
+        new_grade.comment = request.POST.get('comment')
+        new_grade.save()
+
+        return redirect("home/grading.html")
+
+    return render(request, 'home/grading.html')
 
 class LessonCreateView(CreateView):
     model = Lesson
