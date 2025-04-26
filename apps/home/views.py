@@ -109,6 +109,20 @@ def grading(request):
 
     return render(request, 'home/grading.html')
 
+@login_required(login_url="/login/")
+def subject_details(request, subject_id=None):
+    if not Subject.objects.filter(id=subject_id).exists():
+        return render(request, 'home/subject_details.html')
+    subject = Subject.objects.get(id=subject_id)
+    students = CustomUser.objects.filter(role='student', class_room=subject.classroom)
+    lessons = Lesson.objects.filter(id=subject_id)
+    context = {}
+    for student in students:
+        context[student] = {}
+        for lesson in lessons:
+            context[student][lesson] = StudentGrade.objects.filter(lesson=lesson, student=student)
+
+    return render(request, 'home/subject_details.html', {'context': context, 'lessons': lessons})
 class LessonCreateView(CreateView):
     model = Lesson
     form_class = LessonForm
