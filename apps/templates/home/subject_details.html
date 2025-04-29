@@ -188,8 +188,14 @@
                   <h3 class="mb-0">Список уроков</h3>
                 </div>
                 <div class="col text-right">
-                  <a href="#!" class="btn btn-sm btn-primary">need to dropdown by quarters</a>
+                  <select id="sortSelect" name="transport_type">
+                    <option class="dropdown-item" value="По названию" selected>По названию</option>
+                    <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
+                    <option class="dropdown-item" value="По статусу">По статусу</option>
+                    <option class="dropdown-item" value="По четверти">По четверти</option>
+                  </select>
                 </div>
+
               </div>
             </div>
             <div class="table-responsive">
@@ -206,16 +212,16 @@
                 <tbody>
                   {% for lesson in lessons %}
                     <tr>
-                      <th scope="row">
+                      <th scope="row" data-type="title">
                         {{ lesson.title }}
                       </th>
-                      <td>
+                      <td data-type="average-grade">
                         {{ lesson.average_grade }}
                       </td>
-                      <td>
+                      <td data-type="status">
                         {{ lesson.status }}
                       </td>
-                      <td>
+                      <td data-type="quarter">
                         {{ lesson.quarter }}
                       </td>
                     </tr>
@@ -245,7 +251,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for student in context %}
+                  {% for student in grades %}
                     <tr>
                       <a href="#" class="avatar rounded-circle mr-3">
                         <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
@@ -269,8 +275,19 @@
           <div class="card">
             <!-- Card header -->
             <div class="card-header border-0">
-              <h3 class="mb-0">Таблица оценок</h3>
+              <div class="row align-items-center">
+                <div class="col">
+                  <h3 class="mb-0">Таблица оценок</h3>
+                </div>
+                <div class="col text-right">
+                  <a href="{% url 'subject_details' %}?subject_id={{ subject_id }}&quarter=1" class="btn btn-sm btn-primary">Q1</a>
+                  <a href="{% url 'subject_details' %}?subject_id={{ subject_id }}&quarter=2" class="btn btn-sm btn-primary">Q2</a>
+                  <a href="{% url 'subject_details' %}?subject_id={{ subject_id }}&quarter=3" class="btn btn-sm btn-primary">Q3</a>
+                  <a href="{% url 'subject_details' %}?subject_id={{ subject_id }}&quarter=4" class="btn btn-sm btn-primary">Q4</a>
+                </div>
+              </div>
             </div>
+
             <!-- Light table -->
             <div class="table-responsive">
               <table class="table align-items-center table-flush">
@@ -284,7 +301,7 @@
                   </tr>
                 </thead>
                 <tbody class="list">
-                  {% for student in context %}
+                  {% for student in grades %}
                     <tr>
                       <th scope="row">
                         <div class="media align-items-center">
@@ -297,9 +314,11 @@
                         </div>
                       </th>
                       {% for lesson in lessons %}
-                        <td class="budget">
-                          {{ student.lesson.grade }}
-                        </td>
+                        {% if lesson.quarter == quarter %}
+                          <td class="budget">
+                            {{ student.lesson.grade }}
+                          </td>
+                        {% endif %}
                       {% endfor %}
                     </tr>
                   {% endfor %}
@@ -317,6 +336,49 @@
 
 <!-- Specific JS goes HERE --> 
 {% block javascripts %}
+  <script>
+    document.getElementById('sortSelect').addEventListener('change', function () {
+        const sortBy = this.value;
+        sortTable(sortBy);
+    });
+
+    function sortTable(sortBy) {
+        const table = document.querySelector('.table.align-items-center.table-flush tbody');
+        const rows = Array.from(table.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            let aValue, bValue;
+
+            switch (sortBy) {
+                case 'По названию':
+                    aValue = a.querySelector('[data-type="title"]').innerText;
+                    bValue = b.querySelector('[data-type="title"]').innerText;
+                    break;
+                case 'По среднему баллу':
+                    aValue = new Date(a.querySelector('[data-type="average-grade"]').innerText);
+                    bValue = new Date(b.querySelector('[data-type="average-grade"]').innerText);
+                    break;
+                case 'По статусу':
+                    aValue = a.querySelector('[data-type="status"]').innerText;
+                    bValue = b.querySelector('[data-type="status"]').innerText;
+                    break;
+                case 'По четверти':
+                    aValue = a.querySelector('[data-type="quarter"]').innerText;
+                    bValue = b.querySelector('[data-type="quarter"]').innerText;
+                    break;
+                default:
+                    return;
+            }
+
+            if (aValue < bValue) return -1;
+            if (aValue > bValue) return 1;
+            return 0;
+        });
+
+        table.innerHTML = '';
+        rows.forEach(row => table.appendChild(row));
+    }
+  </script>
 
   <script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
   <script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
