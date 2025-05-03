@@ -1,11 +1,12 @@
 from django import template
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.views.generic.edit import CreateView
 from django.http import HttpResponse, HttpResponseRedirect
 from django.template import loader
 from django.urls import reverse, reverse_lazy
 
-from .forms import LessonForm
+from .forms import LessonForm, SubjectForm
 from .models import Lesson, Subject, StudentGrade
 from ..authentication.models import CustomUser
 from django.shortcuts import render, redirect
@@ -131,12 +132,30 @@ def subject_details(request):
                }
 
     return render(request, 'home/subject_details.html', context)
-class LessonCreateView(CreateView):
-    model = Lesson
-    form_class = LessonForm
-    template_name = 'home/new_lesson.html'
-    success_url = reverse_lazy('lessons')
+
+@login_required(login_url="/login/")
+def lesson_create(request):
+    if request.method == "POST":
+        form = LessonForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "👩‍🏫 Lesson created successfully!")
+            return redirect("lessons")
+    else:
+        form = LessonForm()
+
+    return render(request, "home/new_lesson.html", {"form": form})
 
 
-class SubjectCreateView(CreateView):
-    pass
+@login_required(login_url="/login/")
+def subject_create(request):
+    if request.method == "POST":
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "✅ Subject created successfully!")
+            return redirect("subjects")
+    else:
+        form = SubjectForm()
+
+    return render(request, "home/new_subject.html", {"form": form})
