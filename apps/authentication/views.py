@@ -48,6 +48,7 @@ def register_user(request):
 
     if request.method == "POST":
         avatar_file = request.FILES.get('avatar')
+        print(avatar_file)
         form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
