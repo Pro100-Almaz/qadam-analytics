@@ -1,0 +1,123 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Предметы {% endblock title %}
+
+{% block content %}
+
+  <div class="header bg-white">
+    <div class="container-fluid">
+      <div class="header-body">
+        <div class="row align-items-center py-4">
+          <div class="col-lg-6 col-7">
+            <h6 class="h2 d-inline-block mb-0">Предметы</h6>
+            <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+              <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Предметы</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'new_subject' %}">Новый</a></li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Page content -->
+    <div class="container-fluid mt-6">
+      <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-6">
+          <div class="card bg-secondary shadow border-0">
+            <div class="card-header bg-transparent pb-4">
+              <h3 class="text-center text-muted mb-0">Добавить новый предмет</h3>
+              <p class="text-center text-muted small">Заполните данные предмета ниже</p>
+            </div>
+            <div class="card-body px-lg-5 py-lg-4">
+              {% if msg %}
+                <div class="alert alert-info text-center" role="alert">
+                  {{ msg | safe }}
+                </div>
+              {% endif %}
+
+              {% if not success %}
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                      {{ form.name.label_tag }}
+                      {{ form.name }}
+                      {% if form.name.errors %}
+                        <small class="text-danger">{{ form.name.errors.0 }}</small>
+                      {% endif %}
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        {{ form.status.label_tag }}
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                          <small class="text-danger">{{ form.status.errors.0 }}</small>
+                        {% endif %}
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        {{ form.teacher.label_tag }}
+                        {{ form.teacher }}
+                        {% if form.teacher.errors %}
+                          <small class="text-danger">{{ form.teacher.errors.0 }}</small>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-4 mb-3">
+                        {{ form.progress.label_tag }}
+                        {{ form.progress }}
+                        {% if form.progress.errors %}
+                          <small class="text-danger">{{ form.progress.errors.0 }}</small>
+                        {% endif %}
+                      </div>
+                      <div class="col-md-4 mb-3">
+                        {{ form.average_grade.label_tag }}
+                        {{ form.average_grade }}
+                        {% if form.average_grade.errors %}
+                          <small class="text-danger">{{ form.average_grade.errors.0 }}</small>
+                        {% endif %}
+                      </div>
+                      <div class="col-md-4 mb-3">
+                        {{ form.maximum_points.label_tag }}
+                        {{ form.maximum_points }}
+                        {% if form.maximum_points.errors %}
+                          <small class="text-danger">{{ form.maximum_points.errors.0 }}</small>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      {{ form.classroom.label_tag }}
+                      {{ form.classroom }}
+                      {% if form.classroom.errors %}
+                        <small class="text-danger">{{ form.classroom.errors.0 }}</small>
+                      {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                      <a href="{% url 'subjects' %}" class="btn btn-outline-secondary me-2">
+                        Cancel
+                      </a>
+                      <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> Create Subject
+                      </button>
+                    </div>
+                  </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock content %}
+
+<!-- Specific JS goes HERE --> 
+{% block javascripts %}{% endblock javascripts %}

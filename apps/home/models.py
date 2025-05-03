@@ -48,6 +48,10 @@ class Subject(models.Model):
         return f"{self.name}"
 
 
+class LessonGroup(models.Model):
+    name = models.CharField(max_length=100, help_text="Group of the lessons", default="", null=True, blank=True)
+
+
 class Lesson(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -59,7 +63,6 @@ class Lesson(models.Model):
     title = models.CharField(max_length=255, help_text="Title of the lesson")
     description = models.TextField(blank=True, help_text="Detailed description of the lesson")
 
-    # Assuming you are using a custom user model that includes a 'teacher' role.
     subject = models.ForeignKey(
         Subject,
         related_name='subject',
@@ -80,6 +83,8 @@ class Lesson(models.Model):
         ],
         help_text="Quarter of the lesson"
     )
+    group = models.ForeignKey(LessonGroup, related_name='group', on_delete=models.SET_NULL, null=True, blank=True)
+
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

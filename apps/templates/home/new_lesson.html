@@ -13,7 +13,8 @@
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="#">Новое Занятие</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'lessons' %}">Занятия</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'new_lesson' %}">Новый</a></li>
               </ol>
             </nav>
           </div>
@@ -38,78 +39,84 @@
                 </div>
               {% endif %}
 
-              {% if not success %}
-                <form method="POST">
-                  {% csrf_token %}
+              <form method="post">
+                {% csrf_token %}
 
-                  <div class="form-group">
-                    <label for="id_title" class="form-control-label">Название занятия</label>
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-single-copy-04"></i></span>
-                      </div>
-                      <input name="title" type="text" class="form-control" placeholder="Введите название занятия"
-                             value="{{ form.title.value|default:'' }}">
-                    </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    {{ form.title.label_tag }}
+                    {{ form.title }}
                     {% if form.title.errors %}
-                      <div class="text-danger small">{{ form.title.errors }}</div>
+                      <small class="text-danger">{{ form.title.errors.0 }}</small>
                     {% endif %}
                   </div>
-
-                  <div class="form-group">
-                    <label for="id_description" class="form-control-label">Описание занятия</label>
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-book-bookmark"></i></span>
-                      </div>
-                        <input name="title" type="text" class="form-control" placeholder="Введите описание занятия"
-                             value="{{ form.description.value|default:'' }}">
-                      {{ form.description }}
-                    </div>
-                    {% if form.description.errors %}
-                      <div class="text-danger small">{{ form.description.errors }}</div>
-                    {% endif %}
-                  </div>
-{##}
-{#                  <div class="form-group">#}
-{#                    <label for="id_teacher" class="form-control-label">Преподаватель</label>#}
-{#                    <div class="input-group input-group-alternative mb-3">#}
-{#                      <div class="input-group-prepend">#}
-{#                        <span class="input-group-text"><i class="ni ni-hat-3"></i></span>#}
-{#                      </div>#}
-{#                      <select class="form-control" name="{{ form.teacher.name }}">#}
-{#                        {% for teacher in form.teacher %}#}
-{#                          <option value="{{ teacher.id }}">{{ teacher }}</option>#}
-{#                        {% endfor %}#}
-{#                      </select>#}
-{#                    </div>#}
-{#                    {% if form.teacher.errors %}#}
-{#                      <div class="text-danger small">{{ form.teacher.errors }}</div>#}
-{#                    {% endif %}#}
-{#                  </div>#}
-
-                  <div class="form-group">
-                    <label for="id_subject" class="form-control-label">Занятие</label>
-                    <div class="input-group input-group-alternative mb-3">
-                      <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="ni ni-bell-55"></i></span>
-                      </div>
-                      <select class="form-control" name="{{ form.subject.name }}">
-                        {% for subject in form.subject %}
-                          <option value="{{ subject.id }}">{{ subject }}</option>
-                        {% endfor %}
-                      </select>
-                    </div>
+                  <div class="col-md-6 mb-3">
+                    {{ form.subject.label_tag }}
+                    {{ form.subject }}
                     {% if form.subject.errors %}
-                      <div class="text-danger small">{{ form.subject.errors }}</div>
+                      <small class="text-danger">{{ form.subject.errors.0 }}</small>
                     {% endif %}
                   </div>
+                </div>
 
-                  <div class="text-center">
-                    <button type="submit" class="btn btn-primary mt-4">Добавить занятие</button>
+                <div class="mb-3">
+                  {{ form.description.label_tag }}
+                  {{ form.description }}
+                  {% if form.description.errors %}
+                    <small class="text-danger">{{ form.description.errors.0 }}</small>
+                  {% endif %}
+                </div>
+
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    {{ form.average_grade.label_tag }}
+                    {{ form.average_grade }}
+                    {% if form.average_grade.errors %}
+                      <small class="text-danger">{{ form.average_grade.errors.0 }}</small>
+                    {% endif %}
                   </div>
-                </form>
-              {% endif %}
+                  <div class="col-md-4 mb-3">
+                    {{ form.maximum_points.label_tag }}
+                    {{ form.maximum_points }}
+                    {% if form.maximum_points.errors %}
+                      <small class="text-danger">{{ form.maximum_points.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    {{ form.quarter.label_tag }}
+                    {{ form.quarter }}
+                    {% if form.quarter.errors %}
+                      <small class="text-danger">{{ form.quarter.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    {{ form.status.label_tag }}
+                    {{ form.status }}
+                    {% if form.status.errors %}
+                      <small class="text-danger">{{ form.status.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    {{ form.group.label_tag }}
+                    {{ form.group }}
+                    {% if form.group.errors %}
+                      <small class="text-danger">{{ form.group.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                  <a href="{% url 'lessons' %}" class="btn btn-outline-secondary me-2">
+                    Cancel
+                  </a>
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Create
+                  </button>
+                </div>
+            </form>
             </div>
           </div>
         </div>
