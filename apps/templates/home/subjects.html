@@ -1,4 +1,4 @@
-{% extends 'layouts/base.html' %}
+    {% extends 'layouts/base.html' %}
 
 {% block title %} Предметы {% endblock title %}
 
@@ -71,25 +71,29 @@
                       {{ subject.classroom.capacity }}
                     </td>
                     <td>
+
                       <span class="badge badge-dot mr-4">
-                        <i class="bg-warning"></i>
+                        {% if subject.status == 'active' %}
+                          <i class="bg-success"></i>
+                        {% elif subject.status == 'planned'%}
+                          <i class="bg-warning"></i>
+                        {% else %}
+                          <i class="bg-danger"></i>
+                        {% endif %}
+
                         <span class="status">{{ subject.status }}</span>
                       </span>
                     </td>
                     <td>
+
+
                       <div class="avatar-group">
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Ryan Tompson">
-                          <img alt="Image placeholder" src="/static/assets/img/theme/team-1.jpg">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Romina Hadid">
-                          <img alt="Image placeholder" src="/static/assets/img/theme/team-2.jpg">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Alexander Smith">
-                          <img alt="Image placeholder" src="/static/assets/img/theme/team-3.jpg">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Jessica Doe">
-                          <img alt="Image placeholder" src="/static/assets/img/theme/team-4.jpg">
-                        </a>
+                        {% for teacher in subject.teachers.all %}
+                          <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="{{ teacher.user.first_name }} {{ teacher.user.last_name }}">
+                            <img alt="Image placeholder" src="media/user_avatars/teacher.user.email/teacher.user.avatar">
+                          </a>
+                        {% endfor %}
+
                       </div>
                     </td>
                     <td>
