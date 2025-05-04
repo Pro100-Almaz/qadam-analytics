@@ -16,7 +16,6 @@ def user_avatar_upload_path(instance, filename):
     hex_digest = hash_object.hexdigest()
 
     filename = f"avatar_{hex_digest}.{ext}"
-    print("hello kitty")
     return os.path.join('user_avatars', str(instance.email), filename)
 
 class CustomUser(AbstractUser):
