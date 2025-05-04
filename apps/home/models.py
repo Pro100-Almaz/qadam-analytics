@@ -51,6 +51,8 @@ class Subject(models.Model):
 class LessonGroup(models.Model):
     name = models.CharField(max_length=100, help_text="Group of the lessons", default="", null=True, blank=True)
 
+    def __str__(self):
+        return f"{self.name}"
 
 class Lesson(models.Model):
     STATUS_CHOICES = (
