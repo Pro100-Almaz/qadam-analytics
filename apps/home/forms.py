@@ -1,5 +1,5 @@
 from django import forms
-from .models import Lesson, Subject
+from .models import Lesson, Subject, LessonGroup
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -19,12 +19,12 @@ class LessonForm(forms.ModelForm):
         widgets = {
             "title": forms.TextInput(attrs={
                 "class": "form-control",
-                "placeholder": "Enter lesson title",
+                "placeholder": "Введите тему урока",
             }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
                 "rows": 4,
-                "placeholder": "Enter detailed description",
+                "placeholder": "Введите подробное описание",
             }),
             "subject": forms.Select(attrs={"class": "form-control"}),
             "average_grade": forms.NumberInput(attrs={
@@ -84,3 +84,20 @@ class SubjectForm(forms.ModelForm):
                 "class": "form-control",
             }),
         }
+
+
+class LessonGroupForm(forms.ModelForm):
+    name = forms.CharField(
+        label="Group Name",
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter new group name'
+            }
+        )
+    )
+
+    class Meta:
+        model = LessonGroup
+        fields = ['name']

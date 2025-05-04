@@ -63,7 +63,12 @@
                           <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
                         </a>
                         <div class="media-body">
-                          <span class="name mb-0 text-sm">{{ subject.name }}</span>
+                          <a
+                            href="{% url 'subject_details' subject.pk %}"
+                            class="name mb-0 text-sm"
+                          >
+                            {{ subject.name }}
+                          </a>
                         </div>
                       </div>
                     </th>
