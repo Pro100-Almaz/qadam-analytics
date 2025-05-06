@@ -7,7 +7,7 @@ from django.urls import reverse, reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 
 from apps.home.forms import LessonForm, LessonGroupForm
-from apps.home.models import Lesson, StudentGrade
+from apps.home.models import Lesson, StudentGrade, ClassRoom
 from apps.authentication.models import CustomUser
 
 
@@ -15,9 +15,7 @@ from apps.authentication.models import CustomUser
 def index(request):
     context = {'segment': 'index'}
 
-    html_template = loader.get_template('home/index.html')
-    return HttpResponse(html_template.render(context, request))
-
+    return render(request, 'home/index.html', context)
 
 @login_required(login_url="/login/")
 def pages(request):
@@ -33,17 +31,17 @@ def pages(request):
 
         context['segment'] = load_template
 
-        html_template = loader.get_template('home/' + load_template)
-        return HttpResponse(html_template.render(context, request))
+
+        return render(request, 'home/' + load_template, context)
 
     except template.TemplateDoesNotExist:
 
         html_template = loader.get_template('home/page-404.html')
-        return HttpResponse(html_template.render(context, request))
+        return render(request, 'home/page-404.html', context)
 
     except:
         html_template = loader.get_template('home/page-500.html')
-        return HttpResponse(html_template.render(context, request))
+        return render(request, 'home/page-500.html', context)
 
 
 def lesson_group_create(request):
@@ -78,6 +76,19 @@ def teachers_list(request):
 
     return render(request, 'home/teachers.html', context)
 
+  
+@login_required(login_url="/login/")
+def students_list(request):
+    students = CustomUser.objects.filter(role='student')
+    classrooms = ClassRoom.objects.all()
+    context = {'students': students, 'classrooms': classrooms}
+
+    if request.method == 'POST':
+        pass
+
+    return render(request, 'home/students.html', context)
+
+  
 @login_required(login_url="/login/")
 def grading(request):
     if request.method == 'POST':
