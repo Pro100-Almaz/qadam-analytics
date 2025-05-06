@@ -57,7 +57,7 @@ def lessons_list(request):
     lessons = Lesson.objects.all()
     number_of_students = {}
     for lesson in lessons:
-        number_of_students[lesson] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
+        number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
     context = {'lessons': lessons, "number_of_students": number_of_students}
 
     if request.method == 'POST':
