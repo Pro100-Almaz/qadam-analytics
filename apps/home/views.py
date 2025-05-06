@@ -15,9 +15,7 @@ from apps.authentication.models import CustomUser
 def index(request):
     context = {'segment': 'index'}
 
-    html_template = loader.get_template('home/index.html')
-    return HttpResponse(html_template.render(context, request))
-
+    return render(request, 'home/index.html', context)
 
 @login_required(login_url="/login/")
 def pages(request):
@@ -33,17 +31,17 @@ def pages(request):
 
         context['segment'] = load_template
 
-        html_template = loader.get_template('home/' + load_template)
-        return HttpResponse(html_template.render(context, request))
+
+        return render(request, 'home/' + load_template, context)
 
     except template.TemplateDoesNotExist:
 
         html_template = loader.get_template('home/page-404.html')
-        return HttpResponse(html_template.render(context, request))
+        return render(request, 'home/page-404.html', context)
 
     except:
         html_template = loader.get_template('home/page-500.html')
-        return HttpResponse(html_template.render(context, request))
+        return render(request, 'home/page-500.html', context)
 
 
 def lesson_group_create(request):
@@ -61,36 +59,32 @@ def lessons_list(request):
     for lesson in lessons:
         number_of_students[lesson] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
     context = {'lessons': lessons, "number_of_students": number_of_students}
-    html_template = loader.get_template('home/lessons.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
+    return render(request, 'home/lessons.html', context)
 
 
 @login_required(login_url="/login/")
 def teachers_list(request):
     teachers = CustomUser.objects.filter(role='teacher')
     context = {'teachers': teachers}
-    html_template = loader.get_template('home/teachers.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
-
+    return render(request, 'home/teachers.html', context)
 @login_required(login_url="/login/")
 def students_list(request):
     students = CustomUser.objects.filter(role='student')
     classrooms = ClassRoom.objects.all()
     context = {'students': students, 'classrooms': classrooms}
-    html_template = loader.get_template('home/students.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
+    return render(request, 'home/students.html', context)
 
 @login_required(login_url="/login/")
 def grading(request):
