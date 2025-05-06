@@ -83,9 +83,14 @@
                         </div>
                       </div>
                     </th>
-                    <td class="budget">
-                      {{ number_of_students.lesson }}
-                    </td>
+                    {% for title, number in number_of_students.items %}
+                      {% if title == lesson.title %}
+                        <td class="budget">
+                          {{ number }}
+                        </td>
+                      {% endif %}
+                    {% endfor %}
+
                     <td>
                       <span class="badge badge-dot mr-4">
                         <i class="bg-warning"></i>
