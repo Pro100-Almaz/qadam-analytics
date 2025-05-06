@@ -40,7 +40,7 @@ def subjects_list(request):
 def subject_details(request, pk):
     quarter = int(request.GET.get('quarter', '1'))
     subject = get_object_or_404(Subject, pk=pk)
-    students = CustomUser.objects.filter(role='student', class_room=subject.classroom)
+    students = CustomUser.objects.filter(role='student', classroom=subject.classroom)
     lessons = Lesson.objects.filter(subject=subject)
 
     grades = {}

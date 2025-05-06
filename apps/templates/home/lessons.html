@@ -79,7 +79,7 @@
                           <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
                         </a>
                         <div class="media-body">
-                          <span class="name mb-0 text-sm">{{ lesson.title }}</span>
+                          <a href="{% url 'lesson_details' lesson.id %}" class="name mb-0 text-sm">{{ lesson.title }}</a>
                         </div>
                       </div>
                     </th>
