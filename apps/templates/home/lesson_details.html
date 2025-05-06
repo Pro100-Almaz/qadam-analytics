@@ -1,0 +1,169 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Детали Урока {% endblock title %}
+
+{% block content %}
+
+<div class="header bg-white pb-6">
+    <div class="container-fluid">
+        <div class="header-body">
+            <div class="row py-4">
+                <div class="col-lg-6 col-7">
+                    <h6 class="h2 d-inline-block mb-0">Детали Урока</h6>
+                    <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+                        <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                            <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'lessons' %}">Занятия</a></li>
+                            <li class="breadcrumb-item active">{{ lesson.title }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid mt--6">
+    <!-- Lesson Information Card -->
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Общяя информация</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>{{ lesson.title }}</h4>
+                            <p class="text-sm">{{ lesson.description }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li><strong>Предмет:</strong> {{ lesson.subject.name }}</li>
+                                <li><strong>Статус:</strong>
+                                    <span class="badge badge-dot mr-4">
+                                        <i class="bg-{{ lesson.status|lower }}"></i>
+                                        <span class="status">{{ lesson.status }}</span>
+                                    </span>
+                                </li>
+                                <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
+                                <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
+                                <li><strong>Средний балл:</strong> {{ lesson.average_points }}</li>
+                                {% if lesson.group %}
+                                <li><strong>Group:</strong> {{ lesson.group.name }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Grades Card -->
+    <div class="row mt-4">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Student Grades</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-items-center table-flush">
+                        <thead class="thead-light">
+                            <tr>
+                                <th scope="col">Student</th>
+                                <th scope="col">Grade</th>
+                                <th scope="col">Points</th>
+                                <th scope="col">Comment</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            {% for grade in student_grades %}
+                            <tr>
+                                <th scope="row">
+                                    <div class="media align-items-center">
+                                        <a href="#" class="avatar rounded-circle mr-3">
+                                            <img alt="Image placeholder" src="/static/assets/img/theme/team-1.jpg">
+                                        </a>
+                                        <div class="media-body">
+                                            <span class="name mb-0 text-sm">{{ grade.student.get_full_name }}</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td>{{ grade.grade }}</td>
+                                <td>{{ grade.points }}</td>
+                                <td>{{ grade.comment }}</td>
+                                <td>{{ grade.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary" 
+                                            data-toggle="modal" 
+                                            data-target="#gradeModal{{ grade.id }}">
+                                        Edit Grade
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <!-- Grade Modal -->
+                            <div class="modal fade" id="gradeModal{{ grade.id }}" tabindex="-1" role="dialog" aria-labelledby="gradeModalLabel{{ grade.id }}" aria-hidden="true">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="gradeModalLabel{{ grade.id }}">Edit Grade for {{ grade.student.get_full_name }}</h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                        </div>
+                                        <form method="POST" action="{% url 'grading' %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
+                                            <input type="hidden" name="student_id" value="{{ grade.student.id }}">
+                                            <div class="modal-body">
+                                                <div class="form-group">
+                                                    <label for="grade{{ grade.id }}">Grade</label>
+                                                    <input type="number" class="form-control" id="grade{{ grade.id }}" name="grade" value="{{ grade.grade }}" min="1" max="5">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="points{{ grade.id }}">Points</label>
+                                                    <input type="number" class="form-control" id="points{{ grade.id }}" name="points" value="{{ grade.points }}" min="0" max="{{ lesson.maximum_points }}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="comment{{ grade.id }}">Comment</label>
+                                                    <textarea class="form-control" id="comment{{ grade.id }}" name="comment" rows="3">{{ grade.comment }}</textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                <button type="submit" class="btn btn-primary">Save changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No grades recorded yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include "includes/footer.html" %}
+</div>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+    // Add any JavaScript for handling the grading functionality here
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
+{% endblock javascripts %} 
