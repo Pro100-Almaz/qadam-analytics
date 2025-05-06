@@ -22,7 +22,7 @@ class Subject(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
 
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
-    average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
+    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
 
     teacher = models.ForeignKey(
@@ -74,7 +74,7 @@ class Lesson(models.Model):
         blank=True
     )
 
-    average_grade = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
+    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     quarter = models.PositiveIntegerField(

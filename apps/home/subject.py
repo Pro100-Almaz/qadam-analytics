@@ -29,12 +29,11 @@ def subject_create(request):
 def subjects_list(request):
     subjects = Subject.objects.all()
     context = {'subjects': subjects}
-    html_template = loader.get_template('home/subjects.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
+    return render(request, "home/subjects.html", context)
 
 @login_required(login_url="/login/")
 def subject_details(request, pk):
