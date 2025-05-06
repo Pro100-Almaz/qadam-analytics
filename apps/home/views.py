@@ -7,7 +7,7 @@ from django.urls import reverse, reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
 
 from apps.home.forms import LessonForm, LessonGroupForm
-from apps.home.models import Lesson, StudentGrade
+from apps.home.models import Lesson, StudentGrade, ClassRoom
 from apps.authentication.models import CustomUser
 
 
@@ -74,6 +74,18 @@ def teachers_list(request):
     teachers = CustomUser.objects.filter(role='teacher')
     context = {'teachers': teachers}
     html_template = loader.get_template('home/teachers.html')
+
+    if request.method == 'POST':
+        pass
+
+    return HttpResponse(html_template.render(context, request))
+
+@login_required(login_url="/login/")
+def students_list(request):
+    students = CustomUser.objects.filter(role='student')
+    classrooms = ClassRoom.objects.all()
+    context = {'students': students, 'classrooms': classrooms}
+    html_template = loader.get_template('home/students.html')
 
     if request.method == 'POST':
         pass
