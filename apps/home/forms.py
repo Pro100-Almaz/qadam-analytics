@@ -13,7 +13,7 @@ class LessonForm(forms.ModelForm):
         model = Lesson
         fields = [
             "title", "description", "subject",
-            "average_grade", "maximum_points",
+            "average_points", "maximum_points",
             "status", "quarter", "group",
         ]
         widgets = {
@@ -27,7 +27,7 @@ class LessonForm(forms.ModelForm):
                 "placeholder": "Введите подробное описание",
             }),
             "subject": forms.Select(attrs={"class": "form-control"}),
-            "average_grade": forms.NumberInput(attrs={
+            "average_points": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 1,
             }),
@@ -51,7 +51,7 @@ class SubjectForm(forms.ModelForm):
             "name",
             "status",
             "progress",
-            "average_grade",
+            "average_points",
             "maximum_points",
             "teacher",
             "classroom",
@@ -69,7 +69,7 @@ class SubjectForm(forms.ModelForm):
                 "min": 0,
                 "max": 100,
             }),
-            "average_grade": forms.NumberInput(attrs={
+            "average_points": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 0,
             }),
