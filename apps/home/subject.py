@@ -28,7 +28,11 @@ def subject_create(request):
 @login_required(login_url="/login/")
 def subjects_list(request):
     subjects = Subject.objects.all()
-    context = {'subjects': subjects}
+    number_of_students = {}
+    for subject in subjects:
+        number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
+
+    context = {'subjects': subjects, 'number_of_students': number_of_students}
 
     if request.method == 'POST':
         pass
