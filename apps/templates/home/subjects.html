@@ -72,11 +72,14 @@
                         </div>
                       </div>
                     </th>
-                    <td class="budget">
-                      {{ subject.classroom.capacity }}
-                    </td>
+                    {% for id, number in number_of_students.items %}
+                      {% if id == subject.id %}
+                        <td class="budget">
+                          {{ number }}
+                        </td>
+                      {% endif %}
+                    {% endfor %}
                     <td>
-
                       <span class="badge badge-dot mr-4">
                         {% if subject.status == 'active' %}
                           <i class="bg-success"></i>
