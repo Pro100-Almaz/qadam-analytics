@@ -61,46 +61,58 @@ def lessons_list(request):
     for lesson in lessons:
         number_of_students[lesson] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
     context = {'lessons': lessons, "number_of_students": number_of_students}
-    html_template = loader.get_template('home/lessons.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
+    return render(request, 'home/lessons.html', context)
 
 
 @login_required(login_url="/login/")
 def teachers_list(request):
     teachers = CustomUser.objects.filter(role='teacher')
     context = {'teachers': teachers}
-    html_template = loader.get_template('home/teachers.html')
 
     if request.method == 'POST':
         pass
 
-    return HttpResponse(html_template.render(context, request))
+    return render(request, 'home/teachers.html', context)
 
 @login_required(login_url="/login/")
 def grading(request):
     if request.method == 'POST':
-        new_grade = StudentGrade()
-
         lesson_id = request.POST.get('lesson_id')
+        student_id = request.POST.get('student_id')
+        grade_value = request.POST.get('grade')
+        points = request.POST.get('points')
+        comment = request.POST.get('comment')
+
         if not Lesson.objects.filter(id=lesson_id).exists():
             return render(request, 'home/page-404.html')  # error lesson does not exist
-        new_grade.lesson = Lesson.objects.get(id=lesson_id)
-
-        student_id =  request.POST.get('student_id')
+        
         if not CustomUser.objects.filter(id=student_id, role='student').exists():
             return render(request, 'home/page-404.html')  # error student does not exist
-        new_grade.student = CustomUser.objects.get(id=student_id)
 
-        new_grade.grade = request.POST.get('grade')
-        new_grade.points = request.POST.get('points')
-        new_grade.comment = request.POST.get('comment')
-        new_grade.save()
+        # Try to get existing grade or create new one
+        grade, created = StudentGrade.objects.get_or_create(
+            lesson_id=lesson_id,
+            student_id=student_id,
+            defaults={
+                'grade': grade_value,
+                'points': points,
+                'comment': comment
+            }
+        )
 
-        return redirect("home/grading.html")
+        if not created:
+            # Update existing grade
+            grade.grade = grade_value
+            grade.points = points
+            grade.comment = comment
+            grade.save()
+
+        messages.success(request, "Grade updated successfully!")
+        return redirect('lesson_details', pk=lesson_id)
 
     return render(request, 'home/grading.html')
 
