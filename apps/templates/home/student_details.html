@@ -1,0 +1,270 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Информация об ученику {% endblock title %}
+
+{% block content %}
+
+<div class="header bg-white pb-6">
+    <div class="container-fluid">
+        <div class="header-body">
+            <div class="row py-4">
+                <div class="col-lg-6 col-7">
+                    <h6 class="h2 d-inline-block mb-0">Информация об ученику</h6>
+                    <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+                        <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                            <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'students' %}">Ученики</a></li>
+                            <li class="breadcrumb-item active">{{ student.get_full_name }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid mt--6">
+    <!-- Student Information Card -->
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header border-0">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h3 class="mb-0">Обзор успеваемости</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-xl-6">
+                            <div class="card card-stats">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col">
+                                            <h5 class="card-title text-uppercase text-muted mb-0">Количество предметов</h5>
+                                            <span class="h2 font-weight-bold mb-0">{{ total_subjects }}</span>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="icon icon-shape bg-gradient-red text-white rounded-circle shadow">
+                                                <i class="ni ni-books"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-6">
+                            <div class="card card-stats">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col">
+                                            <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков</h5>
+                                            <span class="h2 font-weight-bold mb-0">{{ total_lessons }}</span>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
+                                                <i class="ni ni-single-copy-04"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card card-profile">
+                <div class="card-body pt-0 pt-md-4">
+                    <div class="text-center">
+                        <div class="card-profile-image">
+                            <a href="#">
+                                <img src="/static/assets/img/theme/team-4.jpg" class="rounded-circle" style="width: 150px; height: 150px; object-fit: cover; border: 3px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.1);">
+                            </a>
+                        </div>
+                        <div class="h5 mt-4">
+                            <i class="ni business_briefcase-24 mr-2"></i>{{ student.get_full_name }}
+                        </div>
+                        <div>
+                            <i class="ni education_hat mr-2"></i>{{ student.classroom.name }}
+                        </div>
+                        <div class="h5 font-weight-300">
+                            <i class="ni location_pin mr-2"></i>{{ student.email }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Успеваемость за четверти</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="quarterly-chart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Средние оценки по предметам</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="subject-chart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subjects Table -->
+    <div class="row mt-4">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Subjects</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-items-center table-flush">
+                        <thead class="thead-light">
+                            <tr>
+                                <th scope="col">Предмет</th>
+                                <th scope="col">Средняя оценка</th>
+                                <th scope="col">Средний балл</th>
+                                <th scope="col">Всего уроков</th>
+                                <th scope="col">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            {% for subject in subjects %}
+                            <tr>
+                                <th scope="row">
+                                    <div class="media align-items-center">
+                                        <div class="media-body">
+                                            <span class="name mb-0 text-sm">{{ subject.name }}</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td>
+                                    {% if subject in subject_averages %}
+                                        {{ subject_averages.subject.average_grade }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if subject in subject_averages %}
+                                        {{ subject_averages.subject.average_points }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if subject in subject_averages %}
+                                        {{ subject_averages.subject.total_lessons }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-dot mr-4">
+                                        <i class="bg-{{ subject.status|lower }}"></i>
+                                        <span class="status">{{ subject.status }}</span>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No subjects found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include "includes/footer.html" %}
+</div>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Quarterly Performance Chart
+    var quarterlyCtx = document.getElementById('quarterly-chart').getContext('2d');
+    var quarterlyChart = new Chart(quarterlyCtx, {
+        type: 'line',
+        data: {
+            labels: ['1 четверть', '2 четверть', '3 четверть', '4 четверть'],
+            datasets: [{
+                label: 'Средняя оценка',
+                data: [
+                    {{ quarter_grades.1 }},
+                    {{ quarter_grades.2 }},
+                    {{ quarter_grades.3 }},
+                    {{ quarter_grades.4 }}
+                ],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5
+                }
+            }
+        }
+    });
+
+    // Subject Averages Chart
+    var subjectCtx = document.getElementById('subject-chart').getContext('2d');
+    var subjectChart = new Chart(subjectCtx, {
+        type: 'bar',
+        data: {
+            labels: [
+                {% for subject in subjects %}
+                    '{{ subject.name }}',
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'Средняя оценка',
+                data: [
+                    {% for subject in subjects %}
+                        {% if subject in subject_averages %}
+                            {{ subject_averages.subject.average_grade }},
+                        {% else %}
+                            0,
+                        {% endif %}
+                    {% endfor %}
+                ],
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgb(75, 192, 192)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5
+                }
+            }
+        }
+    });
+</script>
+{% endblock javascripts %}

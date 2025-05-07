@@ -124,5 +124,9 @@ class Comment(models.Model):
 
     from_points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
     to_points = models.PositiveIntegerField(default=100, help_text="Points of the lesson")
+    comment_text = models.TextField(help_text="Template comment text")
+
+    def __str__(self):
+        return f"Comment template for points {self.from_points}-{self.to_points}"
 
 
