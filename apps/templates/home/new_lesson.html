@@ -134,6 +134,8 @@
         </div>
       </div>
     </div>
+
+    {% include "includes/footer.html" %}
   </div>
 
   <!-- Add New Group Modal -->
@@ -176,9 +178,13 @@
     </div>
   </div>
 
-
-
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+{% block javascripts %}
+<script>
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
+{% endblock javascripts %}

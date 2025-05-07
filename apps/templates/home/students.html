@@ -33,9 +33,10 @@
                   <h3 class="mb-0">Список учеников</h3>
                 </div>
                 <div class="col text-right">
-                  <select id="sortSelect">
+                  <select id="sortSelect" class="form-control">
+                    <option value="all">Все классы</option>
                     {% for classroom in classrooms %}
-                      <option class="dropdown-item" value="{{ classroom.name }}">{{ classroom.name }}</option>
+                      <option value="{{ classroom.name }}">{{ classroom.name }}</option>
                     {% endfor %}
                   </select>
                 </div>
@@ -60,7 +61,7 @@
                             <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
                           </a>
                           <div class="media-body">
-                            <span class="name mb-0 text-sm">{{ student.first_name }} {{ student.last_name }}</span>
+                            <a href="{% url 'student_details' student.id %}" class="name mb-0 text-sm">{{ student.first_name }} {{ student.last_name }}</a>
                           </div>
                         </div>
                       </th>
@@ -86,27 +87,25 @@
 {% block javascripts %}
    <script>
     document.getElementById('sortSelect').addEventListener('change', function () {
-        const sortBy = this.value;
-        filterByClassRoom(sortBy);
+        const selectedClass = this.value;
+        filterByClassRoom(selectedClass);
     });
 
-    function filterByClassRoom(classRoom) {
+    function filterByClassRoom(selectedClass) {
         const table = document.querySelector('.table.align-items-center.table-flush tbody');
-        const rows = Array.from(table.querySelectorAll('tr'));
+        const rows = table.querySelectorAll('tr');
 
-        rows.sort((a, b) => {
-            const classRoomA = a.querySelector('td.budget').innerText.toLowerCase();
-            const classRoomB = b.querySelector('td.budget').innerText.toLowerCase();
-
-            const matchesA = classRoomA.includes(classRoom.toLowerCase()) ? 0 : 1;
-            const matchesB = classRoomB.includes(classRoom.toLowerCase()) ? 0 : 1;
-
-            return matchesA - matchesB;
+        rows.forEach(row => {
+            const studentClass = row.querySelector('td.budget').innerText.trim();
+            if (selectedClass === 'all' || studentClass === selectedClass) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
-
-        table.innerHTML = '';
-        rows.forEach(row => table.appendChild(row));
     }
 
+    // Initialize the filter
+    filterByClassRoom('all');
   </script>
 {% endblock javascripts %}
