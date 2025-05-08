@@ -3629,7 +3629,6 @@ input[type="button"].btn-block {
     color: rgba(255, 255, 255, 0.65); }
     .navbar-dark .navbar-text a:hover, .navbar-dark .navbar-text a:focus {
       color: rgba(255, 255, 255, 0.65); }
-
 .card {
   position: relative;
   display: flex;
