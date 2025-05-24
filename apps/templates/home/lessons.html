@@ -17,22 +17,38 @@
               </ol>
             </nav>
           </div>
+
           <div class="col-lg-6 col-5 text-right">
+
               <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                   Предмет
                 </button>
+
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                  {% for subject in subjects %}
-                    <a class="dropdown-item" href="#">{{ subject.name }}</a>
+                    <a href="?subject=all" class="btn dropdown-item  filter-btn">Все Предметы</a>
+                  {% for lesson in lessons %}
+                    <a class="btn dropdown-item filter-btn" href="?subject={{ lesson.subject.name }}">{{ lesson.subject.name }}</a>
                   {% endfor %}
-                  <a class="dropdown-item" href="#">Математика</a>
-                  <a class="dropdown-item" href="#">Наука</a>
-                  <a class="dropdown-item" href="#">Англиский</a>
-                  <a class="dropdown-item" href="#">Казахский</a>
-                  <a class="dropdown-item" href="#">Руский</a>
                 </div>
               </div>
+
+
+              <div class="dropdown">
+                  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      Класс
+                  </button>
+
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                      <a href="?classroom=all" class="btn dropdown-item  filter-btn">Все Классы</a>
+                      {% for class in classrooms %}
+                          <a href="?classroom={{ class.name }}" class="btn dropdown-item filter-btn">{{ class.name }}</a>
+                      {% endfor %}
+                  </div>
+
+
+              </div>
+
 
               {% if user.is_teacher or user.is_manager %}
                 <button type="button" class="btn btn-primary">
@@ -63,6 +79,7 @@
               <thead class="thead-light">
                 <tr>
                   <th scope="col" class="sort" data-sort="name">Имя</th>
+                    <th scope="col" class="sort" data-sort="classroom">Класс</th>
                   <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
                   <th scope="col">Учитель</th>
@@ -86,7 +103,11 @@
                     {% for title, number in number_of_students.items %}
                       {% if title == lesson.title %}
                         <td class="budget">
-                          {{ number }}
+                          {{ lesson.subject.classroom.name }}
+                        </td>
+{#                          These two fields have been messed a bit since in this way they will be displayed correctly#}
+                        <td class="classroom">
+                          {{    number}}
                         </td>
                       {% endif %}
                     {% endfor %}
@@ -177,4 +198,23 @@
 {% endblock content %}
 
 <!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+{% block javascripts %}
+    <script>
+
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const filterValue = btn.dataset.value;
+            document.querySelectorAll('tbody.list tr').forEach(row => {
+              const classroomCell = row.querySelector('.classroom');
+              if (filterValue === 'all' || classroomCell?.textContent.trim() === filterValue) {
+                row.style.display = '';
+              } else {
+                row.style.display = 'none';
+              }
+            });
+          });
+        });
+
+    </script>
+{% endblock javascripts %}

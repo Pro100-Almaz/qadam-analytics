@@ -55,12 +55,29 @@ def lesson_group_create(request):
 
 @login_required(login_url="/login/")
 def lessons_list(request):
+    classroom_filter = request.GET.get('classroom')
+    subject_filter = request.GET.get('subject')
     lessons = Lesson.objects.all()
     number_of_students = {}
+    classrooms = []
+
+    for lesson in lessons:
+        if lesson.subject.classroom not in classrooms:
+            classrooms.append(lesson.subject.classroom)
+
+    if classroom_filter and classroom_filter != "all":
+        lessons = lessons.filter(subject__classroom__name=classroom_filter)
+
     for lesson in lessons:
         number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
-    context = {'lessons': lessons, "number_of_students": number_of_students}
 
+
+
+    context = {'lessons': lessons,
+               "number_of_students": number_of_students,
+               "classrooms": classrooms,
+               "classroom_filter": classroom_filter,
+               "subject_filter": subject_filter}
     if request.method == 'POST':
         pass
 
