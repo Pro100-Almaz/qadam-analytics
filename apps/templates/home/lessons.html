@@ -20,33 +20,30 @@
 
           <div class="col-lg-6 col-5 text-right">
 
+                  <div class="dropdown">
+                      <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          Класс
+                      </button>
+
+                      <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                          <a href="?classroom=all" class="btn dropdown-item  filter-btn classer" data-value="all">Все Классы</a>
+                          {% for class in classrooms %}
+                              <a href="?classroom={{ class.name }}" class="btn dropdown-item filter-btn classer" data-value="{{ class.name }}">{{ class.name }}</a>
+                          {% endfor %}
+                      </div>
+                  </div>
+
               <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButtonSubject" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >
                   Предмет
                 </button>
 
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a href="?subject=all" class="btn dropdown-item  filter-btn">Все Предметы</a>
-                  {% for lesson in lessons %}
-                    <a class="btn dropdown-item filter-btn" href="?subject={{ lesson.subject.name }}">{{ lesson.subject.name }}</a>
-                  {% endfor %}
+                    <a href="?subject=all" class="btn dropdown-item  filter-btn" data-value="all">Все Предметы</a>
+                    {% for subject in subjects %}
+                        <a  href="?subject={{ subject.name }}" class="btn dropdown-item filter-btn" data-value="{{ subject.name }}">{{ subject.name }}</a>
+                    {% endfor %}
                 </div>
-              </div>
-
-
-              <div class="dropdown">
-                  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                      Класс
-                  </button>
-
-                  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                      <a href="?classroom=all" class="btn dropdown-item  filter-btn">Все Классы</a>
-                      {% for class in classrooms %}
-                          <a href="?classroom={{ class.name }}" class="btn dropdown-item filter-btn">{{ class.name }}</a>
-                      {% endfor %}
-                  </div>
-
-
               </div>
 
 
@@ -102,12 +99,12 @@
                     </th>
                     {% for title, number in number_of_students.items %}
                       {% if title == lesson.title %}
-                        <td class="budget">
+                        <td class="classroom">
                           {{ lesson.subject.classroom.name }}
                         </td>
-{#                          These two fields have been messed a bit since in this way they will be displayed correctly#}
-                        <td class="classroom">
-                          {{    number}}
+
+                        <td class="budget">
+                          {{ number }}
                         </td>
                       {% endif %}
                     {% endfor %}
@@ -201,6 +198,14 @@
 {% block javascripts %}
     <script>
 
+        const params = new URLSearchParams(window.location.search);
+        const selectedClassroom = params.get("classroom");
+
+        if ( selectedClassroom && selectedClassroom !== "all" ){
+            document.getElementById("dropdownMenuButtonSubject").disabled = false;
+        }else{
+            document.getElementById("dropdownMenuButtonSubject").disabled = true;
+        }
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
           btn.addEventListener('click', () => {
