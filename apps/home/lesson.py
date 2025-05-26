@@ -43,7 +43,7 @@ def lessons_list(request):
     subject_filter = request.GET.get('subject')
     lessons = Lesson.objects.all()
     classrooms = ClassRoom.objects.all()
-    subjects = Subject.objects.all()
+    subjects = [] if classroom_filter == "all" or classroom_filter is None else Subject.objects.all()
     
     number_of_students = {}
 
@@ -60,7 +60,8 @@ def lessons_list(request):
                "number_of_students": number_of_students,
                "classrooms": classrooms,
                "classroom_filter": classroom_filter,
-               "subject_filter": subject_filter}
+               "subject_filter": subject_filter,
+               "subjects": subjects}
     if request.method == 'POST':
         pass
 
