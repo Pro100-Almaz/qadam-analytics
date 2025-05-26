@@ -10,6 +10,15 @@ from django.db.models import Avg
 from apps.home.forms import LessonForm, LessonGroupForm
 from apps.home.models import Lesson, StudentGrade, ClassRoom, Subject, Comment
 from apps.authentication.models import CustomUser
+from apps.home.lesson import (
+    lessons_list,
+    lesson_create,
+    lesson_details,
+    grading,
+    comment_template_create,
+    comment_template_update,
+    comment_template_delete
+)
 
 
 @login_required(login_url="/login/")
@@ -51,37 +60,6 @@ def lesson_group_create(request):
         if form.is_valid():
             form.save()
     return redirect(request.META.get('HTTP_REFERER','/'))
-
-
-@login_required(login_url="/login/")
-def lessons_list(request):
-    classroom_filter = request.GET.get('classroom')
-    subject_filter = request.GET.get('subject')
-    lessons = Lesson.objects.all()
-    number_of_students = {}
-    classrooms = []
-
-    for lesson in lessons:
-        if lesson.subject.classroom not in classrooms:
-            classrooms.append(lesson.subject.classroom)
-
-    if classroom_filter and classroom_filter != "all":
-        lessons = lessons.filter(subject__classroom__name=classroom_filter)
-
-    for lesson in lessons:
-        number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
-
-
-
-    context = {'lessons': lessons,
-               "number_of_students": number_of_students,
-               "classrooms": classrooms,
-               "classroom_filter": classroom_filter,
-               "subject_filter": subject_filter}
-    if request.method == 'POST':
-        pass
-
-    return render(request, 'home/lessons.html', context)
 
 
 @login_required(login_url="/login/")
@@ -132,160 +110,6 @@ def calculate_grade(points, maximum_points):
         return 2
     else:
         return 1
-
-@login_required(login_url="/login/")
-def grading(request):
-    if request.method in ['POST', 'PUT']:
-        lesson_id = request.POST.get('lesson_id')
-        student_id = request.POST.get('student_id')
-        grade_id = request.POST.get('grade_id')
-        action = request.POST.get('action')
-        
-        if not Lesson.objects.filter(id=lesson_id).exists():
-            return render(request, 'home/page-404.html')
-        
-        lesson = Lesson.objects.get(id=lesson_id)
-
-        if action == 'update':
-            if not grade_id:
-                messages.error(request, "Grade ID is required for update!")
-                return redirect('lesson_details', pk=lesson_id)
-
-            try:
-                grade = StudentGrade.objects.get(id=grade_id)
-                points = request.POST.get('points')
-                comment = request.POST.get('comment')
-                grade_value = request.POST.get('grade')
-
-                if points and points.strip():
-                    try:
-                        points = int(points)
-                        if points < 0 or points > lesson.maximum_points:
-                            messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                            return redirect('lesson_details', pk=lesson_id)
-                        grade.points = points
-                        grade.grade = calculate_grade(points, lesson.maximum_points)
-                    except ValueError:
-                        messages.error(request, "Points must be a valid number!")
-                        return redirect('lesson_details', pk=lesson_id)
-                
-                if comment is not None:
-                    grade.comment = comment
-                
-                if grade_value and grade_value.strip():
-                    try:
-                        grade_value = int(grade_value)
-                        if grade_value not in [1, 2, 3, 4, 5]:
-                            messages.error(request, "Grade must be between 1 and 5!")
-                            return redirect('lesson_details', pk=lesson_id)
-                        grade.grade = grade_value
-                    except ValueError:
-                        messages.error(request, "Grade must be a valid number!")
-                        return redirect('lesson_details', pk=lesson_id)
-
-                grade.save()
-                messages.success(request, "Grade updated successfully!")
-                return redirect('lesson_details', pk=lesson_id)
-
-            except StudentGrade.DoesNotExist:
-                messages.error(request, "Grade not found!")
-                return redirect('lesson_details', pk=lesson_id)
-
-        if not CustomUser.objects.filter(id=student_id, role='student').exists():
-            return render(request, 'home/page-404.html')
-
-        points = request.POST.get(f'points_{student_id}')
-        comment = request.POST.get(f'comment_{student_id}')
-
-        try:
-            existing_grade = StudentGrade.objects.get(lesson_id=lesson_id, student_id=student_id)
-            if not points or not points.strip():
-                points = existing_grade.points
-            if not comment or not comment.strip():
-                comment = existing_grade.comment
-        except StudentGrade.DoesNotExist:
-            if not points or not points.strip():
-                messages.error(request, "Points cannot be empty for new grades!")
-                return redirect('lesson_details', pk=lesson_id)
-            if not comment:
-                comment = ''
-
-        try:
-            points = int(points)
-            if points < 0 or points > lesson.maximum_points:
-                messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                return redirect('lesson_details', pk=lesson_id)
-        except ValueError:
-            messages.error(request, "Points must be a valid number!")
-            return redirect('lesson_details', pk=lesson_id)
-
-        grade_value = calculate_grade(points, lesson.maximum_points)
-
-        grade, created = StudentGrade.objects.update_or_create(
-            lesson_id=lesson_id,
-            student_id=student_id,
-            defaults={
-                'grade': grade_value,
-                'points': points,
-                'comment': comment
-            }
-        )
-
-        messages.success(request, "Grade updated successfully!")
-        return redirect('lesson_details', pk=lesson_id)
-
-    # GET request handling
-    lesson_id = request.GET.get('lesson_id')
-    if not lesson_id:
-        return render(request, 'home/page-404.html')
-
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    students = CustomUser.objects.filter(role='student', classroom=lesson.subject.classroom)
-    
-    existing_grades = StudentGrade.objects.filter(lesson=lesson)
-    student_grades = {}
-    for grade in existing_grades:
-        student_grades[grade.student.id] = {
-            'grade': grade.grade,
-            'points': grade.points,
-            'comment': grade.comment
-        }
-
-    context = {
-        'lesson': lesson,
-        'students': students,
-        'student_grades': student_grades
-    }
-    return render(request, 'home/grading.html', context)
-
-
-@login_required(login_url="/login/")
-def lesson_create(request):
-    if request.method == "POST":
-        form = LessonForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "👩‍🏫 Lesson created successfully!")
-            return redirect("lessons")
-    else:
-        form = LessonForm()
-
-    return render(request, "home/new_lesson.html", {"form": form})
-
-
-@login_required(login_url="/login/")
-def lesson_details(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
-    student_grades = StudentGrade.objects.filter(lesson=lesson)
-    comments = Comment.objects.filter(lesson=lesson)
-    
-    context = {
-        'lesson': lesson,
-        'student_grades': student_grades,
-        'comments': comments,
-    }
-    return render(request, 'home/lesson_details.html', context)
-
 
 @login_required(login_url="/login/")
 def student_details(request, pk):
