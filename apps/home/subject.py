@@ -1,13 +1,9 @@
-from django import template
-from django.urls import path
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseRedirect
-from django.template import loader
-from django.urls import reverse, reverse_lazy
 
 from apps.home.forms import SubjectForm
-from apps.home.models import Lesson, Subject, StudentGrade
+from apps.lesson.models import Lesson, StudentGrade
+from apps.home.models import Subject
 from apps.authentication.models import CustomUser
 from django.shortcuts import render, redirect, get_object_or_404
 

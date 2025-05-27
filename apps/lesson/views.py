@@ -1,15 +1,12 @@
-from django import template
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseRedirect
-from django.template import loader
-from django.urls import reverse, reverse_lazy
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Avg
 
-from apps.home.forms import LessonForm, LessonGroupForm
-from apps.home.models import Lesson, StudentGrade, ClassRoom, Subject, Comment
+from .forms import LessonForm
+from .models import Lesson, StudentGrade, Comment
 from apps.authentication.models import CustomUser
+from apps.home.models import Subject, ClassRoom
+
 
 def calculate_grade(points, maximum_points):
     """
@@ -37,13 +34,14 @@ def calculate_grade(points, maximum_points):
     else:
         return 1
 
+
 @login_required(login_url="/login/")
 def lessons_list(request):
     classroom_filter = request.GET.get('classroom')
     subject_filter = request.GET.get('subject')
     lessons = Lesson.objects.all()
     classrooms = ClassRoom.objects.all()
-    subjects = [] if classroom_filter == "all" or classroom_filter is None else Subject.objects.all()
+    subjects = [] if classroom_filter == "all" or classroom_filter is None else Subject.objects.filter(classroom__name=classroom_filter)
     
     number_of_students = {}
 
@@ -65,7 +63,8 @@ def lessons_list(request):
     if request.method == 'POST':
         pass
 
-    return render(request, 'home/lessons.html', context)
+    return render(request, 'lesson/lessons.html', context)
+
 
 @login_required(login_url="/login/")
 def lesson_create(request):
@@ -78,7 +77,8 @@ def lesson_create(request):
     else:
         form = LessonForm()
 
-    return render(request, "home/new_lesson.html", {"form": form})
+    return render(request, "lesson/new_lesson.html", {"form": form})
+
 
 @login_required(login_url="/login/")
 def lesson_details(request, pk):
@@ -91,7 +91,8 @@ def lesson_details(request, pk):
         'student_grades': student_grades,
         'comments': comments,
     }
-    return render(request, 'home/lesson_details.html', context)
+    return render(request, 'lesson/lesson_details.html', context)
+
 
 @login_required(login_url="/login/")
 def grading(request):
@@ -216,7 +217,8 @@ def grading(request):
         'students': students,
         'student_grades': student_grades
     }
-    return render(request, 'home/grading.html', context)
+    return render(request, 'lesson/grading.html', context)
+
 
 @login_required(login_url="/login/")
 def comment_template_create(request):
@@ -254,14 +256,16 @@ def comment_template_create(request):
 
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
+
 @login_required(login_url="/login/")
 def comment_template_update(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+    
     if request.method == 'POST':
-        comment = get_object_or_404(Comment, id=comment_id)
         from_points = request.POST.get('from_points')
         to_points = request.POST.get('to_points')
         comment_text = request.POST.get('comment_text')
-
+        
         try:
             from_points = int(from_points)
             to_points = int(to_points)
@@ -269,11 +273,7 @@ def comment_template_update(request, comment_id):
             if from_points > to_points:
                 messages.error(request, "Начальное значение баллов не может быть больше конечного!")
                 return redirect(request.META.get('HTTP_REFERER', '/'))
-
-            if from_points < 0 or to_points > 100:
-                messages.error(request, "Баллы должны быть в диапазоне от 0 до 100!")
-                return redirect(request.META.get('HTTP_REFERER', '/'))
-
+            
             comment.from_points = from_points
             comment.to_points = to_points
             comment.comment_text = comment_text
@@ -281,24 +281,25 @@ def comment_template_update(request, comment_id):
             
             messages.success(request, "Шаблон комментария успешно обновлен!")
             return redirect(request.META.get('HTTP_REFERER', '/'))
-
+            
         except ValueError:
             messages.error(request, "Пожалуйста, введите корректные числовые значения для баллов!")
             return redirect(request.META.get('HTTP_REFERER', '/'))
         except Exception as e:
             messages.error(request, f"Произошла ошибка при обновлении шаблона: {str(e)}")
             return redirect(request.META.get('HTTP_REFERER', '/'))
-
+    
     return redirect(request.META.get('HTTP_REFERER', '/'))
+
 
 @login_required(login_url="/login/")
 def comment_template_delete(request, comment_id):
-    if request.method == 'POST':
-        comment = get_object_or_404(Comment, id=comment_id)
-        try:
-            comment.delete()
-            messages.success(request, "Шаблон комментария успешно удален!")
-        except Exception as e:
-            messages.error(request, f"Произошла ошибка при удалении шаблона: {str(e)}")
+    comment = get_object_or_404(Comment, id=comment_id)
     
-    return redirect(request.META.get('HTTP_REFERER', '/')) 
+    try:
+        comment.delete()
+        messages.success(request, "Шаблон комментария успешно удален!")
+    except Exception as e:
+        messages.error(request, f"Произошла ошибка при удалении шаблона: {str(e)}")
+    
+    return redirect(request.META.get('HTTP_REFERER', '/'))
