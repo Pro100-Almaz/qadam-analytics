@@ -1,0 +1,190 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Предметы {% endblock title %}
+
+{% block content %}
+{% load widget_tweaks %}
+  <div class="header bg-white">
+    <div class="container-fluid">
+      <div class="header-body">
+        <div class="row align-items-center py-4">
+          <div class="col-lg-6 col-7">
+            <h6 class="h2 d-inline-block mb-0">Занятия</h6>
+            <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+              <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                <li class="breadcrumb-item"><a href="{% url 'lessons' %}">Занятия</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'new_lesson' %}">Новый</a></li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Page content -->
+    <div class="container-fluid mt-6">
+      <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-6">
+          <div class="card bg-secondary shadow border-0">
+            <div class="card-header bg-transparent pb-4">
+              <h3 class="text-center text-muted mb-0">Добавить новое занятие</h3>
+              <p class="text-center text-muted small">Заполните данные заятия ниже</p>
+            </div>
+            <div class="card-body px-lg-5 py-lg-4">
+              {% if msg %}
+                <div class="alert alert-info text-center" role="alert">
+                  {{ msg | safe }}
+                </div>
+              {% endif %}
+
+              <form method="post">
+                {% csrf_token %}
+
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    Название
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                      <small class="text-danger">{{ form.title.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    Предмет
+                    {{ form.subject }}
+                    {% if form.subject.errors %}
+                      <small class="text-danger">{{ form.subject.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  Описание
+                  {{ form.description }}
+                  {% if form.description.errors %}
+                    <small class="text-danger">{{ form.description.errors.0 }}</small>
+                  {% endif %}
+                </div>
+
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    Средняя оценка
+                    {{ form.average_points }}
+                    {% if form.average_points.errors %}
+                      <small class="text-danger">{{ form.average_points.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    Макс оценка
+                    {{ form.maximum_points }}
+                    {% if form.maximum_points.errors %}
+                      <small class="text-danger">{{ form.maximum_points.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    Четверть
+                    {{ form.quarter }}
+                    {% if form.quarter.errors %}
+                      <small class="text-danger">{{ form.quarter.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    Статус
+                    {{ form.status }}
+                    {% if form.status.errors %}
+                      <small class="text-danger">{{ form.status.errors.0 }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="col-md-6 mb-3">
+                      Цельная тема
+                      <div class="input-group">
+                        {{ form.group|add_class:"form-control" }}
+                        <div class="input-group-append">
+                          <button
+                            class="btn btn-outline-primary"
+                            type="button"
+                            data-toggle="modal"
+                            data-target="#addGroupModal"
+                          >
+                            <i class="ni ni-fat-add"></i>
+                          </button>
+                        </div>
+                      </div>
+                      {% if form.group.errors %}
+                        <small class="text-danger">{{ form.group.errors.0 }}</small>
+                      {% endif %}
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                  <a href="{% url 'lessons' %}" class="btn btn-outline-secondary me-2">
+                    Cancel
+                  </a>
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Create
+                  </button>
+                </div>
+            </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% include "includes/footer.html" %}
+  </div>
+
+  <!-- Add New Group Modal -->
+  <div
+      class="modal fade"
+      id="addGroupModal"
+      tabindex="-1"
+      role="dialog"
+      aria-labelledby="addGroupModalLabel"
+      aria-hidden="true"
+  >
+    <div class="modal-dialog" role="document">
+      <form action="{% url 'lesson_group_create' %}" method="post">
+        {% csrf_token %}
+           <div class="modal-content">
+          <div class="modal-header">
+          <h5 class="modal-title" id="addGroupModalLabel">Add New Lesson Group</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="id_new_group_name">Group Name</label>
+              <input
+                type="text"
+                class="form-control"
+                id="id_new_group_name"
+                name="name"
+                required
+              >
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary">Создать</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
+{% endblock javascripts %}

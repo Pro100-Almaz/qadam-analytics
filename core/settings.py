@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.home',  # Enable the inner home (home)
     'apps.authentication',
+    'apps.lesson',  # Enable the lesson app
     'widget_tweaks',
 ]
 

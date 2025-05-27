@@ -1,0 +1,149 @@
+{% extends "layouts/base.html" %}
+{% load custom_filters %}
+
+{% block title %} Оценка урока {% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-6">
+    <!-- Lesson Information Card -->
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Информация об уроке</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>{{ lesson.title }}</h4>
+                            <p class="text-sm">{{ lesson.description }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li><strong>Предмет:</strong> {{ lesson.subject.name }}</li>
+                                <li><strong>Статус:</strong>
+                                    <span class="badge badge-dot mr-4">
+                                        <i class="bg-{{ lesson.status|lower }}"></i>
+                                        <span class="status">{{ lesson.status }}</span>
+                                    </span>
+                                </li>
+                                <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
+                                <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grading Form Card -->
+    <div class="row mt-4">
+        <div class="col-xl-12">
+            <div class="card">
+                <div class="card-header border-0">
+                    <h3 class="mb-0">Оценка учеников</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-items-center table-flush">
+                        <thead class="thead-light">
+                            <tr>
+                                <th scope="col">Ученик</th>
+                                <th scope="col">Баллы</th>
+                                <th scope="col">Оценка</th>
+                                <th scope="col">Комментарий</th>
+                                <th scope="col">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody class="list">
+                            {% for student in students %}
+                            <tr>
+                                <th scope="row">
+                                    <div class="media align-items-center">
+                                        <a href="#" class="avatar rounded-circle mr-3">
+                                            <img alt="Image placeholder" src="/assets/img/theme/team-1.jpg">
+                                        </a>
+                                        <div class="media-body">
+                                            <span class="name mb-0 text-sm">{{ student.get_full_name }}</span>
+                                        </div>
+                                    </div>
+                                </th>
+                                <td>
+                                    <input type="number" class="form-control" 
+                                           name="points_{{ student.id }}" 
+                                           min="0" max="{{ lesson.maximum_points }}"
+                                           value="{{ student_grades|get_item:student.id|get_item:'points'|default:'' }}"
+                                           form="grade_form_{{ student.id }}">
+                                </td>
+                                <td>
+                                    <span class="badge badge-dot mr-4">
+                                        <i class="bg-{{ student_grades|get_item:student.id|get_item:'grade'|default:'warning' }}"></i>
+                                        <span class="status">{{ student_grades|get_item:student.id|get_item:'grade'|default:'-' }}</span>
+                                    </span>
+                                </td>
+                                <td>
+                                    <textarea class="form-control" 
+                                              name="comment_{{ student.id }}" 
+                                              rows="2"
+                                              form="grade_form_{{ student.id }}">{{ student_grades|get_item:student.id|get_item:'comment'|default:'' }}</textarea>
+                                </td>
+                                <td>
+                                    <form id="grade_form_{{ student.id }}" method="POST" action="{% url 'grading' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
+                                        <input type="hidden" name="student_id" value="{{ student.id }}">
+                                        <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">Нет учеников для оценки</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include "includes/footer.html" %}
+</div>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script>
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+        
+        // Add form submission handling
+        $('form[id^="grade_form_"]').on('submit', function(e) {
+            e.preventDefault();
+            const form = $(this);
+            const formData = new FormData(this);
+            
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // Show success message
+                    alert('Оценка успешно сохранена!');
+                    // Reload the page to show updated grades
+                    location.reload();
+                },
+                error: function(xhr, errmsg, err) {
+                    // Show error message
+                    alert('Произошла ошибка при сохранении оценки. Пожалуйста, попробуйте снова.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock javascripts %}
