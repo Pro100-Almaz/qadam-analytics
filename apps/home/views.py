@@ -34,6 +34,10 @@ def index(request):
     return render(request, 'home/index.html', context)
 
 @login_required(login_url="/login/")
+def profile(request):
+    return render(request, 'home/profile.html')
+
+@login_required(login_url="/login/")
 def pages(request):
     context = {}
     try:
