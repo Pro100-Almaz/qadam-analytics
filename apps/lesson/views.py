@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import LessonForm
@@ -54,12 +55,17 @@ def lessons_list(request):
     for lesson in lessons:
         number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
 
+    page = request.GET.get('page')
+    paginator = Paginator(lessons, 5)
+    page_obj = paginator.get_page(page)
+
     context = {'lessons': lessons,
                "number_of_students": number_of_students,
                "classrooms": classrooms,
                "classroom_filter": classroom_filter,
                "subject_filter": subject_filter,
-               "subjects": subjects}
+               "subjects": subjects,
+               "page_obj": page_obj}
     if request.method == 'POST':
         pass
 
@@ -73,7 +79,7 @@ def lesson_create(request):
         if form.is_valid():
             form.save()
             messages.success(request, "👩‍🏫 Lesson created successfully!")
-            return redirect("lessons")
+            return redirect("lesson:lessons")
     else:
         form = LessonForm()
 
