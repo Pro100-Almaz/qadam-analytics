@@ -59,7 +59,7 @@ def register_user(request):
             else:
                 user.save()
                 login(request, user)
-                return redirect("/")
+                return redirect("/pages")
 
     for error in form.errors.keys():
         error_text = find_error_by_key(error)
