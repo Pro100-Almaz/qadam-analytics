@@ -89,7 +89,7 @@
                                               form="grade_form_{{ student.id }}">{{ student_grades|get_item:student.id|get_item:'comment'|default:'' }}</textarea>
                                 </td>
                                 <td>
-                                    <form id="grade_form_{{ student.id }}" method="POST" action="{% url 'grading' %}">
+                                    <form id="grade_form_{{ student.id }}" method="POST" action="{% url 'lesson:grading' %}">
                                         {% csrf_token %}
                                         <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
                                         <input type="hidden" name="student_id" value="{{ student.id }}">
