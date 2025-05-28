@@ -1,12 +1,12 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 from apps.home.forms import SubjectForm
 from apps.lesson.models import Lesson, StudentGrade
 from apps.home.models import Subject
 from apps.authentication.models import CustomUser
 from django.shortcuts import render, redirect, get_object_or_404
-
 
 @login_required(login_url="/login/")
 def subject_create(request):
@@ -25,15 +25,19 @@ def subject_create(request):
 def subjects_list(request):
     subjects = Subject.objects.all()
     number_of_students = {}
+
     for subject in subjects:
         number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
-
-    context = {'subjects': subjects, 'number_of_students': number_of_students}
-
     if request.method == 'POST':
         pass
 
+    page = request.GET.get('page')
+    paginator = Paginator(subjects, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'subjects': subjects, 'number_of_students': number_of_students, "page_obj": page_obj}
     return render(request, "home/subjects.html", context)
+
 
 @login_required(login_url="/login/")
 def subject_details(request, pk):
