@@ -44,7 +44,7 @@ class CustomUser(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
-    avatar = models.ImageField(upload_to=user_avatar_upload_path, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/%Y/%m/%d/', blank=True, null=True)
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
     occupation = models.CharField(max_length=50, blank=True, null=True)
 
