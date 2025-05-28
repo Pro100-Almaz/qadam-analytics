@@ -8,7 +8,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),          # Django admin route
     path("", include("apps.authentication.urls")), # Auth routes - login / register
-    path("", include("apps.home.urls")),      # UI Kits Html files
+    path("pages/", include("apps.home.urls")),      # UI Kits Html files
     path("lessons/", include("apps.lesson.urls")), # Lesson app routes
 ]
 

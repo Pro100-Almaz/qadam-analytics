@@ -146,7 +146,7 @@ def grading(request):
 
                 grade.save()
                 messages.success(request, "Grade updated successfully!")
-                return redirect('lesson_details', pk=lesson_id)
+                return redirect('lesson:lesson_details', pk=lesson_id)
 
             except StudentGrade.DoesNotExist:
                 messages.error(request, "Grade not found!")
@@ -193,7 +193,7 @@ def grading(request):
         )
 
         messages.success(request, "Grade updated successfully!")
-        return redirect('lesson_details', pk=lesson_id)
+        return redirect('lesson:lesson_details', pk=lesson_id)
 
     # GET request handling
     lesson_id = request.GET.get('lesson_id')

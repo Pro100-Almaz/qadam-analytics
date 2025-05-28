@@ -1,5 +1,5 @@
 {% extends 'layouts/base.html' %}
-
+{% load static %}
 {% block title %} Предметы {% endblock title %}
 
 {% block content %}
@@ -13,7 +13,7 @@
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="{% url 'lessons' %}">Занятия</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Занятия</a></li>
               </ol>
             </nav>
           </div>
@@ -49,7 +49,7 @@
 
               {% if user.is_teacher or user.is_manager %}
                 <button type="button" class="btn btn-primary">
-                  <a href="{% url 'new_lesson' %}"
+                  <a href="{% url 'lesson:new_lesson' %}"
                      style="color: white !important; text-decoration: none !important;">
                       Новый
                   </a>
@@ -90,10 +90,10 @@
                     <th scope="row">
                       <div class="media align-items-center">
                         <a href="#" class="avatar rounded-circle mr-3">
-                          <img alt="Image placeholder" src="/assets/img/theme/bootstrap.jpg">
+                          <img alt="Image placeholder" src="{% static '/assets/img/theme/bootstrap.jpg' %}">
                         </a>
                         <div class="media-body">
-                          <a href="{% url 'lesson_details' lesson.id %}" class="name mb-0 text-sm">{{ lesson.title }}</a>
+                          <a href="{% url 'lesson:lesson_details' lesson.id %}" class="name mb-0 text-sm">{{ lesson.title }}</a>
                         </div>
                       </div>
                     </th>
@@ -118,16 +118,16 @@
                     <td>
                       <div class="avatar-group">
                         <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Ryan Tompson">
-                          <img alt="Image placeholder" src="/assets/img/theme/team-1.jpg">
+                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-1.jpg'%}">
                         </a>
                         <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Romina Hadid">
-                          <img alt="Image placeholder" src="/assets/img/theme/team-2.jpg">
+                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-2.jpg' %}">
                         </a>
                         <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Alexander Smith">
-                          <img alt="Image placeholder" src="/assets/img/theme/team-3.jpg">
+                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-3.jpg' %}">
                         </a>
                         <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Jessica Doe">
-                          <img alt="Image placeholder" src="/assets/img/theme/team-4.jpg">
+                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-4.jpg' %}">
                         </a>
                       </div>
                     </td>
