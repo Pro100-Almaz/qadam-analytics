@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
-class LessonGroup(models.Model):
+class   LessonGroup(models.Model):
     name = models.CharField(max_length=100, help_text="Group of the lessons", default="", null=True, blank=True)
 
     def __str__(self):
