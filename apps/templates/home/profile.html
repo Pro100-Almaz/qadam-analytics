@@ -32,7 +32,11 @@
           <div class="col-lg-3 order-lg-2">
             <div class="card-profile-image">
               <a href="#">
-                <img src="{{ request.user.avatar.url }}" class="rounded-circle">
+                {% if request.user.avatar %}
+                  <img src="{{ request.user.avatar.url }}" class="rounded-circle">
+                {% else %}
+                  <img src="/static/assets/img/theme/default-avatar.png" class="rounded-circle">
+                {% endif %}
               </a>
             </div>
           </div>

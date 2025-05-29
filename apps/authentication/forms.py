@@ -111,7 +111,16 @@ class SignUpForm(UserCreationForm):
             }
         )
     )
+    avatar = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(
+            attrs={
+                "class": "form-control",
+                "accept": "image/*"
+            }
+        )
+    )
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth')
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
