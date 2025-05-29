@@ -2,7 +2,7 @@ from django import template
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect
 from django.urls import reverse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 
 from apps.home.models import ClassRoom, Subject
 from apps.authentication.models import CustomUser
@@ -35,6 +35,13 @@ def index(request):
 
 @login_required(login_url="/login/")
 def profile(request):
+    if request.method == "POST":
+        # Handle avatar update
+        if 'avatar' in request.FILES:
+            request.user.avatar = request.FILES['avatar']
+            request.user.save()
+            return redirect('profile')
+    
     return render(request, 'home/profile.html')
 
 @login_required(login_url="/login/")

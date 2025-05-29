@@ -55,107 +55,104 @@
             </div>
             <div class="card-body px-lg-5 py-lg-3">
               <div class="text-center text-muted mb-4">
-
                 {% if error %}
                   <p style="color: #F32013">{{ error }} *</p>
                 {% else %}
                   Заполните обязательные поля
                 {% endif %}  
-              
               </div>
 
-                <form method="POST" enctype="multipart/form-data">
-
-                  {% csrf_token %}
+              <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
             
-                  <div class="multisteps-form mb-5">
-                  <!--form panels-->
-                  <div class="row">
-                    <div class="col-12 col-lg-8 m-auto">
-                      <form class="multisteps-form__form mb-8" style="height: 411px;" enctype="multipart/form-data">
-                        <!--single form panel-->
-                        <div class="card multisteps-form__panel p-3 border-radius-xl bg-white js-active" id="card-1">
-                          <h5 class="font-weight-bolder mb-0">Информация о пользователе</h5>
-                          <p class="mb-0 text-sm">Основная информаций</p>
-                          <div class="multisteps-form__content">
-                            <div class="row mt-3">
-                              <div class="col-12 col-sm-6">
-                                <label>Имя *</label>
-                                {{ form.first_name }}
-                              </div>
-                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
-                                <label>Фамилия *</label>
-                                {{ form.last_name }}
-                              </div>
+                <div class="multisteps-form mb-5">
+                <!--form panels-->
+                <div class="row">
+                  <div class="col-12 col-lg-8 m-auto">
+                    <form class="multisteps-form__form mb-8" style="height: 411px;" enctype="multipart/form-data">
+                      <!--single form panel-->
+                      <div class="card multisteps-form__panel p-3 border-radius-xl bg-white js-active" id="card-1">
+                        <h5 class="font-weight-bolder mb-0">Информация о пользователе</h5>
+                        <p class="mb-0 text-sm">Основная информаций</p>
+                        <div class="multisteps-form__content">
+                          <div class="row mt-3">
+                            <div class="col-12 col-sm-6">
+                              <label>Имя *</label>
+                              {{ form.first_name }}
                             </div>
-                            <div class="row mt-3">
-                              <div class="col-12 col-sm-6">
-                                <label>Школа</label>
-                                {{ form.school }}
-                              </div>
-                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
-                                <label>Почта *</label>
-                                {{ form.email }}
-                              </div>
+                            <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                              <label>Фамилия *</label>
+                              {{ form.last_name }}
                             </div>
-                            <div class="row mt-3">
-                              <div class="col-12 col-sm-6">
-                                <label>Пароль *</label>
-                                {{ form.password1 }}
-                              </div>
-                              <div class="col-12 col-sm-6 mt-3 mt-sm-0">
-                                <label>Повторите Пароль</label>
-                                {{ form.password2 }}
-                              </div>
+                          </div>
+                          <div class="row mt-3">
+                            <div class="col-12 col-sm-6">
+                              <label>Школа</label>
+                              {{ form.school }}
+                            </div>
+                            <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                              <label>Почта *</label>
+                              {{ form.email }}
+                            </div>
+                          </div>
+                          <div class="row mt-3">
+                            <div class="col-12 col-sm-6">
+                              <label>Пароль *</label>
+                              {{ form.password1 }}
+                            </div>
+                            <div class="col-12 col-sm-6 mt-3 mt-sm-0">
+                              <label>Повторите Пароль</label>
+                              {{ form.password2 }}
                             </div>
                           </div>
                         </div>
-                        <!--single form panel-->
-                        <div class="card multisteps-form__panel p-3 border-radius-xl bg-white" id="card-2" style="display: none">
-                          <h5 class="font-weight-bolder">Дополнительные данные</h5>
-                          <div class="multisteps-form__content">
-                            <div class="row mt-3">
-                              <div class="col">
-                                <label>Адрес</label>
-                                {{ form.address }}
-                              </div>
+                      </div>
+                      <!--single form panel-->
+                      <div class="card multisteps-form__panel p-3 border-radius-xl bg-white" id="card-2" style="display: none">
+                        <h5 class="font-weight-bolder">Дополнительные данные</h5>
+                        <div class="multisteps-form__content">
+                          <div class="row mt-3">
+                            <div class="col">
+                              <label>Адрес</label>
+                              {{ form.address }}
                             </div>
-                            <div class="row mt-3">
-                              <div class="col">
-                                <label>Роль *</label>
-                                {{ form.role }}
-                              </div>
+                          </div>
+                          <div class="row mt-3">
+                            <div class="col">
+                              <label>Роль *</label>
+                              {{ form.role }}
                             </div>
-                            <div class="row mt-3">
-                              <div class="col-12 col-sm-6">
-                                <label>Номер телефона</label>
-                                {{ form.phone_number }}
-                              </div>
-                              <div class="col-6 col-sm-3 mt-3 mt-sm-0">
-                                <label>Дата рождения</label>
-                                {{ form.date_of_birth }}
-                              </div>
-                              <div class="col-6 col-sm-3 mt-3 mt-sm-0">
-                                <label>Выберите файл</label>
-                                <label class="input-file">
-                                    <input type="file" name="avatar">
-                                    <span>+</span>
-                                </label>
-                              </div>
+                          </div>
+                          <div class="row mt-3">
+                            <div class="col-12 col-sm-6">
+                              <label>Номер телефона</label>
+                              {{ form.phone_number }}
+                            </div>
+                            <div class="col-6 col-sm-3 mt-3 mt-sm-0">
+                              <label>Дата рождения</label>
+                              {{ form.date_of_birth }}
+                            </div>
+                            <div class="col-6 col-sm-3 mt-3 mt-sm-0">
+                              <label>Выберите файл</label>
+                              <label class="input-file">
+                                  <input type="file" name="avatar">
+                                  <span>+</span>
+                              </label>
                             </div>
                           </div>
                         </div>
-                        <div class="button-row row-cols-2 flex-row mt-4">
-                          <button class="btn text-white bg-orange" type="button" title="Prev" id="prev" style="display: none;">Назад</button>
-                          <button class="btn text-white bg-green ms-auto" type="button" title="Send" id="next">Следующий</button>
-                          <button class="btn text-white bg-green" type="submit" id="submit" style="display: none;">Создать аккаунт</button>
-                        </div>
-                      </form>
-                    </div>
+                      </div>
+                      <div class="button-row row-cols-2 flex-row mt-4">
+                        <button class="btn text-white bg-orange" type="button" title="Prev" id="prev" style="display: none;">Назад</button>
+                        <button class="btn text-white bg-green ms-auto" type="button" title="Send" id="next">Следующий</button>
+                        <button class="btn text-white bg-green" type="submit" id="submit" style="display: none;">Создать аккаунт</button>
+                      </div>
+                    </form>
                   </div>
-                  </div>
+                </div>
+                </div>
 
-                </form>
+              </form>
   
             </div>
           </div>

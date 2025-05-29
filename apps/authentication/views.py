@@ -1,9 +1,3 @@
-# -*- encoding: utf-8 -*-
-"""
-Copyright (c) 2019 - present AppSeed.us
-"""
-
-# Create your views here.
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -47,24 +41,28 @@ def register_user(request):
     context = {"form": form}
 
     if request.method == "POST":
-        avatar_file = request.FILES.get('avatar')
-        form = SignUpForm(request.POST)
+        form = SignUpForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save(commit=False)
-
-            user.avatar = avatar_file
             user.username = user.email
+            
             if CustomUser.objects.filter(username=user.username).exists():
                 context["error"] = find_error_by_key("email")
             else:
+                # Handle avatar upload
+                if 'avatar' in request.FILES:
+                    user.avatar = request.FILES['avatar']
                 user.save()
                 login(request, user)
                 return redirect("/pages")
-
-    for error in form.errors.keys():
-        error_text = find_error_by_key(error)
-        context["error"] = error_text
-        break
+        else:
+            # Add form errors to context
+            for field, errors in form.errors.items():
+                for error in errors:
+                    context["error"] = error
+                    break
+                if context.get("error"):
+                    break
 
     return render(request, "accounts/register.html", context)
 
