@@ -2,11 +2,12 @@ from django.contrib import admin
 from django.conf import settings
 from django.urls import path, include  # add this
 from django.conf.urls.static import static
-
+from apps.home.views import welcome
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),          # Django admin route
+    path('admin/', admin.site.urls),# Django admin route
+    path('', welcome),# Routing to welcome page
     path("", include("apps.authentication.urls")), # Auth routes - login / register
     path("pages/", include("apps.home.urls")),      # UI Kits Html files
     path("lessons/", include("apps.lesson.urls")), # Lesson app routes
