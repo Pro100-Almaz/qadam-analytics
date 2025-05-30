@@ -73,7 +73,7 @@ def lessons_list(request):
 
 
 @login_required(login_url="/login/")
-def lesson_create(request):
+def lesson_create(request, subject_id=None):
     if request.method == "POST":
         form = LessonForm(request.POST)
         if form.is_valid():
@@ -81,7 +81,15 @@ def lesson_create(request):
             messages.success(request, "👩‍🏫 Lesson created successfully!")
             return redirect("lesson:lessons")
     else:
-        form = LessonForm()
+        initial = {}
+        if subject_id:
+            try:
+                subject = Subject.objects.get(pk=subject_id)
+                initial['subject'] = subject
+            except Subject.DoesNotExist:
+                messages.error(request, "Subject not found!")
+                return redirect("lesson:lessons")
+        form = LessonForm(initial=initial)
 
     return render(request, "lesson/new_lesson.html", {"form": form})
 

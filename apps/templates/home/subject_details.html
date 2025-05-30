@@ -184,14 +184,16 @@
                   <h3 class="mb-0">Список уроков</h3>
                 </div>
                 <div class="col text-right">
-                  <select id="sortSelect" name="transport_type">
+                  <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
+                    <i class="ni ni-fat-add"></i>
+                  </a>
+                  <select id="sortSelect" name="transport_type" class="ml-2">
                     <option class="dropdown-item" value="По названию" selected>По названию</option>
                     <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
                     <option class="dropdown-item" value="По статусу">По статусу</option>
                     <option class="dropdown-item" value="По четверти">По четверти</option>
                   </select>
                 </div>
-
               </div>
             </div>
             <div class="table-responsive">
