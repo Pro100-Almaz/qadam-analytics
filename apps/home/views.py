@@ -7,26 +7,6 @@ from django.shortcuts import render, get_object_or_404, redirect
 from apps.home.models import ClassRoom, Subject
 from apps.authentication.models import CustomUser
 
-def welcome(request):
-    """
-    Welcome page view that shows a dashboard with quick stats and navigation
-    """
-    if request.user.is_authenticated:
-        # Get some basic stats for the dashboard
-        total_students = CustomUser.objects.filter(role='student').count()
-        total_teachers = CustomUser.objects.filter(role='teacher').count()
-        total_subjects = Subject.objects.count()
-        total_classrooms = ClassRoom.objects.count()
-        
-        context = {
-            'total_students': total_students,
-            'total_teachers': total_teachers,
-            'total_subjects': total_subjects,
-            'total_classrooms': total_classrooms,
-        }
-        return render(request, 'home/welcome.html', context)
-    else:
-        return render(request, 'home/welcome.html')
 
 @login_required(login_url="/login/")
 def index(request):

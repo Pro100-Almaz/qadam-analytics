@@ -1,52 +1,175 @@
-<nav class="sidenav navbar navbar-vertical  fixed-left  navbar-expand-xs navbar-light bg-white" id="sidenav-main">
-  <div class="scrollbar-inner">
-    <!-- Brand -->
-    <div class="sidenav-header  align-items-center">
-      <a class="navbar-brand" href={% url 'welcome' %}>
-        <img src="/static/assets/img/brand/logo_dark.png" class="navbar-brand-img" alt="Qadam Logo.">
-      </a>
-    </div>
-    <div class="navbar-inner">
-      <!-- Collapse -->
-      <div class="collapse navbar-collapse" id="sidenav-collapse-main">
-        <!-- Nav items -->
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'subjects' %}">
-              <i class="ni ni-books text-default"></i>
-              <span class="nav-link-text">Список предметов</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
-              <i class="ni ni-collection text-default"></i>
-              <span class="nav-link-text">Список занятий</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if 'teachers' in segment %} active {% endif %}" href="{% url 'teachers' %}">
-              <i class="ni ni-hat-3 text-default"></i>
-              <span class="nav-link-text">Список учителей</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if 'students' in segment %} active {% endif %}" href="{% url 'students' %}">
-              <i class="ni ni-single-02 text-default"></i>
-              <span class="nav-link-text">Список учеников</span>
-            </a>
-          </li>
-          {% if user.is_manager or user.is_superuser %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'register' %}">
-              <i class="ni ni-circle-08 text-pink"></i>
-              <span class="nav-link-text">Добавить нового пользователя</span>
-            </a>
-          </li>
-          {% endif %}
+<!-- Overlay for closing sidenav -->
+<div class="sidenav-overlay" id="sidenav-overlay"></div>
 
-
-        </ul>
-      </div>
+<nav class="sidenav navbar navbar-vertical fixed-left navbar-expand-xs navbar-light bg-white" id="sidenav-main">
+    <div class="scrollbar-inner">
+        <!-- Brand -->
+        <div class="sidenav-header align-items-center">
+            <a class="navbar-brand" href="#">
+                <img src="/static/assets/img/brand/logo_dark.png" class="navbar-brand-img" alt="Qadam Logo.">
+            </a>
+        </div>
+        <div class="navbar-inner">
+            <!-- Collapse -->
+            <div class="collapse navbar-collapse" id="sidenav-collapse-main">
+                <!-- Nav items -->
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'subjects' %}">
+                            <i class="ni ni-books text-default"></i>
+                            <span class="nav-link-text">Список предметов</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
+                            <i class="ni ni-collection text-default"></i>
+                            <span class="nav-link-text">Список занятий</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'teachers' in segment %} active {% endif %}" href="{% url 'teachers' %}">
+                            <i class="ni ni-hat-3 text-default"></i>
+                            <span class="nav-link-text">Список учителей</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'students' in segment %} active {% endif %}" href="{% url 'students' %}">
+                            <i class="ni ni-single-02 text-default"></i>
+                            <span class="nav-link-text">Список учеников</span>
+                        </a>
+                    </li>
+                    {% if user.is_manager or user.is_superuser %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'register' %}">
+                            <i class="ni ni-circle-08 text-pink"></i>
+                            <span class="nav-link-text">Добавить нового пользователя</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <!-- Emergency Close Button -->
+                <div class="emergency-close">
+                    <button class="btn btn-danger btn-sm w-100" id="emergency-close">
+                        <i class="ni ni-fat-remove"></i>
+                        <span>Закрыть меню</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </nav>
+
+<style>
+.sidenav {
+    transition: all 0.3s ease;
+    z-index: 1031;
+}
+
+.sidenav.collapsed {
+    margin-left: -250px;
+}
+
+/* Hamburger menu styles */
+.hamburger-menu {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    z-index: 1032;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #5e72e4;
+    border: none;
+    color: white;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+}
+
+.hamburger-menu:hover {
+    background: #324cdd;
+    transform: scale(1.1);
+}
+
+.hamburger-menu.show {
+    display: flex;
+}
+
+.hamburger-menu i {
+    font-size: 1.2rem;
+}
+
+/* Emergency Close Button styles */
+.emergency-close {
+    position: absolute;
+    bottom: 1rem;
+    left: 0;
+    right: 0;
+    padding: 0 1rem;
+}
+
+.emergency-close .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.emergency-close .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.emergency-close .btn i {
+    font-size: 1.2rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sidenav = document.getElementById('sidenav-main');
+    const emergencyClose = document.getElementById('emergency-close');
+    
+    // Create hamburger menu
+    const hamburgerMenu = document.createElement('button');
+    hamburgerMenu.className = 'hamburger-menu';
+    hamburgerMenu.innerHTML = '<i class="ni ni-bullet-list-67"></i>';
+    document.body.appendChild(hamburgerMenu);
+    
+    // Check localStorage for saved state
+    const isCollapsed = localStorage.getItem('sidenavCollapsed') === 'true';
+    if (isCollapsed) {
+        sidenav.classList.add('collapsed');
+        hamburgerMenu.classList.add('show');
+    }
+    
+    // Toggle sidenav function
+    function toggleSidenav() {
+        sidenav.classList.toggle('collapsed');
+        hamburgerMenu.classList.toggle('show');
+        
+        // Save state to localStorage
+        localStorage.setItem('sidenavCollapsed', sidenav.classList.contains('collapsed'));
+    }
+    
+    // Hamburger menu click handler
+    hamburgerMenu.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleSidenav();
+    });
+
+    // Emergency close button handler
+    emergencyClose.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!sidenav.classList.contains('collapsed')) {
+            toggleSidenav();
+        }
+    });
+});
+</script>
