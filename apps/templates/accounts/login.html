@@ -7,8 +7,6 @@
 
 {% block content %}
 {% load static %}
-
-
     <!-- Page content -->
     <div class="container mt--8 pb-5">
       <div class="row">
@@ -57,6 +55,11 @@
                   <label class="custom-control-label" for=" customCheckLogin">
                     <span class="text-muted">Запомнить меня</span>
                   </label>
+
+                    <a href="{% url 'forget_password_confirmation' %}" class="btn-link text-muted ml-5 mb-3 px-0" >
+                        Забыли пароль?
+                    </a>
+
                 </div>
                 <div class="text-center">
                   <button type="submit" class="btn btn-primary my-4">Войти</button>
@@ -65,9 +68,6 @@
             </div>
           </div>
         </div>
-{#        <div class="" style="background-image: url('{% static 'assets/img/brand/logo.png' %}');#}
-{#          background-size: cover;">#}
-{#        </div>#}
       </div>
     </div>
 
