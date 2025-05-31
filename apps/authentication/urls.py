@@ -2,6 +2,7 @@ from django.urls import path
 from .views import login_view, register_user, custom_logout_view, forget_password_view, send_email_password_change, \
     verification_code_check, password_change_final
 
+app_name = 'authentication'
 
 urlpatterns = [
     path('login/', login_view, name="login"),
