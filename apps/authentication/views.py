@@ -138,14 +138,12 @@ def password_change_final(request, username, signed_code):
     if request.method == "POST":
         pw1 = request.POST.get("password1")
         pw2 = request.POST.get("password2")
-        print("NNNNNNNNNNNNNNNNNNNNNNNNNNNNN")
 
         if pw1 != pw2:
             messages.error(request, "Пароли не совпадают.")
         else:
             user.set_password(pw1)
             user.save()
-            print("EEEEEEEEEEEEEEEEEEEEEEEEe")
             return redirect("login")
 
     return render(request, "accounts/password_change_final.html", {"form": form})
