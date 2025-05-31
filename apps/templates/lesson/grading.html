@@ -83,10 +83,9 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <textarea class="form-control" 
-                                              name="comment_{{ student.id }}" 
-                                              rows="2"
-                                              form="grade_form_{{ student.id }}">{{ student_grades|get_item:student.id|get_item:'comment'|default:'' }}</textarea>
+                                    <div class="text-sm text-muted">
+                                        {{ student_grades|get_item:student.id|get_item:'comment'|default:'-' }}
+                                    </div>
                                 </td>
                                 <td>
                                     <form id="grade_form_{{ student.id }}" method="POST" action="{% url 'lesson:grading' %}">

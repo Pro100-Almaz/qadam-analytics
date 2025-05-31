@@ -289,14 +289,13 @@
                 <thead class="thead-light">
                   <tr>
                     <th scope="col" class="sort" data-sort="name">Фамилия, Имя</th>
-                    {% for lesson in lessons %}
-                      <th scope="col" class="sort" data-sort="title">{{ lesson.title }}</th>
-                    {% endfor %}
+                    <th scope="col" class="sort" data-sort="points">Средний балл</th>
+                    <th scope="col" class="sort" data-sort="grade">Оценка</th>
                     <th scope="col"></th>
                   </tr>
                 </thead>
                 <tbody class="list">
-                  {% for student in grades %}
+                  {% for student_data in student_grades %}
                     <tr>
                       <th scope="row">
                         <div class="media align-items-center">
@@ -304,17 +303,33 @@
                             <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
                           </a>
                           <div class="media-body">
-                            <span class="name mb-0 text-sm">{{ student.last_name }}, {{ student.first_name }}</span>
+                            <span class="name mb-0 text-sm">{{ student_data.student.last_name }}, {{ student_data.student.first_name }}</span>
                           </div>
                         </div>
                       </th>
-                      {% for lesson in lessons %}
-                        {% if lesson.quarter == quarter %}
-                          <td class="budget">
-                            {{ student.lesson.grade }}
-                          </td>
-                        {% endif %}
-                      {% endfor %}
+                      <td class="budget">
+                        {{ student_data.average_points }}%
+                      </td>
+                      <td>
+                        <span class="badge badge-dot mr-4">
+                          <i class="bg-{% if student_data.grade >= 4 %}success{% elif student_data.grade >= 3 %}warning{% else %}danger{% endif %}"></i>
+                          <span class="status">{{ student_data.grade }}</span>
+                        </span>
+                      </td>
+                      <td class="text-right">
+                        <div class="dropdown">
+                          <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v"></i>
+                          </a>
+                          <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
+                            {% for grade in student_data.grades %}
+                              <a class="dropdown-item" href="#">
+                                {{ grade.lesson.title }}: {{ grade.points }}/{{ grade.lesson.maximum_points }}
+                              </a>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </td>
                     </tr>
                   {% endfor %}
                 </tbody>

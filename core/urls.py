@@ -6,9 +6,10 @@ from apps.home.views import students_list
 
 
 urlpatterns = [
+    path("", students_list),
+    path("", include("apps.authentication.urls")),  # Auth routes - login / register
     path('admin/', admin.site.urls),# Django admin route
-    path('', students_list),
-    path("", include("apps.authentication.urls")), # Auth routes - login / register
+
     path("pages/", include("apps.home.urls")),      # UI Kits Html files
     path("lessons/", include("apps.lesson.urls")), # Lesson app routes
 ]

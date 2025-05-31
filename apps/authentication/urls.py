@@ -1,15 +1,9 @@
-# -*- encoding: utf-8 -*-
-"""
-Copyright (c) 2019 - present AppSeed.us
-"""
-
 from django.urls import path
 from .views import login_view, register_user, custom_logout_view, forget_password_view, send_email_password_change, \
     verification_code_check, password_change_final
-from django.contrib.auth.views import LogoutView
+
 
 urlpatterns = [
-    path('', login_view, name="login"),
     path('login/', login_view, name="login"),
     path('register/', register_user, name="register"),
     path("logout/", custom_logout_view, name="logout"),

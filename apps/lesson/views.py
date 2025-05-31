@@ -36,6 +36,24 @@ def calculate_grade(points, maximum_points):
         return 1
 
 
+def get_comment_for_points(points, lesson):
+    """
+    Get appropriate comment template based on points
+    """
+    if not points or not lesson:
+        return ''
+    
+    try:
+        comment = Comment.objects.filter(
+            lesson=lesson,
+            from_points__lte=points,
+            to_points__gte=points
+        ).first()
+        return comment.comment_text if comment else ''
+    except Comment.DoesNotExist:
+        return ''
+
+
 @login_required(login_url="/login/")
 def lessons_list(request):
     classroom_filter = request.GET.get('classroom')
@@ -129,7 +147,6 @@ def grading(request):
             try:
                 grade = StudentGrade.objects.get(id=grade_id)
                 points = request.POST.get('points')
-                comment = request.POST.get('comment')
                 grade_value = request.POST.get('grade')
 
                 if points and points.strip():
@@ -140,12 +157,10 @@ def grading(request):
                             return redirect('lesson_details', pk=lesson_id)
                         grade.points = points
                         grade.grade = calculate_grade(points, lesson.maximum_points)
+                        grade.comment = get_comment_for_points(points, lesson)
                     except ValueError:
                         messages.error(request, "Points must be a valid number!")
                         return redirect('lesson_details', pk=lesson_id)
-                
-                if comment is not None:
-                    grade.comment = comment
                 
                 if grade_value and grade_value.strip():
                     try:
@@ -170,20 +185,15 @@ def grading(request):
             return render(request, 'home/page-404.html')
 
         points = request.POST.get(f'points_{student_id}')
-        comment = request.POST.get(f'comment_{student_id}')
 
         try:
             existing_grade = StudentGrade.objects.get(lesson_id=lesson_id, student_id=student_id)
             if not points or not points.strip():
                 points = existing_grade.points
-            if not comment or not comment.strip():
-                comment = existing_grade.comment
         except StudentGrade.DoesNotExist:
             if not points or not points.strip():
                 messages.error(request, "Points cannot be empty for new grades!")
                 return redirect('lesson_details', pk=lesson_id)
-            if not comment:
-                comment = ''
 
         try:
             points = int(points)
@@ -195,6 +205,7 @@ def grading(request):
             return redirect('lesson_details', pk=lesson_id)
 
         grade_value = calculate_grade(points, lesson.maximum_points)
+        comment = get_comment_for_points(points, lesson)
 
         grade, created = StudentGrade.objects.update_or_create(
             lesson_id=lesson_id,
