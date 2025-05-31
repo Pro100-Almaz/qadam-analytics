@@ -199,13 +199,25 @@
                     </div>
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-success">{{ completed_assignments }}</div>
+                            <div class="h4 mb-1 text-success">
+                                {% if completed_assignments %}
+                                {{ completed_assignments }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </div>
                             <div class="text-muted small">Заданий выполнено</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-info">{{ overall_average|floatformat:2 }}</div>
+                            <div class="h4 mb-1 text-info">
+                                {% if overall_average %}
+                                {{ overall_average|floatformat:2 }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </div>
                             <div class="text-muted small">Средний балл</div>
                         </div>
                     </div>
