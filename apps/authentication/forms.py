@@ -1,8 +1,3 @@
-# -*- encoding: utf-8 -*-
-"""
-Copyright (c) 2019 - present AppSeed.us
-"""
-
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
@@ -134,6 +129,7 @@ class ForgetPasswordForm(forms.Form):
                 "class": "form-control"
             }
         ))
+
 
 class VerificationPasswordForm(forms.Form):
     verification_code = forms.IntegerField(
