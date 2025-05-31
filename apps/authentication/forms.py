@@ -121,6 +121,11 @@ class SignUpForm(UserCreationForm):
         )
     )
 
+    class Meta:
+        model = CustomUser
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+
+
 class ForgetPasswordForm(forms.Form):
     username = forms.CharField(
         widget=forms.TextInput(

@@ -16,7 +16,6 @@ def index(request):
 @login_required(login_url="/login/")
 def profile(request):
     if request.method == "POST":
-        # Handle avatar update
         if 'avatar' in request.FILES:
             request.user.avatar = request.FILES['avatar']
             request.user.save()
