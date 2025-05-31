@@ -4,7 +4,8 @@ Copyright (c) 2019 - present AppSeed.us
 """
 
 from django.urls import path
-from .views import login_view, register_user, custom_logout_view
+from .views import login_view, register_user, custom_logout_view, forget_password_view, send_email_password_change, \
+    verification_code_check, password_change_final
 from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
@@ -12,4 +13,8 @@ urlpatterns = [
     path('login/', login_view, name="login"),
     path('register/', register_user, name="register"),
     path("logout/", custom_logout_view, name="logout"),
+    path("forget_pass_confirm/", forget_password_view, name="forget_password_confirmation"),
+    path("<str:username>/<str:signed_code>/", verification_code_check , name="verification_code"),
+    path("<str:username>/<str:signed_code>/pass_change/", password_change_final , name="password_change"),
+
 ]
