@@ -26,6 +26,15 @@
     object-fit: cover;
 }
 
+.school-group-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    object-fit: cover;
+}
+
 .stats-card {
     background: white;
     border-radius: 12px;
@@ -141,26 +150,21 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Breadcrumb -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb bg-transparent p-0">
-                    <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'students' %}">Ученики</a></li>
-                    <li class="breadcrumb-item active">{{ student.get_full_name }}</li>
-                </ol>
-            </nav>
-        </div>
-    </div>
-
     <!-- Student Profile Header -->
-    <div class="student-profile-header">
+    <div class="mt-4 student-profile-header">
         <div class="row align-items-stretch">
             <div class="col-md-3 d-flex align-items-center justify-content-center">
                 <img src="/static/assets/img/theme/team-4.jpg" alt="Photo" class="profile-avatar">
             </div>
-            <div class="col-md-9 d-flex flex-column justify-content-center">
+            <div class="col-md-2 d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                    <img src="{{ student.school_group_image.url|default:'/static/assets/img/theme/school-group.jpg' }}"
+                         alt="School Group"
+                         class="school-group-image mb-2">
+                    <small class="text-muted d-block">Группа</small>
+                </div>
+            </div>
+            <div class="col-md-7 d-flex flex-column justify-content-center">
                 <h2 class="mb-4 text-dark">{{ student.get_full_name }}</h2>
                 <div class="row">
                     <div class="col-md-6">
@@ -342,7 +346,7 @@
                                     {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
                                         <div class="d-flex align-items-center">
                                             <div class="subject-progress-bar flex-grow-1 mr-2">
-                                                <div class="progress-fill bg-success" style="width: {{ progress|mul:20 }}%"></div>
+                                                <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
                                             </div>
                                             <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
                                         </div>
@@ -380,6 +384,7 @@
                             <th class="text-dark">%</th>
                             <th class="text-dark">Комментарии</th>
                             <th class="text-dark">Тема</th>
+                            <th class="text-dark">Комментарий к уроку</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -398,7 +403,7 @@
                             </td>
                             <td class="text-dark">
                                 {% if subject.id in subject_averages %}
-                                    {{ subject_averages|get_item:subject.id|get_item:'average_grade'|mul:20|floatformat:0 }}%
+                                    100%
                                 {% else %}
                                     0%
                                 {% endif %}
@@ -411,6 +416,13 @@
                                 </div>
                             </td>
                             <td class="text-sm text-dark">Последняя изученная тема</td>
+                            <td class="text-sm text-dark">
+                                {% if subject.id in subject_averages and subject_averages|get_item:subject.id|get_item:'latest_lesson_comment' %}
+                                    {{ subject_averages|get_item:subject.id|get_item:'latest_lesson_comment'|truncatechars:50 }}
+                                {% else %}
+                                    <span class="text-muted">Нет комментария</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
