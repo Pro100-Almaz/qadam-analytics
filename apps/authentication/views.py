@@ -78,7 +78,7 @@ def register_user(request):
 def send_email_password_change(request, username):
     user = CustomUser.objects.filter(username=username).first()
     if not user:
-        return redirect('authentication:login')
+        return redirect('/login/')
 
 
     verification_code = random.randint(100000, 999999)
