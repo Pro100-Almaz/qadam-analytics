@@ -121,6 +121,42 @@ class SignUpForm(UserCreationForm):
         )
     )
 
+class ForgetPasswordForm(forms.Form):
+    username = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Почта или Логин",
+                "class": "form-control"
+            }
+        ))
+
+class VerificationPasswordForm(forms.Form):
+    verification_code = forms.IntegerField(
+        min_value=100000,
+        max_value=999999,
+        widget=forms.NumberInput(attrs={
+            "placeholder": "Код подтверждения",
+            "class": "form-control",
+
+        })
+    )
+
+    password1 = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Новый пароль",
+            "class": "form-control"
+        })
+    )
+    password2 = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Повторите пароль",
+            "class": "form-control"
+        })
+    )
+    actual_code = forms.CharField(widget=forms.HiddenInput)
+
+
     class Meta:
         model = CustomUser
         fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+
