@@ -79,18 +79,88 @@
     font-weight: 600;
     font-size: 1.1rem;
 }
+
+.psychological-indicators {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.indicator-item {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.indicator-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.indicator-value {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-left: auto;
+}
+
+.horizontal-progress {
+    height: 12px;
+    background: #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-horizontal {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.8s ease-in-out;
+    position: relative;
+}
+
+.progress-excellent { background: linear-gradient(90deg, #28a745, #20c997); }
+.progress-good { background: linear-gradient(90deg, #17a2b8, #6f42c1); }
+.progress-average { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+.progress-poor { background: linear-gradient(90deg, #dc3545, #e83e8c); }
+
+.indicator-description {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
 </style>
 {% endblock stylesheets %}
 
 {% block content %}
 <div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-transparent p-0">
+                    <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'students' %}">Ученики</a></li>
+                    <li class="breadcrumb-item active">{{ student.get_full_name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
     <!-- Student Profile Header -->
-    <div class="mt-4 student-profile-header">
-        <div class="row align-items-center">
+    <div class="student-profile-header">
+        <div class="row align-items-stretch">
             <div class="col-md-3 d-flex align-items-center justify-content-center">
                 <img src="/static/assets/img/theme/team-4.jpg" alt="Photo" class="profile-avatar">
             </div>
-            <div class="col-md-9">
+            <div class="col-md-9 d-flex flex-column justify-content-center">
                 <h2 class="mb-4 text-dark">{{ student.get_full_name }}</h2>
                 <div class="row">
                     <div class="col-md-6">
@@ -125,25 +195,13 @@
                     </div>
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-success">
-                                {% if completed_assignments %}
-                                    {{ completed_assignments }}
-                                {% else %}
-                                    --
-                                {% endif %}
-                            </div>
+                            <div class="h4 mb-1 text-success">{{ completed_assignments }}</div>
                             <div class="text-muted small">Заданий выполнено</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-info">
-                                {% if overall_average %}
-                                    {{ overall_average|floatformat:2 }}
-                                {% else %}
-                                    --
-                                {% endif %}
-                            </div>
+                            <div class="h4 mb-1 text-info">{{ overall_average|floatformat:2 }}</div>
                             <div class="text-muted small">Средний балл</div>
                         </div>
                     </div>
@@ -152,9 +210,46 @@
         </div>
     </div>
 
-    <!-- Psychological Indicators -->
+    <!-- Dynamic Psychological Indicators -->
+    <div class="psychological-indicators">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="mb-0 text-dark">Психологические показатели</h4>
+            <small class="text-muted">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+        </div>
+
+        {% if psychological_indicators.indicators %}
+            {% for indicator in psychological_indicators.indicators %}
+            <div class="indicator-item">
+                <div class="indicator-label">
+                    <span>{{ indicator.name }}</span>
+                    <span class="indicator-value">{{ indicator.value }}{{ indicator.unit|default:"%" }}</span>
+                </div>
+                <div class="horizontal-progress">
+                    <div class="progress-bar-horizontal
+                        {% if indicator.value >= 80 %}progress-excellent
+                        {% elif indicator.value >= 60 %}progress-good
+                        {% elif indicator.value >= 40 %}progress-average
+                        {% else %}progress-poor{% endif %}"
+                        style="width: {{ indicator.value }}%"
+                        data-value="{{ indicator.value }}">
+                    </div>
+                </div>
+                {% if indicator.description %}
+                    <div class="indicator-description">{{ indicator.description }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Психологические показатели пока не добавлены</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Quarter Charts (keeping the existing one) -->
     <div class="psychological-chart">
-        <h4 class="mb-4 text-dark">Психологические показатели:</h4>
+        <h4 class="mb-4 text-dark">Показатели по четвертям:</h4>
         <div class="row">
             {% for quarter in "1234" %}
             <div class="col-md-3">
@@ -247,7 +342,7 @@
                                     {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
                                         <div class="d-flex align-items-center">
                                             <div class="subject-progress-bar flex-grow-1 mr-2">
-                                                <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
+                                                <div class="progress-fill bg-success" style="width: {{ progress|mul:20 }}%"></div>
                                             </div>
                                             <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
                                         </div>
@@ -303,7 +398,7 @@
                             </td>
                             <td class="text-dark">
                                 {% if subject.id in subject_averages %}
-                                    {{ subject_averages }}%
+                                    {{ subject_averages|get_item:subject.id|get_item:'average_grade'|mul:20|floatformat:0 }}%
                                 {% else %}
                                     0%
                                 {% endif %}
@@ -466,6 +561,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Animate horizontal progress bars on load
+    function animateProgressBars() {
+        const progressBars = document.querySelectorAll('.progress-bar-horizontal');
+        progressBars.forEach((bar, index) => {
+            const value = bar.getAttribute('data-value');
+            bar.style.width = '0%';
+
+            setTimeout(() => {
+                bar.style.width = value + '%';
+            }, 200 + (index * 100));
+        });
+    }
+
+    // Call animation function
+    animateProgressBars();
 });
 </script>
 {% endblock javascripts %}
