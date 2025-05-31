@@ -9,7 +9,6 @@ urlpatterns = [
     path('register/', register_user, name="register"),
     path("logout/", custom_logout_view, name="logout"),
     path("forget_pass_confirm/", forget_password_view, name="forget_password_confirmation"),
-    path("<str:username>/<str:signed_code>/", verification_code_check , name="verification_code"),
-    path("<str:username>/<str:signed_code>/pass_change/", password_change_final , name="password_change"),
-
+    path("validate/<str:username>/<str:signed_code>/", verification_code_check , name="verification_code"),
+    path("password_change/<str:username>/<str:signed_code>/pass_change/", password_change_final , name="password_change")
 ]
