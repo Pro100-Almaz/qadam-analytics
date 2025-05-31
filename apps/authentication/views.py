@@ -75,17 +75,6 @@ def register_user(request):
 
     return render(request, "accounts/register.html", context)
 
-def forget_password_view(request):
-    form = ForgetPasswordForm(request.POST or None)
-    context = {"form": form}
-
-    if request.method == "POST":
-        if form.is_valid():
-            username = form.cleaned_data.get("username")
-            return  send_email_password_change(request, username)
-    return render(request, 'accounts/forget_password.html', context)
-
-
 def send_email_password_change(request, username):
     user = CustomUser.objects.filter(username=username).first()
     if not user:
@@ -108,7 +97,18 @@ def send_email_password_change(request, username):
 
     return redirect("verification_code", username=user.username, signed_code=signed_code)
 
-#
+
+def forget_password_view(request):
+    form = ForgetPasswordForm(request.POST or None)
+    context = {"form": form}
+
+    if request.method == "POST":
+        if form.is_valid():
+            username = form.cleaned_data.get("username")
+            return  send_email_password_change(request, username)
+    return render(request, 'accounts/forget_password.html', context)
+
+
 def verification_code_check(request, username, signed_code):
     user = get_object_or_404(CustomUser, username=username)
     form = VerificationPasswordForm(request.POST or None)
