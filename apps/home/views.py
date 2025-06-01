@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 
 from apps.home.models import ClassRoom, Subject
 from apps.authentication.models import CustomUser
@@ -15,13 +16,36 @@ def index(request):
 
 @login_required(login_url="/login/")
 def profile(request):
-    if request.method == "POST":
-        if 'avatar' in request.FILES:
-            request.user.avatar = request.FILES['avatar']
-            request.user.save()
-            return redirect('profile')
-    
     return render(request, 'home/profile.html')
+
+@login_required(login_url="/login/")
+def profile_update(request):
+    if request.method == "POST":
+        user = request.user
+        
+        # Update basic user information
+        user.username = request.POST.get('username')
+        user.email = request.POST.get('email')
+        user.first_name = request.POST.get('first_name')
+        user.last_name = request.POST.get('last_name')
+        user.phone_number = request.POST.get('phone_number')
+        user.date_of_birth = request.POST.get('date_of_birth')
+        user.occupation = request.POST.get('occupation')
+        user.address = request.POST.get('address')
+        
+        # Handle avatar upload
+        if 'avatar' in request.FILES:
+            user.avatar = request.FILES['avatar']
+        
+        try:
+            user.save()
+            messages.success(request, "Profile updated successfully!")
+        except Exception as e:
+            messages.error(request, f"Error updating profile: {str(e)}")
+        
+        return redirect('profile')
+    
+    return redirect('profile')
 
 @login_required(login_url="/login/")
 def pages(request):
