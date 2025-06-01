@@ -3,6 +3,7 @@ from apps.home import views, subject
 
 urlpatterns = [
     path('profile/', views.profile, name='profile'),
+    path('profile/update/', views.profile_update, name='profile_update'),
     path('students', views.students_list, name='students'),
     path('students/<int:pk>', views.student_details, name='student_details'),
     path('teachers', views.teachers_list, name='teachers'),

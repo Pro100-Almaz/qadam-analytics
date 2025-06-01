@@ -47,6 +47,7 @@ class CustomUser(AbstractUser):
     avatar = models.FileField(upload_to='avatars/%Y/%m/%d/', blank=True, null=True)
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
     occupation = models.CharField(max_length=50, blank=True, null=True)
+    student_id = models.IntegerField(blank=True, null=True)
 
     classroom = models.ForeignKey(
         ClassRoom,
@@ -68,3 +69,5 @@ class CustomUser(AbstractUser):
     def is_principal(self):
         return self.role == CustomUser.ROLE_PRINCIPAL
 
+    def is_parent(self):
+        return self.role == CustomUser.ROLE_PRINCIPAL
