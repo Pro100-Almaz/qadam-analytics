@@ -1,5 +1,6 @@
 from django import template
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -64,14 +65,23 @@ def pages(request):
 @login_required(login_url="/login/")
 def teachers_list(request):
     teachers = CustomUser.objects.filter(role='teacher')
-    context = {'teachers': teachers}
+    page = request.GET.get('page')
+    paginator = Paginator(teachers, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'teachers': teachers, "page_obj": page_obj}
     return render(request, 'home/teachers.html', context)
 
 @login_required(login_url="/login/")
 def students_list(request):
     students = CustomUser.objects.filter(role='student')
     classrooms = ClassRoom.objects.all()
-    context = {'students': students, 'classrooms': classrooms}
+
+    page = request.GET.get('page')
+    paginator = Paginator(students, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'students': students, 'classrooms': classrooms, 'page_obj': page_obj}
     return render(request, 'home/students.html', context)
 
 @login_required(login_url="/login/")
