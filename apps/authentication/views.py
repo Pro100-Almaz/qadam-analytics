@@ -63,6 +63,9 @@ def register_user(request):
                     user.avatar = request.FILES['avatar']
                 user.save()
                 login(request, user)
+                if user.is_parent:
+                    return redirect("/pages/teachers")
+
                 return redirect("/pages")
         else:
             # Add form errors to context

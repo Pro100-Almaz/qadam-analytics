@@ -304,7 +304,7 @@
                     </thead>
                     <tbody>
                         {% for subject in subjects %}
-                        <tr>
+                        <tr class="subject-row" style="cursor: pointer;" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
                             <td>
                                 <div class="d-flex align-items-center">
                                     {% if subject.name == "Math" %}
@@ -380,69 +380,6 @@
         </div>
     </div>
 
-    <!-- Detailed Performance Table -->
-    <div class="card stats-card mt-4">
-        <div class="card-header border-0">
-            <h4 class="mb-0 text-dark">Детальная успеваемость</h4>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-flush">
-                    <thead>
-                        <tr>
-                            <th class="text-dark">Subject</th>
-                            <th class="text-dark">Score</th>
-                            <th class="text-dark">Phase</th>
-                            <th class="text-dark">%</th>
-                            <th class="text-dark">Комментарии</th>
-                            <th class="text-dark">Тема</th>
-                            <th class="text-dark">Комментарий к уроку</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for subject in subjects %}
-                        <tr>
-                            <td class="font-weight-bold text-dark">{{ subject.name }}</td>
-                            <td class="text-dark">
-                                {% if subject.id in subject_averages %}
-                                    {{ subject_averages|get_item:subject.id|get_item:'average_points'|floatformat:0 }}|24
-                                {% else %}
-                                    -|24
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge badge-warning">III</span>
-                            </td>
-                            <td class="text-dark">
-                                {% if subject.id in subject_averages %}
-                                    100%
-                                {% else %}
-                                    0%
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="d-flex">
-                                    <span class="badge badge-success mr-1">Жаксы</span>
-                                    <span class="badge badge-warning mr-1">Орташа</span>
-                                    <span class="badge badge-danger">Томен</span>
-                                </div>
-                            </td>
-                            <td class="text-sm text-dark">Последняя изученная тема</td>
-                            <td class="text-sm text-dark">
-                                {% if subject.id in subject_averages and subject_averages|get_item:subject.id|get_item:'latest_lesson_comment' %}
-                                    {{ subject_averages|get_item:subject.id|get_item:'latest_lesson_comment'|truncatechars:50 }}
-                                {% else %}
-                                    <span class="text-muted">Нет комментария</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <!-- Performance Charts -->
     <div class="row mt-4">
         <div class="col-md-6">
@@ -467,12 +404,211 @@
         </div>
     </div>
 </div>
+
+<!-- Detailed Performance Modal -->
+<div class="modal fade" id="detailedPerformanceModal" tabindex="-1" role="dialog" aria-labelledby="detailedPerformanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailedPerformanceModalLabel">Детальная успеваемость</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-flush">
+                        <thead>
+                            <tr>
+                                <th class="text-dark">Subject</th>
+                                <th class="text-dark">Score</th>
+                                <th class="text-dark">Phase</th>
+                                <th class="text-dark">%</th>
+                                <th class="text-dark">Комментарии</th>
+                                <th class="text-dark">Тема</th>
+                                <th class="text-dark">Комментарий к уроку</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject in subjects %}
+                            <tr class="detailed-row" data-subject-id="{{ subject.id }}" style="display: none;">
+                                <td class="font-weight-bold text-dark">{{ subject.name }}</td>
+                                <td class="text-dark">
+                                    {% if subject.id in subject_averages %}
+                                        {{ subject_averages|get_item:subject.id|get_item:'average_points'|floatformat:0 }}|24
+                                    {% else %}
+                                        -|24
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-warning">III</span>
+                                </td>
+                                <td class="text-dark">
+                                    {% if subject.id in subject_averages %}
+                                        100%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex">
+                                        <span class="badge badge-success mr-1">Жаксы</span>
+                                        <span class="badge badge-warning mr-1">Орташа</span>
+                                        <span class="badge badge-danger">Томен</span>
+                                    </div>
+                                </td>
+                                <td class="text-sm text-dark">Последняя изученная тема</td>
+                                <td class="text-sm text-dark">
+                                    {% if subject.id in subject_averages and subject_averages|get_item:subject.id|get_item:'latest_lesson_comment' %}
+                                        {{ subject_averages|get_item:subject.id|get_item:'latest_lesson_comment'|truncatechars:50 }}
+                                    {% else %}
+                                        <span class="text-muted">Нет комментария</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lessons Modal -->
+<div class="modal fade" id="lessonsModal" tabindex="-1" role="dialog" aria-labelledby="lessonsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="lessonsModalLabel">Subject Lessons</h5>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Lesson</th>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Date</th>
+                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Points</th>
+                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Grade</th>
+                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lessonsTableBody">
+                            <!-- Lessons will be loaded here dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock content %}
 
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.6.2/js/bootstrap.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+$(document).ready(function() {
+    // Function to fetch subject lessons
+    function fetchSubjectLessons(studentId, subjectId) {
+        return $.ajax({
+            url: `/lessons/`,
+            method: 'GET',
+            data: {
+                student_id: studentId,
+                subject: subjectId
+            },
+            success: function(response) {
+                if (response.success) {
+                    displayLessonsInModal(response.lessons);
+                } else {
+                    showError('Ошибка при загрузке занятий по этому предмету!');
+                }
+            },
+            error: function() {
+                showError('По этому предмету нету заняти или возникли проблемы на стороне сервера!');
+            }
+        });
+    }
+
+    // Function to display lessons in modal
+    function displayLessonsInModal(lessons) {
+        console.log("I am in displayLessonsInModal")
+        let html = '';
+        if (lessons.length === 0) {
+            html = '<tr><td colspan="5" class="text-center">No lessons found</td></tr>';
+        } else {
+            lessons.forEach(function(lesson) {
+                html += `
+                    <tr>
+                        <td>
+                            <div class="d-flex px-2 py-1">
+                                <div class="d-flex flex-column justify-content-center">
+                                    <h6 class="mb-0 text-sm">${lesson.title}</h6>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <p class="text-xs font-weight-bold mb-0">${lesson.date}</p>
+                        </td>
+                        <td class="align-middle text-center text-sm">
+                            <span class="badge badge-sm bg-gradient-info">
+                                ${lesson.points !== null ? lesson.points : '-'} / ${lesson.maximum_points}
+                            </span>
+                        </td>
+                        <td class="align-middle text-center">
+                            <span class="text-secondary text-xs font-weight-bold">
+                                ${lesson.grade !== null ? lesson.grade : '-'}
+                            </span>
+                        </td>
+                        <td class="align-middle text-center">
+                            <span class="text-secondary text-xs font-weight-bold">
+                                ${lesson.comment !== null ? lesson.comment : '-'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        $('#lessonsTableBody').html(html);
+    }
+
+    // Function to show error message
+    function showError(message) {
+        $('#lessonsTableBody').html(`<tr><td colspan="5" class="text-center text-danger">${message}</td></tr>`);
+    }
+
+    // Handle subject row clicks
+    $('.subject-row').on('click', function() {
+        const subjectId = $(this).data('subjectId');
+        const subjectName = $(this).data('subjectName');
+        const studentId = {{ student.id }};
+
+        // Update modal title
+        $('#lessonsModalLabel').text(subjectName + ' - Lessons');
+        
+        // Show loading state
+        $('#lessonsTableBody').html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
+        
+        // Fetch and display lessons
+        fetchSubjectLessons(studentId, subjectId);
+        
+        // Show the modal
+        $(function() {
+          $('#lessonsModal').modal('show');
+        });
+    });
+
     // Psychological indicators charts for each quarter
     {% for quarter in "1234" %}
     const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');

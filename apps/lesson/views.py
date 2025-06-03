@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 
 from .forms import LessonForm
 from .models import Lesson, StudentGrade, Comment
@@ -88,6 +89,48 @@ def lessons_list(request):
         pass
 
     return render(request, 'lesson/lessons.html', context)
+
+
+@login_required(login_url="/login/")
+def lesson_details_json(request):
+    subject_id = request.GET.get('subject')
+    student_id = request.GET.get('student_id')
+    
+    try:
+        # Get the student and subject
+        student = get_object_or_404(CustomUser, id=student_id, role='student')
+        subject = get_object_or_404(Subject, id=subject_id)
+        
+        # Get all lessons for the subject
+        lessons = Lesson.objects.filter(subject=subject).order_by('-date')
+        
+        # Get grades for each lesson
+        lessons_data = []
+        for lesson in lessons:
+            grade = StudentGrade.objects.filter(
+                lesson=lesson,
+                student=student
+            ).first()
+            
+            lessons_data.append({
+                'id': lesson.id,
+                'title': lesson.title,
+                'date': lesson.date.strftime('%Y-%m-%d'),
+                'maximum_points': lesson.maximum_points,
+                'points': grade.points if grade else None,
+                'grade': grade.grade if grade else None,
+                'comment': grade.comment if grade else None,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'lessons': lessons_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
 
 
 @login_required(login_url="/login/")

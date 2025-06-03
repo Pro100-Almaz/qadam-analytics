@@ -51,9 +51,9 @@
                     {% endif %}
                     {% if user.is_parent %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'authentication:register' %}">
+                            <a class="nav-link" href="{% url 'student_details' user.get_student_id %}">
                                 <i class="ni ni-circle-08 text-pink"></i>
-                                <span class="nav-link-text">Добавить нового пользователя</span>
+                                <span class="nav-link-text">Мой ребенок</span>
                             </a>
                         </li>
                     {% endif %}
