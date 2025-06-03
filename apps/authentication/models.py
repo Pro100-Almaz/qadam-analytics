@@ -70,4 +70,7 @@ class CustomUser(AbstractUser):
         return self.role == CustomUser.ROLE_PRINCIPAL
 
     def is_parent(self):
-        return self.role == CustomUser.ROLE_PRINCIPAL
+        return self.role == CustomUser.ROLE_PARENT
+
+    def get_student_id(self):
+        return self.student_id
