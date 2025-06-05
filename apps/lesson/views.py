@@ -92,17 +92,17 @@ def lessons_list(request):
 
 
 @login_required(login_url="/login/")
-def lesson_details_json(request):
-    subject_id = request.GET.get('subject')
+def lesson_details_json(request, pk):
+    # subject_id = request.GET.get('subject')
     student_id = request.GET.get('student_id')
-    
+
     try:
         # Get the student and subject
         student = get_object_or_404(CustomUser, id=student_id, role='student')
-        subject = get_object_or_404(Subject, id=subject_id)
-        
+        subject = get_object_or_404(Subject, pk=pk)
+
         # Get all lessons for the subject
-        lessons = Lesson.objects.filter(subject=subject).order_by('-date')
+        lessons = Lesson.objects.filter(subject=subject).order_by('-created_at')
         
         # Get grades for each lesson
         lessons_data = []
@@ -115,14 +115,14 @@ def lesson_details_json(request):
             lessons_data.append({
                 'id': lesson.id,
                 'title': lesson.title,
-                'date': lesson.date.strftime('%Y-%m-%d'),
+                'date': lesson.created_at.strftime('%Y-%m-%d'),
                 'maximum_points': lesson.maximum_points,
                 'points': grade.points if grade else None,
                 'grade': grade.grade if grade else None,
                 'comment': grade.comment if grade else None,
             })
-        
         return JsonResponse({
+
             'success': True,
             'lessons': lessons_data
         })
