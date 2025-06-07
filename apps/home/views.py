@@ -8,6 +8,7 @@ from django.contrib import messages
 
 from apps.home.models import ClassRoom, Subject
 from apps.authentication.models import CustomUser
+from apps.lesson.models import Lesson
 
 
 @login_required(login_url="/login/")
@@ -88,9 +89,11 @@ def students_list(request):
 def student_details(request, pk):
     student = get_object_or_404(CustomUser, pk=pk, role='student')
     subjects = Subject.objects.filter(classroom=student.classroom)
+    lessons = Lesson.objects.filter(subject__in=subjects)
     context = {
         'student': student,
         'subjects': subjects,
         'total_subjects': subjects.count(),
+        'lessons': lessons,
     }
     return render(request, 'home/student_details.html', context)

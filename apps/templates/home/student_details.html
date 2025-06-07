@@ -602,22 +602,23 @@ $(document).ready(function() {
           $('#lessonsModal').modal('show');
         });
     });
-
-    // Psychological indicators charts for each quarter
     {% for quarter in "1234" %}
     const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');
     new Chart(quarter{{ quarter }}Ctx, {
         type: 'bar',
         data: {
-            labels: ['Item 1', 'Item 2', 'Item 3', 'Item 4'],
+                labels: [
+                    {% for lesson in lessons %}
+                        '{{ lesson.title }}',
+                    {% endfor %}
+                ],
             datasets: [{
                 data: [
-                    Math.floor(Math.random() * 20) + 5,
-                    Math.floor(Math.random() * 20) + 5,
-                    Math.floor(Math.random() * 20) + 5,
-                    Math.floor(Math.random() * 20) + 5
+                    {% for lesson in lessons %}
+                        {{ lesson.average_points }},
+                    {% endfor %}
                 ],
-                backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545'],
+                backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
                 borderWidth: 0
             }]
         },
