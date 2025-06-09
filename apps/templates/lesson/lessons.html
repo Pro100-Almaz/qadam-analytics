@@ -1,4 +1,4 @@
-{% extends 'layouts/base.html' %}
+    {% extends 'layouts/base.html' %}
 {% load static %}
 {% block title %} Предметы {% endblock title %}
 
@@ -79,7 +79,6 @@
                     <th scope="col" class="sort" data-sort="classroom">Класс</th>
                   <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
-                  <th scope="col">Учитель</th>
                   <th scope="col" class="sort" data-sort="completion">Прогресс</th>
                   <th scope="col"></th>
                 </tr>
@@ -103,7 +102,7 @@
                           {{ lesson.subject.classroom.name }}
                         </td>
 
-                        <td class="budget">
+                        <td class="budget" >
                           {{ number }}
                         </td>
                       {% endif %}
@@ -126,22 +125,6 @@
                           {% endif %} 
 
                       </span>
-                    </td>
-                    <td>
-                      <div class="avatar-group">
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Ryan Tompson">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-1.jpg'%}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Romina Hadid">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-2.jpg' %}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Alexander Smith">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-3.jpg' %}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Jessica Doe">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-4.jpg' %}">
-                        </a>
-                      </div>
                     </td>
                     <td>
                       <div class="d-flex align-items-center">
