@@ -2,6 +2,7 @@ import os
 import hashlib
 
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 from apps.home.models import ClassRoom
@@ -22,6 +23,23 @@ def user_avatar_upload_path(instance, filename):
 class SchoolGroup(models.Model):
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class PsychologicalState(models.Model):
+    name = models.CharField(max_length=100)
+    comment = models.TextField(blank=True, null=True)
+
+    score = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(5)
+        ],
+        help_text="На сколько звезд оцениваете состояние ученика?"
+    )
 
     def __str__(self):
         return self.name
@@ -58,6 +76,7 @@ class CustomUser(AbstractUser):
     occupation = models.CharField(max_length=50, blank=True, null=True)
     student_id = models.IntegerField(blank=True, null=True)
     school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
+    physical_state = models.ForeignKey(PsychologicalState, on_delete=models.SET_NULL, null=True)
 
     classroom = models.ForeignKey(
         ClassRoom,
