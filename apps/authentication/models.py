@@ -18,6 +18,15 @@ def user_avatar_upload_path(instance, filename):
     filename = f"avatar_{hex_digest}.{ext}"
     return os.path.join('user_avatars', str(instance.email), filename)
 
+
+class SchoolGroup(models.Model):
+    name = models.CharField(max_length=100)
+    avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
 class CustomUser(AbstractUser):
     ROLE_PARENT = 'parent'
     ROLE_TEACHER = 'teacher'
@@ -48,6 +57,7 @@ class CustomUser(AbstractUser):
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
     occupation = models.CharField(max_length=50, blank=True, null=True)
     student_id = models.IntegerField(blank=True, null=True)
+    school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
 
     classroom = models.ForeignKey(
         ClassRoom,
