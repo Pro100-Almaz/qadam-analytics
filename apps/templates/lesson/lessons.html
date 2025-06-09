@@ -79,6 +79,7 @@
                     <th scope="col" class="sort" data-sort="classroom">Класс</th>
                   <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
+                  <th scope="col">Учитель</th>
                   <th scope="col" class="sort" data-sort="completion">Прогресс</th>
                   <th scope="col"></th>
                 </tr>
@@ -125,6 +126,11 @@
                           {% endif %} 
 
                       </span>
+                    </td>
+                    <td>
+                        <div>
+                            {{ lesson.subject.teacher }}
+                        </div>
                     </td>
                     <td>
                       <div class="d-flex align-items-center">
