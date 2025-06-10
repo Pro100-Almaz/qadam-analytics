@@ -103,3 +103,5 @@ class CustomUser(AbstractUser):
 
     def get_student_id(self):
         return self.student_id
+
+

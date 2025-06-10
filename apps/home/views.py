@@ -18,7 +18,19 @@ def index(request):
 
 @login_required(login_url="/login/")
 def profile(request):
-    return render(request, 'home/profile.html')
+    user = request.user
+    student = None
+    if user.role == 'parent' and user.student_id:
+        try:
+            student = CustomUser.objects.get(id=user.student_id)
+        except CustomUser.DoesNotExist:
+            student = None
+
+    context = {
+        'user': user,
+        'student': student
+    }
+    return render(request, 'home/profile.html', context)
 
 @login_required(login_url="/login/")
 def profile_update(request):

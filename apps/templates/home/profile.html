@@ -14,8 +14,8 @@
           <div class="col-lg-3 order-lg-2">
             <div class="card-profile-image">
               <a href="#">
-                {% if request.user.avatar %}
-                  <img src="{{ request.user.avatar.url }}" class="rounded-circle" alt="Profile Avatar">
+                {% if user.avatar %}
+                  <img src="{{ user.avatar.url }}" class="rounded-circle" alt="Profile Avatar">
                 {% else %}
                   <img src="/static/assets/img/theme/team-4.jpg" class="rounded-circle" alt="Default Avatar">
                 {% endif %}
@@ -26,12 +26,12 @@
 
         <div class="card-header text-center border-0 pt-8 pt-md-4 pb-0 pb-md-4">
           <div class="d-flex justify-content-between">
-            {% if request.user.role != 'student' %}
-              <a href="#" class="btn btn-sm btn-info mr-4">Connect</a>
-              <a href="#" class="btn btn-sm btn-default">Message</a>
+            {% if user.role != 'student' %}
+{#              <a href="#" class="btn btn-sm btn-info mr-4">Connect</a>#}
+{#              <a href="#" class="btn btn-sm btn-default">Message</a>#}
             {% else %}
-              <span class="badge badge-lg badge-{{ request.user.role|default:'secondary' }}">
-                {{ request.user.get_role_display }}
+              <span class="badge badge-lg badge-{{ user.role|default:'secondary' }}">
+                {{ user.get_role_display }}
               </span>
             {% endif %}
           </div>
@@ -41,9 +41,9 @@
           <div class="row">
             <div class="col">
               <div class="card-profile-stats d-flex justify-content-center">
-                {% if request.user.role == 'student' %}
+                {% if user.role == 'student' %}
                   <div>
-                    <span class="heading">{{ request.user.classroom.students.count|default:0 }}</span>
+                    <span class="heading">{{ user.classroom.students.count|default:0 }}</span>
                     <span class="description">Classmates</span>
                   </div>
                   <div>
@@ -54,7 +54,7 @@
                     <span class="heading">12</span>
                     <span class="description">Subjects</span>
                   </div>
-                {% elif request.user.role == 'teacher' %}
+                {% elif user.role == 'teacher' %}
                   <div>
                     <span class="heading">150</span>
                     <span class="description">Students</span>
@@ -69,7 +69,7 @@
                   </div>
                 {% else %}
                   <div>
-                    <span class="heading">{{ request.user.date_joined|date:"Y" }}</span>
+                    <span class="heading">{{ user.date_joined|date:"Y" }}</span>
                     <span class="description">Since</span>
                   </div>
                   <div>
@@ -77,7 +77,7 @@
                     <span class="description">Status</span>
                   </div>
                   <div>
-                    <span class="heading">{{ request.user.get_school_display }}</span>
+                    <span class="heading">{{ user.get_school_display }}</span>
                     <span class="description">School</span>
                   </div>
                 {% endif %}
@@ -87,36 +87,36 @@
 
           <div class="text-center">
             <h5 class="h3">
-              {{ request.user.get_full_name|default:request.user.username }}
-              <span class="badge badge-{{ request.user.role|default:'secondary' }} ml-2">
-                {{ request.user.get_role_display }}
+              {{ user.get_full_name|default:user.username }}
+              <span class="badge badge-{{ user.role|default:'secondary' }} ml-2">
+                {{ user.get_role_display }}
               </span>
             </h5>
             <div class="h5 font-weight-300">
-              <i class="ni ni-email-83 mr-2"></i>{{ request.user.email }}
+              <i class="ni ni-email-83 mr-2"></i>{{ user.email }}
             </div>
-            {% if request.user.phone_number %}
+            {% if user.phone_number %}
             <div class="h5 font-weight-300">
-              <i class="ni ni-mobile-button mr-2"></i>{{ request.user.phone_number }}
+              <i class="ni ni-mobile-button mr-2"></i>{{ user.phone_number }}
             </div>
             {% endif %}
-            {% if request.user.occupation %}
+            {% if user.occupation %}
             <div class="h5 mt-4">
-              <i class="ni ni-briefcase-24 mr-2"></i>{{ request.user.occupation }}
+              <i class="ni ni-briefcase-24 mr-2"></i>{{ user.occupation }}
             </div>
             {% endif %}
-            {% if request.user.classroom %}
+            {% if user.classroom %}
             <div>
-              <i class="ni ni-building mr-2"></i>{{ request.user.classroom.name }} - {{ request.user.get_school_display }}
+              <i class="ni ni-building mr-2"></i>{{ user.classroom.name }} - {{ user.get_school_display }}
             </div>
             {% else %}
             <div>
-              <i class="ni ni-building mr-2"></i>{{ request.user.get_school_display }}
+              <i class="ni ni-building mr-2"></i>{{ user.get_school_display }}
             </div>
             {% endif %}
-            {% if request.user.student_id %}
+            {% if user.student_id %}
             <div class="mt-2">
-              <i class="ni ni-badge mr-2"></i>Student ID: {{ request.user.student_id }}
+              <i class="ni ni-badge mr-2"></i>Student ID: {{ user.student_id }}
             </div>
             {% endif %}
           </div>
@@ -132,103 +132,156 @@
               <h3 class="mb-0">Profile Information</h3>
             </div>
             <button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
-              <i class="ni ni-settings-gear-65"></i> Edit profile
+              <i class="ni ni-settings-gear-65"></i> Изменить Данные
             </button>
           </div>
         </div>
         <div class="card-body">
-          <h6 class="heading-small text-muted mb-4">Personal Information</h6>
+          <h6 class="heading-small text-muted mb-4">Персональные данные</h6>
           <div class="pl-lg-4">
             <div class="row">
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Username</label>
-                  <p class="form-control-static">{{ request.user.username }}</p>
+                  <p class="form-control-static">{{ user.username }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Email address</label>
-                  <p class="form-control-static">{{ request.user.email }}</p>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">First name</label>
-                  <p class="form-control-static">{{ request.user.first_name|default:"Not provided" }}</p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Last name</label>
-                  <p class="form-control-static">{{ request.user.last_name|default:"Not provided" }}</p>
+                  <label class="form-control-label">Email </label>
+                  <p class="form-control-static">{{ user.email }}</p>
                 </div>
               </div>
             </div>
             <div class="row">
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Date of Birth</label>
-                  <p class="form-control-static">{{ request.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                  <label class="form-control-label">Имя</label>
+                  <p class="form-control-static">{{ user.first_name|default:"Not provided" }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Phone Number</label>
-                  <p class="form-control-static">{{ request.user.phone_number|default:"Not provided" }}</p>
+                  <label class="form-control-label">Фамилия</label>
+                  <p class="form-control-static">{{ user.last_name|default:"Not provided" }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Дата рождения</label>
+                  <p class="form-control-static">{{ user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Телефонный номер</label>
+                  <p class="form-control-static">{{ user.phone_number|default:"Not provided" }}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <hr class="my-4" />
+        {% if user.role == 'parent' %}
+        	<hr class="my-4" />
 
-          <h6 class="heading-small text-muted mb-4">School Information</h6>
+        <h6 class="heading-small text-muted mb-4">Персональные данные ученика</h6>
           <div class="pl-lg-4">
             <div class="row">
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Role</label>
+                  <label class="form-control-label">Username</label>
+                  <p class="form-control-static">{{ student.username }}</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Email </label>
+                  <p class="form-control-static">{{ student.email }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Имя</label>
+                  <p class="form-control-static">{{ student.first_name|default:"Not provided" }}</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Фамилия</label>
+                  <p class="form-control-static">{{ student.last_name|default:"Not provided" }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Дата рождения</label>
+                  <p class="form-control-static">{{ student.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Телефонный номер</label>
+                  <p class="form-control-static">{{ student.phone_number|default:"Not provided" }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+
+          <hr class="my-4" />
+
+          <h6 class="heading-small text-muted mb-4">Данные о школе</h6>
+          <div class="pl-lg-4">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Роль</label>
                   <p class="form-control-static">
-                    <span class="badge badge-lg badge-{{ request.user.role|default:'secondary' }}">
-                      {{ request.user.get_role_display }}
+                    <span class="badge badge-lg badge-{{ user.role|default:'secondary' }}">
+                      {{ user.get_role_display }}
                     </span>
                   </p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">School</label>
-                  <p class="form-control-static">{{ request.user.get_school_display }}</p>
+                  <label class="form-control-label">Школа</label>
+                  <p class="form-control-static">{{ user.get_school_display }}</p>
                 </div>
               </div>
             </div>
-            {% if request.user.classroom %}
+            {% if user.classroom %}
             <div class="row">
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Classroom</label>
-                  <p class="form-control-static">{{ request.user.classroom.name }}</p>
+                  <label class="form-control-label">Класс</label>
+                  <p class="form-control-static">{{ user.classroom.name }}</p>
                 </div>
               </div>
-              {% if request.user.student_id %}
+              {% if user.student_id %}
               <div class="col-lg-6">
                 <div class="form-group">
-                  <label class="form-control-label">Student ID</label>
-                  <p class="form-control-static">{{ request.user.student_id }}</p>
+                  <label class="form-control-label">ID Ученика</label>
+                  <p class="form-control-static">{{ user.student_id }}</p>
                 </div>
               </div>
               {% endif %}
             </div>
             {% endif %}
-            {% if request.user.occupation %}
+            {% if user.occupation %}
             <div class="row">
               <div class="col-lg-12">
                 <div class="form-group">
-                  <label class="form-control-label">Occupation</label>
-                  <p class="form-control-static">{{ request.user.occupation }}</p>
+                  <label class="form-control-label">Занятость</label>
+                  <p class="form-control-static">{{ user.occupation }}</p>
                 </div>
               </div>
             </div>
@@ -237,13 +290,13 @@
 
           <hr class="my-4" />
 
-          <h6 class="heading-small text-muted mb-4">Contact Information</h6>
+          <h6 class="heading-small text-muted mb-4">Данные для связи</h6>
           <div class="pl-lg-4">
             <div class="row">
               <div class="col-md-12">
                 <div class="form-group">
-                  <label class="form-control-label">Address</label>
-                  <p class="form-control-static">{{ request.user.address|default:"Not provided" }}</p>
+                  <label class="form-control-label">Адрес</label>
+                  <p class="form-control-static">{{ user.address|default:"Not provided" }}</p>
                 </div>
               </div>
             </div>
@@ -252,6 +305,11 @@
       </div>
     </div>
   </div>
+
+
+
+
+
 
   {% include "includes/footer.html" %}
 </div>
@@ -263,60 +321,60 @@
       <form method="post" enctype="multipart/form-data" action="{% url 'profile_update' %}">
         {% csrf_token %}
         <div class="modal-header">
-          <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+          <h5 class="modal-title" id="editProfileModalLabel">Изменить Данные</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
         <div class="modal-body">
-          <h6 class="heading-small text-muted mb-4">Personal Information</h6>
+          <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
                 <label class="form-control-label" for="input-username">Username</label>
-                <input type="text" id="input-username" name="username" class="form-control" value="{{ request.user.username }}" required>
+                <input type="text" id="input-username" name="username" class="form-control" value="{{ user.username }}" required>
               </div>
             </div>
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-email">Email address</label>
-                <input type="email" id="input-email" name="email" class="form-control" value="{{ request.user.email }}" required>
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label class="form-control-label" for="input-first-name">First name</label>
-                <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ request.user.first_name }}">
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label class="form-control-label" for="input-last-name">Last name</label>
-                <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ request.user.last_name }}">
+                <label class="form-control-label" for="input-email">Email </label>
+                <input type="email" id="input-email" name="email" class="form-control" value="{{ user.email }}" required>
               </div>
             </div>
           </div>
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-phone">Phone Number</label>
-                <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ request.user.phone_number }}">
+                <label class="form-control-label" for="input-first-name"> Имя</label>
+                <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ user.first_name }}">
               </div>
             </div>
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-dob">Date of Birth</label>
-                <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ request.user.date_of_birth|date:'Y-m-d' }}">
+                <label class="form-control-label" for="input-last-name">Фамилия</label>
+                <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ user.last_name }}">
               </div>
             </div>
           </div>
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-occupation">Occupation</label>
-                <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ request.user.occupation }}">
+                <label class="form-control-label" for="input-phone">Телефонный номер</label>
+                <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ user.phone_number }}">
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label class="form-control-label" for="input-dob">Дата рождения</label>
+                <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ user.date_of_birth|date:'Y-m-d' }}">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label class="form-control-label" for="input-occupation">Занятость</label>
+                <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ user.occupation }}">
               </div>
             </div>
             <div class="col-lg-6">
@@ -329,15 +387,15 @@
           <div class="row">
             <div class="col-md-12">
               <div class="form-group">
-                <label class="form-control-label" for="input-address">Address</label>
-                <textarea id="input-address" name="address" class="form-control" rows="3">{{ request.user.address }}</textarea>
+                <label class="form-control-label" for="input-address">Адрес</label>
+                <textarea id="input-address" name="address" class="form-control" rows="3">{{ user.address }}</textarea>
               </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-neutral" data-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить Изменения</button>
         </div>
       </form>
     </div>

@@ -1,4 +1,4 @@
-{% extends 'layouts/base.html' %}
+    {% extends 'layouts/base.html' %}
 {% load static %}
 {% block title %} Предметы {% endblock title %}
 
@@ -103,7 +103,7 @@
                           {{ lesson.subject.classroom.name }}
                         </td>
 
-                        <td class="budget">
+                        <td class="budget" >
                           {{ number }}
                         </td>
                       {% endif %}
@@ -128,20 +128,9 @@
                       </span>
                     </td>
                     <td>
-                      <div class="avatar-group">
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Ryan Tompson">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-1.jpg'%}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Romina Hadid">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-2.jpg' %}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Alexander Smith">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-3.jpg' %}">
-                        </a>
-                        <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="Jessica Doe">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/team-4.jpg' %}">
-                        </a>
-                      </div>
+                        <div>
+                            {{ lesson.subject.teacher }}
+                        </div>
                     </td>
                     <td>
                       <div class="d-flex align-items-center">
