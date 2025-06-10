@@ -117,12 +117,21 @@
                               {{ form.address }}
                             </div>
                           </div>
+
                           <div class="row mt-3">
                             <div class="col">
-                              <label>Роль *</label>
+                              <label for="id_role">Роль *</label>
                               {{ form.role }}
                             </div>
                           </div>
+
+                          <div class="row mt-3">
+                            <div class="col">
+                                <label for="id_student_id">ID ученика </label>
+                                {{ form.student_id }}
+                            </div>
+                          </div>
+
                           <div class="row mt-3">
                             <div class="col-12 col-sm-6">
                               <label>Номер телефона</label>
@@ -166,6 +175,24 @@
 
 {% block javascripts %}
 <script>
+document.addEventListener("DOMContentLoaded", function (){
+   const roleField = document.getElementById('id_role');
+   const studentIdField = document.getElementById('id_student_id');
+
+   function toggleStudentIdField(){
+        if (roleField.value === 'parent' || roleField.value === 'admin'){
+            studentIdField.disabled = false;
+       }else{
+            studentIdField.disabled = true;
+        }
+   }
+
+   toggleStudentIdField();
+
+   roleField.addEventListener('change', toggleStudentIdField);
+});
+
+
 document.addEventListener("DOMContentLoaded", function() {
     let nextButton = document.getElementById('next');
     let prevButton = document.getElementById('prev');
@@ -223,5 +250,7 @@ $('.input-file input[type=file]').on('change', function(){
 	let file = this.files[0];
 	$(this).next().html(file.name);
 });
+
+
 </script>
 {% endblock javascripts %}
