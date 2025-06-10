@@ -116,9 +116,19 @@ class SignUpForm(UserCreationForm):
         )
     )
 
+    student_id = forms.IntegerField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "ID ученика",
+                "class": "form-control"
+            }
+        )
+    )
+
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar', 'student_id')
 
 
 class ForgetPasswordForm(forms.Form):
