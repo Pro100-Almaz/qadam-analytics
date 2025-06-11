@@ -21,21 +21,42 @@ def subject_create(request):
 
     return render(request, "home/new_subject.html", {"form": form})
 
-@login_required(login_url="/login/")
-def subjects_list(request):
-    subjects = Subject.objects.all()
+
+def get_students(subjects) -> dict:
     number_of_students = {}
 
     for subject in subjects:
         number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
-    if request.method == 'POST':
-        pass
+
+    return number_of_students
+
+
+def get_students_count(subject_id: int) -> int:
+    return Subject.objects.filter(id=subject_id).count()
+
+
+@login_required(login_url="/login/")
+def subjects_list(request):
+    subjects = Subject.objects.all()
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
     page_obj = paginator.get_page(page)
 
-    context = {'subjects': subjects, 'number_of_students': number_of_students, "page_obj": page_obj}
+    context = {'subjects': subjects, 'number_of_students': get_students(subjects), "page_obj": page_obj}
+    return render(request, "home/subjects.html", context)
+
+
+@login_required(login_url="/login/")
+def my_subjects_list(request):
+    user = CustomUser.objects.get(id=request.user.id)
+    subjects = Subject.objects.filter(teacher=user)
+
+    page = request.GET.get('page')
+    paginator = Paginator(subjects, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'subjects': subjects, 'number_of_students': get_students(subjects), "page_obj": page_obj}
     return render(request, "home/subjects.html", context)
 
 
@@ -58,6 +79,7 @@ def subject_details(request, pk):
                'subject_id': pk,
                'quarter': quarter,
                'subject': subject,
+               'students_count': get_students_count(pk),
                }
 
     return render(request, 'home/subject_details.html', context)

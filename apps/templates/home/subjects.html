@@ -18,7 +18,7 @@
             </nav>
           </div>
           <div class="col-lg-6 col-5 text-right">
-            {% if user.is_manager or user.is_teacher%}
+            {% if user.is_manager or user.is_superuser %}
               <button type="button" class="btn btn-primary">
                 <a href="{% url 'new_subject' %}"
                  style="color: white !important; text-decoration: none !important;">
