@@ -8,18 +8,6 @@ from django.db import models
 from apps.home.models import ClassRoom
 
 
-def user_avatar_upload_path(instance, filename):
-    ext = filename.split('.')[-1]
-    salt = os.urandom(16)
-
-    encoded_str = salt + instance.email.encode('utf-8')
-    hash_object = hashlib.sha256(encoded_str)
-    hex_digest = hash_object.hexdigest()
-
-    filename = f"avatar_{hex_digest}.{ext}"
-    return os.path.join('user_avatars', str(instance.email), filename)
-
-
 class SchoolGroup(models.Model):
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
