@@ -148,6 +148,11 @@
 </style>
 {% endblock stylesheets %}
 
+
+
+
+
+
 {% block content %}
 <div class="container-fluid">
     <!-- Student Profile Header -->
@@ -176,11 +181,11 @@
                          alt="School Group"
                          class="school-group-image mb-2"
                         style="width: 90px; height: 90px">
-                    <small class="text-muted d-block" style="color: white">Группа</small>
+                    <small class="text-white d-block">Группа</small>
                 </div>
             </div>
             <div class="col-md-7 d-flex flex-column justify-content-center" style="color: white">
-                <h2 class="mb-4 text-dark" style="color: white">{{ student.get_full_name }}</h2>
+                <h2 class="mb-4 text-white">{{ student.get_full_name }}</h2>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -241,7 +246,11 @@
         </div>
     </div>
 
-    <!-- Dynamic Psychological Indicators -->
+
+
+
+
+    <!-- Dynamic Psychological State Indicators -->
     <div class="psychological-indicators">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="mb-0 text-dark">Психологические показатели</h4>
@@ -277,6 +286,11 @@
             </div>
         {% endif %}
     </div>
+
+
+
+
+
 
     <!-- Quarter Charts (keeping the existing one) -->
     <div class="psychological-chart">
@@ -351,17 +365,7 @@
                                 {% endif %}
                             </td>
                             <td class="text-dark">
-                                {% if subject.name == "Math" %}
-                                    Арман агай
-                                {% elif subject.name == "English" %}
-                                    Олга апай
-                                {% elif subject.name == "Kazakh" %}
-                                    Арман агай
-                                {% elif subject.name == "Science" %}
-                                    Шолпан апай
-                                {% else %}
-                                    Учитель
-                                {% endif %}
+                                {{ subject.teacher }}
                             </td>
                             <td>
                                 {% if subject.id in subject_averages %}
@@ -748,5 +752,7 @@ $(document).ready(function() {
     // Call animation function
     animateProgressBars();
 });
+
+
 </script>
 {% endblock javascripts %}
