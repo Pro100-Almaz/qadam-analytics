@@ -19,6 +19,14 @@
                             </a>
                         </li>
                     {% endif %}
+                    {% if user.is_teacher %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">
+                                <i class="ni ni-books text-default"></i>
+                                <span class="nav-link-text">Мои предмет</span>
+                            </a>
+                        </li>
+                    {% endif %}
                     {% if user.is_manager or user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
@@ -33,7 +41,7 @@
                             <span class="nav-link-text">Список учителей</span>
                         </a>
                     </li>
-                    {% if user.is_manager or user.is_superuser %}
+                    {% if user.is_manager or user.is_superuser or user.is_teacher %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'students' in segment %} active {% endif %}" href="{% url 'students' %}">
                             <i class="ni ni-single-02 text-default"></i>

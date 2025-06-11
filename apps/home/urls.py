@@ -8,6 +8,7 @@ urlpatterns = [
     path('students/<int:pk>', views.student_details, name='student_details'),
     path('teachers', views.teachers_list, name='teachers'),
     path('subjects', subject.subjects_list, name='subjects'),
+    path('my_subjects', subject.my_subjects_list, name='my_subjects'),
     path('subjects/new', subject.subject_create, name='new_subject'),
     path('subjects/<int:pk>', subject.subject_details, name='subject_details'),
     # Matches any html file
