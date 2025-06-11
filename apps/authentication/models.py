@@ -71,7 +71,10 @@ class CustomUser(AbstractUser):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
-    avatar = models.FileField(upload_to='avatars/%Y/%m/%d/', blank=True, null=True)
+    avatar = models.FileField(
+        upload_to='avatars/%Y/%m/%d/',
+        default='avatars/default/default-user.jpeg'
+    )
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
     occupation = models.CharField(max_length=50, blank=True, null=True)
     student_id = models.IntegerField(blank=True, null=True)
