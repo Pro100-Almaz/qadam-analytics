@@ -151,40 +151,55 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Student Profile Header -->
-    <div class="mt-4 student-profile-header">
+    <div class="mt-4 student-profile-header"
+        {% if student.school_group_id == 4 %}
+            style="background: linear-gradient(to bottom, #F9A84C, #0B0C1B)"
+
+        {% elif student.school_group_id == 2 %}
+            style="background: linear-gradient(to bottom, #0e6642, #031d1d)"
+
+
+        {% elif student.school_group_id == 3 %}
+            style="background: linear-gradient(to bottom, #1c2b83, #060b2b)"
+
+        {% elif student.school_group_id == 1 %}
+            style="background: linear-gradient(to bottom, #2c001e, #0b0a10)"
+
+        {% endif %}>
         <div class="row align-items-stretch">
             <div class="col-md-3 d-flex align-items-center justify-content-center">
                 <img src="/static/assets/img/theme/team-4.jpg" alt="Photo" class="profile-avatar">
             </div>
             <div class="col-md-2 d-flex align-items-center justify-content-center">
-                <div class="text-center">
-                    <img src="{{ student.school_group_image.url|default:'/static/assets/img/theme/school-group.jpg' }}"
+                <div class="text-center" style="color: white">
+                    <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.jpg'}}"
                          alt="School Group"
-                         class="school-group-image mb-2">
-                    <small class="text-muted d-block">Группа</small>
+                         class="school-group-image mb-2"
+                        style="width: 90px; height: 90px">
+                    <small class="text-muted d-block" style="color: white">Группа</small>
                 </div>
             </div>
-            <div class="col-md-7 d-flex flex-column justify-content-center">
-                <h2 class="mb-4 text-dark">{{ student.get_full_name }}</h2>
+            <div class="col-md-7 d-flex flex-column justify-content-center" style="color: white">
+                <h2 class="mb-4 text-dark" style="color: white">{{ student.get_full_name }}</h2>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <div class="student-info-label">ФИО:</div>
-                            <div class="student-info-value">{{ student.get_full_name }}</div>
+                            <div class="student-info-label" style="color: white">ФИО:</div>
+                            <div class="student-info-value" style="color: white">{{ student.get_full_name }}</div>
                         </div>
-                        <div class="mb-3">
-                            <div class="student-info-label">Класс:</div>
-                            <div class="student-info-value">{{ student.classroom.name }}</div>
+                        <div class="mb-3" >
+                            <div class="student-info-label" style="color: white">Класс:</div>
+                            <div class="student-info-value" style="color: white">{{ student.classroom.name }}</div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <div class="student-info-label">Email:</div>
-                            <div class="student-info-value">{{ student.email }}</div>
+                            <div class="student-info-label" style="color: white">Email:</div>
+                            <div class="student-info-value" style="color: white">{{ student.email }}</div>
                         </div>
                         <div class="mb-3">
-                            <div class="student-info-label">Очки активности:</div>
-                            <div class="student-info-value">{{ participation_score|floatformat:0 }}</div>
+                            <div class="student-info-label" style="color: white">Очки активности:</div>
+                            <div class="student-info-value" style="color: white">{{ participation_score|floatformat:0 }}</div>
                         </div>
                     </div>
                 </div>
@@ -194,7 +209,7 @@
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
                             <div class="h4 mb-1 text-primary">{{ attendance_rate|floatformat:0 }}%</div>
-                            <div class="text-muted small">Посещаемость</div>
+                            <div class="text-black-50   small" style="color: white">Посещаемость</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -206,7 +221,7 @@
                                 --
                                 {% endif %}
                             </div>
-                            <div class="text-muted small">Заданий выполнено</div>
+                            <div class="text-black-50 small">Заданий выполнено</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -218,7 +233,7 @@
                                 --
                                 {% endif %}
                             </div>
-                            <div class="text-muted small">Средний балл</div>
+                            <div class="text-black-50 small">Средний балл</div>
                         </div>
                     </div>
                 </div>
