@@ -13,6 +13,10 @@ def subject_create(request):
     if request.method == "POST":
         form = SubjectForm(request.POST)
         if form.is_valid():
+            user = request.user
+            form.instance.added_by = user
+            if not form.instance.teacher:
+                form.instance.teacher = user
             form.save()
             messages.success(request, "✅ Subject created successfully!")
             return redirect("subjects")
@@ -24,16 +28,12 @@ def subject_create(request):
 
 def get_students(subjects) -> dict:
     number_of_students = {}
-
     for subject in subjects:
         number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
-
     return number_of_students
-
 
 def get_students_count(subject_id: int) -> int:
     return Subject.objects.filter(id=subject_id).count()
-
 
 @login_required(login_url="/login/")
 def subjects_list(request):
@@ -43,7 +43,11 @@ def subjects_list(request):
     paginator = Paginator(subjects, 5)
     page_obj = paginator.get_page(page)
 
-    context = {'subjects': subjects, 'number_of_students': get_students(subjects), "page_obj": page_obj}
+    context = {
+        'subjects': subjects,
+        'number_of_students': get_students(subjects),
+        'page_obj': page_obj,
+        }
     return render(request, "home/subjects.html", context)
 
 
@@ -66,6 +70,9 @@ def subject_details(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     students = CustomUser.objects.filter(role='student', classroom=subject.classroom)
     lessons = Lesson.objects.filter(subject=subject)
+    subject_adder = CustomUser.objects.get(id=subject.added_by_id)
+    teacher = CustomUser.objects.get(id=subject.teacher_id)
+
 
     grades = {}
     for student in students:
@@ -80,6 +87,8 @@ def subject_details(request, pk):
                'quarter': quarter,
                'subject': subject,
                'students_count': get_students_count(pk),
+               'subject_adder': subject_adder,
+               'teacher': teacher
                }
 
     return render(request, 'home/subject_details.html', context)
