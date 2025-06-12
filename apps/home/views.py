@@ -109,3 +109,8 @@ def student_details(request, pk):
         'lessons': lessons,
     }
     return render(request, 'home/student_details.html', context)
+
+
+@login_required(login_url="/login/")
+def psychological_state(request):
+    pass

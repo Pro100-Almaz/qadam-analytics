@@ -145,13 +145,73 @@
     color: #6c757d;
     margin-top: 0.5rem;
 }
+
+/* Star Rating Styles for Psychological State Modal */
+.star-rating-container {
+    margin: 10px 0;
+}
+
+.star-rating {
+    display: flex;
+    gap: 5px;
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.star {
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    user-select: none;
+}
+
+.star:hover,
+.star.active {
+    color: #ffc107;
+}
+
+.star.active {
+    color: #ff9800;
+}
+
+/* Template dropdown styles */
+.dropdown-menu {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.dropdown-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Psychological state badge styles */
+.psych-state-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+.psych-state-stars {
+    color: #ff9800;
+    margin-left: 5px;
+    font-size: 0.8rem;
+}
 </style>
 {% endblock stylesheets %}
-
-
-
-
-
 
 {% block content %}
 <div class="container-fluid">
@@ -246,15 +306,16 @@
         </div>
     </div>
 
-
-
-
-
     <!-- Dynamic Psychological State Indicators -->
     <div class="psychological-indicators">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="mb-0 text-dark">Психологические показатели</h4>
-            <small class="text-muted">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+            <div>
+                <small class="text-muted mr-3">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+                <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addPsychologicalStateModal">
+                    <i class="fas fa-plus mr-2"></i>Добавить состояние
+                </button>
+            </div>
         </div>
 
         {% if psychological_indicators.indicators %}
@@ -286,11 +347,6 @@
             </div>
         {% endif %}
     </div>
-
-
-
-
-
 
     <!-- Quarter Charts (keeping the existing one) -->
     <div class="psychological-chart">
@@ -524,6 +580,139 @@
     </div>
 </div>
 
+<!-- Add Psychological State Modal -->
+<div class="modal fade" id="addPsychologicalStateModal" tabindex="-1" role="dialog" aria-labelledby="addPsychologicalStateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить психологическое состояние</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'psychological_state_create' student.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label for="state_name">Название состояния</label>
+                                <input type="text" class="form-control" id="state_name" name="state_name" required placeholder="Например: Тревожность, Мотивация, Концентрация">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Шаблоны</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle w-100" type="button" id="templateDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-list-alt mr-2"></i>Выбрать шаблон
+                                    </button>
+                                    <div class="dropdown-menu w-100" aria-labelledby="templateDropdown">
+                                        <a class="dropdown-item template-option" href="#" data-name="Тревожность" data-comment="Уровень тревожности студента в учебной среде" data-stars="3">
+                                            <i class="fas fa-exclamation-triangle text-warning mr-2"></i>Тревожность
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Мотивация" data-comment="Уровень мотивации к обучению и участию в занятиях" data-stars="4">
+                                            <i class="fas fa-fire text-danger mr-2"></i>Мотивация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Концентрация" data-comment="Способность сосредоточиться на учебных задачах" data-stars="3">
+                                            <i class="fas fa-bullseye text-info mr-2"></i>Концентрация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Социальная адаптация" data-comment="Уровень адаптации в коллективе и социальных взаимодействий" data-stars="4">
+                                            <i class="fas fa-users text-success mr-2"></i>Социальная адаптация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Эмоциональная стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
+                                            <i class="fas fa-heart text-primary mr-2"></i>Эмоциональная стабильность
+                                        </a>
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
+                                            <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="star_rating">Оценка (звезды)</label>
+                        <div class="star-rating-container">
+                            <div class="star-rating" id="starRating">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                            <input type="hidden" id="star_rating" name="star_rating" value="0" required>
+                            <small class="form-text text-muted">Нажмите на звезды для оценки (1-5)</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comment">Комментарий</label>
+                        <textarea class="form-control" id="comment" name="comment" rows="4" placeholder="Подробное описание психологического состояния студента..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="observation_date">Дата наблюдения</label>
+                        <input type="date" class="form-control" id="observation_date" name="observation_date" value="{% now 'Y-m-d' %}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Template Modal -->
+<div class="modal fade" id="createTemplateModal" tabindex="-1" role="dialog" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTemplateModalLabel">Создать шаблон</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="#">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="template_name">Название шаблона</label>
+                        <input type="text" class="form-control" id="template_name" name="template_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="template_comment">Описание по умолчанию</label>
+                        <textarea class="form-control" id="template_comment" name="template_comment" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="default_rating">Оценка по умолчанию</label>
+                        <select class="form-control" id="default_rating" name="default_rating">
+                            <option value="1">1 звезда</option>
+                            <option value="2">2 звезды</option>
+                            <option value="3" selected>3 звезды</option>
+                            <option value="4">4 звезды</option>
+                            <option value="5">5 звезд</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать шаблон</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% include "includes/footer.html" %}
+</div>
 {% endblock content %}
 
 {% block javascripts %}
@@ -609,10 +798,10 @@ $(document).ready(function() {
 
         // Update modal title
         $('#lessonsModalLabel').text(subjectName + ' - Lessons');
-        
+
         // Show loading state
         $('#lessonsTableBody').html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
-        
+
         // Fetch and display lessons
         fetchSubjectLessons(studentId, subjectId);
 
@@ -751,8 +940,89 @@ $(document).ready(function() {
 
     // Call animation function
     animateProgressBars();
+
+    // Star rating functionality for psychological state modal
+    $(".star").on("click", function () {
+        const rating = $(this).data("value");
+        $("#star_rating").val(rating);
+
+        // Update visual state
+        $(".star").removeClass("active");
+        for (let i = 1; i <= rating; i++) {
+            $(`.star[data-value="${i}"]`).addClass("active");
+        }
+    });
+
+    // Star rating hover effect
+    $(".star").on("mouseenter", function () {
+        const rating = $(this).data("value");
+        $(".star").removeClass("hover");
+        for (let i = 1; i <= rating; i++) {
+            $(`.star[data-value="${i}"]`).addClass("hover").css("color", "#ffc107");
+        }
+    });
+
+    $(".star-rating").on("mouseleave", () => {
+        $(".star").removeClass("hover").css("color", "");
+        // Restore active state
+        const currentRating = $("#star_rating").val();
+        $(".star").removeClass("active");
+        for (let i = 1; i <= currentRating; i++) {
+            $(`.star[data-value="${i}"]`).addClass("active");
+        }
+    });
+
+    // Template selection functionality
+    $(".template-option").on("click", function (e) {
+        e.preventDefault();
+
+        const name = $(this).data("name");
+        const comment = $(this).data("comment");
+        const stars = $(this).data("stars");
+
+        // Fill form fields
+        $("#state_name").val(name);
+        $("#comment").val(comment);
+        $("#star_rating").val(stars);
+
+        // Update star rating visual
+        $(".star").removeClass("active");
+        for (let i = 1; i <= stars; i++) {
+            $(`.star[data-value="${i}"]`).addClass("active");
+        }
+
+        // Update dropdown button text
+        $("#templateDropdown").html(`<i class="fas fa-check mr-2"></i>${name}`);
+    });
+
+    // Reset form when modal is closed
+    $("#addPsychologicalStateModal").on("hidden.bs.modal", function () {
+        $(this).find("form")[0].reset();
+        $(".star").removeClass("active");
+        $("#star_rating").val("0");
+        $("#templateDropdown").html('<i class="fas fa-list-alt mr-2"></i>Выбрать шаблон');
+    });
+
+    // Form validation
+    $("#addPsychologicalStateModal form").on("submit", function(e) {
+        const rating = $("#star_rating").val();
+        if (rating === "0" || rating === "") {
+            e.preventDefault();
+            alert("Пожалуйста, выберите оценку (звезды)");
+            return false;
+        }
+    });
+
+    // Handle template modal
+    $("#createTemplateModal").on("show.bs.modal", function() {
+        // Hide the main modal when template modal is shown
+        $("#addPsychologicalStateModal").modal("hide");
+    });
+
+    $("#createTemplateModal").on("hidden.bs.modal", function() {
+        // Show the main modal again when template modal is closed
+        $("#addPsychologicalStateModal").modal("show");
+    });
 });
-
-
 </script>
 {% endblock javascripts %}
