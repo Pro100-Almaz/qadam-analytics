@@ -249,6 +249,52 @@
           </div>
         </div>
       </div>
+    <div class="row">
+        <div class="col-6">
+            <div class="card">
+                <div class="card-header border-0">
+              <div class="row align-items-center">
+                <div class="col">
+                  <h3 class="mb-0">Учитель</h3>
+                </div>
+                <div class="col text-right">
+                    {% if teacher.first_name and teacher.last_name %}
+                            {{ teacher.first_name }}
+                            {{ teacher.last_name }}
+                        {% else %}
+                            {{ teacher.username }}
+                        {% endif %}
+
+                </div>
+              </div>
+            </div>
+            </div>
+        </div>
+
+        <div class="col-6">
+            <div class="card">
+                <div class="card-header border-0">
+              <div class="row align-items-center">
+                <div class="col">
+                  <h3 class="mb-0">Добавил(а) предмет</h3>
+                </div>
+                <div class="col text-right">
+                    {% if subject_adder.first_name and subject_adder.last_name %}
+                        {{ subject_adder.first_name }}
+                        {{ subject_adder.last_name }}
+                    {% else %}
+                        {{ subject_adder.username }}
+
+                    {% endif %}
+                </div>
+              </div>
+            </div>
+            </div>
+        </div>
+
+    </div>
+
+
       <div class="row">
         <div class="col">
           <div class="card">
