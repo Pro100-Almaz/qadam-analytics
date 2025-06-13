@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Предметы {% endblock title %}
+{% block title %} Subjects {% endblock title %}
 
 {% block content %}
 
@@ -9,11 +9,11 @@
       <div class="header-body">
         <div class="row align-items-center py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Предметы</h6>
+            <h6 class="h2 d-inline-block mb-0">Subjects</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Предметы</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Subjects</a></li>
                 <li class="breadcrumb-item"><a href="{% url 'new_subject' %}">Новый</a></li>
               </ol>
             </nav>
@@ -29,7 +29,7 @@
         <div class="col-12 col-lg-8 col-xl-6">
           <div class="card bg-secondary shadow border-0">
             <div class="card-header bg-transparent pb-4">
-              <h3 class="text-center text-muted mb-0">Добавить новый предмет</h3>
+              <h3 class="text-center text-muted mb-0">Add new subject</h3>
               <p class="text-center text-muted small">Заполните данные предмета ниже</p>
             </div>
             <div class="card-body px-lg-5 py-lg-4">
