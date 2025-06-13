@@ -47,7 +47,7 @@
               </div>
 
 
-              {% if user.is_teacher or user.is_manager %}
+              {% if user.is_teacher or user.is_manager or user.is_superuser %}
                 <button type="button" class="btn btn-primary">
                   <a href="{% url 'lesson:new_lesson' %}"
                      style="color: white !important; text-decoration: none !important;">
