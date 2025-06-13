@@ -311,32 +311,41 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="mb-0 text-dark">Психологические показатели</h4>
             <div>
-                <small class="text-muted mr-3">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+
                 <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addPsychologicalStateModal">
                     <i class="fas fa-plus mr-2"></i>Добавить состояние
                 </button>
+                <br>
+                <small class="text-muted mr-3">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+
             </div>
         </div>
 
-        {% if psychological_indicators.indicators %}
-            {% for indicator in psychological_indicators.indicators %}
+        {% if psychological_states %}
+            {% for state in psychological_states %}
             <div class="indicator-item">
                 <div class="indicator-label">
-                    <span>{{ indicator.name }}</span>
-                    <span class="indicator-value">{{ indicator.value }}{{ indicator.unit|default:"%" }}</span>
+                    <span>{{ state.name }}</span>
+                    <span class="indicator-value">{{ state.score }}</span>
                 </div>
                 <div class="horizontal-progress">
                     <div class="progress-bar-horizontal
-                        {% if indicator.value >= 80 %}progress-excellent
-                        {% elif indicator.value >= 60 %}progress-good
-                        {% elif indicator.value >= 40 %}progress-average
-                        {% else %}progress-poor{% endif %}"
-                        style="width: {{ indicator.value }}%"
-                        data-value="{{ indicator.value }}">
+
+                        {% if state.score == 5 %}progress-excellent
+
+                        {% elif state.score == 4 %}progress-good
+
+                        {% elif state.score >= 3 %}progress-average
+
+                        {% else %}progress-poor
+
+                        {% endif %}"
+                        style="width: {{ state.score|add:"0" }}0%"
+                        data-value="{% widthratio state.score 1 20 %}">
                     </div>
                 </div>
-                {% if indicator.description %}
-                    <div class="indicator-description">{{ indicator.description }}</div>
+                {% if state.comment %}
+                    <div class="indicator-description">{{ state.comment }}</div>
                 {% endif %}
             </div>
         {% endfor %}
@@ -590,7 +599,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form method="POST" action="{% url 'psychological_state_create' student.id %}">
+            <form method="POST" action="{% url 'psychological_state_create' student.id %}" >
                 {% csrf_token %}
                 <input type="hidden" name="student_id" value="{{ student.id }}">
                 <div class="modal-body">
@@ -624,6 +633,13 @@
                                         <a class="dropdown-item template-option" href="#" data-name="Стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
                                             <i class="fas fa-heart text-primary mr-2"></i>Стабильность
                                         </a>
+                                            {% for template in templates %}
+                                                <a class="dropdown-item template-option " href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
+                                                    {{ template.name}}
+                                                 </a>
+                                            {% endfor %}
+
+
                                         <div class="dropdown-divider"></div>
                                         <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
                                             <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
@@ -680,7 +696,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form method="POST" action="#">
+            <form method="POST" action="{% url 'psychological_state_create_template' student.id %}">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="form-group">
@@ -690,16 +706,6 @@
                     <div class="form-group">
                         <label for="template_comment">Описание по умолчанию</label>
                         <textarea class="form-control" id="template_comment" name="template_comment" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="default_rating">Оценка по умолчанию</label>
-                        <select class="form-control" id="default_rating" name="default_rating">
-                            <option value="1">1 звезда</option>
-                            <option value="2">2 звезды</option>
-                            <option value="3" selected>3 звезды</option>
-                            <option value="4">4 звезды</option>
-                            <option value="5">5 звезд</option>
-                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1025,6 +1031,13 @@ $(document).ready(function() {
     $("#createTemplateModal").on("hidden.bs.modal", function() {
         // Show the main modal again when template modal is closed
         $("#addPsychologicalStateModal").modal("show");
+    });
+
+    $("#createTemplateModal").on("hidden.bs.modal", function () {
+        $(this).find("form")[0].reset();
+        $(".star").removeClass("active");
+        $("#star_rating").val("0");
+        $("#templateDropdown").html('<i class="fas fa-list-alt mr-2"></i>Выбрать шаблон');
     });
 });
 </script>

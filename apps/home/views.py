@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 
 from apps.home.models import ClassRoom, Subject
-from apps.authentication.models import CustomUser
+from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState
 from apps.lesson.models import Lesson
 
 
@@ -102,15 +102,45 @@ def student_details(request, pk):
     student = get_object_or_404(CustomUser, pk=pk, role='student')
     subjects = Subject.objects.filter(classroom=student.classroom)
     lessons = Lesson.objects.filter(subject__in=subjects)
+    templates = PsychologicalStateTemplates.objects.all()
+    psychological_states = PsychologicalState.objects.filter(student_id=student.id)
+
     context = {
         'student': student,
         'subjects': subjects,
         'total_subjects': subjects.count(),
         'lessons': lessons,
+        'templates': templates,
+        'psychological_states': psychological_states,
     }
     return render(request, 'home/student_details.html', context)
 
 
 @login_required(login_url="/login/")
-def psychological_state(request):
-    pass
+def create_psychological_state(request, pk):
+    if request.method == "POST":
+        name = request.POST.get('state_name')
+        comment = request.POST.get('comment')
+        score = request.POST.get('star_rating')
+        student_id = request.POST.get('student_id')
+
+        if not PsychologicalStateTemplates.objects.filter(name=name).exists():
+            PsychologicalStateTemplates.objects.create(name=name, comment=comment)
+
+        PsychologicalState.objects.create(name=name, comment=comment, score = score, student_id=student_id)
+
+    return redirect('student_details', pk=pk)
+
+
+@login_required(login_url="/login/")
+def create_psychological_state_template(request, pk):
+    if request.method == "POST":
+        name = request.POST.get('template_name')
+        comment = request.POST.get('template_comment')
+
+        if not PsychologicalStateTemplates.objects.filter(name=name).exists():
+            PsychologicalStateTemplates.objects.create(name=name, comment=comment)
+
+        PsychologicalState.objects.create(name=name, comment=comment)
+
+    return redirect('student_details', pk=pk)
