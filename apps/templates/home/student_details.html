@@ -230,6 +230,9 @@
         {% elif student.school_group_id == 1 %}
             style="background: linear-gradient(to bottom, #2c001e, #0b0a10)"
 
+        {% else %}
+            style="background: linear-gradient(to bottom, purple, red)"
+
         {% endif %}>
         <div class="row align-items-stretch">
             <div class="col-md-3 d-flex align-items-center justify-content-center">
@@ -237,7 +240,7 @@
             </div>
             <div class="col-md-2 d-flex align-items-center justify-content-center">
                 <div class="text-center" style="color: white">
-                    <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.jpg'}}"
+                    <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
                          alt="School Group"
                          class="school-group-image mb-2"
                         style="width: 90px; height: 90px">

@@ -15,7 +15,7 @@
                         <li class="nav-item">
                             <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'subjects' %}">
                                 <i class="ni ni-books text-default"></i>
-                                <span class="nav-link-text">Список предметов</span>
+                                <span class="nav-link-text">Subjects List</span>
                             </a>
                         </li>
                     {% endif %}
@@ -23,7 +23,7 @@
                         <li class="nav-item">
                             <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">
                                 <i class="ni ni-books text-default"></i>
-                                <span class="nav-link-text">Мои предмет</span>
+                                <span class="nav-link-text">Subject</span>
                             </a>
                         </li>
                     {% endif %}
@@ -31,7 +31,7 @@
                     <li class="nav-item">
                         <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
                             <i class="ni ni-collection text-default"></i>
-                            <span class="nav-link-text">Список занятий</span>
+                            <span class="nav-link-text">Lessons List</span>
                         </a>
                     </li>
                     {% endif %}
