@@ -4,7 +4,7 @@ from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 
-from .forms import LessonForm
+from .forms import LessonForm, LessonGroupForm
 from .models import Lesson, StudentGrade, Comment
 from apps.authentication.models import CustomUser
 from apps.home.models import Subject, ClassRoom
@@ -57,6 +57,7 @@ def get_comment_for_points(points, lesson):
 
 @login_required(login_url="/login/")
 def lessons_list(request):
+    user = request.user
     classroom_filter = request.GET.get('classroom')
     subject_filter = request.GET.get('subject')
     lessons = Lesson.objects.all()
@@ -84,7 +85,10 @@ def lessons_list(request):
                "classroom_filter": classroom_filter,
                "subject_filter": subject_filter,
                "subjects": subjects,
-               "page_obj": page_obj}
+               "page_obj": page_obj,
+               'user': user
+               }
+
     if request.method == 'POST':
         pass
 
@@ -371,3 +375,19 @@ def comment_template_delete(request, comment_id):
         messages.error(request, f"Произошла ошибка при удалении шаблона: {str(e)}")
     
     return redirect(request.META.get('HTTP_REFERER', '/'))
+
+@login_required(login_url="/login/")
+def lesson_group_create(request):
+    if request.method == 'POST':
+        form = LessonGroupForm(request.POST)
+        if form.is_valid():
+            group = form.save()
+            return JsonResponse({
+                "success": True,
+                "group_id": group.id,
+                "group_name": group.name
+            })
+        else:
+            return JsonResponse({"success": False, "errors": form.errors})
+    return JsonResponse({"success": False, "error": "Invalid request"})
+
