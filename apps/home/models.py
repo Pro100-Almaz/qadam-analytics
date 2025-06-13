@@ -37,12 +37,11 @@ class Subject(models.Model):
 
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        related_name='subjects_added',
+        related_name='subjects_adder',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         help_text="User who added this subject"
-
     )
 
     classroom = models.ForeignKey(
