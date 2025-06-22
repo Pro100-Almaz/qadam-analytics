@@ -13,7 +13,7 @@
                     <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
                         <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                             <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                            <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Занятия</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Lessons</a></li>
                             <li class="breadcrumb-item active">{{ lesson.title }}</li>
                         </ol>
                     </nav>
@@ -44,7 +44,7 @@
                         </div>
                         <div class="col-md-6">
                             <ul class="list-unstyled">
-                                <li><strong>Предмет:</strong> {{ lesson.subject.name }}</li>
+                                <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
                                 <li><strong>Статус:</strong>
                                     <span class="badge badge-dot mr-4">
                                         <i class="bg-{{ lesson.status|lower }}"></i>

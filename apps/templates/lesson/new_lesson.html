@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Предметы {% endblock title %}
+{% block title %} Subjects {% endblock title %}
 
 {% block content %}
 {% load widget_tweaks %}
@@ -9,11 +9,11 @@
       <div class="header-body">
         <div class="row align-items-center py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Занятия</h6>
+            <h6 class="h2 d-inline-block mb-0">Lessons</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Занятия</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Lessons</a></li>
                 <li class="breadcrumb-item"><a href="{% url 'lesson:new_lesson' %}">Новый</a></li>
               </ol>
             </nav>
@@ -29,8 +29,8 @@
         <div class="col-12 col-lg-8 col-xl-6">
           <div class="card bg-secondary shadow border-0">
             <div class="card-header bg-transparent pb-4">
-              <h3 class="text-center text-muted mb-0">Добавить новое занятие</h3>
-              <p class="text-center text-muted small">Заполните данные заятия ниже</p>
+              <h3 class="text-center text-muted mb-0">Add new Lesson</h3>
+              <p class="text-center text-muted small">Fill information about the Lessons</p>
             </div>
             <div class="card-body px-lg-5 py-lg-4">
               {% if msg %}
@@ -51,7 +51,7 @@
                     {% endif %}
                   </div>
                   <div class="col-md-6 mb-3">
-                    Предмет
+                    Subject
                     {{ form.subject }}
                     {% if form.subject.errors %}
                       <small class="text-danger">{{ form.subject.errors.0 }}</small>
@@ -99,6 +99,7 @@
                       <small class="text-danger">{{ form.status.errors.0 }}</small>
                     {% endif %}
                   </div>
+
                   <div class="col-md-6 mb-3">
                       Цельная тема
                       <div class="input-group">
@@ -118,6 +119,7 @@
                         <small class="text-danger">{{ form.group.errors.0 }}</small>
                       {% endif %}
                   </div>
+
                 </div>
 
                 <div class="d-flex justify-content-end">
@@ -148,35 +150,34 @@
       aria-hidden="true">
 
 
-{#    <div class="modal-dialog" role="document">#}
-{#      <form action="{% url 'lesson_group_create' %}" method="post">#}
-{#        {% csrf_token %}#}
-{#           <div class="modal-content">#}
-{#          <div class="modal-header">#}
-{#          <h5 class="modal-title" id="addGroupModalLabel">Add New Lesson Group</h5>#}
-{#            <button type="button" class="close" data-dismiss="modal" aria-label="Close">#}
-{#              <span aria-hidden="true">&times;</span>#}
-{#            </button>#}
-{#          </div>#}
-{#          <div class="modal-body">#}
-{#            <div class="form-group">#}
-{#              <label for="id_new_group_name">Group Name</label>#}
-{#              <input#}
-{#                type="text"#}
-{#                class="form-control"#}
-{#                id="id_new_group_name"#}
-{#                name="name"#}
-{#                required#}
-{#              >#}
-{#            </div>#}
-{#          </div>#}
-{#          <div class="modal-footer">#}
-{#            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>#}
-{#            <button type="submit" class="btn btn-primary">Создать</button>#}
-{#          </div>#}
-{#        </div>#}
-{#      </form>#}
-{#    </div>#}
+    <div class="modal-dialog" role="document">
+      <form id="lessonGroupForm" method="post">
+        {% csrf_token %}
+           <div class="modal-content">
+          <div class="modal-header">
+          <h5 class="modal-title" id="addGroupModalLabel">Добавить новую тематическую группу</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="id_new_group_name">Название Темы</label>
+              <input
+                type="text"
+                class="form-control"
+                id="id_new_group_name"
+                name="name"
+                required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+            <button type="submit" class="btn btn-primary">Создать</button>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 
 {% endblock content %}
@@ -184,8 +185,42 @@
 {% block javascripts %}
 <script>
     $(document).ready(function() {
-        // Initialize tooltips
         $('[data-toggle="tooltip"]').tooltip();
     });
+
+    $(document).ready(function() {
+        $("#lessonGroupForm").on("submit", function(e) {
+            e.preventDefault();
+
+            const groupName = $("#id_new_group_name").val();
+            const csrfToken = $("input[name='csrfmiddlewaretoken']").val();
+
+            $.ajax({
+                url: "{% url 'lesson:lesson_group_create' %}",
+                method: "POST",
+                data: {
+                    name: groupName,
+                    csrfmiddlewaretoken: csrfToken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const $groupSelect = $("select[name='group']");
+                        const newOption = new Option(response.group_name, response.group_id, true, true);
+                        $groupSelect.append(newOption).trigger('change');
+
+                        $("#id_new_group_name").val("");
+                        $("#addGroupModal").modal("hide");
+                    } else {
+                        alert("Ошибка при добавлении группы: " + JSON.stringify(response.errors));
+                    }
+                },
+                error: function() {
+                    alert("Произошла ошибка при отправке запроса.");
+                }
+            });
+        });
+    });
+
+
 </script>
 {% endblock javascripts %}
