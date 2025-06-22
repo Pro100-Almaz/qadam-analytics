@@ -17,7 +17,7 @@
               <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
                 <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                   <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                  <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Предметы</a></li>
+                  <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Subjects</a></li>
                   <li class="breadcrumb-item"><a href="{% url 'subject_details' subject.pk %}">{{ subject.name }}</a></li>
                 </ol>
               </nav>
@@ -276,7 +276,7 @@
                 <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
-                  <h3 class="mb-0">Добавил(а) предмет</h3>
+                  <h3 class="mb-0">Added new subject</h3>
                 </div>
                 <div class="col text-right">
                     {% if subject_adder.first_name and subject_adder.last_name %}

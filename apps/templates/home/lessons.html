@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Предметы {% endblock title %}
+{% block title %} Subjects {% endblock title %}
 {% load static %}
 {% block content %}
 
@@ -9,11 +9,11 @@
       <div class="header-body">
         <div class="row py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Занятия</h6>
+            <h6 class="h2 d-inline-block mb-0">Lessons</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Занятия</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Lessons</a></li>
               </ol>
             </nav>
           </div>
@@ -35,11 +35,11 @@
 
               <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButtonSubject" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >
-                  Предмет
+                  Subject
                 </button>
 
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a href="?subject=all" class="btn dropdown-item  filter-btn" data-value="all">Все Предметы</a>
+                    <a href="?subject=all" class="btn dropdown-item  filter-btn" data-value="all">All Subjects</a>
                     {% for subject in subjects %}
                         <a  href="?subject={{ subject.name }}" class="btn dropdown-item filter-btn" data-value="{{ subject.name }}">{{ subject.name }}</a>
                     {% endfor %}
@@ -68,7 +68,7 @@
         <div class="card">
           <!-- Card header -->
           <div class="card-header border-0">
-            <h3 class="mb-0">Все занятия</h3>
+            <h3 class="mb-0">All Lessons</h3>
           </div>
           <!-- Light table -->
           <div class="table-responsive">
