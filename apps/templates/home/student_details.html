@@ -820,44 +820,44 @@ $(document).ready(function() {
         });
     });
     {% for quarter in "1234" %}
-    const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');
-    new Chart(quarter{{ quarter }}Ctx, {
-        type: 'bar',
-        data: {
-                labels: [
-                    {% for lesson in lessons %}
-                        '{{ lesson.title }}',
-                    {% endfor %}
-                ],
-            datasets: [{
-                data: [
-                    {% for lesson in lessons %}
-                        {{ lesson.average_points }},
-                    {% endfor %}
-                ],
-                backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
+        const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');
+        new Chart(quarter{{ quarter }}Ctx, {
+            type: 'bar',
+            data: {
+                    labels: [
+                        {% for subject in quarter_average|get_item:quarter %}
+                            '{{ subject.subject }}',
+                        {% endfor %}
+                    ],
+                datasets: [{
+                    data: [
+                        {% for subject in quarter_average|get_item:quarter %}
+                            {{ subject.grade }},
+                        {% endfor %}
+                    ],
+                    backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
+                    borderWidth: 0
+                }]
             },
-            scales: {
-                x: {
-                    display: false
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
                 },
-                y: {
-                    display: false,
-                    max: 25
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        display: false,
+                        max: 25
+                    }
                 }
             }
-        }
-    });
+        });
     {% endfor %}
 
     // Quarterly Performance Chart
