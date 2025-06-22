@@ -111,7 +111,7 @@ def student_details(request, pk):
         'total_subjects': subjects.count(),
         'lessons': lessons,
         'templates': templates,
-        'psychological_states': psychological_states,
+        'psychological_states': psychological_states
     }
     return render(request, 'home/student_details.html', context)
 

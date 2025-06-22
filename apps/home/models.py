@@ -57,3 +57,15 @@ class Subject(models.Model):
         return f"{self.name}"
 
 
+class QuarterGrader(models.Model):
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    quarter = models.PositiveIntegerField(default=1)
+
+    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
+    cummulative_points = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.average_points}%"
+
+
+

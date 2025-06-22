@@ -8,6 +8,7 @@ from apps.home.models import Subject
 from apps.authentication.models import CustomUser
 from django.shortcuts import render, redirect, get_object_or_404
 
+
 @login_required(login_url="/login/")
 def subject_create(request):
     if request.method == "POST":
