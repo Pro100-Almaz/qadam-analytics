@@ -92,7 +92,7 @@
                                         {% csrf_token %}
                                         <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
                                         <input type="hidden" name="student_id" value="{{ student.id }}">
-                                        <button type="submit" class="btn btn-sm btn-primary">Сохранить</button>
+                                        <button type="submit" class="btn btn-sm btn-primary" >Сохранить</button>
                                     </form>
                                 </td>
                             </tr>
@@ -107,8 +107,35 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="feedbackModal" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content text-center p-4">
+          <div id="modal-loader" class="my-4">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+              <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-3">Сохраняем оценку...</p>
+          </div>
+
+          <div id="modal-success" class="d-none my-4">
+            <div class="text-success mb-2">
+              <i class="fas fa-check-circle fa-3x"></i>
+            </div>
+            <p>Оценка успешно сохранена!</p>
+          </div>
+
+          <div id="modal-error" class="d-none my-4">
+            <div class="text-danger mb-2">
+              <i class="fas fa-times-circle fa-3x"></i>
+            </div>
+            <p>Произошла ошибка при сохранении. Пожалуйста, попробуйте снова.</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     {% include "includes/footer.html" %}
+
 </div>
 
 {% endblock content %}
@@ -131,17 +158,49 @@
                 data: formData,
                 processData: false,
                 contentType: false,
+                beforeSend: function() {
+                    showModal();
+                },
                 success: function(response) {
-                    // Show success message
-                    alert('Оценка успешно сохранена!');
-                    // Reload the page to show updated grades
-                    location.reload();
+                    showModal('success');
                 },
                 error: function(xhr, errmsg, err) {
-                    // Show error message
-                    alert('Произошла ошибка при сохранении оценки. Пожалуйста, попробуйте снова.');
+                    showModal('error');
                 }
             });
+
+            function showModal(state) {
+                $('#feedbackModal').modal({ backdrop: 'static', keyboard: false });
+                $('#feedbackModal').modal('show');
+
+                $('#modal-loader').removeClass('d-none');
+                $('#modal-success').addClass('d-none');
+                $('#modal-error').addClass('d-none');
+                $('#modal-actions').addClass('d-none');
+
+                if (state === 'success') {
+                    setTimeout(function() {
+                        $('#modal-loader').addClass('d-none');
+                        $('#modal-success').removeClass('d-none');
+                        $('#modal-actions').removeClass('d-none');
+
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    }, 1500);
+                }
+
+                if (state === 'error') {
+                    setTimeout(function() {
+                        $('#modal-loader').addClass('d-none');
+                        $('#modal-error').removeClass('d-none');
+                        $('#modal-actions').removeClass('d-none');
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    }, 1500);
+                }
+            }
         });
     });
 </script>
