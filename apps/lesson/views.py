@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from .forms import LessonForm, LessonGroupForm
 from .models import Lesson, StudentGrade, Comment
 from apps.authentication.models import CustomUser
-from apps.home.models import Subject, ClassRoom
+from apps.home.models import Subject, ClassRoom, QuarterGrader
 
 
 def calculate_grade(points, maximum_points):
@@ -264,6 +264,35 @@ def grading(request):
             }
         )
 
+        student_grades = StudentGrade.objects.filter(lesson=lesson)
+
+        total_points = 0
+        total_classes = 0
+
+        for grade in student_grades:
+            total_points += grade.points
+            total_classes += 1
+
+        average_points = total_points / total_classes if total_classes > 0 else 0
+
+        quarter_grade_qs = QuarterGrader.objects.filter(
+            subject=lesson.subject,
+            quarter=lesson.quarter
+        )
+
+        if quarter_grade_qs.exists():
+            quarter_grade = quarter_grade_qs.first()
+            quarter_grade.cummulative_points = total_points
+            quarter_grade.average_points = average_points
+            quarter_grade.save()
+        else:
+            QuarterGrader.objects.create(
+                subject=lesson.subject,
+                quarter=lesson.quarter,
+                cummulative_points=total_points,
+                average_points=average_points
+            )
+
         messages.success(request, "Grade updated successfully!")
         return redirect('lesson:lesson_details', pk=lesson_id)
 
@@ -274,7 +303,8 @@ def grading(request):
 
     lesson = get_object_or_404(Lesson, id=lesson_id)
     students = CustomUser.objects.filter(role='student', classroom=lesson.subject.classroom)
-    
+
+
     existing_grades = StudentGrade.objects.filter(lesson=lesson)
     student_grades = {}
     for grade in existing_grades:
