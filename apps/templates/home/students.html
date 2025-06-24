@@ -34,10 +34,14 @@
                 </div>
                 <div class="col text-right">
                   <select id="sortSelect" class="form-control">
-                    <option value="all">Все классы</option>
+                    <option value="all" {% if selected_class == "all" %}selected{% endif %}>Все классы</option>
+
                     {% for classroom in classrooms %}
-                      <option value="{{ classroom.name }}">{{ classroom.name }}</option>
+                      <option value="{{ classroom.name }}" {% if selected_class == classroom.name %}selected{% endif %}>
+                        {{ classroom.name }}
+                      </option>
                     {% endfor %}
+
                   </select>
                 </div>
               </div>
@@ -58,7 +62,7 @@
                       <th scope="row">
                         <div class="media align-items-center">
                           <a href="#" class="avatar rounded-circle mr-3">
-                            <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
+                            <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
                           </a>
                           <div class="media-body">
                             <a href="{% url 'student_details' student.id %}" class="name mb-0 text-sm">{{ student.first_name }} {{ student.last_name }}</a>
@@ -78,27 +82,29 @@
               <ul class="pagination justify-content-end mb-0" >
                   {% if page_obj.has_previous %}
                     <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                      <a class="page-link" href="?class={{ selected_class }}&page={{ page_obj.previous_page_number }}">
                         <i class="fas fa-angle-left"></i>
                         <span class="sr-only">Previous</span>
                       </a>
                     </li>
                   {% endif %}
 
-              <div class="pagination mb-0" id="pageNumerization"></div>
+                  <div class="pagination mb-0" id="pageNumerization"></div>
 
                   {% if page_obj.has_next %}
                     <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                      <a class="page-link" href="?class={{ selected_class }}&page={{ page_obj.next_page_number }}">
                         <i class="fas fa-angle-right"></i>
                         <span class="sr-only">Next</span>
                       </a>
                     </li>
                   {% endif %}
                 </ul>
+                </nav>
+              </div>
 
-            </nav>
-          </div>
+
+
             </div>
           </div>
         </div>
@@ -113,36 +119,21 @@
 <!-- Specific JS goes HERE -->
 {% block javascripts %}
    <script>
-    document.getElementById('sortSelect').addEventListener('change', function () {
-        const selectedClass = this.value;
-        filterByClassRoom(selectedClass);
-    });
 
-    function filterByClassRoom(selectedClass) {
-        const table = document.querySelector('.table.align-items-center.table-flush tbody');
-        const rows = table.querySelectorAll('tr');
-
-        rows.forEach(row => {
-            const studentClass = row.querySelector('td.budget').innerText.trim();
-            if (selectedClass === 'all' || studentClass === selectedClass) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+        document.getElementById('sortSelect').addEventListener('change', function () {
+            const selectedClass = this.value;
+            window.location.href = `?class=${selectedClass}&page=1`;
         });
-    }
 
-    // Initialize the filter
-    filterByClassRoom('all');
 
-    const currPage = {{ page_obj.number }};
-          const totalPages = {{ page_obj.paginator.num_pages }};
-          const container = document.getElementById('pageNumerization');
+        const currPage = {{ page_obj.number }};
+        const totalPages = {{ page_obj.paginator.num_pages }};
+        const container = document.getElementById('pageNumerization');
 
-          let start = 1;
-          let end = totalPages;
+        let start = 1;
+        let end = totalPages;
 
-          if (totalPages > 3) {
+        if (totalPages > 3) {
             if (currPage <= 2) {
               start = 1;
               end = 3;
@@ -153,19 +144,19 @@
               start = currPage - 1;
               end = currPage + 1;
             }
-          }
+        }
 
-          for (let page = start; page <= end; page++) {
+        for (let page = start; page <= end; page++) {
             const li = document.createElement('li');
             li.className = 'page-item' + (page === currPage ? ' active' : '');
 
             const a = document.createElement('a');
             a.className = 'page-link';
-            a.href = `?page=${page}`;
+            a.href = `?class={{ selected_class }}&page=${page}`;
             a.textContent = page;
 
             li.appendChild(a);
             container.appendChild(li);
-          }
+        }
   </script>
 {% endblock javascripts %}

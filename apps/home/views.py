@@ -87,14 +87,24 @@ def teachers_list(request):
 
 @login_required(login_url="/login/")
 def students_list(request):
+    selected_class = request.GET.get('class', 'all')
     students = CustomUser.objects.filter(role='student')
+
+    if selected_class != 'all':
+        students = students.filter(classroom__name = selected_class)
+
     classrooms = ClassRoom.objects.all()
 
     page = request.GET.get('page')
     paginator = Paginator(students, 5)
     page_obj = paginator.get_page(page)
 
-    context = {'students': students, 'classrooms': classrooms, 'page_obj': page_obj}
+    context = {
+        'students': students,
+        'classrooms': classrooms,
+        'page_obj': page_obj,
+        'selected_class': selected_class,
+    }
     return render(request, 'home/students.html', context)
 
 @login_required(login_url="/login/")
