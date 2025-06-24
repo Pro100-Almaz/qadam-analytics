@@ -90,7 +90,7 @@
                                 <th scope="row">
                                     <div class="media align-items-center">
                                         <a href="#" class="avatar rounded-circle mr-3">
-                                            <img alt="Image placeholder" src="{% static 'assets/img/theme/team-1.jpg'%}">
+                                            <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
                                         </a>
                                         <div class="media-body">
                                             <span class="name mb-0 text-sm">{{ grade.student.get_full_name }}</span>
