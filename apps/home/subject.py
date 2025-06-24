@@ -71,8 +71,8 @@ def subject_details(request, pk):
     subject = get_object_or_404(Subject, pk=pk)
     students = CustomUser.objects.filter(role='student', classroom=subject.classroom)
     lessons = Lesson.objects.filter(subject=subject)
-    subject_adder = CustomUser.objects.get(id=subject.added_by_id)
-    teacher = CustomUser.objects.get(id=subject.teacher_id)
+    subject_adder = subject.added_by
+    teacher = subject.teacher
 
 
     grades = {}
@@ -93,4 +93,3 @@ def subject_details(request, pk):
                }
 
     return render(request, 'home/subject_details.html', context)
-
