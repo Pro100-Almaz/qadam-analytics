@@ -41,6 +41,15 @@ class Lesson(models.Model):
         ],
         help_text="Quarter of the lesson"
     )
+    unit = models.PositiveIntegerField(
+        default=1,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(4)
+        ],
+        help_text="Unit of the lesson"
+    )
+
     group = models.ForeignKey(LessonGroup, related_name='lesson_group', on_delete=models.SET_NULL, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
