@@ -1,11 +1,6 @@
-import os
-import hashlib
-
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-
-from apps.home.models import ClassRoom
 
 
 def user_avatar_upload_path():
@@ -25,6 +20,7 @@ class CustomUser(AbstractUser):
     ROLE_TEACHER = 'teacher'
     ROLE_STUDENT = 'student'
     ROLE_SUPERVISOR = 'supervisor'
+    ROLE_CLASS_TEACHER = 'class_teacher'
     ROLE_PRINCIPAL = 'principal'
     ROLE_ADMIN = 'admin'
 
@@ -51,17 +47,6 @@ class CustomUser(AbstractUser):
         default='avatars/default/default-user.jpeg'
     )
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
-    occupation = models.CharField(max_length=50, blank=True, null=True)
-    student_id = models.IntegerField(blank=True, null=True)
-    school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
-
-    classroom = models.ForeignKey(
-        ClassRoom,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
 
     def __str__(self):
         return self.first_name + " " + self.last_name
@@ -82,10 +67,39 @@ class CustomUser(AbstractUser):
         return self.student_id
 
 
+class Student(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+    classroom = models.ForeignKey(
+        'home.ClassRoom',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
+
+
+class Parent(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+    student_id = models.IntegerField(blank=True, null=True)
+
+
+class Teacher(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+    occupation = models.CharField(max_length=50, blank=True, null=True)
+
+
+class Supervisor(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+
 class PsychologicalState(models.Model):
     name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
-    student = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
 
     score = models.PositiveIntegerField(
         default=1,

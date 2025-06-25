@@ -2,11 +2,11 @@ from django.contrib import admin
 from django.conf import settings
 from django.urls import path, include  # add this
 from django.conf.urls.static import static
-from apps.home.views import students_list
+from apps.home.views import main_page
 
 
 urlpatterns = [
-    path("", students_list),
+    path("", main_page),
     path("", include("apps.authentication.urls")),  # Auth routes - login / register
     path('admin/', admin.site.urls),# Django admin route
 
