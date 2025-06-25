@@ -58,20 +58,22 @@ def get_comment_for_points(points, lesson):
 @login_required(login_url="/login/")
 def lessons_list(request):
     user = request.user
-    classroom_filter = request.GET.get('classroom')
-    subject_filter = request.GET.get('subject')
+    classroom_filter = request.GET.get('classroom', 'all')
+    subject_filter = request.GET.get('subject', 'all')
+
     lessons = Lesson.objects.all()
     classrooms = ClassRoom.objects.all()
-    subjects = [] if classroom_filter == "all" or classroom_filter is None else Subject.objects.filter(classroom__name=classroom_filter)
-    
-    number_of_students = {}
 
-    if classroom_filter and classroom_filter != "all":
+    if classroom_filter != 'all':
+        subjects = Subject.objects.filter(classroom__name=classroom_filter)
         lessons = lessons.filter(subject__classroom__name=classroom_filter)
+    else:
+        subjects = []
 
-    if subject_filter and subject_filter != "all":
+    if subject_filter != "all":
         lessons = lessons.filter(subject__name=subject_filter)
 
+    number_of_students = {}
     for lesson in lessons:
         number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
 
@@ -88,9 +90,6 @@ def lessons_list(request):
                "page_obj": page_obj,
                'user': user
                }
-
-    if request.method == 'POST':
-        pass
 
     return render(request, 'lesson/lessons.html', context)
 
