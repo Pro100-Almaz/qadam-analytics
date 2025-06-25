@@ -26,9 +26,14 @@
                       </button>
 
                       <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                          <a href="?classroom=all" class="btn dropdown-item  filter-btn classer" data-value="all">Все Классы</a>
+                          <a id="classValue" href="?classroom=all&subject=all" class="btn dropdown-item  filter-btn classer" data-value="all">Все Классы {% if classroom_filter == 'all' %} - Выбрано{% endif %}</a>
+
                           {% for class in classrooms %}
-                              <a href="?classroom={{ class.name }}" class="btn dropdown-item filter-btn classer" data-value="{{ class.name }}">{{ class.name }}</a>
+                              <a id="classValue" href="?classroom={{ class.name }}&subject=all" class="btn dropdown-item filter-btn classer" data-value="{{ class.name }}">
+                                  {{ class.name }}
+                                  {% if classroom_filter == class.name %}
+                                      - Выбрано
+                                  {% endif %}</a>
                           {% endfor %}
                       </div>
                   </div>
@@ -39,9 +44,9 @@
                 </button>
 
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                    <a href="?subject=all" class="btn dropdown-item  filter-btn" data-value="all">All Subjects</a>
+                    <a id="subjectValue" href="?classroom={{ classroom_filter }}&subject=all" class="btn dropdown-item  filter-btn" data-value="all">All Subjects {% if subject_filter == 'all' %} - Выбрано{% endif %}</a>
                     {% for subject in subjects %}
-                        <a  href="?subject={{ subject.name }}" class="btn dropdown-item filter-btn" data-value="{{ subject.name }}">{{ subject.name }}</a>
+                        <a id="subjectValue" href="?classroom={{ classroom_filter }}&subject={{ subject.name }}" class="btn dropdown-item filter-btn" data-value="{{ subject.name }}">{{ subject.name }} {% if subject_filter == subject.name %} - Выбрано{% endif %}</a>
                     {% endfor %}
                 </div>
               </div>
@@ -75,7 +80,7 @@
             <table class="table align-items-center table-flush">
               <thead class="thead-light">
                 <tr>
-                  <th scope="col" class="sort" data-sort="name">Имя</th>
+                  <th scope="col" class="sort" data-sort="name">Название</th>
                     <th scope="col" class="sort" data-sort="classroom">Класс</th>
                   <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
@@ -156,8 +161,12 @@
                     </td>
                   </tr>
                 {% endfor %}
+
               </tbody>
             </table>
+          {% if not page_obj %}
+                  <p class="text-center text-muted bold">Нет подходящих уроков.</p>
+                {% endif %}
           </div>
 
           <!-- Card footer -->
@@ -166,7 +175,7 @@
               <ul class="pagination justify-content-end mb-0" >
                   {% if page_obj.has_previous %}
                     <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                      <a class="page-link" href="?classroom={{ classroom_filter|default:'all' }}&subject={{ subject_filter|default:'all' }}&page={{ page_obj.previous_page_number }}">
                         <i class="fas fa-angle-left"></i>
                         <span class="sr-only">Previous</span>
                       </a>
@@ -177,7 +186,7 @@
 
                   {% if page_obj.has_next %}
                     <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                      <a class="page-link" href="?classroom={{ classroom_filter|default:'all' }}&subject={{ subject_filter|default:'all' }}&page={{ page_obj.next_page_number }}">
                         <i class="fas fa-angle-right"></i>
                         <span class="sr-only">Next</span>
                       </a>
@@ -204,7 +213,7 @@
         const params = new URLSearchParams(window.location.search);
         const selectedClassroom = params.get("classroom");
 
-        if ( selectedClassroom && selectedClassroom !== "all" ){
+        if( selectedClassroom && selectedClassroom !== "all" ){
             document.getElementById("dropdownMenuButtonSubject").disabled = false;
         }else{
             document.getElementById("dropdownMenuButtonSubject").disabled = true;
@@ -223,37 +232,39 @@
             });
           });
         });
-          const currPage = {{ page_obj.number }};
-          const totalPages = {{ page_obj.paginator.num_pages }};
-          const container = document.getElementById('pageNumerization');
 
-          let start = 1;
-          let end = totalPages;
 
-          if (totalPages > 3) {
+        const currPage = {{ page_obj.number }};
+        const totalPages = {{ page_obj.paginator.num_pages }};
+        const container = document.getElementById('pageNumerization');
+
+        let start = 1;
+        let end = totalPages;
+
+        if (totalPages > 3) {
             if (currPage <= 2) {
-              start = 1;
-              end = 3;
+                start = 1;
+                end = 3;
             } else if (currPage >= totalPages - 1) {
-              start = totalPages - 2;
-              end = totalPages;
+                start = totalPages - 2;
+                end = totalPages;
             } else {
-              start = currPage - 1;
-              end = currPage + 1;
+                start = currPage - 1;
+                end = currPage + 1;
             }
-          }
+        }
 
-          for (let page = start; page <= end; page++) {
+        for (let page = start; page <= end; page++) {
             const li = document.createElement('li');
             li.className = 'page-item' + (page === currPage ? ' active' : '');
 
             const a = document.createElement('a');
             a.className = 'page-link';
-            a.href = `?page=${page}`;
+            a.href = `?class={{ classroom_filter }}&subject={{ subject_filter }}&page=${page}`;
             a.textContent = page;
 
             li.appendChild(a);
             container.appendChild(li);
-          }
+        }
     </script>
 {% endblock javascripts %}
