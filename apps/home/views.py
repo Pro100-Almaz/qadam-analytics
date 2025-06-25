@@ -6,7 +6,8 @@ from django.urls import reverse
 from django.shortcuts import render, redirect
 from django.contrib import messages
 
-from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState
+from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
+    Teacher, Student, Supervisor
 
 
 @login_required(login_url="/login/")
@@ -18,12 +19,15 @@ def index(request):
 def main_page(request):
     context = {}
 
-    if request.user.is_teacher:
+    if Teacher.objects.filter(user=request.user).exists():
         template_name = 'teacher.html'
+    elif Supervisor.objects.filter(user=request.user).exists():
+        template_name = 'supervisor.html'
+    elif Student.objects.filter(user=request.user).exists():
+        template_name = 'student.html'
     else:
         template_name = 'default.html'
 
-    print("returning the template name: ", template_name)
     return render(request, 'main_page/' + template_name, context)
 
 
