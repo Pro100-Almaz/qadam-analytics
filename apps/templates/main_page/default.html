@@ -1,0 +1,459 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Добро пожаловать - School Internal Service {% endblock title %}
+
+{% block stylesheets %}
+<style>
+.welcome-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 4rem 2rem;
+    color: white;
+    text-align: center;
+    margin-bottom: 3rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.welcome-hero h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.welcome-hero p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin-bottom: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    border: none;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    font-size: 2rem;
+    color: white;
+}
+
+.feature-card h4 {
+    color: #2d3748;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: #718096;
+    line-height: 1.6;
+    margin-bottom: 0;
+}
+
+.info-section {
+    background: white;
+    border-radius: 15px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+}
+
+.info-section h3 {
+    color: #2d3748;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.info-section h3 i {
+    margin-right: 0.75rem;
+    color: #667eea;
+}
+
+.contact-info {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    color: #4a5568;
+}
+
+.contact-item:last-child {
+    margin-bottom: 0;
+}
+
+.contact-item i {
+    width: 20px;
+    margin-right: 1rem;
+    color: #667eea;
+}
+
+.quick-links {
+    list-style: none;
+    padding: 0;
+}
+
+.quick-links li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+}
+
+.quick-links li:last-child {
+    border-bottom: none;
+}
+
+.quick-links li i {
+    width: 20px;
+    margin-right: 1rem;
+    color: #667eea;
+}
+
+.quick-links li a {
+    color: #4a5568;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.quick-links li a:hover {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.stat-item {
+    background: white;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: #718096;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .welcome-hero {
+        padding: 2rem 1rem;
+    }
+    
+    .welcome-hero h1 {
+        font-size: 2rem;
+    }
+    
+    .welcome-hero p {
+        font-size: 1rem;
+    }
+    
+    .info-section {
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock stylesheets %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Hero Section -->
+    <div class="welcome-hero">
+        <h1>Добро пожаловать!</h1>
+        <p>
+            Добро пожаловать в нашу школьную информационную систему. 
+            Здесь вы можете получить всю необходимую информацию о нашей школе, 
+            образовательных программах и услугах.
+        </p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="#about" class="btn btn-light btn-lg">
+                <i class="fas fa-info-circle mr-2"></i>О школе
+            </a>
+            <a href="#contact" class="btn btn-outline-light btn-lg">
+                <i class="fas fa-phone mr-2"></i>Контакты
+            </a>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon bg-primary">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <h4>Качественное образование</h4>
+                <p>
+                    Мы предоставляем высококачественное образование с использованием 
+                    современных методик и технологий обучения.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon bg-success">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h4>Опытные преподаватели</h4>
+                <p>
+                    Наша команда состоит из квалифицированных и опытных педагогов, 
+                    которые заботятся о каждом ученике.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon bg-info">
+                    <i class="fas fa-laptop"></i>
+                </div>
+                <h4>Современные технологии</h4>
+                <p>
+                    Мы используем передовые технологии для улучшения процесса 
+                    обучения и взаимодействия с учениками и родителями.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- School Statistics -->
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number">{{ total_students|default:"500+" }}</div>
+            <div class="stat-label">Учеников</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ total_teachers|default:"45+" }}</div>
+            <div class="stat-label">Преподавателей</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ total_classes|default:"25+" }}</div>
+            <div class="stat-label">Классов</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ school_years|default:"15+" }}</div>
+            <div class="stat-label">Лет работы</div>
+        </div>
+    </div>
+
+    <!-- Information Sections -->
+    <div class="row mt-5">
+        <div class="col-lg-6 mb-4">
+            <div class="info-section" id="about">
+                <h3>
+                    <i class="fas fa-school"></i>
+                    О нашей школе
+                </h3>
+                <p class="mb-3">
+                    Наша школа является ведущим образовательным учреждением, которое 
+                    предоставляет качественное образование уже более 15 лет. Мы гордимся 
+                    нашими достижениями и стремимся к постоянному развитию.
+                </p>
+                <ul class="quick-links">
+                    <li>
+                        <i class="fas fa-check"></i>
+                        <a href="#">Аккредитованные образовательные программы</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-check"></i>
+                        <a href="#">Современная материально-техническая база</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-check"></i>
+                        <a href="#">Дополнительные образовательные услуги</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-check"></i>
+                        <a href="#">Подготовка к поступлению в вузы</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="info-section" id="contact">
+                <h3>
+                    <i class="fas fa-address-book"></i>
+                    Контактная информация
+                </h3>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>г. Алматы, ул. Образования, 123</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+7 (727) 123-45-67</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>info@school.kz</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Пн-Пт: 8:00 - 18:00</span>
+                    </div>
+                </div>
+                
+                <h5 class="mt-4 mb-3">Полезные ссылки</h5>
+                <ul class="quick-links">
+                    <li>
+                        <i class="fas fa-external-link-alt"></i>
+                        <a href="#" target="_blank">Министерство образования РК</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-book"></i>
+                        <a href="#">Учебные материалы</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-calendar"></i>
+                        <a href="#">Расписание занятий</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-newspaper"></i>
+                        <a href="#">Новости школы</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Information -->
+    <div class="info-section">
+        <h3>
+            <i class="fas fa-info-circle"></i>
+            Важная информация
+        </h3>
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Для учеников:</h5>
+                <p class="text-muted">
+                    Если вы ученик нашей школы, обратитесь к своему классному руководителю 
+                    для получения доступа к электронному дневнику и другим образовательным ресурсам.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <h5>Для родителей:</h5>
+                <p class="text-muted">
+                    Родители могут получить информацию об успеваемости своих детей, 
+                    связавшись с администрацией школы или классным руководителем.
+                </p>
+            </div>
+        </div>
+        <div class="alert alert-info mt-3" role="alert">
+            <i class="fas fa-lightbulb mr-2"></i>
+            <strong>Совет:</strong> Для получения полного доступа к системе обратитесь к администрации школы.
+        </div>
+    </div>
+</div>
+
+{% include "includes/footer.html" %}
+{% endblock content %}
+
+{% block javascripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Smooth scrolling for anchor links
+    $('a[href^="#"]').on('click', function(event) {
+        var target = $(this.getAttribute('href'));
+        if( target.length ) {
+            event.preventDefault();
+            $('html, body').stop().animate({
+                scrollTop: target.offset().top - 100
+            }, 1000);
+        }
+    });
+
+    // Animate statistics on scroll
+    function animateStats() {
+        $('.stat-number').each(function() {
+            const $this = $(this);
+            const countTo = parseInt($this.text().replace(/\D/g, ''));
+            const suffix = $this.text().replace(/\d/g, '');
+            
+            if (countTo > 0) {
+                $({ countNum: 0 }).animate({
+                    countNum: countTo
+                }, {
+                    duration: 2000,
+                    easing: 'linear',
+                    step: function() {
+                        $this.text(Math.floor(this.countNum) + suffix);
+                    },
+                    complete: function() {
+                        $this.text(this.countNum + suffix);
+                    }
+                });
+            }
+        });
+    }
+
+    // Trigger animation when stats come into view
+    $(window).on('scroll', function() {
+        const statsOffset = $('.stats-grid').offset();
+        if (statsOffset && $(window).scrollTop() + $(window).height() > statsOffset.top) {
+            animateStats();
+            $(window).off('scroll'); // Run only once
+        }
+    });
+
+    // Add hover effects to feature cards
+    $('.feature-card').hover(
+        function() {
+            $(this).find('.feature-icon').addClass('animate__animated animate__pulse');
+        },
+        function() {
+            $(this).find('.feature-icon').removeClass('animate__animated animate__pulse');
+        }
+    );
+
+    // Add click tracking for external links
+    $('a[target="_blank"]').on('click', function() {
+        const linkText = $(this).text();
+        console.log('External link clicked:', linkText);
+    });
+});
+</script>
+{% endblock javascripts %}

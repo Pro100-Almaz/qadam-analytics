@@ -9,6 +9,16 @@ from apps.authentication.models import CustomUser
 from django.shortcuts import render, redirect, get_object_or_404
 
 
+def get_students(subjects) -> dict:
+    number_of_students = {}
+    for subject in subjects:
+        number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
+    return number_of_students
+
+def get_students_count(subject_id: int) -> int:
+    return Subject.objects.filter(id=subject_id).count()
+
+
 @login_required(login_url="/login/")
 def subject_create(request):
     if request.method == "POST":
@@ -26,15 +36,6 @@ def subject_create(request):
 
     return render(request, "home/new_subject.html", {"form": form})
 
-
-def get_students(subjects) -> dict:
-    number_of_students = {}
-    for subject in subjects:
-        number_of_students[subject.id] = CustomUser.objects.filter(role='student', classroom=subject.classroom).count()
-    return number_of_students
-
-def get_students_count(subject_id: int) -> int:
-    return Subject.objects.filter(id=subject_id).count()
 
 @login_required(login_url="/login/")
 def subjects_list(request):

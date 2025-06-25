@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from apps.authentication.models import Teacher
 
 
 class ClassRoom(models.Model):
@@ -26,7 +27,7 @@ class Subject(models.Model):
     maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
 
     teacher = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        Teacher,
         limit_choices_to={'role': 'teacher'},
         related_name='teacher',
         help_text="Teacher responsible for this lesson",
