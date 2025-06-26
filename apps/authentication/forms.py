@@ -1,7 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import CustomUser
+from .models import CustomUser, SchoolGroup
+from ..home.models import ClassRoom
 
 
 class LoginForm(forms.Form):
@@ -115,21 +116,63 @@ class SignUpForm(UserCreationForm):
             }
         )
     )
+    occupation = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "Преподаваемый предмет",
+            "class": "form-control",
+            "id": "id_occupation"
+        })
+    )
 
     student_id = forms.IntegerField(
         required=False,
-        widget=forms.TextInput(
-            attrs={
-                "placeholder": "ID ученика",
-                "class": "form-control"
-            }
-        )
+        widget=forms.TextInput(attrs={
+            "placeholder": "ID ученика",
+            "class": "form-control",
+            "id": "id_student_id"
+        })
+    )
+
+    classroom = forms.ModelChoiceField(
+        queryset=ClassRoom.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={
+            "class": "form-control",
+            "id": "id_classroom"
+        })
+    )
+
+    school_group = forms.ModelChoiceField(
+        queryset=SchoolGroup.objects.all(),
+        required=False,
+        widget=forms.Select(attrs={
+            "class": "form-control",
+            "id": "id_school_group"
+        })
     )
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar', 'student_id')
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        role = self.cleaned_data['role']
+        if commit:
+            user.save()
+
+            if role == 'teacher':
+                from .models import Teacher
+                Teacher.objects.create(user=user, occupation=self.cleaned_data.get('occupation'))
+            elif role == 'student':
+                from .models import Student
+                Student.objects.create(user=user, classroom=self.cleaned_data.get('classroom'), school_group=self.cleaned_data.get('school_group'))
+            elif role == 'parent':
+                from .models import Parent
+                student_id = self.cleaned_data.get('student_id')
+                Parent.objects.create(user=user, student_id=student_id)
+        return user
 
 class ForgetPasswordForm(forms.Form):
     username = forms.CharField(
