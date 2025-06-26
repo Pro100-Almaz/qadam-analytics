@@ -18,6 +18,25 @@
             </nav>
           </div>
           <div class="col-lg-6 col-5 text-right">
+              <div class="dropdown">
+                  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Статус
+                  </button>
+
+                  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    <a href="?status=all" class="dropdown-item filter-btn classer" data-value="all">
+                      Все Классы {% if status == 'all' %} - Выбрано{% endif %}
+                    </a>
+
+                    {% for key, label in STATUS_CHOICES %}
+                      <a href="?status={{ key }}" class="dropdown-item filter-btn classer" data-value="{{ label }}">
+                        {{ label }} {% if status == key %} - Выбрано{% endif %}
+                      </a>
+                    {% endfor %}
+                  </div>
+              </div>
+
+
             {% if user.is_manager or user.is_superuser %}
               <button type="button" class="btn btn-primary">
                 <a href="{% url 'new_subject' %}"
@@ -46,7 +65,7 @@
             <table class="table align-items-center table-flush">
               <thead class="thead-light">
                 <tr>
-                  <th scope="col" class="sort" data-sort="name">Имя</th>
+                  <th scope="col" class="sort" data-sort="name">Название</th>
                   <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
                   <th scope="col" class="sort" data-sort="teacher">Учитель</th>
@@ -120,9 +139,15 @@
                           <i class="fas fa-ellipsis-v"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
-                          <a class="dropdown-item" href="#">Action</a>
-                          <a class="dropdown-item" href="#">Another action</a>
-                          <a class="dropdown-item" href="#">Something else here</a>
+                          <form method="POST" action="{% url 'delete_subject' subject.pk%}" style="display: inline;">
+                              {% csrf_token %}
+                              <button type="submit" class="dropdown-item">Удалить</button>
+                          </form>
+
+                          <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">Архивировать</button>
+                          </form>
                         </div>
                       </div>
                     </td>
@@ -170,6 +195,7 @@
 
 {% block javascripts %}
 <script>
+
   const currPage = {{ page_obj.number }};
   const totalPages = {{ page_obj.paginator.num_pages }};
   const container = document.getElementById('pageNumerization');
