@@ -100,9 +100,9 @@
               <i class="ni ni-mobile-button mr-2"></i>{{ user.phone_number }}
             </div>
             {% endif %}
-            {% if user.occupation %}
+            {% if user.is_teacher %}
             <div class="h5 mt-4">
-              <i class="ni ni-briefcase-24 mr-2"></i>{{ user.occupation }}
+              <i class="ni ni-briefcase-24 mr-2"></i>{{ teacher.occupation }}
             </div>
             {% endif %}
             {% if user.classroom %}
@@ -276,12 +276,12 @@
               {% endif %}
             </div>
             {% endif %}
-            {% if user.occupation %}
+            {% if teacher.occupation %}
             <div class="row">
               <div class="col-lg-12">
                 <div class="form-group">
                   <label class="form-control-label">Занятость</label>
-                  <p class="form-control-static">{{ user.occupation }}</p>
+                  <p class="form-control-static">{{ teacher.occupation }}</p>
                 </div>
               </div>
             </div>
@@ -305,10 +305,6 @@
       </div>
     </div>
   </div>
-
-
-
-
 
 
   {% include "includes/footer.html" %}
@@ -370,20 +366,36 @@
               </div>
             </div>
           </div>
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label class="form-control-label" for="input-occupation">Занятость</label>
-                <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ user.occupation }}">
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label class="form-control-label" for="input-avatar">Profile Picture</label>
-                <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
-              </div>
-            </div>
-          </div>
+
+            {% if user.is_teacher %}
+                <div class="row">
+                    <div class="col-lg-6">
+                      <div class="form-group">
+                        <label class="form-control-label" for="input-occupation">Занятость</label>
+                        <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ user.occupation }}">
+                      </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                      <div class="form-group">
+                        <label class="form-control-label" for="input-avatar">Profile Picture</label>
+                        <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
+                      </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="row">
+                    <div class="col-lg-12">
+                      <div class="form-group">
+                        <label class="form-control-label" for="input-avatar">Profile Picture</label>
+                        <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
+                      </div>
+                    </div>
+                </div>
+
+            {% endif %}
+
+
           <div class="row">
             <div class="col-md-12">
               <div class="form-group">

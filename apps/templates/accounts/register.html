@@ -125,12 +125,42 @@
                             </div>
                           </div>
 
-                          <div class="row mt-3">
-                            <div class="col">
-                                <label for="id_student_id">ID ученика </label>
-                                {{ form.student_id }}
+
+                            <div>
+{#                                For Parent#}
+                                <div class="row mt-3 d-none" id="student_id_row">
+                                    <div class="col">
+                                        <label for="id_student_id">ID ученика</label>
+                                        {{ form.student_id }}
+                                    </div>
+                                </div>
+
+{#                                For Teachers#}
+                                <div class="row mt-3 d-none" id="teacher_occupation_row">
+                                    <div class="col">
+                                        <label for="id_occupation">Занятость</label>
+                                        {{ form.occupation }}
+                                    </div>
+                                </div>
+
+{#                                For Students#}
+                                <div id="student_details" class="d-none">
+                                    <div class="row mt-3">
+                                        <div class="col">
+                                            <label for="id_classroom">Класс</label>
+                                            {{ form.classroom }}
+                                        </div>
+                                    </div>
+                                    <div class="row mt-3">
+                                        <div class="col">
+                                            <label for="id_school_group">Учебная группа</label>
+                                            {{ form.school_group }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                          </div>
+
+
 
                           <div class="row mt-3">
                             <div class="col-12 col-sm-6">
@@ -175,21 +205,36 @@
 
 {% block javascripts %}
 <script>
+
 document.addEventListener("DOMContentLoaded", function (){
    const roleField = document.getElementById('id_role');
-   const studentIdField = document.getElementById('id_student_id');
 
-   function toggleStudentIdField(){
-        if (roleField.value === 'parent' || roleField.value === 'admin'){
-            studentIdField.disabled = false;
-       }else{
-            studentIdField.disabled = true;
-        }
+   const studentIdRow = document.getElementById('student_id_row');
+   const studentDetailsRow = document.getElementById('student_details')
+   const teacherOccupationRow = document.getElementById('teacher_occupation_row')
+
+
+
+   function toggleFields(){
+       const role = roleField.value;
+
+       studentIdRow.classList.add('d-none');
+       teacherOccupationRow.classList.add('d-none');
+       studentDetailsRow.classList.add('d-none');
+
+       if (role === 'parent' || role === 'admin') {
+            studentIdRow.classList.remove('d-none');
+       } else if (role === 'teacher') {
+            teacherOccupationRow.classList.remove('d-none');
+       } else if (role === 'student') {
+            studentDetailsRow.classList.remove('d-none');
+       }
    }
 
-   toggleStudentIdField();
 
-   roleField.addEventListener('change', toggleStudentIdField);
+   toggleFields();
+
+   roleField.addEventListener('change', toggleFields);
 });
 
 
