@@ -6,7 +6,7 @@ from django.http import JsonResponse
 
 from .forms import LessonForm, LessonGroupForm
 from .models import Lesson, StudentGrade, Comment
-from apps.authentication.models import CustomUser
+from apps.authentication.models import CustomUser, Student
 from apps.home.models import Subject, ClassRoom, QuarterGrader
 
 
@@ -75,7 +75,7 @@ def lessons_list(request):
 
     number_of_students = {}
     for lesson in lessons:
-        number_of_students[lesson.title] = CustomUser.objects.filter(classroom=lesson.subject.classroom).count()
+        number_of_students[lesson.title] = Student.objects.filter(classroom=lesson.subject.classroom).count()
 
     page = request.GET.get('page')
     paginator = Paginator(lessons, 5)
@@ -114,7 +114,7 @@ def lesson_details_json(request, pk):
                 lesson=lesson,
                 student=student
             ).first()
-            
+
             lessons_data.append({
                 'id': lesson.id,
                 'title': lesson.title,
@@ -188,9 +188,10 @@ def grading(request):
         if action == 'update':
             if not grade_id:
                 messages.error(request, "Grade ID is required for update!")
-                return redirect('lesson_details', pk=lesson_id)
+                return redirect('lesson:lesson_details', pk=lesson_id)
 
             try:
+                print("nnnnnnnnnnnnnnnnnnnn")
                 grade = StudentGrade.objects.get(id=grade_id)
                 points = request.POST.get('points')
                 grade_value = request.POST.get('grade')
@@ -200,24 +201,28 @@ def grading(request):
                         points = int(points)
                         if points < 0 or points > lesson.maximum_points:
                             messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                            return redirect('lesson_details', pk=lesson_id)
+                            return redirect('lesson:lesson_details', pk=lesson_id)
                         grade.points = points
                         grade.grade = calculate_grade(points, lesson.maximum_points)
-                        grade.comment = get_comment_for_points(points, lesson)
+                        manual_comment = request.POST.get('comment', '').strip()
+                        if manual_comment:
+                            grade.comment = manual_comment
+                        else:
+                            grade.comment = get_comment_for_points(points, lesson)
                     except ValueError:
                         messages.error(request, "Points must be a valid number!")
-                        return redirect('lesson_details', pk=lesson_id)
+                        return redirect('lesson:lesson_details', pk=lesson_id)
                 
                 if grade_value and grade_value.strip():
                     try:
                         grade_value = int(grade_value)
                         if grade_value not in [1, 2, 3, 4, 5]:
                             messages.error(request, "Grade must be between 1 and 5!")
-                            return redirect('lesson_details', pk=lesson_id)
+                            return redirect('lesson:lesson_details', pk=lesson_id)
                         grade.grade = grade_value
                     except ValueError:
                         messages.error(request, "Grade must be a valid number!")
-                        return redirect('lesson_details', pk=lesson_id)
+                        return redirect('lesson:lesson_details', pk=lesson_id)
 
                 grade.save()
                 messages.success(request, "Grade updated successfully!")
@@ -225,30 +230,30 @@ def grading(request):
 
             except StudentGrade.DoesNotExist:
                 messages.error(request, "Grade not found!")
-                return redirect('lesson_details', pk=lesson_id)
+                return redirect('lesson:lesson_details', pk=lesson_id)
 
-        if not CustomUser.objects.filter(id=student_id, role='student').exists():
+        if not CustomUser.objects.filter(id=student_id).exists():
             return render(request, 'home/page-404.html')
 
         points = request.POST.get(f'points_{student_id}')
 
         try:
-            existing_grade = StudentGrade.objects.get(lesson_id=lesson_id, student_id=student_id)
+            existing_grade = StudentGrade.objects.get(lesson=lesson, student_id=student_id)
             if not points or not points.strip():
                 points = existing_grade.points
         except StudentGrade.DoesNotExist:
             if not points or not points.strip():
                 messages.error(request, "Points cannot be empty for new grades!")
-                return redirect('lesson_details', pk=lesson_id)
+                return redirect('lesson:lesson_details', pk=lesson_id)
 
         try:
             points = int(points)
             if points < 0 or points > lesson.maximum_points:
                 messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                return redirect('lesson_details', pk=lesson_id)
+                return redirect('lesson:lesson_details', pk=lesson_id)
         except ValueError:
             messages.error(request, "Points must be a valid number!")
-            return redirect('lesson_details', pk=lesson_id)
+            return redirect('lesson:lesson_details', pk=lesson_id)
 
         grade_value = calculate_grade(points, lesson.maximum_points)
         comment = get_comment_for_points(points, lesson)
@@ -301,7 +306,7 @@ def grading(request):
         return render(request, 'home/page-404.html')
 
     lesson = get_object_or_404(Lesson, id=lesson_id)
-    students = CustomUser.objects.filter(role='student', classroom=lesson.subject.classroom)
+    students = Student.objects.filter(classroom=lesson.subject.classroom)
 
 
     existing_grades = StudentGrade.objects.filter(lesson=lesson)
