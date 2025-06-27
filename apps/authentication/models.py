@@ -63,8 +63,28 @@ class CustomUser(AbstractUser):
     def is_parent(self):
         return self.role == CustomUser.ROLE_PARENT
 
+    def is_student(self):
+        return self.role == CustomUser.ROLE_STUDENT
+
     def get_student_id(self):
-        return self.student_id
+        if self.is_parent():
+            try:
+                parent = Parent.objects.get(user=self)
+                return parent.student_id
+            except Parent.DoesNotExist:
+                return None
+        return None
+
+    def get_linked_student(self):
+        student_id = self.get_student_id()
+        if student_id:
+            try:
+                student = CustomUser.objects.get(student_id=student_id)
+                return Student.objects.get(user=student)
+            except (Student.DoesNotExist, CustomUser.DoesNotExist):
+                return None
+        return None
+
 
 
 class Student(models.Model):

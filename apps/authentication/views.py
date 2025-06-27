@@ -11,7 +11,7 @@ from django.core.signing import Signer
 
 from core import settings
 from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm
-from .models import CustomUser
+from .models import CustomUser, Teacher, Parent, Supervisor, Student
 from errors import find_error_by_key
 
 
@@ -52,20 +52,24 @@ def register_user(request):
     if request.method == "POST":
         form = SignUpForm(request.POST, request.FILES)
         if form.is_valid():
+
             user = form.save(commit=False)
             user.username = user.email
+
             
             if CustomUser.objects.filter(username=user.username).exists():
                 context["error"] = find_error_by_key("email")
             else:
+                user.save()
                 # Handle avatar upload
                 if 'avatar' in request.FILES:
                     user.avatar = request.FILES['avatar']
-                user.save()
+
+                form.save(commit=True)
                 login(request, user)
+
                 if user.is_parent:
                     return redirect("/pages/teachers")
-
                 return redirect("/pages")
         else:
             # Add form errors to context
