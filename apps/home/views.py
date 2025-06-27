@@ -3,11 +3,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpResponseRedirect
 from django.urls import reverse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
-    Teacher, Student, Supervisor
+    Teacher, Student, Supervisor, Parent
 
 
 @login_required(login_url="/login/")
@@ -34,17 +34,13 @@ def main_page(request):
 @login_required(login_url="/login/")
 def profile(request):
     user = request.user
-    student = None
-    if user.role == 'parent' and user.student_id:
-        try:
-            student = CustomUser.objects.get(id=user.student_id)
-        except CustomUser.DoesNotExist:
-            student = None
 
     context = {
         'user': user,
-        'student': student
+        'student': user.get_linked_student() if user.is_parent() else None,
+        'teacher': Teacher.objects.filter(user=user).first() if user.is_teacher() else None,
     }
+
     return render(request, 'home/profile.html', context)
 
 
