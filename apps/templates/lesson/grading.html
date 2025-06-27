@@ -65,33 +65,33 @@
                                             <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
                                         </a>
                                         <div class="media-body">
-                                            <span class="name mb-0 text-sm">{{ student.get_full_name }}</span>
+                                            <span class="name mb-0 text-sm">{{ student.user.get_full_name }}</span>
                                         </div>
                                     </div>
                                 </th>
                                 <td>
                                     <input type="number" class="form-control" 
-                                           name="points_{{ student.id }}" 
+                                           name="points_{{ student.user.id }}"
                                            min="0" max="{{ lesson.maximum_points }}"
-                                           value="{{ student_grades|get_item:student.id|get_item:'points'|default:'' }}"
-                                           form="grade_form_{{ student.id }}">
+                                           value="{{ student_grades|get_item:student.user.id|get_item:'points'|default:'' }}"
+                                           form="grade_form_{{ student.user.id }}">
                                 </td>
                                 <td>
                                     <span class="badge badge-dot mr-4">
-                                        <i class="bg-{{ student_grades|get_item:student.id|get_item:'grade'|default:'warning' }}"></i>
-                                        <span class="status">{{ student_grades|get_item:student.id|get_item:'grade'|default:'-' }}</span>
+                                        <i class="bg-{{ student_grades|get_item:student.user.id|get_item:'grade'|default:'warning' }}"></i>
+                                        <span class="status">{{ student_grades|get_item:student.user.id|get_item:'grade'|default:'-' }}</span>
                                     </span>
                                 </td>
                                 <td>
                                     <div class="text-sm text-muted">
-                                        {{ student_grades|get_item:student.id|get_item:'comment'|default:'-' }}
+                                        {{ student_grades|get_item:student.user.id|get_item:'comment'|default:'-' }}
                                     </div>
                                 </td>
                                 <td>
-                                    <form id="grade_form_{{ student.id }}" method="POST" action="{% url 'lesson:grading' %}">
+                                    <form id="grade_form_{{ student.user.id }}" method="POST" action="{% url 'lesson:grading' %}">
                                         {% csrf_token %}
                                         <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-                                        <input type="hidden" name="student_id" value="{{ student.id }}">
+                                        <input type="hidden" name="student_id" value="{{ student.user.id }}">
                                         <button type="submit" class="btn btn-sm btn-primary" >Сохранить</button>
                                     </form>
                                 </td>
