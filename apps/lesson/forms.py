@@ -12,7 +12,7 @@ class LessonForm(forms.ModelForm):
         fields = [
             "title", "description", "subject",
             "average_points", "maximum_points",
-            "status", "quarter", "group",
+            "status", "quarter", "group", "unit"
         ]
         widgets = {
             "title": forms.TextInput(attrs={
@@ -39,6 +39,10 @@ class LessonForm(forms.ModelForm):
                 "min": 1, "max": 4,
             }),
             "group": forms.Select(attrs={"class": "form-control"}),
+            "unit": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": 1, "max": 4,
+            }),
         }
 
 

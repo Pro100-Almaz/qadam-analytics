@@ -16,7 +16,8 @@ class Subject(models.Model):
     STATUS_CHOICES = (
         ('active', 'Active'),
         ('planned', 'Planned'),
-        ('disabled', 'Disabled')
+        ('disabled', 'Disabled'),
+        ('archived', 'Archived'),
     )
 
     name = models.CharField(max_length=100, help_text="Subject taught in the lesson")
@@ -28,7 +29,7 @@ class Subject(models.Model):
 
     teacher = models.ForeignKey(
         Teacher,
-        limit_choices_to={'role': 'teacher'},
+        # limit_choices_to={'role': 'teacher'},
         related_name='teacher',
         help_text="Teacher responsible for this lesson",
         on_delete=models.SET_NULL,
