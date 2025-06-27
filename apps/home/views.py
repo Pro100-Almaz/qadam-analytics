@@ -91,7 +91,7 @@ def pages(request):
 
 @login_required(login_url="/login/")
 def teachers_list(request):
-    teachers = CustomUser.objects.filter(role='teacher')
+    teachers = Teacher.objects.all()
     page = request.GET.get('page')
     paginator = Paginator(teachers, 5)
     page_obj = paginator.get_page(page)
