@@ -2,7 +2,8 @@ from django.urls import path, re_path
 from apps.home import views
 
 from apps.home.repo.students import students_list, student_details, classes
-from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details
+from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
+    delete_subject
 
 urlpatterns = [
     path('main/', views.main_page, name='main'),
@@ -16,6 +17,8 @@ urlpatterns = [
 
     path('teachers', views.teachers_list, name='teachers'),
     path('subjects', subjects_list, name='subjects'),
+    path("subjects/<int:pk>/archive/", archive_subject, name="archive_subject"),
+    path("subjects/<int:pk>/delete/", delete_subject, name="delete_subject"),
     path('my_subjects', my_subjects_list, name='my_subjects'),
     path('subjects/new', subject_create, name='new_subject'),
     path('subjects/<int:pk>', subject_details, name='subject_details'),
