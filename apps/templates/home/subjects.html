@@ -115,12 +115,13 @@
 
 
                       <div class="avatar-group">
-                        {% for teacher in subject.teachers.all %}
-                          <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="{{ teacher.user.first_name }} {{ teacher.user.last_name }}">
-                            <img alt="Image placeholder" src="media/user_avatars/teacher.user.email/teacher.user.avatar">
-                          </a>
-                        {% endfor %}
-
+                          {% if subject.teacher != null %}
+                            <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="{{ subject.teacher.user.first_name }} {{ subject.teacher.user.last_name }}">
+                                <img alt="Image placeholder" src="media/user_avatars/teacher.user.email/teacher.user.avatar">
+                            </a>
+                          {% else %}
+                            <a>No teacher</a>
+                          {% endif %}
                       </div>
                     </td>
                     <td>
