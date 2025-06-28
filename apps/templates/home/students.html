@@ -39,6 +39,7 @@
                     {% for classroom in classrooms %}
                       <option value="{{ classroom.name }}" {% if selected_class == classroom.name %}selected{% endif %}>
                         {{ classroom.name }}
+
                       </option>
                     {% endfor %}
 
@@ -62,10 +63,10 @@
                       <th scope="row">
                         <div class="media align-items-center">
                           <a href="#" class="avatar rounded-circle mr-3">
-                            <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
+                            <img src="{{ student.user.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
                           </a>
                           <div class="media-body">
-                            <a href="{% url 'student_details' student.id %}" class="name mb-0 text-sm">{{ student.first_name }} {{ student.last_name }}</a>
+                            <a href="{% url 'student_details' student.user.id %}" class="name mb-0 text-sm">{{ student.user.first_name }} {{ student.user.last_name }}</a>
                           </div>
                         </div>
                       </th>
