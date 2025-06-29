@@ -41,7 +41,7 @@
                   </tr>
                 </thead>
                 <tbody class="list">
-                  {% for teacher in teachers %}
+                  {% for teacher in page_obj %}
                     <tr>
                       <th scope="row">
                         <div class="media align-items-center">
@@ -59,7 +59,7 @@
                       </span>
                     </td>
                     <td class="budget">
-                      {{ teacher.classroom.name }}
+                      {{ teacher.classroom.name}}
                     </td>
                     </tr>
                   {% endfor %}
