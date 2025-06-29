@@ -111,6 +111,13 @@ class Teacher(models.Model):
 
     occupation = models.CharField(max_length=50, blank=True, null=True)
 
+    classroom = models.ForeignKey(
+        'home.ClassRoom',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
 
 class Supervisor(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
