@@ -1,8 +1,9 @@
 import random
 
 from django.contrib import messages
+from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, user_logged_in
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -43,6 +44,10 @@ def login_view(request):
             break
 
     return render(request, "accounts/login.html", context)
+
+@receiver(user_logged_in)
+def show_log_in_notification(sender, request, user = CustomUser, **kwargs):
+    message = str(user.role)
 
 
 def register_user(request):
