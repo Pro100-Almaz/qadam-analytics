@@ -107,7 +107,7 @@ def subject_details(request, pk):
         grades[student] = {}
         for lesson in lessons:
             if quarter == lesson.quarter:
-                grades[student][lesson] = StudentGrade.objects.filter(lesson=lesson, student=student)
+                grades[student][lesson] = StudentGrade.objects.filter(lesson=lesson, student = student.user)
 
     context = {'grades': grades,
                'lessons': lessons,
