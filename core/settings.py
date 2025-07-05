@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.lesson',  # Enable the lesson app
     'widget_tweaks',
     'storages',
+    'apps.notification'
 ]
 
 MIDDLEWARE = [
