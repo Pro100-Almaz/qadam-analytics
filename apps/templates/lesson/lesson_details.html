@@ -27,7 +27,6 @@
         </div>
     </div>
 </div>
-
 <div class="container-fluid mt--6">
     <!-- Lesson Information Card -->
     <div class="row">
@@ -112,8 +111,8 @@
                                 </td>
                                 <td>{{ grade.created_at|date:"M d, Y" }}</td>
                                 <td>
-                                    <button type="button" class="btn btn-sm btn-primary" 
-                                            data-toggle="modal" 
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                            data-toggle="modal"
                                             data-target="#gradeModal{{ grade.id }}">
                                         Изменить оценку
                                     </button>
@@ -207,15 +206,15 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <button type="button" 
-                                            class="btn btn-sm btn-primary" 
-                                            data-toggle="modal" 
+                                    <button type="button"
+                                            class="btn btn-sm btn-primary"
+                                            data-toggle="modal"
                                             data-target="#editCommentModal{{ comment.id }}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button type="button" 
-                                            class="btn btn-sm btn-danger" 
-                                            data-toggle="modal" 
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger"
+                                            data-toggle="modal"
                                             data-target="#deleteCommentModal{{ comment.id }}">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -291,7 +290,17 @@
             </div>
         </div>
     </div>
-
+    <div class="container-fluid mt--6">
+        <div class="footer">
+            <div class="row py-4">
+                <div class="col-lg-6 col-5 text-left">
+                    <a href="{% url 'lesson:lessons' %}" class="btn btn-primary px-4">
+                        Назад
+                    </a>
+                </div>
+            <div>
+        <div>
+    </div>
     {% include "includes/footer.html" %}
 </div>
 
@@ -330,6 +339,7 @@
         </form>
     </div>
 </div>
+
 
 {% endblock content %}
 

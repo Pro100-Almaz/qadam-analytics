@@ -34,7 +34,7 @@
                 </div>
                 <div class="col text-right">
                   <select id="sortSelect" class="form-control">
-                    <option value="all" {% if selected_class == "all" %}selected{% endif %}>Все классы</option>
+                    <option value="all" {% if selected_class == "all" %}selected{% endif %}>Все классы </option>
 
                     {% for classroom in classrooms %}
                       <option value="{{ classroom.name }}" {% if selected_class == classroom.name %}selected{% endif %}>
