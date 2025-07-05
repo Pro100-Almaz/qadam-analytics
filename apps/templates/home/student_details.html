@@ -315,8 +315,13 @@
             <h4 class="mb-0 text-dark">Психологические показатели</h4>
             <div>
 
-                <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addPsychologicalStateModal">
+
+                <button type="button" class="btn btn-primary btn-facebook" data-toggle="modal" data-target="#addPsychologicalStateModal">
                     <i class="fas fa-plus mr-2"></i>Добавить состояние
+                </button>
+
+                <button type="button" class="btn btn-primary btn-pinterest" data-toggle="modal" data-target="#addPsychologicalStateModal">
+                    <i class="fas fa-minus mr-2"></i>Убрать состояние
                 </button>
                 <br>
                 <small class="text-muted mr-3">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>

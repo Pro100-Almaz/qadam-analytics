@@ -1,13 +1,20 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
 from .forms import LessonForm, LessonGroupForm
 from .models import Lesson, StudentGrade, Comment
-from apps.authentication.models import CustomUser, Student
+from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassRoom, QuarterGrader
+from ..notification.models import Notification, GradingNotify
 
 
 def calculate_grade(points, maximum_points):
@@ -191,7 +198,6 @@ def grading(request):
                 return redirect('lesson:lesson_details', pk=lesson_id)
 
             try:
-                print("nnnnnnnnnnnnnnnnnnnn")
                 grade = StudentGrade.objects.get(id=grade_id)
                 points = request.POST.get('points')
                 grade_value = request.POST.get('grade')
@@ -325,6 +331,69 @@ def grading(request):
     }
     return render(request, 'lesson/grading.html', context)
 
+
+@receiver(pre_save, sender=StudentGrade)
+def grading_pre_save_email(sender, instance, **kwargs):
+    lesson = instance.lesson
+    target_student = instance.student
+    if isinstance(target_student, CustomUser):
+        try:
+            target_student = Student.objects.get(user=target_student)
+        except Student.DoesNotExist:
+            return
+
+    student_user = target_student.user
+
+    try:
+        parent = Parent.objects.get(student_id=student_user.id)
+        parent_user = parent.user
+    except Parent.DoesNotExist:
+        parent = None
+        parent_user = None
+
+    subject = f"Уведомление об обновлении оценки по предмету: {lesson.title}"
+    html_message = render_to_string(
+        "email/grade_student_email.html",
+        {"student": target_student, "lesson": lesson}
+    )
+    plain_message = strip_tags(html_message)
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[student_user.email],
+        html_message=html_message
+    )
+
+    notification = Notification.objects.create(user=student_user, action='grading')
+
+    if parent and parent_user:
+        parent_subject = "Обновление оценки по предмету"
+        html_parent_message = render_to_string(
+            "email/grade_parent_email.html",
+            {"parent": parent_user, "lesson": lesson}
+        )
+        plain_parent_message = strip_tags(html_parent_message)
+
+        send_mail(
+            subject=parent_subject,
+            message=plain_parent_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[parent_user.email],
+            html_message=html_parent_message
+        )
+
+        GradingNotify.objects.create(
+            notification=notification,
+            parent=parent,
+            lesson=lesson
+        )
+    else:
+        GradingNotify.objects.create(
+            notification=notification,
+            lesson=lesson
+        )
 
 @login_required(login_url="/login/")
 def comment_template_create(request):
