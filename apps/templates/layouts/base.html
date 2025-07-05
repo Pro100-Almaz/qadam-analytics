@@ -11,44 +11,70 @@
     Django Argon Dashboard - {% block title %} Open-Source Admin Panel {% endblock %} | AppSeed
   </title>
 
-  <!-- Favicon - loaded as static -->
   <link rel="icon" href="/static/assets/img/brand/favicon.png" type="image/png">
-  <!-- Fonts -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700">
-  <!-- Icons -->
   <link rel="stylesheet" href="/static/assets/vendor/nucleo/css/nucleo.css" type="text/css">
   <link rel="stylesheet" href="/static/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" type="text/css">
-  <!-- Page plugins -->
-  <!-- Argon CSS -->
   <link rel="stylesheet" href="/static/assets/css/argon.css?v=1.2.0" type="text/css">
 
-
-  <!-- Specific CSS goes HERE -->
   {% block stylesheets %}{% endblock stylesheets %}
-
 </head>
 
-<body >
+<body>
 
   {% include "includes/sidenav.html" %}
 
   <div class="main-content" id="panel">
-
     {% include "includes/navigation.html" %}
 
-    {% block content %}{% endblock content %}
+    {% if messages %}
+      <div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+        {% for message in messages %}
+          <div style="
+            background-color: #38a169;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 20px;
+            min-width: 250px;
+            max-width: 400px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;">
 
+            <span>{{ message }}</span>
+            <button onclick="this.parentElement.remove()" style="
+              background: transparent;
+              border: none;
+              color: white;
+              font-size: 20px;
+              font-weight: bold;
+              cursor: pointer;
+              line-height: 1;
+              margin-left: 10px;
+            ">&times;</button>
+          </div>
+        {% endfor %}
+      </div>
+
+  <script>
+    setTimeout(() => {
+      document.querySelectorAll('[style*="background-color: #38a169"]').forEach(el => el.remove());
+    }, 10000);
+  </script>
+{% endif %}
+
+
+    {% block content %}{% endblock content %}
   </div>
 
   {% include "includes/scripts.html" %}
 
-  <!-- Specific JS goes HERE -->
-  {% block javascripts %}
+  {% block javascripts %}{% endblock javascripts %}
 
-  {% endblock javascripts %}
-
-  <script src="/static/assets/js/argon.js?v=1.2.0"></script>
-
+  <script src="{% static 'assets/js/argon.js?v=1.2.0' %}"></script>
 </body>
 
 </html>
