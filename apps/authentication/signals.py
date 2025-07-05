@@ -1,0 +1,9 @@
+from django.contrib import messages
+from django.contrib.auth import user_logged_in
+from django.dispatch import receiver
+
+
+@receiver(user_logged_in)
+def show_role_message(sender, user, request, **kwargs):
+    message = "You are logged in as a " + getattr(user, 'role', None)
+    messages.success(request, message)
