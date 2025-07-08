@@ -42,6 +42,7 @@ def student_details(request, pk):
     lessons = Lesson.objects.filter(subject__in=subjects)
     templates = PsychologicalStateTemplates.objects.all()
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
+    last_updated = psychological_states.last().time_added
 
     context = {
         'student': student,
@@ -49,6 +50,8 @@ def student_details(request, pk):
         'total_subjects': subjects.count(),
         'lessons': lessons,
         'templates': templates,
-        'psychological_states': psychological_states
+        'psychological_states': psychological_states,
+        'last_updated': last_updated,
     }
     return render(request, 'home/student_details.html', context)
+

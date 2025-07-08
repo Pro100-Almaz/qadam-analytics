@@ -253,7 +253,7 @@
                     <div class="col-md-6">
                         <div class="mb-3">
                             <div class="student-info-label" style="color: white">ФИО:</div>
-                            <div class="student-info-value" style="color: white">{{ student.get_full_name }}</div>
+                            <div class="student-info-value" style="color: white">{{ student.user.get_full_name }}</div>
                         </div>
                         <div class="mb-3" >
                             <div class="student-info-label" style="color: white">Класс:</div>
@@ -263,7 +263,7 @@
                     <div class="col-md-6">
                         <div class="mb-3">
                             <div class="student-info-label" style="color: white">Email:</div>
-                            <div class="student-info-value" style="color: white">{{ student.email }}</div>
+                            <div class="student-info-value" style="color: white">{{ student.user.email }}</div>
                         </div>
                         <div class="mb-3">
                             <div class="student-info-label" style="color: white">Очки активности:</div>
@@ -319,12 +319,8 @@
                 <button type="button" class="btn btn-primary btn-facebook" data-toggle="modal" data-target="#addPsychologicalStateModal">
                     <i class="fas fa-plus mr-2"></i>Добавить состояние
                 </button>
-
-                <button type="button" class="btn btn-primary btn-pinterest" data-toggle="modal" data-target="#addPsychologicalStateModal">
-                    <i class="fas fa-minus mr-2"></i>Убрать состояние
-                </button>
                 <br>
-                <small class="text-muted mr-3">Обновлено: {{ psychological_indicators.last_updated|date:"d.m.Y" }}</small>
+                <small class="text-muted mr-3">Обновлено: {{ last_updated|date:"d.m.Y" }}</small>
 
             </div>
         </div>
@@ -351,10 +347,20 @@
                         style="width: {{ state.score|add:"0" }}0%"
                         data-value="{% widthratio state.score 1 20 %}">
                     </div>
-                </div>
+                </div >
                 {% if state.comment %}
-                    <div class="indicator-description">{{ state.comment }}</div>
+                    <br>
+                  <div class="indicator-label">
+                    <span class="text-gray text-sm">{{ state.comment }}</span>
+                    <span class="indicator-value">
+                    <button
+                    class="btn bg-red text-white"
+                    data-toggle="modal"
+                    data-id="{{ state.id }}"
+                    data-target="#confirmDeleteModal">x</button></span>
+                </div>
                 {% endif %}
+
             </div>
         {% endfor %}
         {% else %}
@@ -725,6 +731,27 @@
     </div>
 </div>
 
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        Вы уверены, что хотите удалить это психологическое состояние?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 {% include "includes/footer.html" %}
 </div>
 {% endblock content %}
@@ -1048,5 +1075,32 @@ $(document).ready(function() {
         $("#templateDropdown").html('<i class="fas fa-list-alt mr-2"></i>Выбрать шаблон');
     });
 });
+
+function getCSRFToken() {
+    const token = document.querySelector('meta[name="csrf-token"]');
+    return token ? token.getAttribute('content') : '';
+}
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
+    const deleteId = document.getElementById('confirmDeleteBtn').getAttribute('data-id');
+
+    fetch(`/psychological/delete/${deleteId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (response.ok) {
+            document.querySelector(`[data-id="${deleteId}"]`).closest('.indicator-item').remove();
+            $('#confirmDeleteModal').modal('hide');
+        } else {
+            alert('Ошибка при удалении');
+        }
+    });
+});
+
 </script>
 {% endblock javascripts %}
