@@ -5,7 +5,7 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponseNotAllowed
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -132,6 +132,18 @@ def create_psychological_state(request, pk):
                                           added_by=request.user)
 
     return redirect('student_details', pk=pk)
+
+@login_required(login_url="/login/")
+def delete_psychological_state(request, pk):
+    if request.method == "POST":
+        try:
+            state = PsychologicalState.objects.get(pk=pk, student__user=request.user)
+            state.delete()
+            return JsonResponse({'status': 'success'})
+        except PsychologicalState.DoesNotExist:
+            return JsonResponse({'status': 'not_found'}, status=404)
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405) # @require_POST decorator kosu norm ba?, is it legal?
+
 
 @receiver(pre_save, sender=PsychologicalState)
 def psycho_state_pre_save(sender, instance, **kwargs):

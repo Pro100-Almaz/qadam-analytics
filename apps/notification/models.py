@@ -42,11 +42,16 @@ class RegisterNotify(models.Model):
     def get_message(self):
         return "User registered successfully"
 
+    def __str__(self):
+        return f"'{self.notification}'"
+
 class LoginNotify(models.Model):
     notification = OneToOneField(Notification, on_delete=models.CASCADE)
 
     def get_message(self):
         return "User logged successfully"
+    def __str__(self):
+        return f"'{self.notification}'"
 
 class GradingNotify(models.Model):
     notification = OneToOneField(Notification, on_delete=models.CASCADE)
@@ -55,6 +60,8 @@ class GradingNotify(models.Model):
 
     def get_message(self):
         return f"The grade for the lesson '{self.lesson.title}' has been released"
+    def __str__(self):
+        return f"'{self.notification}', '{self.lesson}', '{self.parent}'"
 
 
 class PsychologicalNotify(models.Model):
@@ -69,3 +76,5 @@ class PsychologicalNotify(models.Model):
 
     def get_message(self):
         return f"{self.psychologist.username} updated the information about psychological state"
+    def __str__(self):
+        return f"'{self.notification}', '{self.psychologist}', '{self.parent}'"

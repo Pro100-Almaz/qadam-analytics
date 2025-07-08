@@ -1,6 +1,9 @@
 from django.contrib import admin
 
-from apps.notification.models import Notification
+from apps.notification.models import Notification, RegisterNotify, LoginNotify, GradingNotify, PsychologicalNotify
 
-# Register your models here.
 admin.site.register(Notification)
+admin.site.register(RegisterNotify)
+admin.site.register(LoginNotify)
+admin.site.register(GradingNotify)
+admin.site.register(PsychologicalNotify)
