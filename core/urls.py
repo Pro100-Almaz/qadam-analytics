@@ -7,11 +7,11 @@ from apps.home.views import main_page
 
 urlpatterns = [
     path("", main_page),
+    path('admin/', admin.site.urls),  # Django admin route
     path("", include("apps.authentication.urls")),  # Auth routes - login / register
-    path('admin/', admin.site.urls),# Django admin route
-
     path("pages/", include("apps.home.urls")),      # UI Kits Html files
     path("lessons/", include("apps.lesson.urls")), # Lesson app routes
+    path("notifications/", include("apps.notification.urls")), #notifications
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,13 +1,20 @@
 from django import template
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
-from django.http import HttpResponseRedirect
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponseNotAllowed
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.utils.html import strip_tags
 
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
     Teacher, Student, Supervisor, Parent
+from apps.notification.models import PsychologicalNotify
 
 
 @login_required(login_url="/login/")
@@ -109,12 +116,91 @@ def create_psychological_state(request, pk):
         score = request.POST.get('star_rating')
         student_id = request.POST.get('student_id')
 
+        try:
+            student = Student.objects.get(pk=student_id)
+        except Student.DoesNotExist:
+            messages.error(request, f"Student with id={student_id} does not exist.")
+            return redirect('students')
+
         if not PsychologicalStateTemplates.objects.filter(name=name).exists():
             PsychologicalStateTemplates.objects.create(name=name, comment=comment)
 
-        PsychologicalState.objects.create(name=name, comment=comment, score = score, student_id=student_id)
+        PsychologicalState.objects.create(name=name,
+                                          comment=comment,
+                                          score = score,
+                                          student=student,
+                                          added_by=request.user)
 
     return redirect('student_details', pk=pk)
+
+@login_required(login_url="/login/")
+def delete_psychological_state(request, pk):
+    if request.method == "POST":
+        try:
+            state = PsychologicalState.objects.get(pk=pk, student__user=request.user)
+            state.delete()
+            return JsonResponse({'status': 'success'})
+        except PsychologicalState.DoesNotExist:
+            return JsonResponse({'status': 'not_found'}, status=404)
+    return JsonResponse({'error': 'Only POST method allowed'}, status=405) # @require_POST decorator kosu norm ba?, is it legal?
+
+
+@receiver(pre_save, sender=PsychologicalState)
+def psycho_state_pre_save(sender, instance, **kwargs):
+    added_by_user = instance.added_by
+    target_student = instance.student
+    student_custom_user = target_student.user
+
+    try:
+        parent = Parent.objects.get(student_id=student_custom_user.id)
+    except Parent.DoesNotExist:
+        parent = None
+
+
+    subject = "Уведомление об обновлении отчета о Психическом Состоянии Студента"
+    html_message = render_to_string("email/psychological_state_student_email.html",
+                                   {"student": target_student, "adder": added_by_user})
+    plain_message = strip_tags(html_message)
+    from_mail = settings.DEFAULT_FROM_EMAIL
+    to_mail = [student_custom_user.email]
+
+    send_mail(
+        subject=subject,
+        message=plain_message,
+        from_email=from_mail,
+        recipient_list=to_mail,
+        html_message=html_message
+    )
+
+    if parent:
+        parent_user = parent.user
+
+        subject_parent = "Psychological State Update"
+        html_message_parent = render_to_string("email/psychological_state_parent_email.html",
+                                               {"parent": parent_user, "adder": added_by_user})
+        plain_message_parent = strip_tags(html_message_parent)
+        from_mail_parent = settings.DEFAULT_FROM_EMAIL
+        to_mail_parent = [parent_user.email]
+
+        send_mail(
+            subject=subject_parent,
+            message=plain_message_parent,
+            from_email=from_mail_parent,
+            recipient_list=to_mail_parent,
+            html_message=html_message_parent
+        )
+
+        from apps.notification.models import Notification, PsychologicalNotify
+        notification = Notification.objects.create(user=student_custom_user, action='psychological_state')
+        PsychologicalNotify.objects.create(notification=notification, parent=parent, psychologist=added_by_user)
+
+    else:
+        from apps.notification.models import Notification, PsychologicalNotify
+        notification = Notification.objects.create(user=target_student, action='psychological_state')
+        PsychologicalNotify.objects.create(notification=notification, psychologist=added_by_user)
+
+
+
 
 
 @login_required(login_url="/login/")

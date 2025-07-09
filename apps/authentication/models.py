@@ -8,6 +8,7 @@ from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
+
 from core import settings
 
 
@@ -145,6 +146,15 @@ class PsychologicalState(models.Model):
         help_text="На сколько звезд оцениваете состояние ученика?"
     )
 
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_psychological_states'
+    )
+    time_added = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
     def __str__(self):
         return self.name
 
@@ -179,3 +189,8 @@ def registration_email_post_send(sender, instance, created, *args, **kwargs):
             recipient_list=to_mail,
             html_message=html_message
         )
+
+        from apps.notification.models import Notification, RegisterNotify
+        notification = Notification.objects.create(user=instance, action='register')
+        RegisterNotify.objects.create(notification=notification)
+

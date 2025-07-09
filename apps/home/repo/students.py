@@ -37,11 +37,12 @@ def students_list(request):
 
 @login_required(login_url="/login/")
 def student_details(request, pk):
-    student = get_object_or_404(Student, pk=pk)
+    student = get_object_or_404(Student, user_id=pk)
     subjects = Subject.objects.filter(classroom=student.classroom)
     lessons = Lesson.objects.filter(subject__in=subjects)
     templates = PsychologicalStateTemplates.objects.all()
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
+    last_updated = psychological_states.last().time_added
 
     context = {
         'student': student,
@@ -49,6 +50,8 @@ def student_details(request, pk):
         'total_subjects': subjects.count(),
         'lessons': lessons,
         'templates': templates,
-        'psychological_states': psychological_states
+        'psychological_states': psychological_states,
+        'last_updated': last_updated,
     }
     return render(request, 'home/student_details.html', context)
+
