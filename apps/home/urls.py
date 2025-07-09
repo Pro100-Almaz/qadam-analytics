@@ -4,6 +4,7 @@ from apps.home import views
 from apps.home.repo.students import students_list, student_details, classes
 from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
     delete_subject
+from apps.home.views import delete_psychological_state
 
 urlpatterns = [
     path('main/', views.main_page, name='main'),
@@ -22,6 +23,8 @@ urlpatterns = [
     path('my_subjects', my_subjects_list, name='my_subjects'),
     path('subjects/new', subject_create, name='new_subject'),
     path('subjects/<int:pk>', subject_details, name='subject_details'),
+    path('psychological/delete/<int:pk>/', delete_psychological_state, name='delete_psychological_state'),
+
     # Matches any html file
     re_path(r'^.*\.*', views.pages, name='pages'),
 ]
