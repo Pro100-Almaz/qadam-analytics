@@ -142,6 +142,24 @@
                                         {{ form.occupation }}
                                     </div>
                                 </div>
+                                <div class="row mt-3 d-none" id="teacher_gender_row">
+                                    <div class="col">
+                                        <label for="id_gender">Пол</label>
+                                        {{ form.gender }}
+                                    </div>
+                                </div>
+                                <div class="row mt-3 d-none" id="teacher_employment_type_row">
+                                    <div class="col">
+                                        <label for="id_employment_type">Тип Занятости</label>
+                                        {{ form.employment_type }}
+                                    </div>
+                                </div>
+                                <div class="row mt-3 d-none" id="teacher_degree_row">
+                                    <div class="col">
+                                        <label for="id_degree">Уровень Образования</label>
+                                        {{ form.academic_degree }}
+                                    </div>
+                                </div>
 
 {#                                For Students#}
                                 <div id="student_details" class="d-none">
@@ -212,6 +230,9 @@ document.addEventListener("DOMContentLoaded", function (){
    const studentIdRow = document.getElementById('student_id_row');
    const studentDetailsRow = document.getElementById('student_details')
    const teacherOccupationRow = document.getElementById('teacher_occupation_row')
+   const teacherGenderRow = document.getElementById('teacher_gender_row')
+   const teacherEmploymentTypeRow = document.getElementById('teacher_employment_type_row')
+   const teacherDegreeRow = document.getElementById('teacher_degree_row')
 
 
 
@@ -219,18 +240,26 @@ document.addEventListener("DOMContentLoaded", function (){
        const role = roleField.value;
 
        studentIdRow.classList.add('d-none');
-       teacherOccupationRow.classList.add('d-none');
+
        studentDetailsRow.classList.add('d-none');
+
+       teacherOccupationRow.classList.add('d-none');
+       teacherGenderRow.classList.add('d-none');
+       teacherEmploymentTypeRow.classList.add('d-none');
+       teacherDegreeRow.classList.add('d-none');
 
        if (role === 'parent' || role === 'admin') {
             studentIdRow.classList.remove('d-none');
        } else if (role === 'teacher') {
             teacherOccupationRow.classList.remove('d-none');
+            teacherEmploymentTypeRow.classList.remove('d-none');
+            teacherGenderRow.classList.remove('d-none');
+            teacherDegreeRow.classList.remove('d-none');
+
        } else if (role === 'student') {
             studentDetailsRow.classList.remove('d-none');
        }
    }
-
 
    toggleFields();
 

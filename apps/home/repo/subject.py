@@ -64,7 +64,7 @@ def subjects_list(request):
 @login_required(login_url="/login/")
 def my_subjects_list(request):
     user = CustomUser.objects.get(id=request.user.id)
-    subjects = Subject.objects.filter(teacher=user)
+    subjects = Subject.objects.filter(teacher__user=user)
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
