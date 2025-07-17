@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import CustomUser, SchoolGroup
+from .models import CustomUser, SchoolGroup, Teacher
 from ..home.models import ClassRoom
 
 
@@ -124,16 +124,6 @@ class SignUpForm(UserCreationForm):
             "id": "id_occupation"
         })
     )
-
-    student_id = forms.IntegerField(
-        required=False,
-        widget=forms.TextInput(attrs={
-            "placeholder": "ID ученика",
-            "class": "form-control",
-            "id": "id_student_id"
-        })
-    )
-
     classroom = forms.ModelChoiceField(
         queryset=ClassRoom.objects.all(),
         required=False,
@@ -142,7 +132,38 @@ class SignUpForm(UserCreationForm):
             "id": "id_classroom"
         })
     )
-
+    employment_type = forms.ChoiceField(
+        choices = Teacher.EMPLOYMENT_TYPE_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    gender = forms.ChoiceField(
+        choices=Teacher.GENDER_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    academic_degree = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "Например: Бакалавр Компьютерных Наук",
+            "class": "form-control",
+            "id": "id_occupation"
+        })
+    )
+    student_id = forms.IntegerField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "placeholder": "ID ученика",
+            "class": "form-control",
+            "id": "id_student_id"
+        })
+    )
     school_group = forms.ModelChoiceField(
         queryset=SchoolGroup.objects.all(),
         required=False,
@@ -151,6 +172,7 @@ class SignUpForm(UserCreationForm):
             "id": "id_school_group"
         })
     )
+
 
     class Meta:
         model = CustomUser

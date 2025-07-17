@@ -69,10 +69,19 @@ def register_user(request):
                 # Handle avatar upload
                 if 'avatar' in request.FILES:
                     user.avatar = request.FILES['avatar']
+                    user.save()
 
-                form.save(commit=True)
+                if user.role == CustomUser.ROLE_TEACHER:
+                    Teacher.objects.create(
+                        user=user,
+                        gender=form.cleaned_data['gender'],
+                        academic_degree=form.cleaned_data['academic_degree'],
+                        employment_type=form.cleaned_data['employment_type'],
+                        occupation=form.cleaned_data['occupation'],
+                        classroom=form.cleaned_data['classroom']
+                    )
+
                 login(request, user)
-
                 if user.is_parent:
                     return redirect("/pages/teachers")
                 return redirect("/pages")

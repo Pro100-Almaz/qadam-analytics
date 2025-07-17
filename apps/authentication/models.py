@@ -8,7 +8,6 @@ from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
-
 from core import settings
 
 
@@ -118,8 +117,26 @@ class Parent(models.Model):
 class Teacher(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
-    occupation = models.CharField(max_length=50, blank=True, null=True)
+#identification
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+    ]
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
+#professional
+    academic_degree = models.CharField(max_length=50, blank=True, null=True)
 
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('full_time', 'Full-Time'),
+        ('part_time', 'Part-Time'),
+    ]
+    employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES, blank=True, null=True)
+
+    subjects = models.ManyToManyField('home.Subject', related_name='assigned_teachers', blank=True)
+
+    #working place
+    occupation = models.CharField(max_length=50, blank=True, null=True)
+    working_hours = models.PositiveIntegerField(blank=True, null=True)
     classroom = models.ForeignKey(
         'home.ClassRoom',
         on_delete=models.SET_NULL,
