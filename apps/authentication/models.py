@@ -62,6 +62,9 @@ class CustomUser(AbstractUser):
     def is_teacher(self):
         return self.role == CustomUser.ROLE_TEACHER
 
+    def is_admin(self):
+        return self.role == CustomUser.ROLE_ADMIN
+
     def is_manager(self):
         return self.role == CustomUser.ROLE_SUPERVISOR
 
