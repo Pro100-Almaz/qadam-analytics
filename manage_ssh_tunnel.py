@@ -15,6 +15,7 @@ def main():
     ssh_host = os.getenv('SSH_HOST')
     ssh_port = 22
     ssh_username = os.getenv('SSH_USERNAME')
+    ssh_pkey = os.getenv('SSH_PRIVATE_KEY_PATH')
 
     remote_db_host = os.getenv('REMOTE_DB_HOST')
     remote_db_port = int(os.getenv('REMOTE_DB_PORT'))
@@ -29,6 +30,7 @@ def main():
     with SSHTunnelForwarder(
         (ssh_host, ssh_port),
         ssh_username = ssh_username,
+        ssh_pkey = ssh_pkey,
         remote_bind_address = (remote_db_host, remote_db_port),
         local_bind_address = (local_bind_host, local_bind_port)
     ) as tunnel:

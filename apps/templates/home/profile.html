@@ -131,9 +131,12 @@
             <div class="col">
               <h3 class="mb-0">Profile Information</h3>
             </div>
-            <button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
-              <i class="ni ni-settings-gear-65"></i> Изменить Данные
-            </button>
+              {% if user.is_admin or user.is_principal %}
+              	<button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
+                  <i class="ni ni-settings-gear-65"></i> Изменить Данные
+                </button>
+              {% endif %}
+
           </div>
         </div>
         <div class="card-body">

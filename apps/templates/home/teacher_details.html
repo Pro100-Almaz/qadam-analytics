@@ -1,11 +1,11 @@
 {% extends 'layouts/base.html' %}
 {% load custom_filters %}
 
-{% block title %} {{ student.get_full_name }} - Профиль ученика {% endblock title %}
+{% block title %} {{ teacher.get_full_name }} - Профиль ученика {% endblock title %}
 
 {% block stylesheets %}
 <style>
-.student-profile-header {
+.teacher-profile-header {
     background: white;
     border-radius: 15px;
     padding: 2rem;
@@ -77,13 +77,13 @@
     margin-bottom: 2rem;
 }
 
-.student-info-label {
+.teacher-info-label {
     color: #6c757d;
     font-weight: 500;
     margin-bottom: 0.25rem;
 }
 
-.student-info-value {
+.teacher-info-value {
     color: #333;
     font-weight: 600;
     font-size: 1.1rem;
@@ -215,59 +215,41 @@
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Student Profile Header -->
-    <div class="mt-4 student-profile-header"
-        {% if student.school_group_id == 4 %}
-            style="background: linear-gradient(to bottom, #F9A84C, #0B0C1B)"
+    <!-- teacher Profile Header -->
+    <div class="mt-4 teacher-profile-header"
 
-        {% elif student.school_group_id == 2 %}
-            style="background: linear-gradient(to bottom, #0e6642, #031d1d)"
+            style="background: linear-gradient(to bottom, purple, red)">
 
-
-        {% elif student.school_group_id == 3 %}
-            style="background: linear-gradient(to bottom, #1c2b83, #060b2b)"
-
-        {% elif student.school_group_id == 1 %}
-            style="background: linear-gradient(to bottom, #2c001e, #0b0a10)"
-
-        {% else %}
-            style="background: linear-gradient(to bottom, purple, red)"
-
-        {% endif %}>
         <div class="row align-items-stretch">
             <div class="col-md-3 d-flex align-items-center justify-content-center">
-                <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
+                <img src="{{ teacher.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
             </div>
             <div class="col-md-2 d-flex align-items-center justify-content-center">
                 <div class="text-center" style="color: white">
-                    <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
+                    <img src="{{ teacher.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
                          alt="School Group"
                          class="school-group-image mb-2"
                         style="width: 90px; height: 90px">
-                    <small class="text-white d-block">Роль: {{ student.user.role }}</small>
+                    <small class="text-white d-block">Роль: {{ teacher.user.role }}</small>
                 </div>
             </div>
             <div class="col-md-7 d-flex flex-column justify-content-center" style="color: white">
-                <h2 class="mb-4 text-white">{{ student.get_full_name }}</h2>
+                <h2 class="mb-4 text-white">{{ teacher.get_full_name }}</h2>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <div class="student-info-label" style="color: white">ФИО:</div>
-                            <div class="student-info-value" style="color: white">{{ student.user.get_full_name }}</div>
+                            <div class="teacher-info-label" style="color: white">ФИО:</div>
+                            <div class="teacher-info-value" style="color: white">{{ teacher.user.get_full_name }}</div>
                         </div>
                         <div class="mb-3" >
-                            <div class="student-info-label" style="color: white">Класс:</div>
-                            <div class="student-info-value" style="color: white">{{ student.classroom.name }}</div>
+                            <div class="teacher-info-label" style="color: white">Класс:</div>
+                            <div class="teacher-info-value" style="color: white">{{ teacher.classroom.name }}</div>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <div class="student-info-label" style="color: white">Email:</div>
-                            <div class="student-info-value" style="color: white">{{ student.user.email }}</div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="student-info-label" style="color: white">Очки активности:</div>
-                            <div class="student-info-value" style="color: white">{{ participation_score|floatformat:0 }}</div>
+                            <div class="teacher-info-label" style="color: white">Email:</div>
+                            <div class="teacher-info-value" style="color: white">{{ teacher.user.email }}</div>
                         </div>
                     </div>
                 </div>
@@ -277,7 +259,7 @@
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
                             <div class="h4 mb-1 text-primary">{{ attendance_rate|floatformat:0 }}%</div>
-                            <div class="text-black-50   small" style="color: white">Посещаемость</div>
+                            <div class="text-black-50   small" style="color: white">Посещаемость учеников</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -309,90 +291,100 @@
         </div>
     </div>
 
-    <!-- Dynamic Psychological State Indicators -->
-    <div class="psychological-indicators">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="mb-0 text-dark">Психологические показатели</h4>
-            <div>
-
-
-                <button type="button" class="btn btn-primary btn-facebook" data-toggle="modal" data-target="#addPsychologicalStateModal">
-                    <i class="fas fa-plus mr-2"></i>Добавить состояние
-                </button>
-                <br>
-                <small class="text-muted mr-3">Обновлено: {{ last_updated|date:"d.m.Y" }}</small>
-
-            </div>
+    {# Personal information   #}
+    <div class="card stats-card">
+        <div class="card-header border-0">
+            <h3 class="mb-0 text-dark">Персональная Информация</h3>
         </div>
 
-        {% if psychological_states %}
-            {% for state in psychological_states %}
-            <div class="indicator-item">
-                <div class="indicator-label">
-                    <span>{{ state.name }}</span>
-                    <span class="indicator-value">{{ state.score }}</span>
-                </div>
-                <div class="horizontal-progress">
-                    <div class="progress-bar-horizontal
-
-                        {% if state.score == 5 %}progress-excellent
-
-                        {% elif state.score == 4 %}progress-good
-
-                        {% elif state.score >= 3 %}progress-average
-
-                        {% else %}progress-poor
-
-                        {% endif %}"
-                        style="width: {{ state.score|add:"0" }}0%"
-                        data-value="{% widthratio state.score 1 20 %}">
+        <div class="card-body">
+            <div>
+                <div class="row">
+                    <div>
+                        <h3 class="text-red">Identification info:</h3>
+                        <hr class="my-4" />
                     </div>
-                </div >
-                {% if state.comment %}
-                    <br>
-                  <div class="indicator-label">
-                    <span class="text-gray text-sm">{{ state.comment }}</span>
-                    <span class="indicator-value">
-                    <button
-                    class="btn bg-red text-white"
-                    data-toggle="modal"
-                    data-id="{{ state.id }}"
-                    data-target="#confirmDeleteModal">x</button></span>
                 </div>
-                {% endif %}
-
-            </div>
-        {% endfor %}
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-                <p class="text-muted">Психологические показатели пока не добавлены</p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Quarter Charts (keeping the existing one) -->
-    <div class="psychological-chart">
-        <h4 class="mb-4 text-dark">Показатели по четвертям:</h4>
-        <div class="row">
-            {% for quarter in "1234" %}
-            <div class="col-md-3">
-                <div class="quarter-indicator">
-                    <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
-                    <div style="height: 150px; position: relative;">
-                        <canvas id="quarter-{{ quarter }}-chart"></canvas>
+                <div class="row">
+                    <div class="col-6">
+                        <h4>Пол: {{ teacher.gender }}</h4>
                     </div>
-
+                    <div class="col-6">
+                        <h4>Дата Рождения: {{ teacher.user.date_of_birth }}</h4>
+                    </div>
                 </div>
             </div>
-            {% endfor %}
+            <hr class="my-4" />
+
+
+            <div>
+                <div class="row">
+                    <div>
+                        <h3 class="text-red">Professional info:</h3>
+                        <hr class="my-4" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <h4>Academic Degree: {{ teacher.academic_degree }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <h4>Тип Занятости: {{ teacher.employment_type }}</h4>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4" />
+
+            <div>
+                <div class="row">
+                    <div>
+                        <h3 class="text-red">Working Place info:</h3>
+                        <hr class="my-4" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <h4>Школа: {{ teacher.user.school }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <h4>Occupation: {{ teacher.occupation }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <h4>Рабочие часы: {{ teacher.working_hours }}</h4>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4" />
+
+            <div>
+                <div class="row">
+                    <div>
+                        <h3 class="text-red">Contact info:</h3>
+                        <hr class="my-4" />
+
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <h4>Контактный Номер: {{ teacher.user.phone_number }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <h4>Почта: {{ teacher.user.email }}</h4>
+                    </div>
+                    <div class="col-6">
+                        <h4>Адрес: {{ teacher.user.address }}</h4>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4" />
+
         </div>
     </div>
 
     <!-- Subjects Performance -->
     <div class="card stats-card">
         <div class="card-header border-0">
-            <h4 class="mb-0 text-dark">Subjects</h4>
+            <h3 class="mb-0 text-dark">Subjects</h3>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -400,7 +392,7 @@
                     <thead>
                         <tr>
                             <th class="text-dark">Subject</th>
-                            <th class="text-dark">Score</th>
+                            <th class="text-dark">Class</th>
                             <th class="text-dark">Teacher</th>
                             <th class="text-dark">Progress</th>
                         </tr>
@@ -435,13 +427,7 @@
                                 </div>
                             </td>
                             <td>
-                                {% if subject.id in subject_averages %}
-                                    <span class="badge badge-lg badge-primary">
-                                        {{ subject_averages|get_item:subject.id|get_item:'average_grade'|floatformat:0 }}%
-                                    </span>
-                                {% else %}
-                                    <span class="badge badge-lg badge-secondary">-</span>
-                                {% endif %}
+                                <span class="badge badge-lg badge-secondary"><h5>{{ subject.classroom }}</h5></span>
                             </td>
                             <td class="text-dark">
                                 {{ subject.teacher }}
@@ -472,288 +458,13 @@
             </div>
         </div>
     </div>
-
-    <!-- Performance Charts -->
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card stats-card">
-                <div class="card-header border-0">
-                    <h5 class="mb-0 text-dark">Успеваемость за четверти</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="quarterly-performance-chart" style="height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card stats-card">
-                <div class="card-header border-0">
-                    <h5 class="mb-0 text-dark">Средние оценки по предметам</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="subjects-performance-chart" style="height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Detailed Performance Modal -->
-<div class="modal fade" id="detailedPerformanceModal" tabindex="-1" role="dialog" aria-labelledby="detailedPerformanceModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="detailedPerformanceModalLabel">Детальная успеваемость</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-flush">
-                        <thead>
-                            <tr>
-                                <th class="text-dark">Subject</th>
-                                <th class="text-dark">Score</th>
-                                <th class="text-dark">Phase</th>
-                                <th class="text-dark">%</th>
-                                <th class="text-dark">Комментарии</th>
-                                <th class="text-dark">Тема</th>
-                                <th class="text-dark">Комментарий к уроку</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for subject in subjects %}
-                            <tr class="detailed-row" data-subject-id="{{ subject.id }}" style="display: none;">
-                                <td class="font-weight-bold text-dark">{{ subject.name }}</td>
-                                <td class="text-dark">
-                                    {% if subject.id in subject_averages %}
-                                        {{ subject_averages|get_item:subject.id|get_item:'average_points'|floatformat:0 }}|24
-                                    {% else %}
-                                        -|24
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge badge-warning">III</span>
-                                </td>
-                                <td class="text-dark">
-                                    {% if subject.id in subject_averages %}
-                                        100%
-                                    {% else %}
-                                        0%
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="d-flex">
-                                        <span class="badge badge-success mr-1">Жаксы</span>
-                                        <span class="badge badge-warning mr-1">Орташа</span>
-                                        <span class="badge badge-danger">Томен</span>
-                                    </div>
-                                </td>
-                                <td class="text-sm text-dark">Последняя изученная тема</td>
-                                <td class="text-sm text-dark">
-                                    {% if subject.id in subject_averages and subject_averages|get_item:subject.id|get_item:'latest_lesson_comment' %}
-                                        {{ subject_averages|get_item:subject.id|get_item:'latest_lesson_comment'|truncatechars:50 }}
-                                    {% else %}
-                                        <span class="text-muted">Нет комментария</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Lessons Modal -->
-<div class="modal fade" id="lessonsModal" tabindex="-1" role="dialog" aria-labelledby="lessonsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="lessonsModalLabel">Subject Lessons</h5>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table align-items-center mb-0">
-                        <thead>
-                            <tr>
-                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-blue">Lesson</th>
-                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2 text-blue">Date</th>
-                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-blue">Points</th>
-                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-blue">Grade</th>
-                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-blue">Comment</th>
-                            </tr>
-                        </thead>
-                        <tbody id="lessonsTableBody">
-                            <!-- Lessons will be loaded here dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Psychological State Modal -->
-<div class="modal fade" id="addPsychologicalStateModal" tabindex="-1" role="dialog" aria-labelledby="addPsychologicalStateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить психологическое состояние</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form method="POST" action="{% url 'psychological_state_create' student.id %}" >
-                {% csrf_token %}
-                <input type="hidden" name="student_id" value="{{ student.id }}">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="form-group">
-                                <label for="state_name">Название состояния</label>
-                                <input type="text" class="form-control" id="state_name" name="state_name" required placeholder="Например: Тревожность, Мотивация, Концентрация">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Шаблоны</label>
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-primary dropdown-toggle w-100" type="button" id="templateDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fas fa-list-alt mr-2"></i>Выбрать шаблон
-                                    </button>
-                                    <div class="dropdown-menu w-100" aria-labelledby="templateDropdown">
-                                        <a class="dropdown-item template-option" href="#" data-name="Тревожность" data-comment="Уровень тревожности студента в учебной среде" data-stars="3">
-                                            <i class="fas fa-exclamation-triangle text-warning mr-2"></i>Тревожность
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Мотивация" data-comment="Уровень мотивации к обучению и участию в занятиях" data-stars="4">
-                                            <i class="fas fa-fire text-danger mr-2"></i>Мотивация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Концентрация" data-comment="Способность сосредоточиться на учебных задачах" data-stars="3">
-                                            <i class="fas fa-bullseye text-info mr-2"></i>Концентрация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Адаптация" data-comment="Уровень адаптации в коллективе и социальных взаимодействий" data-stars="4">
-                                            <i class="fas fa-users text-success mr-2"></i>Адаптация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
-                                            <i class="fas fa-heart text-primary mr-2"></i>Стабильность
-                                        </a>
-                                            {% for template in templates %}
-                                                <a class="dropdown-item template-option " href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
-                                                    {{ template.name}}
-                                                 </a>
-                                            {% endfor %}
-
-
-                                        <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
-                                            <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="star_rating">Оценка (звезды)</label>
-                        <div class="star-rating-container">
-                            <div class="star-rating" id="starRating">
-                                <span class="star" data-value="1">★</span>
-                                <span class="star" data-value="2">★</span>
-                                <span class="star" data-value="3">★</span>
-                                <span class="star" data-value="4">★</span>
-                                <span class="star" data-value="5">★</span>
-                            </div>
-                            <input type="hidden" id="star_rating" name="star_rating" value="0" required>
-                            <small class="form-text text-muted">Нажмите на звезды для оценки (1-5)</small>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="comment">Комментарий</label>
-                        <textarea class="form-control" id="comment" name="comment" rows="4" placeholder="Подробное описание психологического состояния студента..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="observation_date">Дата наблюдения</label>
-                        <input type="date" class="form-control" id="observation_date" name="observation_date" value="{% now 'Y-m-d' %}">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save mr-2"></i>Сохранить
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Create Template Modal -->
-<div class="modal fade" id="createTemplateModal" tabindex="-1" role="dialog" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createTemplateModalLabel">Создать шаблон</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form method="POST" action="{% url 'psychological_state_create_template' student.id %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="template_name">Название шаблона</label>
-                        <input type="text" class="form-control" id="template_name" name="template_name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="template_comment">Описание по умолчанию</label>
-                        <textarea class="form-control" id="template_comment" name="template_comment" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Создать шаблон</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        Вы уверены, что хотите удалить это психологическое состояние?
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
-        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 {% include "includes/footer.html" %}
-</div>
+
 {% endblock content %}
 
 {% block javascripts %}
@@ -764,12 +475,12 @@
 <script>
 $(document).ready(function() {
     // Function to fetch subject lessons
-    function fetchSubjectLessons(studentId, subjectId) {
+    function fetchSubjectLessons(teacherId, subjectId) {
         return $.ajax({
             url: `/lessons/list/${subjectId}/`,
             method: 'GET',
             data: {
-                student_id: studentId,
+                teacher_id: teacherId,
             },
             success: function(response) {
                 if (response.success) {
@@ -835,7 +546,7 @@ $(document).ready(function() {
     $('.subject-row').on('click', function() {
         const subjectId = $(this).data('subjectId');
         const subjectName = $(this).data('subjectName');
-        const studentId = {{ student.id }};
+        const teacherId = {{ teacher.id }};
 
         // Update modal title
         $('#lessonsModalLabel').text(subjectName + ' - Lessons');
@@ -844,7 +555,7 @@ $(document).ready(function() {
         $('#lessonsTableBody').html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
 
         // Fetch and display lessons
-        fetchSubjectLessons(studentId, subjectId);
+        fetchSubjectLessons(teacherId, subjectId);
 
         // Show the modal
         $(function() {

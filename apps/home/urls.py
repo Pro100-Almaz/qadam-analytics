@@ -2,6 +2,7 @@ from django.urls import path, re_path
 from apps.home import views
 
 from apps.home.repo.students import students_list, student_details, classes
+from apps.home.repo.teachers import teacher_details
 from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
     delete_subject
 from apps.home.views import delete_psychological_state
@@ -17,6 +18,7 @@ urlpatterns = [
     path('students/<int:pk>/psychological_state_create/template', views.create_psychological_state_template, name='psychological_state_create_template'),
 
     path('teachers', views.teachers_list, name='teachers'),
+    path('teachers/<int:pk>', teacher_details, name='teacher_details'),
     path('subjects', subjects_list, name='subjects'),
     path("subjects/<int:pk>/archive/", archive_subject, name="archive_subject"),
     path("subjects/<int:pk>/delete/", delete_subject, name="delete_subject"),
