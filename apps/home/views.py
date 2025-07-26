@@ -1,7 +1,7 @@
 from django import template
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
@@ -14,6 +14,7 @@ from django.utils.html import strip_tags
 
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
     Teacher, Student, Supervisor, Parent
+from apps.home.models import ClassRoom
 from apps.notification.models import PsychologicalNotify
 
 
@@ -37,18 +38,27 @@ def main_page(request):
 
     return render(request, 'main_page/' + template_name, context)
 
-
-@login_required(login_url="/login/")
 def profile(request):
     user = request.user
+    student = None
+    if user.is_parent():
+        try:
+            parent = Parent.objects.select_related('student').get(user=user)
+            student = parent.student
+        except Parent.DoesNotExist:
+            pass
+    teacher = Teacher.objects.filter(user=user).first() if user.is_teacher() else None
+
+    classrooms = ClassRoom.objects.all()
 
     context = {
         'user': user,
-        'student': user.get_linked_student() if user.is_parent() else None,
-        'teacher': Teacher.objects.filter(user=user).first() if user.is_teacher() else None,
+        'student': student,
+        'teacher': teacher,
+        'classrooms': classrooms,
     }
-
     return render(request, 'home/profile.html', context)
+
 
 
 @login_required(login_url="/login/")
@@ -79,6 +89,61 @@ def profile_update(request):
         return redirect('profile')
     
     return redirect('profile')
+
+@login_required(login_url="/login/")
+def profile_edit_request(request):
+    supervisor = Supervisor.objects.all().first()
+    user = request.user
+
+    username = request.POST.get('username')
+    email = request.POST.get('email')
+    first_name = request.POST.get('first_name')
+    last_name = request.POST.get('last_name')
+    phone_number = request.POST.get('phone_number')
+    date_of_birth = request.POST.get('date_of_birth')
+    address = request.POST.get('address')
+    occupation = request.POST.get('occupation')
+    classroom = request.POST.get('classroom')
+    academic_degree = request.POST.get('academic_degree')
+    employment_type = request.POST.get('employment_type')
+    gender = request.POST.get('gender')
+    working_hours = request.POST.get('working_hours')
+    avatar = request.FILES.get('avatar')
+
+
+    subject = "Запрос от пользователя на изменения персональных данных"
+    html_message = render_to_string("email/profile_edit_request.html",
+                                    {
+                                        "sender_username": username,
+                                        "sender_email": email,
+                                        "sender_first_name": first_name,
+                                        "sender_last_name": last_name,
+                                        "sender_phone_number": phone_number,
+                                        "sender_date_of_birth": date_of_birth,
+                                        "sender_address": address,
+                                        "sender_occupation": occupation,
+                                        "sender_classroom": classroom,
+                                        "sender_academic_degree": academic_degree,
+                                        "sender_employment_type": employment_type,
+                                        "sender_gender": gender,
+                                        "sender_working_hours": working_hours,
+                                        "sender": user,
+                                        "supervisor": supervisor
+                                    })
+    plain_message = strip_tags(html_message)
+    from_mail = settings.EMAIL_HOST_USER
+    to_mail = [supervisor.user.email]
+
+    email_msg = EmailMultiAlternatives(subject, plain_message, from_mail, to_mail)
+    email_msg.attach_alternative(html_message, "text/html")
+    if avatar:
+        email_msg.attach(avatar.name, avatar.read(), avatar.content_type)
+
+    email_msg.send()
+    print("Supervisor:", supervisor)
+    print("Supervisor Email:", supervisor.user.email)
+    messages.success(request, "Your profile change request has been sent to the principal.")
+    return redirect("profile")
 
 
 @login_required(login_url="/login/")

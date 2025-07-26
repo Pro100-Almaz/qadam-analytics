@@ -21,7 +21,7 @@ def notifications_context(request):
             else:
                 continue
 
-            notify.send_time = notification .send_time
+            notify.send_time = notification.send_time
             notify.action = notification.action
             total_notify.append(notify)
 
