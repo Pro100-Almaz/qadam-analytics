@@ -57,7 +57,7 @@
                             </a>
                         </li>
                     {% endif %}
-                    {% if user.is_parent %}
+                    {% if user.is_parent and user.get_student_id%}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'student_details' user.get_student_id %}">
                                 <i class="ni ni-circle-08 text-pink"></i>

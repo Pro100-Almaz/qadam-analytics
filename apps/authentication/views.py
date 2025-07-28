@@ -80,6 +80,9 @@ def register_user(request):
                         occupation=form.cleaned_data['occupation'],
                         classroom=form.cleaned_data['classroom']
                     )
+                elif user.is_manager():
+                    Supervisor.objects.create(user=user)
+
 
                 login(request, user)
                 if user.is_parent:
