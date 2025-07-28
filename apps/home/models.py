@@ -11,6 +11,10 @@ class ClassRoom(models.Model):
         return f"{self.name}"
 
 
+class AcademicYear(models.Model):
+    year = models.CharField(max_length=9) # 2024/2025
+
+
 class Subject(models.Model):
     STATUS_CHOICES = (
         ('active', 'Active'),
@@ -25,8 +29,6 @@ class Subject(models.Model):
     progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
     average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
     maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
-
-
 
     teacher = models.ForeignKey(
         'authentication.Teacher',
