@@ -26,6 +26,7 @@ class SchoolGroup(models.Model):
 class CustomUser(AbstractUser):
     ROLE_PARENT = 'parent'
     ROLE_TEACHER = 'teacher'
+    HOMEROOM_TEACHER= 'homeroom_teacher'
     ROLE_STUDENT = 'student'
     ROLE_SUPERVISOR = 'supervisor'
     ROLE_CLASS_TEACHER = 'class_teacher'
@@ -35,6 +36,7 @@ class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         (ROLE_PARENT, 'Parent'),
         (ROLE_TEACHER, 'Teacher'),
+        (HOMEROOM_TEACHER, 'Homeroom Teacher'),
         (ROLE_STUDENT, 'Student'),
         (ROLE_SUPERVISOR, 'Supervisor'),
         (ROLE_PRINCIPAL, 'Principal'),
