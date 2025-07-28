@@ -131,9 +131,10 @@
             <div class="col">
               <h3 class="mb-0">Profile Information</h3>
             </div>
-            <button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
-              <i class="ni ni-settings-gear-65"></i> Изменить Данные
-            </button>
+              	<button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
+                  <i class="ni ni-settings-gear-65"></i> Изменить Данные
+                </button>
+
           </div>
         </div>
         <div class="card-body">
@@ -305,16 +306,15 @@
       </div>
     </div>
   </div>
-
+</div>
 
   {% include "includes/footer.html" %}
-</div>
 
 <!-- Edit Profile Modal -->
 <div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-      <form method="post" enctype="multipart/form-data" action="{% url 'profile_update' %}">
+      <form method="post" enctype="multipart/form-data" action="{% if user.is_admin or user.is_supervisor or user.is_manager %}{% url 'profile_update' %}{% else %} {% url 'profile_edit_request'%}{% endif %}">
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="editProfileModalLabel">Изменить Данные</h5>
@@ -322,97 +322,138 @@
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
+
         <div class="modal-body">
-          <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
+          {% if user.is_admin or user.is_supervisor or user.is_manager %}
+              <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
+          {% else %}
+              <p class="text-warning">
+                  You are not allowed to directly change your profile information!<br>
+                  The changes will be sent to the managing council and applied after review.
+              </p>
+          {% endif %}
+
+          <!-- Basic Info -->
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-username">Username</label>
+                <label for="input-username">Username</label>
                 <input type="text" id="input-username" name="username" class="form-control" value="{{ user.username }}" required>
               </div>
             </div>
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-email">Email </label>
+                <label for="input-email">Email</label>
                 <input type="email" id="input-email" name="email" class="form-control" value="{{ user.email }}" required>
               </div>
             </div>
           </div>
+
+          <!-- Name -->
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-first-name"> Имя</label>
+                <label for="input-first-name">Имя</label>
                 <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ user.first_name }}">
               </div>
             </div>
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-last-name">Фамилия</label>
+                <label for="input-last-name">Фамилия</label>
                 <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ user.last_name }}">
               </div>
             </div>
           </div>
+
+          <!-- Contact -->
           <div class="row">
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-phone">Телефонный номер</label>
+                <label for="input-phone">Телефонный номер</label>
                 <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ user.phone_number }}">
               </div>
             </div>
             <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-dob">Дата рождения</label>
+                <label for="input-dob">Дата рождения</label>
                 <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ user.date_of_birth|date:'Y-m-d' }}">
               </div>
             </div>
           </div>
 
-            {% if user.is_teacher %}
-                <div class="row">
-                    <div class="col-lg-6">
-                      <div class="form-group">
-                        <label class="form-control-label" for="input-occupation">Занятость</label>
-                        <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ user.occupation }}">
-                      </div>
-                    </div>
-
-                    <div class="col-lg-6">
-                      <div class="form-group">
-                        <label class="form-control-label" for="input-avatar">Profile Picture</label>
-                        <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
-                      </div>
-                    </div>
-                </div>
-            {% else %}
-                <div class="row">
-                    <div class="col-lg-12">
-                      <div class="form-group">
-                        <label class="form-control-label" for="input-avatar">Profile Picture</label>
-                        <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
-                      </div>
-                    </div>
-                </div>
-
-            {% endif %}
-
-
+          {% if user.is_teacher %}
+          <!-- Teacher Fields -->
           <div class="row">
-            <div class="col-md-12">
+            <div class="col-lg-6">
               <div class="form-group">
-                <label class="form-control-label" for="input-address">Адрес</label>
-                <textarea id="input-address" name="address" class="form-control" rows="3">{{ user.address }}</textarea>
+                <label for="input-occupation">Занятость</label>
+                <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ user.occupation }}">
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-degree">Academic Degree</label>
+                <input type="text" id="input-degree" name="academic_degree" class="form-control" value="{{ user.academic_degree }}">
               </div>
             </div>
           </div>
+
+          <div class="row">
+            <!-- Gender Select -->
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-gender">Пол</label>
+                <select id="input-gender" name="gender" class="form-control">
+                  <option value="">Выбрать</option>
+                  <option value="male" {% if user.gender == 'male' %}selected{% endif %}>Male</option>
+                  <option value="female" {% if user.gender == 'female' %}selected{% endif %}>Female</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Classroom Select -->
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-classroom">Класс</label>
+                <select id="input-classroom" name="classroom" class="form-control">
+                  <option value="">Выбрать</option>
+                  {% for classroom in classrooms %}
+                    <option value="{{ classroom.id }}" {% if user.classroom.id == classroom.id %}selected{% endif %}>
+                      {{ classroom.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Avatar Upload -->
+          <div class="row">
+            <div class="col-lg-12">
+              <div class="form-group">
+                <label for="input-avatar">Profile Picture (отправится на почту)</label>
+                <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
+              </div>
+            </div>
+          </div>
+
         </div>
+
         <div class="modal-footer">
-          <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary">Сохранить Изменения</button>
+            {% if user.is_admin or user.is_supervisor or user.is_manager %}
+            	<button type="submit" class="btn btn-primary">Сохранить изменения</button>
+            {% else %}
+                <button type="submit" class="btn btn-primary">Отправить запрос</button>
+            {% endif %}
+
         </div>
       </form>
     </div>
   </div>
 </div>
+
 
 {% endblock content %}
 
