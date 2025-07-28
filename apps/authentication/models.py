@@ -114,7 +114,7 @@ class Student(models.Model):
 class Parent(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
-    student = models.OneToOneField(Student, on_delete=models.CASCADE, blank=True, null=True)
+    student_id = models.IntegerField(blank=True, null=True)
 
 
 class Teacher(models.Model):

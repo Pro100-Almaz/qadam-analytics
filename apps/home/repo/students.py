@@ -42,10 +42,8 @@ def student_details(request, pk):
     lessons = Lesson.objects.filter(subject__in=subjects)
     templates = PsychologicalStateTemplates.objects.all()
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
-    last_updated = None
-    print(psychological_states.last())
-    if psychological_states.last().time_added:
-         last_updated = psychological_states.last().time_added
+    last_state = psychological_states.last()
+    last_updated = last_state.time_added if last_state else None
 
 
     context = {
