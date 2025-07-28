@@ -66,7 +66,8 @@ class Lesson(models.Model):
 
 class StudentGrade(models.Model):
     lesson = models.ForeignKey(Lesson, related_name='lesson_grade', on_delete=models.DO_NOTHING)
-    student = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='lesson_student_grade', on_delete=models.DO_NOTHING)
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='lesson_student_grade',
+                                on_delete=models.DO_NOTHING)
     grade = models.PositiveIntegerField(default=0, help_text="Grade of the lesson")
     points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
 
