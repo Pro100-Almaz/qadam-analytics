@@ -14,6 +14,9 @@ class ClassRoom(models.Model):
 class AcademicYear(models.Model):
     year = models.CharField(max_length=9) # 2024/2025
 
+    def __str__(self):
+        return self.year
+
 
 class Subject(models.Model):
     STATUS_CHOICES = (
@@ -23,16 +26,27 @@ class Subject(models.Model):
         ('archived', 'Archived'),
     )
 
-    name = models.CharField(max_length=100, help_text="Subject taught in the lesson")
+    name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
 
-    progress = models.PositiveIntegerField(default=0, help_text="Progress of the lesson")
-    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
-    maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
+    progress = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Progress percentage (0–100)"
+    )
+    average_points = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Current points earned (≤ maximum_points)"
+    )
+    maximum_points = models.PositiveIntegerField(
+        default=100,
+        validators=[MinValueValidator(1)],
+        help_text="Total possible points"
+    )
 
     teacher = models.ForeignKey(
         'authentication.Teacher',
-        # limit_choices_to={'role': 'teacher'},
         related_name='taught_subjects',
         help_text="Teacher responsible for this lesson",
         on_delete=models.SET_NULL,
@@ -49,28 +63,55 @@ class Subject(models.Model):
         help_text="User who added this subject"
     )
 
-    classroom = models.ForeignKey(
-        ClassRoom,
-        related_name='classroom',
-        help_text="Classroom of the lesson",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        related_name="subjects",
+        on_delete=models.PROTECT,
+        help_text="School year for this subject"
     )
 
     def __str__(self):
         return f"{self.name}"
 
+    def update_progress(self, completed_units: int, total_units: int) -> None:
+        """
+        Given how many units (e.g., lessons, assignments) are done vs. total,
+        recompute and save the `progress` percentage.
+        """
+        if total_units <= 0:
+            self.progress = 0
+        else:
+            self.progress = min(
+                100,
+                max(0, int((completed_units / total_units) * 100))
+            )
+        self.save(update_fields=['progress'])
+
+    def record_score(self, points_earned: int) -> None:
+        """
+        Set average_points (e.g. after an exam), validating against bounds.
+        """
+        if points_earned < 0:
+            raise ValueError("Points must be non-negative")
+        if points_earned > self.maximum_points:
+            raise ValueError(f"Cannot exceed maximum points ({self.maximum_points})")
+        self.average_points = points_earned
+        self.save(update_fields=['average_points'])
+
 
 class QuarterGrader(models.Model):
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    quarter = models.PositiveIntegerField(default=1)
+    subject            = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
+    quarter            = models.PositiveSmallIntegerField()
+    average_points     = models.PositiveIntegerField(default=0)
+    cumulative_points  = models.PositiveIntegerField(default=0)
 
-    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
-    cummulative_points = models.PositiveIntegerField(default=0)
+    class Meta:
+        unique_together = ('subject', 'quarter')
+        ordering = ['quarter']
 
     def __str__(self):
-        return f"{self.average_points}%"
+        return f"Q{self.quarter}: {self.average_points}/{self.subject.maximum_points}"
+
 
 
 
