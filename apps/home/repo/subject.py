@@ -101,22 +101,35 @@ def subject_details(request, pk):
     subject_adder = subject.added_by
     teacher = subject.teacher
 
-
-    grades = {}
+    max_number_of_grades = 1
+    student_grades = {} # student : sum of total points from each lesson
     for student in students:
-        grades[student] = {}
-        for lesson in lessons:
-            if quarter == lesson.quarter:
-                grades[student][lesson] = StudentGrade.objects.filter(lesson=lesson, student=student.user)
+        student_instance = student.user
+        if student_instance not in student_grades:
+            student_grades[student_instance] = 0
+        grades = StudentGrade.objects.filter(lesson__subject=subject, student=student_instance)
+        len_grades = len(grades)
+        if len_grades > max_number_of_grades:
+            max_number_of_grades = len_grades
+        for grade in grades:
+            student_grades[student_instance] += grade.points
 
-    context = {'grades': grades,
-               'lessons': lessons,
-               'subject_id': pk,
-               'quarter': quarter,
-               'subject': subject,
-               'students_count': get_students_count(pk),
-               'subject_adder': subject_adder,
-               'teacher': teacher
-               }
+    for grade in student_grades:
+        student_grades[grade] /= max_number_of_grades
 
+
+    student_grades= sorted(student_grades.items(),key=lambda item:item[1], reverse=True)
+    print(student_grades)
+
+    context = {
+        'top_grades': student_grades,
+        'num_lessons': max_number_of_grades,
+        'lessons': lessons,
+        'subject_id': pk,
+        'quarter': quarter,
+        'subject': subject,
+        'students_count': get_students_count(pk),
+        'subject_adder': subject_adder,
+        'teacher': teacher
+    }
     return render(request, 'home/subject_details.html', context)

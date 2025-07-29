@@ -49,7 +49,7 @@
                 <div class="card-body">
                   <div class="row">
                     <div class="col">
-                        <h5 class="card-title text-uppercase text-muted mb-0">Количество <br> занятий </h5>
+                        <h5 class="card-title text-uppercase text-muted mb-0">Lessons count </h5>
                       <span class="h2 font-weight-bold mb-0">{{ lessons.count }}</span>
                     </div>
                     <div class="col-auto">
@@ -140,24 +140,46 @@
             </div>
           </div>
         </div>
+
+
+
         <div class="col-xl-4">
           <div class="card">
-            <div class="card-header bg-transparent">
+            <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
-                  <h6 class="text-uppercase text-muted ls-1 mb-1">Performance</h6>
-                  <h5 class="h3 mb-0">Total orders</h5>
+                  <h3 class="mb-0">Список лучших</h3>
                 </div>
               </div>
             </div>
             <div class="card-body">
               <!-- Chart -->
-              <div class="chart">
-                <canvas id="chart-bars" class="chart-canvas"></canvas>
-              </div>
+              <table class="table align-items-center table-flush">
+                <thead class="thead-light">
+                  <tr>
+                    <th scope="col">Ученик</th>
+                    <th scope="col">Оценка</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for student, grade in top_grades %}
+                     <tr>
+                      <th scope="row">
+                        {{ student.first_name }} {{ student.last_name }}
+                      </th>
+                      <th scope="row">
+                        {{ grade }}
+                      </th>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+
+
+
       </div>
       <div class="row">
         <div class="col-xl-8">
@@ -213,8 +235,12 @@
             </div>
           </div>
         </div>
+
+
+
+
         <div class="col-xl-4">
-          <div class="card">
+            <div class="card">
             <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
@@ -223,7 +249,7 @@
               </div>
             </div>
             <div class="table-responsive">
-              <!-- Projects table -->
+              <!-- Top grades table -->
               <table class="table align-items-center table-flush">
                 <thead class="thead-light">
                   <tr>
@@ -233,13 +259,16 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for student in grades %}
-                    <tr>
+                  {% for student, total in top_grades.items|dictsortreversed:"1"|slice:":5" %}
+                     <tr>
                       <th scope="row">
                         {{ student.last_name }}
                       </th>
                       <th scope="row">
                         {{ student.first_name }}
+                      </th>
+                      <th scope="row">
+                        {{ student.value }} // num_lessons
                       </th>
                     </tr>
                   {% endfor %}
@@ -249,6 +278,10 @@
           </div>
         </div>
       </div>
+
+
+
+
     <div class="row">
         <div class="col-6">
             <div class="card">
@@ -276,7 +309,7 @@
                 <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
-                  <h3 class="mb-0">Added new subject</h3>
+                  <h3 class="mb-0">Subject was added by: </h3>
                 </div>
                 <div class="col text-right">
                     {% if subject_adder.first_name and subject_adder.last_name %}
