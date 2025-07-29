@@ -110,13 +110,20 @@ class Student(models.Model):
         blank=True
     )
 
+    subjects = models.ManyToManyField(
+        'home.Subject',
+        blank=True,
+        related_name="students"
+    )
+
     school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
+
 
 
 class Parent(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
-    student_id = models.IntegerField(blank=True, null=True)
+    students = models.ManyToManyField(Student, blank=True, related_name="parent")
 
 
 class Teacher(models.Model):
@@ -195,7 +202,6 @@ def registration_email_post_send(sender, instance, created, *args, **kwargs):
         raw_password = "Qadam!123_" + instance.username
         instance.password = make_password(raw_password)
         CustomUser.objects.filter(pk=instance.pk).update(password=instance.password)
-        print(instance.username, raw_password, instance.password)
 
         subject = 'Уведомление о учетной записи Qadam Analytics'
         html_message = render_to_string("email/registration_login_pw_email.html",
