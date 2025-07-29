@@ -119,7 +119,6 @@ def subject_details(request, pk):
 
 
     student_grades= sorted(student_grades.items(),key=lambda item:item[1], reverse=True)
-    print(student_grades)
 
     context = {
         'top_grades': student_grades,
