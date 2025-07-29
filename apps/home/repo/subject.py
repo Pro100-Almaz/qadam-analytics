@@ -2,12 +2,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.db.models import Prefetch
+from django.shortcuts import render, redirect, get_object_or_404
+
 
 from apps.home.forms import SubjectForm
-from apps.lesson.models import Lesson, StudentGrade
+from apps.lesson.models import Lesson
 from apps.home.models import Subject
 from apps.authentication.models import CustomUser, Student
-from django.shortcuts import render, redirect, get_object_or_404
 
 
 def get_students(subjects) -> dict:
@@ -95,28 +97,43 @@ def delete_subject(request, pk):
 @login_required(login_url="/login/")
 def subject_details(request, pk):
     quarter = int(request.GET.get('quarter', '1'))
-    subject = get_object_or_404(Subject, pk=pk)
-    students = Student.objects.filter( classroom=subject.classroom)
-    lessons = Lesson.objects.filter(subject=subject)
-    subject_adder = subject.added_by
-    teacher = subject.teacher
+    subject = get_object_or_404(Subject.objects.select_related('classroom', 'teacher', 'added_by'), pk=pk)
 
+    # Get students in the subject's classroom
+    students = Student.objects.filter(classroom=subject.classroom).select_related('user')
+    lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
 
+    # Get all relevant grades in a single query
+    student_users = [student.user for student in students]
+    lesson_ids = lessons.values_list('id', flat=True)
+
+    grades_qs = StudentGrade.objects.filter(
+        lesson_id__in=lesson_ids,
+        student__in=student_users
+    ).select_related('lesson', 'student')
+
+    # Build lookup for quick access
+    grades_lookup = {}
+    for grade in grades_qs:
+        grades_lookup[(grade.student_id, grade.lesson_id)] = grade
+
+    # Build grades dict for template
     grades = {}
     for student in students:
-        grades[student] = {}
+        student_grades = []
         for lesson in lessons:
-            if quarter == lesson.quarter:
-                grades[student][lesson] = StudentGrade.objects.filter(lesson=lesson, student=student.user)
+            grade = grades_lookup.get((student.user_id, lesson.id))
+            student_grades.append({'lesson': lesson, 'grade': grade})
+        grades[student] = student_grades
 
-    context = {'grades': grades,
-               'lessons': lessons,
-               'subject_id': pk,
-               'quarter': quarter,
-               'subject': subject,
-               'students_count': get_students_count(pk),
-               'subject_adder': subject_adder,
-               'teacher': teacher
-               }
-
+    context = {
+        'grades': grades,
+        'lessons': lessons,
+        'subject_id': pk,
+        'quarter': quarter,
+        'subject': subject,
+        'students_count': get_students_count(pk),
+        'subject_adder': subject.added_by,
+        'teacher': subject.teacher
+    }
     return render(request, 'home/subject_details.html', context)

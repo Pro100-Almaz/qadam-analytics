@@ -1,7 +1,5 @@
 from django.contrib import admin
-from .models import Lesson, StudentGrade, Comment, LessonGroup
+from .models import Lesson, LessonGroup
 
 admin.site.register(Lesson)
-admin.site.register(StudentGrade)
-admin.site.register(Comment)
 admin.site.register(LessonGroup)

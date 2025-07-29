@@ -63,6 +63,65 @@ class Lesson(models.Model):
     def __str__(self):
         return f"{self.title}"
 
+    def calculate_student_grade(self, student):
+        """Calculate weighted grade for a student for this lesson."""
+
+        def sum_topic(topic):
+            # Get student's grade for this topic, if exists
+            try:
+                tg = TopicGrade.objects.get(topic=topic, student=student)
+                my_grade = tg.grade
+            except TopicGrade.DoesNotExist:
+                my_grade = 0
+
+            # If topic has subtopics, sum them by weight; else, use own grade
+            children = list(topic.subtopics.all())
+            if children:
+                total = 0
+                for sub in children:
+                    total += sum_topic(sub) * (sub.weight / 100)
+                return total
+            else:
+                return my_grade
+
+        total_grade = 0
+        for topic in self.topics.filter(parent__isnull=True):
+            total_grade += sum_topic(topic) * (topic.weight / 100)
+        return total_grade
+
+
+class Topic(models.Model):
+    lesson = models.ForeignKey(
+        'Lesson',
+        related_name='topics',
+        on_delete=models.CASCADE
+    )
+    parent = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        related_name='subtopics',
+        on_delete=models.CASCADE
+    )
+    title = models.CharField(max_length=255)
+    weight = models.FloatField(
+        default=0.0,
+        help_text="Percent weight in lesson (must sum to 100% for all siblings under same parent)"
+    )
+
+    def __str__(self):
+        return f"{self.title} ({self.weight}%)"
+
+
+class TopicGrade(models.Model):
+    topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
+    student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
+    grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ('topic', 'student')
+
 
 class StudentGrade(models.Model):
     lesson = models.ForeignKey(Lesson, related_name='lesson_grade', on_delete=models.DO_NOTHING)
