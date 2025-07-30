@@ -82,7 +82,7 @@ def lessons_list(request):
 
     number_of_students = {}
     for lesson in lessons:
-        number_of_students[lesson.title] = Student.objects.filter(classroom=lesson.subject.classroom).count()
+        number_of_students[lesson.title] = Student.objects.filter(classroom=lesson.subject.teacher.classroom).count()
 
     page = request.GET.get('page')
     paginator = Paginator(lessons, 5)

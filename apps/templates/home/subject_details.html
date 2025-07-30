@@ -153,23 +153,22 @@
               </div>
             </div>
             <div class="card-body">
-              <!-- Chart -->
               <table class="table align-items-center table-flush">
                 <thead class="thead-light">
                   <tr>
                     <th scope="col">Ученик</th>
-                    <th scope="col">Оценка</th>
+                    <th scope="col">Средний балл</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for student, grade in top_grades %}
-                     <tr>
+                  {% for student, avg_grade in top_grades %}
+                    <tr>
                       <th scope="row">
                         {{ student.first_name }} {{ student.last_name }}
                       </th>
-                      <th scope="row">
-                        {{ grade }}
-                      </th>
+                      <td>
+                        {{ avg_grade|floatformat:2 }}
+                      </td>
                     </tr>
                   {% endfor %}
                 </tbody>
