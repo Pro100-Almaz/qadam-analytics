@@ -38,7 +38,7 @@ def students_list(request):
 @login_required(login_url="/login/")
 def student_details(request, pk):
     student = get_object_or_404(Student, user_id=pk)
-    subjects = Subject.objects.filter(classroom=student.classroom)
+    subjects = Subject.objects.filter(teacher__classroom=student.classroom) #change filter to teacher
     lessons = Lesson.objects.filter(subject__in=subjects)
     templates = PsychologicalStateTemplates.objects.all()
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
