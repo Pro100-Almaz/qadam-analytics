@@ -30,44 +30,78 @@
     {% include "includes/navigation.html" %}
 
     {% if messages %}
-      <div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+      <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050;">
         {% for message in messages %}
-          <div style="
-            background-color: #38a169;
-            color: white;
-            padding: 12px 18px;
-            border-radius: 8px;
-            font-size: 20px;
-            min-width: 250px;
-            max-width: 400px;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          <div class="toast-message" style="
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             display: flex;
-            align-items: center;
-            justify-content: space-between;">
-
-            <span>{{ message }}</span>
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px 18px 24px;  /* bottom padding for progress bar */
+            margin-bottom: 10px;
+            min-width: 300px;
+            max-width: 400px;
+            font-family: 'Open Sans', sans-serif;
+            border-left: 5px solid #2ecc71;
+            position: relative;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+            overflow: hidden;
+          ">
+            <div style="color: #2ecc71; font-size: 20px; margin-top: 2px;">✔️</div>
+            <div style="flex: 1;">
+              <p style="margin: 0; color: #333; font-size: 15px;">{{ message }}</p>
+              <small style="color: #aaa;">Сейчас</small>
+            </div>
             <button onclick="this.parentElement.remove()" style="
               background: transparent;
               border: none;
-              color: white;
               font-size: 20px;
-              font-weight: bold;
+              color: #aaa;
               cursor: pointer;
               line-height: 1;
-              margin-left: 10px;
+              position: absolute;
+              top: 8px;
+              right: 12px;
             ">&times;</button>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar" style="
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              height: 4px;
+              background: linear-gradient(to right, #2ecc71, #b2f2bb);
+              width: 100%;
+              transform-origin: left;
+              animation: shrink 5s linear forwards;
+            "></div>
           </div>
         {% endfor %}
       </div>
 
-  <script>
-    setTimeout(() => {
-      document.querySelectorAll('[style*="background-color: #38a169"]').forEach(el => el.remove());
-    }, 10000);
-  </script>
-{% endif %}
+      <style>
+        @keyframes shrink {
+          from {
+            width: 100%;
+          }
+          to {
+            width: 0%;
+          }
+        }
+      </style>
 
+      <script>
+        setTimeout(() => {
+          document.querySelectorAll('.toast-message').forEach((el) => {
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 500);
+          });
+        }, 5000);
+      </script>
+    {% endif %}
 
     {% block content %}{% endblock content %}
   </div>
