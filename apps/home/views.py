@@ -31,8 +31,6 @@ def main_page(request):
 
     if Teacher.objects.filter(user=request.user).exists():
         template_name = 'teacher.html'
-    elif Supervisor.objects.filter(user=request.user).exists():
-        template_name = 'supervisor.html'
     elif Student.objects.filter(user=request.user).exists():
         template_name = 'student.html'
     else:
