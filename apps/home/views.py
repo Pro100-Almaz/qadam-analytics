@@ -25,16 +25,22 @@ def index(request):
 
 @login_required(login_url="/login/")
 def main_page(request):
-    context = {}
+    total_students = Student.objects.all().count()
+    total_teachers = Teacher.objects.all().count()
+    total_classes = ClassRoom.objects.all().count()
 
     if Teacher.objects.filter(user=request.user).exists():
         template_name = 'teacher.html'
-    elif Supervisor.objects.filter(user=request.user).exists():
-        template_name = 'supervisor.html'
     elif Student.objects.filter(user=request.user).exists():
         template_name = 'student.html'
     else:
         template_name = 'default.html'
+
+    context = {
+        'total_students': total_students,
+        'total_teachers': total_teachers,
+        'total_classes': total_classes,
+    }
 
     return render(request, 'main_page/' + template_name, context)
 
