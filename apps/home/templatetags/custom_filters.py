@@ -13,4 +13,10 @@ def get_item(dictionary, key):
     try:
         return dictionary.get(key)
     except (AttributeError, TypeError):
-        return None 
+        return None
+
+@register.filter
+def dict_get(dictionary, key):
+    if isinstance(dictionary, dict):
+        return dictionary.get(key)
+    return None
