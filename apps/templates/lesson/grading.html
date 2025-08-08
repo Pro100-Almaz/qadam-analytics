@@ -3,8 +3,35 @@
 
 {% block title %} Оценка урока {% endblock %}
 
-{% block content %}
 
+
+{% block content %}
+<style>
+.split-container {
+  display: flex;
+  height: 500px;
+}
+
+.split {
+  width: 50%;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.left {
+  background-color: #f8f9fa; /* light gray */
+  border-right: 1px solid #ccc;
+}
+
+.right {
+  background-color: #fff;
+}
+
+.centered {
+  height: 100%;
+  width: 80%;
+}
+</style>
 <div class="container-fluid mt-6">
     <!-- Lesson Information Card -->
     <div class="row">
@@ -52,7 +79,6 @@
                                 <th scope="col">Ученик</th>
                                 <th scope="col">Баллы</th>
                                 <th scope="col">Оценка</th>
-                                <th scope="col">Комментарий</th>
                                 <th scope="col">Действия</th>
                             </tr>
                         </thead>
@@ -70,30 +96,33 @@
                                     </div>
                                 </th>
                                 <td>
-                                    <input type="number" class="form-control" 
-                                           name="points_{{ student.user.id }}"
-                                           min="0" max="{{ lesson.maximum_points }}"
-                                           value="{{ student_grades|get_item:student.user.id|get_item:'points'|default:'' }}"
-                                           form="grade_form_{{ student.user.id }}">
+                                    {{ student_grades|get_item:student.user.id}}
                                 </td>
                                 <td>
-                                    <span class="badge badge-dot mr-4">
-                                        <i class="bg-{{ student_grades|get_item:student.user.id|get_item:'grade'|default:'warning' }}"></i>
-                                        <span class="status">{{ student_grades|get_item:student.user.id|get_item:'grade'|default:'-' }}</span>
-                                    </span>
+                                    {% if  student_grades|get_item:student.user.id  >= 90 %}
+                                        5
+                                    {% elif  student_grades|get_item:student.user.id >= 70 %}
+                                        4
+                                    {% elif student_grades|get_item:student.user.id >= 50 %}
+                                        3
+                                    {% else %}
+                                        2
+
+                                    {% endif %}
                                 </td>
                                 <td>
-                                    <div class="text-sm text-muted">
-                                        {{ student_grades|get_item:student.user.id|get_item:'comment'|default:'-' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <form id="grade_form_{{ student.user.id }}" method="POST" action="{% url 'lesson:grading' %}">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-                                        <input type="hidden" name="student_id" value="{{ student.user.id }}">
-                                        <button type="submit" class="btn btn-sm btn-primary" >Сохранить</button>
-                                    </form>
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                        data-student-id="{{ student.user.id }}"
+                                        data-lesson-id="{{ lesson.id }}"
+                                        data-target="#postGradeModal"
+                                        data-toggle="modal">Put Grade
+                                    </button>
+                                    <a href="{% url 'lesson:delete_grade' student.id lesson.id%}">
+                                        <button type="button" class="btn btn-sm btn-danger"
+                                            data-toggle="modal">Delete Grade
+                                        </button>
+                                    </a>
+
                                 </td>
                             </tr>
                             {% empty %}
@@ -107,33 +136,156 @@
             </div>
         </div>
     </div>
-    <div class="modal fade" id="feedbackModal" tabindex="-1" role="dialog" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content text-center p-4">
-          <div id="modal-loader" class="my-4">
-            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-              <span class="sr-only">Loading...</span>
-            </div>
-            <p class="mt-3">Сохраняем оценку...</p>
-          </div>
 
-          <div id="modal-success" class="d-none my-4">
-            <div class="text-success mb-2">
-              <i class="fas fa-check-circle fa-3x"></i>
+{#    Add Grade Modal#}
+    <div class="modal fade" id="postGradeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <form method="POST" action="{% url 'lesson:submit_all_topic_grades' %}" id="grading_form">
+          {% csrf_token %}
+          <input type="hidden" name="parent" id="modalTopicId">
+          <input type="hidden" name="student_id" id="modalStudentId">
+          <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Grades</h5>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
-            <p>Оценка успешно сохранена!</p>
-          </div>
 
-          <div id="modal-error" class="d-none my-4">
-            <div class="text-danger mb-2">
-              <i class="fas fa-times-circle fa-3x"></i>
+            <div class="modal-body">
+              <div class="split-container">
+
+                <!-- Left Side: Topic Info -->
+                <div class="split left">
+                  <div class="centered">
+                    <div id="topic-info-panel">
+                      <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Topics</th>
+                                <th>Weight</th>
+                                <th>Grade</th>
+                                <th>Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for topic in topics %}
+                                {% if not topic.parent %}
+                                    <tr>
+                                        <td>{{ topic.title }}</td>
+                                        <td>{{ topic.weight }}</td>
+                                        <td>
+                                            <span class="topic-grade-display" data-topic-id="{{ topic.id }}">0</span>
+                                            <input type="hidden" name="topic_{{ topic.id }}_grade" id="topic_grade_{{ topic.id }}" value="">
+                                        </td>
+                                        <td>
+                                            <textarea class="form-control" rows="1"
+                                                      name="topic_{{ topic.id }}_comment"></textarea>
+                                        </td>
+
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    </div>
+                  </div>
+                </div>
+
+{#                Right Side: Subtopics & Inputs#}
+                <div class="w-55 pl-4">
+                    <div class="form-group">
+                      <label for="parent">Choose Topic</label>
+                      <select id="parent" name="parent" class="form-control mb-3">
+                        <option value="">-- Select a Topic --</option>
+                        {% for topic in topics %}
+                          {% if not topic.parent %}
+                            <option value="{{ topic.id }}"
+                                    data-title="{{ topic.title }}"
+                                    data-weight="{{ topic.weight }}">
+                              {{ topic.title }}
+                            </option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div id="topic-subtopic-fields">
+                      {% for topic in topics %}
+                        <div class="subtopic-group" data-topic-id="{{ topic.id }}" style="display: none;">
+                          <table class="table">
+                            <thead>
+                              <tr>
+                                <th>Subtopic</th>
+                                <th>Weight</th>
+                                <th>Grade</th>
+                                <th>Comment</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for subtopic in topic.subtopics.all %}
+                                <tr>
+                                  <td>{{ subtopic.title }}</td>
+                                  <td>{{ subtopic.weight }}</td>
+                                  <td>
+                                    <input type="number" class="form-control subtopic-grade-input p-1"
+                                           name="subtopic_{{ subtopic.id }}_grade"
+                                           min="0" max="100"
+                                           data-weight="{{ subtopic.weight }}"
+                                           data-topic-id="{{ topic.id }}"
+                                           data-subtopic-id="{{ subtopic.id }}">
+                                  </td>
+                                  <td>
+                                    <textarea class="form-control" rows="1"
+                                              name="subtopic_{{ subtopic.id }}_comment"></textarea>
+                                  </td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-primary" id="submit-grades-btn">Add Grade</button>
+                </div>
             </div>
-            <p>Произошла ошибка при сохранении. Пожалуйста, попробуйте снова.</p>
-          </div>
-        </div>
+        </form>
       </div>
     </div>
 
+
+{#    Final Grade Loading Modal ----------------------------------#}
+        <div class="modal fade" id="feedbackModal" tabindex="-1" role="dialog" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content text-center p-4">
+              <div id="modal-loader" class="my-4">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                  <span class="sr-only">Loading...</span>
+                </div>
+                <p class="mt-3">Сохраняем оценку...</p>
+              </div>
+
+              <div id="modal-success" class="d-none my-4">
+                <div class="text-success mb-2">
+                  <i class="fas fa-check-circle fa-3x"></i>
+                </div>
+                <p>Оценка успешно сохранена!</p>
+              </div>
+
+              <div id="modal-error" class="d-none my-4">
+                <div class="text-danger mb-2">
+                  <i class="fas fa-times-circle fa-3x"></i>
+                </div>
+                <p>Произошла ошибка при сохранении. Пожалуйста, попробуйте снова.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+{#---------------------------------------------------------#}
     <div class="container-fluid mt--6">
         <div class="footer">
             <div class="row py-4">
@@ -155,11 +307,12 @@
 {% block javascripts %}
 <script>
     $(document).ready(function() {
+        const topicGradeMap = {{ topic_grade_map|safe }};
         // Initialize tooltips
         $('[data-toggle="tooltip"]').tooltip();
         
         // Add form submission handling
-        $('form[id^="grade_form_"]').on('submit', function(e) {
+        $('form[id^="grading_form"]').on('submit', function(e) {
             e.preventDefault();
             const form = $(this);
             const formData = new FormData(this);
@@ -215,5 +368,103 @@
             }
         });
     });
+
+    document.querySelectorAll('[data-target="#postGradeModal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            document.getElementById('modalStudentId').value = studentId;
+
+            document.querySelectorAll('#postGradeModal input[type="number"]').forEach(input => {input.value = ''});
+            document.querySelectorAll('#postGradeModal textarea').forEach(textarea => textarea.value = '');
+
+            Object.keys(topicGradeMap).forEach(key => {
+                if (key.startsWith(studentId + "_")){
+                    const topicId = key.split("_")[1];
+                    const data = topicGradeMap[key];
+
+                    const subComment = document.querySelector(`[name="subtopic_${topicId}_comment"]`);
+                    if (subComment) subComment.value = data.comment;
+
+                    const topicGradeEl = document.getElementById(`topic_grade_${topicId}`);
+
+                    if (topicGradeEl) topicGradeEl.value = data.grade;
+
+                    const topicComment = document.querySelector(`[name="topic_${topicId}_comment"]`);
+                    if (topicComment) topicComment.value = data.comment;
+                }
+            })
+        })
+    })
+
+    document.getElementById('parent').addEventListener('change', function(){
+        const topicId = this.value;
+        document.querySelectorAll('.subtopic-group').forEach(group => {
+            group.style.display = group.dataset.topicId === topicId ? 'block' : 'none';
+        });
+    });
+
+    document.getElementById('submit-grades-btn').addEventListener('click', function(){
+        const inputs = document.querySelectorAll('#topic-subtopic-fields input[type="number"]');
+        let hasEmpty = false;
+
+        inputs.forEach(input =>{
+            if (input.value === ''){
+                hasEmpty = true;
+            }
+        });
+
+        if (hasEmpty){
+            if(confirm("Some grades are not filled. Do you want to auto-fill them with 0?")){
+                inputs.forEach(input=> {
+                    if (input.value === ''){
+                        input.value = 0;
+                    }
+                });
+            }else{
+                return;
+            }
+        }
+    })
+
+
+    document.addEventListener('input', function(e) {
+        const target = e.target;
+        if (!target.classList.contains('subtopic-grade-input')){
+            return;
+        }
+
+        const topicId = target.dataset.topicId;
+        if (!topicId){
+            return;
+        }
+
+        const relatedInputs = document.querySelectorAll(`.subtopic-grade-input[data-topic-id="${topicId}"]`)
+        let weightSum = 0;
+        let totalWeight = 0;
+
+        relatedInputs.forEach(input => {
+            const val = parseFloat(input.value);
+            const weight = parseFloat(input.dataset.weight) || 0;
+
+            if (!isNaN(val)){
+                weightSum += val * weight / 100;
+            };
+
+            totalWeight += weight;
+        });
+        const topicGrade = totalWeight > 0 ? weightSum : 0;
+
+        const displayEl = document.querySelector(`.topic-grade-display[data-topic-id="${topicId}"]`);
+        if (displayEl){
+            displayEl.textContent = (topicGrade === 0 ? '' : topicGrade.toFixed(1));
+        }
+
+        const hidden = document.getElementById('topic_grade_' + topicId);
+        if (hidden){
+            hidden.value = topicGrade;
+        }
+    });
+
+
 </script>
 {% endblock javascripts %}

@@ -2,7 +2,35 @@
 
 {% block title %} Детали Урока {% endblock title %}
 {% load static %}
+{% load custom_filters %}
+
 {% block content %}
+<style>
+.split-container {
+  display: flex;
+  height: 500px;
+}
+
+.split {
+  width: 50%;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.left {
+  background-color: #f8f9fa; /* light gray */
+  border-right: 1px solid #ccc;
+}
+
+.right {
+  background-color: #fff;
+}
+
+.centered {
+  height: 100%;
+  width: 80%;
+}
+</style>
 
 <div class="header bg-white pb-6">
     <div class="container-fluid">
@@ -19,7 +47,7 @@
                     </nav>
                 </div>
                 <div class="col-lg-6 col-5 text-right">
-                    <a href="{% url 'lesson:grading' %}?lesson_id={{ lesson.id }}" class="btn btn-primary px-4">
+                    <a href="{% url 'lesson:grading' lesson.id%}    " class="btn btn-primary px-4">
                         <i class="fas fa-edit"></i> Оценить учеников
                     </a>
                 </div>
@@ -27,6 +55,7 @@
         </div>
     </div>
 </div>
+
 <div class="container-fluid mt--6">
     <!-- Lesson Information Card -->
     <div class="row">
@@ -64,101 +93,339 @@
         </div>
     </div>
 
-    <!-- Student Grades Card -->
-    <div class="row mt-4">
+
+{#Topics --------------------------------------------------------------------------------------------------#}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="card col-md-5">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Topics List</h4>
+                <div>
+                        <button
+                            class="btn btn-outline-primary btn-sm"
+                            type="button"
+                            data-toggle="modal"
+                            data-target="#createTopicModal">
+                            <i class="ni ni-fat-add"></i> Add
+                        </button>
+
+                        <a href="{% url 'lesson:distribute_topic_weights' lesson.id%}"><button
+                            class="btn btn-outline-primary btn-sm">
+                            <i class="ni ni-fat-add"></i> Distribute weight proportions
+                        </button></a>
+
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Topics</th>
+                            <th>Weight</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    	{% for topic in topics %}
+                            {% if not topic.parent %}
+                            <tr>
+                                <td>{{ topic.title }}</td>
+                                <td>{{ topic.weight }}</td>
+                                <td class="text-right">
+                                    <div class="dropdown">
+                                        <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                          <i class="fas fa-ellipsis-v"></i>
+                                        </a>
+                                        <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
+                                          <a class="dropdown-item" id="editTopic"
+                                            data-toggle="modal"
+                                            data-target="#editTopicModal"
+                                            data-target="#editTopicModal"
+                                            data-title="{{ topic.title }}"
+                                            data-weight="{{ topic.weight }}"
+                                            data-id="{{ topic.id }}">
+                                              Edit
+                                          </a>
+                                          <a class="dropdown-item" href="/lessons/topic/delete/{{ topic.id }}">Delete</a>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+{#        Create Topic Modal#}
+
+        <div class="modal fade" id="createTopicModal" tabindex="-1" role="dialog" aria-labelledby="createTopicModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <form action="{% url 'lesson:create_topic' lesson.id %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="topic_id" value="{{ topic.id }}">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="createTopicModalLabel">Add Topic</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="title">Title</label>
+                                <input type="text" class="form-control" id="title" name="title" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="weight">Weight</label>
+                                <input type="number" class="form-control" id="weight" name="weight" min="0" max="100"   >
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Создать</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+{#    Edit Topics Modal#}
+
+         <div class="modal fade" id="editTopicModal" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <form action="" method="post">
+                    {% csrf_token %}
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Edit Topic</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label>title</label>
+                                <input type="text" class="form-control" name="title" value="{{ topic.title }}" placeholder="{{ topic.title }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Weight</label>
+                                <input type="number" class="form-control" name="weight" value="{{ topic.weight }}" placeholder="{{ topic.weight }}" min="0" max="100" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+         </div>
+
+{#    -----------------------------------------------------------------------------------------#}
+        <div class="col-md-1"></div>
+
+
+    {#SubTopics -----------------------------------------------------------------------------------------------------#}
+            <div class="card col-md-5">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Subtopics List</h4>
+                <div>
+                  <button
+                    class="btn btn-outline-primary btn-sm"
+                    type="button"
+                    data-toggle="modal"
+                    data-target="#createSubtopicModal">
+                    <i class="ni ni-fat-add"></i> Add
+                  </button>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <label for="topicSelect" class="form-label">Choose a Topic</label>
+                <select id="topicSelect" class="form-control mb-3">
+                  <option value="">-- Select a Topic --</option>
+                  {% for topic in topics %}
+                    <option value="{{ topic.id }}">{{ topic.title }}</option>
+                  {% endfor %}
+                </select>
+
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Weight</th>
+                      <th><a href="{% url 'lesson:distribute_subtopic_weights' lesson.id%}"><button
+                            class="btn btn-outline-primary btn-sm">
+                            <i class="ni ni-fat-add"></i> Distribute weight proportions
+                        </button></a></th>
+                    </tr>
+                  </thead>
+                  <tbody id="subtopics-container">
+                    {% for topic in topics %}
+
+                      {% for subtopic in topic.subtopics.all %}
+                        <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
+                          <td>{{ subtopic.title }}</td>
+                          <td>{{ subtopic.weight }}</td>
+                            <td class="text-right">
+                                <div class="dropdown">
+                                    <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                      <i class="fas fa-ellipsis-v"></i>
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
+                                      <a class="dropdown-item"
+                                        data-toggle="modal"
+                                        data-target="#editSubtopicModal"
+                                        data-id="{{ subtopic.id }}"
+                                        data-title="{{ subtopic.title }}"
+                                        data-weight="{{ subtopic.weight }}"
+                                      >Edit</a>
+                                      <a class="dropdown-item" href="/lessons/topic/delete/{{ subtopic.id }}">Delete</a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                      {% endfor %}
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Add Subtopic -->
+            <div class="modal fade" id="createSubtopicModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog" role="document">
+                <form method="post" action="{% url 'lesson:create_subtopic' lesson.id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="parent" id="modalTopicId">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Add Subtopic</h5>
+                      <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                      <div class="form-group">
+                          <label for="parent" class="form-label">Choose a Topic</label>
+                            <select id="parent" name="parent" class="form-control mb-3">
+                              <option value="">-- Select a Topic --</option>
+                              {% for topic in topics %}
+                                {% if not topic.parent %}
+                                  <option value="{{ topic.id }}">{{ topic.title }}</option>
+                                {% endif %}
+                              {% endfor %}
+                            </select>
+                      </div>
+                      <div class="form-group">
+                        <label for="title">Subtopic Title</label>
+                        <input type="text" name="title" class="form-control" required>
+                      </div>
+                      <div class="form-group">
+                        <label for="weight">Weight (%)</label>
+                        <input type="number" name="weight" class="form-control" min="0" max="100">
+                      </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+    {#    Edit Subtopic Modal#}
+        <div class="modal fade" id="editSubtopicModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <form action="" method="post">
+                        {% csrf_token %}
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Edit Subtopic</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="title">Title</label>
+                                    <input type="text" id="title" class="form-control" name="title" value="" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Weight</label>
+                                    <input type="number" class="form-control" name="weight" value="" placeholder="" min="0" max="100" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                                <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+             </div>
+
+{#Student Grades ----------------------------#}
+
+
+<div class="row mt-4">
         <div class="col-xl-12">
             <div class="card">
                 <div class="card-header border-0">
-                    <h3 class="mb-0">Оценки учеников</h3>
+                    <h3 class="mb-0">Оценка учеников</h3>
                 </div>
                 <div class="table-responsive">
                     <table class="table align-items-center table-flush">
                         <thead class="thead-light">
                             <tr>
                                 <th scope="col">Ученик</th>
-                                <th scope="col">Оценка</th>
                                 <th scope="col">Баллы</th>
-                                <th scope="col">Коммент</th>
-                                <th scope="col">Дата</th>
+                                <th scope="col">Оценка</th>
                                 <th scope="col">Действия</th>
                             </tr>
                         </thead>
                         <tbody class="list">
-                            {% for grade in student_grades %}
+                            {% for student in students %}
                             <tr>
                                 <th scope="row">
                                     <div class="media align-items-center">
                                         <a href="#" class="avatar rounded-circle mr-3">
-                                            <img src="{{ grade.student.avatar.url }}" alt="Photo" class="profile-avatar">
+                                            <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
                                         </a>
                                         <div class="media-body">
-                                            <span class="name mb-0 text-sm">{{ grade.student.get_full_name }}</span>
+                                            <span class="name mb-0 text-sm">{{ student.user.get_full_name }}</span>
                                         </div>
                                     </div>
                                 </th>
-                                <td>{{ grade.grade }}</td>
-                                <td>{{ grade.points }}</td>
                                 <td>
-                                    {% if grade.comment %}
-                                        {% if grade.comment|length > 20 %}
-                                            {{ grade.comment|slice:":20" }}...
-                                        {% else %}
-                                            {{ grade.comment }}
-                                        {% endif %}
+                                    {{ student_grades|get_item:student.user.id }}
+                                </td>
+                                <td>
+                                    {% if  student_grades|get_item:student.user.id  >= 90 %}
+                                        5
+                                    {% elif  student_grades|get_item:student.user.id >= 70 %}
+                                        4
+                                    {% elif student_grades|get_item:student.user.id >= 50 %}
+                                        3
                                     {% else %}
-                                        -
+                                        2
+
                                     {% endif %}
                                 </td>
-                                <td>{{ grade.created_at|date:"M d, Y" }}</td>
                                 <td>
                                     <button type="button" class="btn btn-sm btn-primary"
-                                            data-toggle="modal"
-                                            data-target="#gradeModal{{ grade.id }}">
-                                        Изменить оценку
-                                    </button>
+                                    id="display_button"
+                                    data-student-id="{{ student.user.id }}"
+                                    data-target="#GradeModal"
+                                    data-toggle="modal">Смотреть оценку</button>
                                 </td>
                             </tr>
-
-                            <!-- Grade Modal -->
-                            <div class="modal fade" id="gradeModal{{ grade.id }}" tabindex="-1" role="dialog" aria-labelledby="gradeModalLabel{{ grade.id }}" aria-hidden="true">
-                                <div class="modal-dialog" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="gradeModalLabel{{ grade.id }}">Изменить оценку для {{ grade.student.get_full_name }}</h5>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
-                                            </button>
-                                        </div>
-                                        <form method="POST" action="{% url 'lesson:grading' %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="action" value="update">
-                                            <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-                                            <input type="hidden" name="grade_id" value="{{ grade.id }}">
-                                            <div class="modal-body">
-                                                <div class="form-group">
-                                                    <label for="grade">Grade</label>
-                                                    <input type="number" class="form-control" id="grade{{ grade.id }}" name="grade" value="{{ grade.grade }}" min="1" max="5">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="points">Баллы</label>
-                                                    <input type="number" class="form-control" id="points{{ grade.id }}" name="points" value="{{ grade.points }}" min="0" max="{{ lesson.maximum_points }}">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label for="comment">Коммент</label>
-                                                    <textarea class="form-control" id="comment{{ grade.id }}" name="comment" rows="3">{{ grade.comment }}</textarea>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
-                                                <button type="submit" class="btn btn-primary">Сохранить</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center">Нету записей оценок</td>
+                                <td colspan="5" class="text-center">Нет учеников для оценки</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -168,128 +435,123 @@
         </div>
     </div>
 
-    <!-- Comment Templates Card -->
-    <div class="row mt-4">
-        <div class="col-xl-12">
-            <div class="card">
-                <div class="card-header border-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0">Шаблоны комментариев</h3>
-                        <button
-                            class="btn btn-outline-primary btn-sm"
-                            type="button"
-                            data-toggle="modal"
-                            data-target="#addCommentTemplateModal"
-                        >
-                            <i class="ni ni-fat-add"></i> Добавить шаблон
-                        </button>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table align-items-center table-flush">
-                        <thead class="thead-light">
+
+{#    Grades Display Modal#}
+
+    <div class="modal fade" id="GradeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <form method="POST" action="" id="grading_form">
+          {% csrf_token %}
+          <input type="hidden" name="parent" id="modalTopicId">
+          <input type="hidden" name="student_id" id="modalStudentId">
+          <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Grades</h5>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+              <div class="split-container">
+
+                <!-- Left Side: Topic Info -->
+                <div class="split left">
+                  <div class="centered">
+                    <div id="topic-info-panel">
+                      <table class="table">
+                        <thead>
                             <tr>
-                                <th scope="col">Диапазон баллов</th>
-                                <th scope="col">Текст комментария</th>
-                                <th scope="col">Действия</th>
+                                <th>Topics</th>
+                                <th>Weight</th>
+                                <th>Grade</th>
+                                <th>Comment</th>
                             </tr>
                         </thead>
-                        <tbody class="list">
-                            {% for comment in comments %}
-                            <tr>
-                                <td>{{ comment.from_points }} - {{ comment.to_points }}</td>
-                                <td>
-                                    {% if comment.comment_text|length > 50 %}
-                                        {{ comment.comment_text|slice:":50" }}...
-                                    {% else %}
-                                        {{ comment.comment_text }}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <button type="button"
-                                            class="btn btn-sm btn-primary"
-                                            data-toggle="modal"
-                                            data-target="#editCommentModal{{ comment.id }}">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-sm btn-danger"
-                                            data-toggle="modal"
-                                            data-target="#deleteCommentModal{{ comment.id }}">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                        <tbody>
+                            {% for topic in topics %}
+                                {% if not topic.parent %}
+                                    <tr>
+                                        <td>{{ topic.title }}</td>
+                                        <td>{{ topic.weight }}</td>
+{#                                        <td>{{ detailed_grades|get_item:student.id|get_item:topic.id|dict_get:"grade"}}</td>#}
+{#                                        <td>#}
+{#                                            {{ detailed_grades|get_item:student.id|get_item:topic.id|dict_get:"comment"}}#}
+{#                                        </td>#}
 
-                            <!-- Edit Comment Modal -->
-                            <div class="modal fade" id="editCommentModal{{ comment.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                <div class="modal-dialog" role="document">
-                                    <form action="{% url 'lesson:comment_template_update' comment.id %}" method="post">
-                                        {% csrf_token %}
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Редактировать шаблон</h5>
-                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                    <span aria-hidden="true">&times;</span>
-                                                </button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="form-group">
-                                                    <label>От баллов</label>
-                                                    <input type="number" class="form-control" name="from_points" value="{{ comment.from_points }}" min="0" max="100" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>До баллов</label>
-                                                    <input type="number" class="form-control" name="to_points" value="{{ comment.to_points }}" min="0" max="100" required>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>Текст комментария</label>
-                                                    <textarea class="form-control" name="comment_text" rows="3" required>{{ comment.comment_text }}</textarea>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                                                <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <!-- Delete Comment Modal -->
-                            <div class="modal fade" id="deleteCommentModal{{ comment.id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                <div class="modal-dialog" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Подтверждение удаления</h5>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
-                                            </button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <p>Вы уверены, что хотите удалить этот шаблон комментария?</p>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                                            <form action="{% url 'lesson:comment_template_delete' comment.id %}" method="post" class="d-inline">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-danger">Удалить</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center">Нет созданных шаблонов комментариев</td>
-                            </tr>
+                                    </tr>
+                                {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
+                    </div>
+                  </div>
                 </div>
+
+{#                Right Side: Subtopics & Inputs#}
+                <div class="w-55 pl-4">
+                    <div class="form-group">
+                      <label for="parent">Choose Topic</label>
+                      <select id="parent" name="parent" class="form-control mb-3">
+                        <option value="">-- Select a Topic --</option>
+                        {% for topic in topics %}
+                          {% if not topic.parent %}
+                            <option value="{{ topic.id }}"
+                                    data-title="{{ topic.title }}"
+                                    data-weight="{{ topic.weight }}">
+                              {{ topic.title }}
+                            </option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div id="topic-subtopic-fields">
+                      {% for topic in topics %}
+                        <div class="subtopic-group" data-topic-id="{{ topic.id }}" style="display: none;">
+                          <table class="table">
+                            <thead>
+                              <tr>
+                                <th>Subtopic</th>
+                                <th>Weight</th>
+                                <th>Grade</th>
+                                <th>Comment</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for subtopic in topic.subtopics.all %}
+                                <tr>
+                                  <td>{{ subtopic.title }}</td>
+                                  <td>{{ subtopic.weight }}</td>
+                                  <td>
+                                    <input type="number" class="form-control subtopic-grade p-1"
+                                           name="subtopic_{{ subtopic.id }}_grade"
+                                           min="0" max="100"
+                                           data-weight="{{ subtopic.weight }}"
+                                           data-subtopic-id="{{ subtopic.id }}">
+                                  </td>
+                                  <td>
+                                    <textarea class="form-control" rows="1"
+                                              name="subtopic_{{ subtopic.id }}_comment"></textarea>
+                                  </td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
-        </div>
+        </form>
+      </div>
     </div>
+
+
+
+{#Back Button#}
     <div class="container-fluid mt--6">
         <div class="footer">
             <div class="row py-4">
@@ -298,57 +560,240 @@
                         Назад
                     </a>
                 </div>
-            <div>
-        <div>
+            </div>
+        </div>
     </div>
     {% include "includes/footer.html" %}
 </div>
-
-<!-- Add Comment Template Modal -->
-<div class="modal fade"     id="addCommentTemplateModal" tabindex="-1" role="dialog" aria-labelledby="addCommentTemplateModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <form action="{% url 'lesson:comment_template_create' %}" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addCommentTemplateModalLabel">Добавить шаблон комментария</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="id_from_points">От баллов</label>
-                        <input type="number" class="form-control" id="id_from_points" name="from_points" min="0" max="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="id_to_points">До баллов</label>
-                        <input type="number" class="form-control" id="id_to_points" name="to_points" min="0" max="100" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="id_comment_text">Текст комментария</label>
-                        <textarea class="form-control" id="id_comment_text" name="comment_text" rows="3" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Создать</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
 
 {% endblock content %}
 
 {% block javascripts %}
 <script>
-    // Add any JavaScript for handling the grading functionality here
+
     $(document).ready(function() {
         // Initialize tooltips
         $('[data-toggle="tooltip"]').tooltip();
     });
+
+    document.querySelectorAll('[data-target="#GradeModal"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            document.getElementById('grading_form').setAttribute('action', 'lessons/grading/display/studentId/lesson.id');
+        })
+
+    })
+
+    {#edit topic#}
+    $('#editTopicModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+
+        const id = button.data('id');
+        const title = button.data('title');
+        const weight = button.data('weight');
+
+        const modal = $(this);
+        modal.find('input[name="title"]').val(title);
+        modal.find('input[name="weight"]').val(weight);
+
+        modal.find('form').attr('action', `/lessons/topic/update/${id}`);
+    });
+
+
+    {#add subtopic#}
+    document.getElementById('topicSelect').addEventListener('change', function(){
+        const selectedId = this.value;
+
+        document.querySelectorAll('.subtopic-row').forEach(row =>{
+            if(row.dataset.parent === selectedId){
+                row.classList.remove('d-none');
+            }else{
+                row.classList.add('d-none');
+            }
+        });
+        document.getElementById('modalTopicId').value = selectedId;
+    })
+
+
+    {#edit subtopic#}
+    $('#editSubtopicModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+
+        const id = button.data('id');
+        const title = button.data('title');
+        const weight = button.data('weight');
+
+        const modal = $(this);
+        modal.find('input[name="title"]').val(title);
+        modal.find('input[name="weight"]').val(weight);
+
+        modal.find('form').attr('action', `/lessons/topic/update/${id}`);
+    });
 </script>
-{% endblock javascripts %} 
+{% endblock javascripts %}
+
+
+
+
+    <!-- Comment Templates Card -->
+{#    <div class="row mt-4">#}
+{#        <div class="col-xl-12">#}
+{#            <div class="card">#}
+{#                <div class="card-header border-0">#}
+{#                    <div class="d-flex justify-content-between align-items-center">#}
+{#                        <h3 class="mb-0">Шаблоны комментариев</h3>#}
+{#                        <button#}
+{#                            class="btn btn-outline-primary btn-sm"#}
+{#                            type="button"#}
+{#                            data-toggle="modal"#}
+{#                            data-target="#addCommentTemplateModal"#}
+{#                        >#}
+{#                            <i class="ni ni-fat-add"></i> Добавить шаблон#}
+{#                        </button>#}
+{#                    </div>#}
+{#                </div>#}
+{#                <div class="table-responsive">#}
+{#                    <table class="table align-items-center table-flush">#}
+{#                        <thead class="thead-light">#}
+{#                            <tr>#}
+{#                                <th scope="col">Диапазон баллов</th>#}
+{#                                <th scope="col">Текст комментария</th>#}
+{#                                <th scope="col">Действия</th>#}
+{#                            </tr>#}
+{#                        </thead>#}
+{#                        <tbody class="list">#}
+{#                            {% for comment in comments %}#}
+{#                            <tr>#}
+{#                                <td>{{ comment.from_points }} - {{ comment.to_points }}</td>#}
+{#                                <td>#}
+{#                                    {% if comment.comment_text|length > 50 %}#}
+{#                                        {{ comment.comment_text|slice:":50" }}...#}
+{#                                    {% else %}#}
+{#                                        {{ comment.comment_text }}#}
+{#                                    {% endif %}#}
+{#                                </td>#}
+{#                                <td>#}
+{#                                    <button type="button"#}
+{#                                            class="btn btn-sm btn-primary"#}
+{#                                            data-toggle="modal"#}
+{#                                            data-target="#editCommentModal{{ comment.id }}">#}
+{#                                        <i class="fas fa-edit"></i>#}
+{#                                    </button>#}
+{#                                    <button type="button"#}
+{#                                            class="btn btn-sm btn-danger"#}
+{#                                            data-toggle="modal"#}
+{#                                            data-target="#deleteCommentModal{{ comment.id }}">#}
+{#                                        <i class="fas fa-trash"></i>#}
+{#                                    </button>#}
+{#                                </td>#}
+{#                            </tr>#}
+{##}
+{#                            <!-- Edit Comment Modal -->#}
+{#                            <div class="modal fade" id="editCommentModal{{ comment.id }}" tabindex="-1" role="dialog" aria-hidden="true">#}
+{#                                <div class="modal-dialog" role="document">#}
+{#                                    <form action="{% url 'lesson:comment_template_update' comment.id %}" method="post">#}
+{#                                        {% csrf_token %}#}
+{#                                        <div class="modal-content">#}
+{#                                            <div class="modal-header">#}
+{#                                                <h5 class="modal-title">Редактировать шаблон</h5>#}
+{#                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">#}
+{#                                                    <span aria-hidden="true">&times;</span>#}
+{#                                                </button>#}
+{#                                            </div>#}
+{#                                            <div class="modal-body">#}
+{#                                                <div class="form-group">#}
+{#                                                    <label>От баллов</label>#}
+{#                                                    <input type="number" class="form-control" name="from_points" value="{{ comment.from_points }}" min="0" max="100" required>#}
+{#                                                </div>#}
+{#                                                <div class="form-group">#}
+{#                                                    <label>До баллов</label>#}
+{#                                                    <input type="number" class="form-control" name="to_points" value="{{ comment.to_points }}" min="0" max="100" required>#}
+{#                                                </div>#}
+{#                                                <div class="form-group">#}
+{#                                                    <label>Текст комментария</label>#}
+{#                                                    <textarea class="form-control" name="comment_text" rows="3" required>{{ comment.comment_text }}</textarea>#}
+{#                                                </div>#}
+{#                                            </div>#}
+{#                                            <div class="modal-footer">#}
+{#                                                <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>#}
+{#                                                <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>#}
+{#                                            </div>#}
+{#                                        </div>#}
+{#                                    </form>#}
+{#                                </div>#}
+{#                            </div>#}
+{##}
+{#                            <!-- Delete Comment Modal -->#}
+{#                            <div class="modal fade" id="deleteCommentModal{{ comment.id }}" tabindex="-1" role="dialog" aria-hidden="true">#}
+{#                                <div class="modal-dialog" role="document">#}
+{#                                    <div class="modal-content">#}
+{#                                        <div class="modal-header">#}
+{#                                            <h5 class="modal-title">Подтверждение удаления</h5>#}
+{#                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">#}
+{#                                                <span aria-hidden="true">&times;</span>#}
+{#                                            </button>#}
+{#                                        </div>#}
+{#                                        <div class="modal-body">#}
+{#                                            <p>Вы уверены, что хотите удалить этот шаблон комментария?</p>#}
+{#                                        </div>#}
+{#                                        <div class="modal-footer">#}
+{#                                            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>#}
+{#                                            <form action="{% url 'lesson:comment_template_delete' comment.id %}" method="post" class="d-inline">#}
+{#                                                {% csrf_token %}#}
+{#                                                <button type="submit" class="btn btn-danger">Удалить</button>#}
+{#                                            </form>#}
+{#                                        </div>#}
+{#                                    </div>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                            {% empty %}#}
+{#                            <tr>#}
+{#                                <td colspan="3" class="text-center">Нет созданных шаблонов комментариев</td>#}
+{#                            </tr>#}
+{#                            {% endfor %}#}
+{#                        </tbody>#}
+{#                    </table>#}
+{#                </div>#}
+{#            </div>#}
+{#        </div>#}
+{#    </div>#}
+
+
+
+
+<!-- Add Comment Template Modal -->
+{#<div class="modal fade"     id="addCommentTemplateModal" tabindex="-1" role="dialog" aria-labelledby="addCommentTemplateModalLabel" aria-hidden="true">#}
+{#    <div class="modal-dialog" role="document">#}
+{#        <form action="{% url 'lesson:comment_template_create' %}" method="post">#}
+{#            {% csrf_token %}#}
+{#            <input type="hidden" name="lesson_id" value="{{ lesson.id }}">#}
+{#            <div class="modal-content">#}
+{#                <div class="modal-header">#}
+{#                    <h5 class="modal-title" id="addCommentTemplateModalLabel">Добавить шаблон комментария</h5>#}
+{#                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">#}
+{#                        <span aria-hidden="true">&times;</span>#}
+{#                    </button>#}
+{#                </div>#}
+{#                <div class="modal-body">#}
+{#                    <div class="form-group">#}
+{#                        <label for="id_from_points">От баллов</label>#}
+{#                        <input type="number" class="form-control" id="id_from_points" name="from_points" min="0" max="100" required>#}
+{#                    </div>#}
+{#                    <div class="form-group">#}
+{#                        <label for="id_to_points">До баллов</label>#}
+{#                        <input type="number" class="form-control" id="id_to_points" name="to_points" min="0" max="100" required>#}
+{#                    </div>#}
+{#                    <div class="form-group">#}
+{#                        <label for="id_comment_text">Текст комментария</label>#}
+{#                        <textarea class="form-control" id="id_comment_text" name="comment_text" rows="3" required></textarea>#}
+{#                    </div>#}
+{#                </div>#}
+{#                <div class="modal-footer">#}
+{#                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>#}
+{#                    <button type="submit" class="btn btn-primary">Создать</button>#}
+{#                </div>#}
+{#            </div>#}
+{#        </form>#}
+{#    </div>#}
+{#</div>#}
+

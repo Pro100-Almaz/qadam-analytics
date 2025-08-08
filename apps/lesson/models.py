@@ -75,7 +75,7 @@ class Lesson(models.Model):
                 my_grade = 0
 
             # If topic has subtopics, sum them by weight; else, use own grade
-            children = list(topic.subtopics.all())
+            children = list(topic.subtopics.all()) # children = subtopics of the topic
             if children:
                 total = 0
                 for sub in children:
@@ -103,14 +103,22 @@ class Topic(models.Model):
         related_name='subtopics',
         on_delete=models.CASCADE
     )
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, unique=True)
     weight = models.FloatField(
         default=0.0,
         help_text="Percent weight in lesson (must sum to 100% for all siblings under same parent)"
     )
 
+    def calculate_subtopics_grade(self, student):
+        grades = TopicGrade.objects.filter(
+            topic__in=self.subtopics.all(),
+            student=student
+        ).values_list('grade', flat=True)
+
+        return sum(grades) / len(grades) if grades else 0
     def __str__(self):
         return f"{self.title} ({self.weight}%)"
+
 
 
 class TopicGrade(models.Model):

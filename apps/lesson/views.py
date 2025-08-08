@@ -1,3 +1,5 @@
+from pydoc_data.topics import topics
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -9,57 +11,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from pycodestyle import continued_indentation
 
 from .forms import LessonForm, LessonGroupForm
-from .models import Lesson, StudentGrade, Comment
+from .models import Lesson, Topic, TopicGrade
 from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassRoom, QuarterGrader
 from ..notification.models import Notification, GradingNotify
-
-
-def calculate_grade(points, maximum_points):
-    """
-    Calculate grade based on points and maximum points
-    Grade scale:
-    5: 90-100% of maximum points
-    4: 75-89% of maximum points
-    3: 60-74% of maximum points
-    2: 40-59% of maximum points
-    1: 0-39% of maximum points
-    """
-    if not points or not maximum_points:
-        return None
-    
-    percentage = (points / maximum_points) * 100
-    
-    if percentage >= 90:
-        return 5
-    elif percentage >= 75:
-        return 4
-    elif percentage >= 60:
-        return 3
-    elif percentage >= 40:
-        return 2
-    else:
-        return 1
-
-
-def get_comment_for_points(points, lesson):
-    """
-    Get appropriate comment template based on points
-    """
-    if not points or not lesson:
-        return ''
-    
-    try:
-        comment = Comment.objects.filter(
-            lesson=lesson,
-            from_points__lte=points,
-            to_points__gte=points
-        ).first()
-        return comment.comment_text if comment else ''
-    except Comment.DoesNotExist:
-        return ''
 
 
 @login_required(login_url="/login/")
@@ -102,48 +60,6 @@ def lessons_list(request):
 
 
 @login_required(login_url="/login/")
-def lesson_details_json(request, pk):
-    # subject_id = request.GET.get('subject')
-    student_id = request.GET.get('student_id')
-
-    try:
-        # Get the student and subject
-        student = get_object_or_404(CustomUser, id=student_id, role='student')
-        subject = get_object_or_404(Subject, pk=pk)
-
-        # Get all lessons for the subject
-        lessons = Lesson.objects.filter(subject=subject).order_by('-created_at')
-        
-        # Get grades for each lesson
-        lessons_data = []
-        for lesson in lessons:
-            grade = StudentGrade.objects.filter(
-                lesson=lesson,
-                student=student
-            ).first()
-
-            lessons_data.append({
-                'id': lesson.id,
-                'title': lesson.title,
-                'date': lesson.created_at.strftime('%Y-%m-%d'),
-                'maximum_points': lesson.maximum_points,
-                'points': grade.points if grade else None,
-                'grade': grade.grade if grade else None,
-                'comment': grade.comment if grade else None,
-            })
-        return JsonResponse({
-
-            'success': True,
-            'lessons': lessons_data
-        })
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=400)
-
-
-@login_required(login_url="/login/")
 def lesson_create(request, subject_id=None):
     if request.method == "POST":
         form = LessonForm(request.POST)
@@ -166,320 +82,6 @@ def lesson_create(request, subject_id=None):
 
 
 @login_required(login_url="/login/")
-def lesson_details(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
-    student_grades = StudentGrade.objects.filter(lesson=lesson)
-    comments = Comment.objects.filter(lesson=lesson)
-    
-    context = {
-        'lesson': lesson,
-        'student_grades': student_grades,
-        'comments': comments,
-    }
-    return render(request, 'lesson/lesson_details.html', context)
-
-
-@login_required(login_url="/login/")
-def grading(request):
-    if request.method in ['POST', 'PUT']:
-        lesson_id = request.POST.get('lesson_id')
-        student_id = request.POST.get('student_id')
-        grade_id = request.POST.get('grade_id')
-        action = request.POST.get('action')
-        
-        if not Lesson.objects.filter(id=lesson_id).exists():
-            return render(request, 'home/page-404.html')
-        
-        lesson = Lesson.objects.get(id=lesson_id)
-
-        if action == 'update':
-            if not grade_id:
-                messages.error(request, "Grade ID is required for update!")
-                return redirect('lesson:lesson_details', pk=lesson_id)
-
-            try:
-                grade = StudentGrade.objects.get(id=grade_id)
-                points = request.POST.get('points')
-                grade_value = request.POST.get('grade')
-
-                if points and points.strip():
-                    try:
-                        points = int(points)
-                        if points < 0 or points > lesson.maximum_points:
-                            messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                            return redirect('lesson:lesson_details', pk=lesson_id)
-                        grade.points = points
-                        grade.grade = calculate_grade(points, lesson.maximum_points)
-                        manual_comment = request.POST.get('comment', '').strip()
-                        if manual_comment:
-                            grade.comment = manual_comment
-                        else:
-                            grade.comment = get_comment_for_points(points, lesson)
-                    except ValueError:
-                        messages.error(request, "Points must be a valid number!")
-                        return redirect('lesson:lesson_details', pk=lesson_id)
-                
-                if grade_value and grade_value.strip():
-                    try:
-                        grade_value = int(grade_value)
-                        if grade_value not in [1, 2, 3, 4, 5]:
-                            messages.error(request, "Grade must be between 1 and 5!")
-                            return redirect('lesson:lesson_details', pk=lesson_id)
-                        grade.grade = grade_value
-                    except ValueError:
-                        messages.error(request, "Grade must be a valid number!")
-                        return redirect('lesson:lesson_details', pk=lesson_id)
-
-                grade.save()
-                messages.success(request, "Grade updated successfully!")
-                return redirect('lesson:lesson_details', pk=lesson_id)
-
-            except StudentGrade.DoesNotExist:
-                messages.error(request, "Grade not found!")
-                return redirect('lesson:lesson_details', pk=lesson_id)
-
-        if not CustomUser.objects.filter(id=student_id).exists():
-            return render(request, 'home/page-404.html')
-
-        points = request.POST.get(f'points_{student_id}')
-
-        try:
-            existing_grade = StudentGrade.objects.get(lesson=lesson, student_id=student_id)
-            if not points or not points.strip():
-                points = existing_grade.points
-        except StudentGrade.DoesNotExist:
-            if not points or not points.strip():
-                messages.error(request, "Points cannot be empty for new grades!")
-                return redirect('lesson:lesson_details', pk=lesson_id)
-
-        try:
-            points = int(points)
-            if points < 0 or points > lesson.maximum_points:
-                messages.error(request, f"Points must be between 0 and {lesson.maximum_points}!")
-                return redirect('lesson:lesson_details', pk=lesson_id)
-        except ValueError:
-            messages.error(request, "Points must be a valid number!")
-            return redirect('lesson:lesson_details', pk=lesson_id)
-
-        grade_value = calculate_grade(points, lesson.maximum_points)
-        comment = get_comment_for_points(points, lesson)
-
-        grade, created = StudentGrade.objects.update_or_create(
-            lesson_id=lesson_id,
-            student_id=student_id,
-            defaults={
-                'grade': grade_value,
-                'points': points,
-                'comment': comment
-            }
-        )
-
-        student_grades = StudentGrade.objects.filter(lesson=lesson)
-
-        total_points = 0
-        total_classes = 0
-
-        for grade in student_grades:
-            total_points += grade.points
-            total_classes += 1
-
-        average_points = total_points / total_classes if total_classes > 0 else 0
-
-        quarter_grade_qs = QuarterGrader.objects.filter(
-            subject=lesson.subject,
-            quarter=lesson.quarter
-        )
-
-        if quarter_grade_qs.exists():
-            quarter_grade = quarter_grade_qs.first()
-            quarter_grade.cummulative_points = total_points
-            quarter_grade.average_points = average_points
-            quarter_grade.save()
-        else:
-            QuarterGrader.objects.create(
-                subject=lesson.subject,
-                quarter=lesson.quarter,
-                cummulative_points=total_points,
-                average_points=average_points
-            )
-
-        messages.success(request, "Grade updated successfully!")
-        return redirect('lesson:lesson_details', pk=lesson_id)
-
-    # GET request handling
-    lesson_id = request.GET.get('lesson_id')
-    if not lesson_id:
-        return render(request, 'home/page-404.html')
-
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    students = Student.objects.filter(classroom=lesson.subject.classroom)
-
-
-    existing_grades = StudentGrade.objects.filter(lesson=lesson)
-    student_grades = {}
-    for grade in existing_grades:
-        student_grades[grade.student.id] = {
-            'grade': grade.grade,
-            'points': grade.points,
-            'comment': grade.comment
-        }
-
-    context = {
-        'lesson': lesson,
-        'students': students,
-        'student_grades': student_grades
-    }
-    return render(request, 'lesson/grading.html', context)
-
-
-@receiver(pre_save, sender=StudentGrade)
-def grading_pre_save_email(sender, instance, **kwargs):
-    lesson = instance.lesson
-    target_student = instance.student
-    if isinstance(target_student, CustomUser):
-        try:
-            target_student = Student.objects.get(user=target_student)
-        except Student.DoesNotExist:
-            return
-
-    student_user = target_student.user
-
-    try:
-        parent = Parent.objects.get(student_id=student_user.id)
-        parent_user = parent.user
-    except Parent.DoesNotExist:
-        parent = None
-        parent_user = None
-
-    subject = f"Уведомление об обновлении оценки по предмету: {lesson.title}"
-    html_message = render_to_string(
-        "email/grade_student_email.html",
-        {"student": target_student, "lesson": lesson}
-    )
-    plain_message = strip_tags(html_message)
-
-    send_mail(
-        subject=subject,
-        message=plain_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[student_user.email],
-        html_message=html_message
-    )
-
-    notification = Notification.objects.create(user=student_user, action='grading')
-
-    if parent and parent_user:
-        parent_subject = "Обновление оценки по предмету"
-        html_parent_message = render_to_string(
-            "email/grade_parent_email.html",
-            {"parent": parent_user, "lesson": lesson}
-        )
-        plain_parent_message = strip_tags(html_parent_message)
-
-        send_mail(
-            subject=parent_subject,
-            message=plain_parent_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[parent_user.email],
-            html_message=html_parent_message
-        )
-
-        GradingNotify.objects.create(
-            notification=notification,
-            parent=parent,
-            lesson=lesson
-        )
-    else:
-        GradingNotify.objects.create(
-            notification=notification,
-            lesson=lesson
-        )
-
-@login_required(login_url="/login/")
-def comment_template_create(request):
-    if request.method == 'POST':
-        from_points = request.POST.get('from_points')
-        to_points = request.POST.get('to_points')
-        comment_text = request.POST.get('comment_text')
-        lesson_id = request.POST.get('lesson_id')
-
-        try:
-            from_points = int(from_points)
-            to_points = int(to_points)
-            
-            if from_points > to_points:
-                messages.error(request, "Начальное значение баллов не может быть больше конечного!")
-                return redirect(request.META.get('HTTP_REFERER', '/'))
-
-            lesson = get_object_or_404(Lesson, id=lesson_id) if lesson_id else None
-            comment = Comment.objects.create(
-                lesson=lesson,
-                from_points=from_points,
-                to_points=to_points,
-                comment_text=comment_text
-            )
-            
-            messages.success(request, "Шаблон комментария успешно создан!")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-
-        except ValueError:
-            messages.error(request, "Пожалуйста, введите корректные числовые значения для баллов!")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-        except Exception as e:
-            messages.error(request, f"Произошла ошибка при создании шаблона: {str(e)}")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-
-    return redirect(request.META.get('HTTP_REFERER', '/'))
-
-
-@login_required(login_url="/login/")
-def comment_template_update(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-    
-    if request.method == 'POST':
-        from_points = request.POST.get('from_points')
-        to_points = request.POST.get('to_points')
-        comment_text = request.POST.get('comment_text')
-        
-        try:
-            from_points = int(from_points)
-            to_points = int(to_points)
-            
-            if from_points > to_points:
-                messages.error(request, "Начальное значение баллов не может быть больше конечного!")
-                return redirect(request.META.get('HTTP_REFERER', '/'))
-            
-            comment.from_points = from_points
-            comment.to_points = to_points
-            comment.comment_text = comment_text
-            comment.save()
-            
-            messages.success(request, "Шаблон комментария успешно обновлен!")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-            
-        except ValueError:
-            messages.error(request, "Пожалуйста, введите корректные числовые значения для баллов!")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-        except Exception as e:
-            messages.error(request, f"Произошла ошибка при обновлении шаблона: {str(e)}")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
-    
-    return redirect(request.META.get('HTTP_REFERER', '/'))
-
-
-@login_required(login_url="/login/")
-def comment_template_delete(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-    
-    try:
-        comment.delete()
-        messages.success(request, "Шаблон комментария успешно удален!")
-    except Exception as e:
-        messages.error(request, f"Произошла ошибка при удалении шаблона: {str(e)}")
-    
-    return redirect(request.META.get('HTTP_REFERER', '/'))
-
-@login_required(login_url="/login/")
 def lesson_group_create(request):
     if request.method == 'POST':
         form = LessonGroupForm(request.POST)
@@ -493,4 +95,463 @@ def lesson_group_create(request):
         else:
             return JsonResponse({"success": False, "errors": form.errors})
     return JsonResponse({"success": False, "error": "Invalid request"})
+
+
+@login_required(login_url="/login/")
+def lesson_details(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
+    students = Student.objects.filter(subjects= lesson.subject)
+    student_grades = {}
+    detailed_grades = {}
+
+    for student in students:
+        student_grades[student.user.id] = lesson.calculate_student_grade(student)
+        topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson).select_related('topic')
+
+        detailed_grades[student.user.id] = {}
+        for tg in topic_grades:
+            detailed_grades[student.user.id][tg.topic_id] = {
+                "grade": round(tg.grade, 1),
+                "comment": tg.comment
+            }
+
+    context = {
+        'lesson': lesson,
+        'topics': topics,
+        'students': students,
+        'student_grades': student_grades,
+        "detailed_grades": detailed_grades,
+    }
+    return render(request, 'lesson/lesson_details.html', context)
+
+
+@login_required(login_url="/login/")
+def create_topic(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    title = request.POST.get('title')
+    total_topics = Topic.objects.filter(parent__isnull = True, lesson = lesson).count()
+    weight = request.POST.get('weight')
+    topics = Topic.objects.filter(parent__isnull = True)
+
+    current_weight_proportion = (total_topics * 100) / (total_topics + 1)
+    max_new_topic_weight = 100 - current_weight_proportion
+
+
+    if weight and int(weight) <= 100:
+        weight = int(weight)
+        new_proportion = 100 - weight
+        for topic in topics:
+            topic.weight = topic.weight / 100 * new_proportion
+            topic.save()
+    else:
+        if weight:
+            weight = int(weight)
+        weight = max_new_topic_weight
+        for topic in topics:
+            topic.weight *= 100 / current_weight_proportion
+            topic.save()
+
+    topic = Topic.objects.create(lesson = lesson, title = title, weight = weight)
+
+    context = {
+        'lesson': lesson,
+        'topic': topic
+    }
+    return redirect("lesson:lesson_details", pk=pk) # Do something with that
+
+
+@login_required(login_url="/login/")
+def update_topic(request, pk):
+    topic = get_object_or_404(Topic, pk = pk)
+    topic.title = request.POST.get('title')
+    lesson = get_object_or_404(Lesson, pk=topic.lesson.id)
+
+    total_topics = Topic.objects.filter(lesson = lesson, parent__isnull = True)
+    total_weights = 0
+    for i in total_topics:
+        total_weights += i.weight
+
+    weight = request.POST.get('weight')
+    try:
+        topic.weight = int(weight)
+    except (TypeError, ValueError):
+        topic.weight = 0
+
+    topic.save()
+
+    context = {
+        'lesson': topic.lesson,
+        'topic': topic,
+        'parent': topic.parent,
+    }
+
+    return render(request, "lesson/lesson_details.html", context) # Do something with that
+
+
+@login_required(login_url="/login/")
+def distribute_topic_weights(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    topics = Topic.objects.filter(lesson = lesson, parent__isnull = True)
+    total_weight = 0
+    for i in topics:
+        total_weight += i.weight
+
+    if total_weight == 0:
+        equal_share = round(100 / len(topics), 1) if topics else 0
+        for t in topics:
+            t.weight = equal_share
+            t.save()
+        return redirect('lesson:lesson_details', pk=lesson.id)
+
+    factor = 100 / total_weight
+    for t in topics:
+        t.weight = round(t.weight * factor, 1)
+        t.save()
+
+    return redirect('lesson:lesson_details', pk=lesson.id)
+
+
+
+@login_required(login_url="/login/")
+def create_subtopic(request, pk):
+    if request.method == "POST":
+        lesson = get_object_or_404(Lesson, pk=pk)
+        parent_id = request.POST.get("parent")
+        print(parent_id)
+        title = request.POST.get('title')
+        weight = request.POST.get('weight') or 0
+
+        if not parent_id:
+            return redirect('lesson:lesson_details', pk=pk)
+
+        parent_topic = get_object_or_404(Topic, id=parent_id, lesson=lesson)
+        subtopic = Topic.objects.create(lesson=lesson, parent = parent_topic, title = title, weight = weight)
+
+        context = {
+            'lesson': lesson,
+            'subtopic': subtopic
+        }
+        return redirect('lesson:lesson_details', pk=pk)
+
+
+@login_required(login_url="/login/")
+def delete_topic(request, pk):
+    topic = get_object_or_404(Topic, pk = pk)
+    lesson_id = topic.lesson.id
+    topic.delete()
+
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull = True)
+    for topic in topics:
+        topic.weight = round(100 / (topics.count()), 1)
+        topic.save()
+
+    return redirect('lesson:lesson_details', pk=lesson_id)
+
+
+@login_required(login_url="/login/")
+def distribute_subtopic_weights(request, lesson_id):
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+
+    for topic in topics:
+        subtopics = Topic.objects.filter(parent=topic)
+        if not subtopics.exists():
+            continue
+
+        total_weight = sum(s.weight for s in subtopics)
+
+        if total_weight == 0:
+            equal_share = round(100 / len(subtopics), 1)
+            for s in subtopics:
+                s.weight = equal_share
+                s.save()
+        else:
+            scale_factor = 100 / total_weight
+            for s in subtopics:
+                s.weight = round(s.weight * scale_factor, 1)
+                s.save()
+
+    return redirect('lesson:lesson_details', pk=lesson.id)
+
+
+@login_required(login_url="/login/")
+def grading(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    students = Student.objects.filter(subjects = lesson.subject)
+    topics = Topic.objects.filter(lesson = lesson)
+    topic_grades = TopicGrade.objects.filter(topic__lesson=lesson, student__in=students)
+
+    topic_grade_map = {}
+    for tg in topic_grades:
+        topic_grade_map[f"{tg.student_id}_{tg.topic_id}"] = {
+            "grade": round(tg.grade, 1),
+            "comment": tg.comment
+        }
+
+    student_grades = {}
+    for student in students:
+        student_grades[student.user.id] = lesson.calculate_student_grade(student)
+
+    context = {
+        'lesson': lesson,
+        'students': students,
+        'topics': topics,
+        'topic_grade_map': topic_grade_map,
+        'student_grades': student_grades
+    }
+    return render(request, "lesson/grading.html", context)
+
+@login_required(login_url="/login/")
+def submit_all_topic_grades(request):
+    if request.method == 'POST':
+        student_id = request.POST.get('student_id')
+        print(student_id)
+        lesson_id = request.POST.get('lesson_id')
+
+        student = get_object_or_404(Student, user__id=student_id)
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+        for topic in lesson.topics.all():
+            for sub in topic.subtopics.all():
+                grade = request.POST.get(f'subtopic_{sub.id}_grade', '0') or '0'
+                comment = request.POST.get(f'subtopic_{sub.id}_comment', '')
+
+                TopicGrade.objects.update_or_create(
+                    student=student,
+                    topic=sub,
+                    defaults={
+                        'grade': grade,
+                        'comment': comment
+                    }
+                )
+
+            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '')
+            TopicGrade.objects.update_or_create(
+                student=student,
+                topic=topic,
+                defaults={
+                    'grade': topic.calculate_subtopics_grade(student),
+                    'comment': topic_comment
+                }
+            )
+    return redirect('lesson:lesson_details', pk=lesson.id)
+
+@login_required(login_url="/login/")
+def update_grade(request):
+    if request.method == 'POST':
+        student_id = request.POST.get('student_id')
+        lesson_id = request.POST.get('lesson_id')
+
+        student = get_object_or_404(Student, user__id=student_id)
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+        for topic in lesson.topics.all():
+            for sub in topic.subtopics.all():
+                grade = request.POST.get(f'subtopic_{sub.id}_grade', '0') or '0'
+                comment = request.POST.get(f'subtopic_{sub.id}_comment', '')
+
+                TopicGrade.objects.update_or_create(
+                    student=student,
+                    topic=sub,
+                    defaults={
+                        'grade': grade,
+                        'comment': comment
+                    }
+                )
+
+            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '')
+            TopicGrade.objects.update_or_create(
+                student=student,
+                topic=topic,
+                defaults={
+                    'grade': topic.calculate_subtopics_grade(student),
+                    'comment': topic_comment
+                }
+            )
+    return redirect('lesson:lesson_details', pk=lesson.id)
+
+
+@login_required(login_url="/login/")
+def delete_grade(request, student_id, lesson_id):
+    if request.method == 'DELETE':
+        student_id = request.POST.get('student_id')
+        lesson_id = request.POST.get('lesson_id')
+        topics = Topic.objects.filter(lesson=lesson_id)
+        topic_grades = TopicGrade.objects.filter(student=student_id, topic__in=topics)
+        topic_grades.delete()
+    return redirect('lesson:grading', pk=lesson_id)
+
+
+@login_required(login_url="/login/")
+def display_grade(request, student_id, lesson_id):
+    student = get_object_or_404(Student, user__id=student_id)
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson)
+    topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson)
+
+    all_grades = {}
+    for tg in topic_grades:
+        all_grades[tg.topic_id] = tg.grade
+    context = {
+        'topics': topics,
+        'all_grades':all_grades
+    }
+
+    return render(request,'lesson:lesson_details', pk=lesson.id)
+
+
+#EMAIL SENDING SIGNAL ------------------------------------------
+
+#
+# @receiver(pre_save, sender=StudentGrade)
+# def grading_pre_save_email(sender, instance, **kwargs):
+#     lesson = instance.lesson
+#     target_student = instance.student
+#     if isinstance(target_student, CustomUser):
+#         try:
+#             target_student = Student.objects.get(user=target_student)
+#         except Student.DoesNotExist:
+#             return
+#
+#     student_user = target_student.user
+#
+#     try:
+#         parent = Parent.objects.get(student_id=student_user.id)
+#         parent_user = parent.user
+#     except Parent.DoesNotExist:
+#         parent = None
+#         parent_user = None
+#
+#     subject = f"Уведомление об обновлении оценки по предмету: {lesson.title}"
+#     html_message = render_to_string(
+#         "email/grade_student_email.html",
+#         {"student": target_student, "lesson": lesson}
+#     )
+#     plain_message = strip_tags(html_message)
+#
+#     send_mail(
+#         subject=subject,
+#         message=plain_message,
+#         from_email=settings.DEFAULT_FROM_EMAIL,
+#         recipient_list=[student_user.email],
+#         html_message=html_message
+#     )
+#
+#     notification = Notification.objects.create(user=student_user, action='grading')
+#
+#     if parent and parent_user:
+#         parent_subject = "Обновление оценки по предмету"
+#         html_parent_message = render_to_string(
+#             "email/grade_parent_email.html",
+#             {"parent": parent_user, "lesson": lesson}
+#         )
+#         plain_parent_message = strip_tags(html_parent_message)
+#
+#         send_mail(
+#             subject=parent_subject,
+#             message=plain_parent_message,
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             recipient_list=[parent_user.email],
+#             html_message=html_parent_message
+#         )
+#
+#         GradingNotify.objects.create(
+#             notification=notification,
+#             parent=parent,
+#             lesson=lesson
+#         )
+#     else:
+#         GradingNotify.objects.create(
+#             notification=notification,
+#             lesson=lesson
+#         )
+
+
+#COMMENT Templates ----------------------------------------------------------
+
+# @login_required(login_url="/login/")
+# def comment_template_create(request):
+#     if request.method == 'POST':
+#         from_points = request.POST.get('from_points')
+#         to_points = request.POST.get('to_points')
+#         comment_text = request.POST.get('comment_text')
+#         lesson_id = request.POST.get('lesson_id')
+#
+#         try:
+#             from_points = int(from_points)
+#             to_points = int(to_points)
+#
+#             if from_points > to_points:
+#                 messages.error(request, "Начальное значение баллов не может быть больше конечного!")
+#                 return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#             lesson = get_object_or_404(Lesson, id=lesson_id) if lesson_id else None
+#             comment = Comment.objects.create(
+#                 lesson=lesson,
+#                 from_points=from_points,
+#                 to_points=to_points,
+#                 comment_text=comment_text
+#             )
+#
+#             messages.success(request, "Шаблон комментария успешно создан!")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#         except ValueError:
+#             messages.error(request, "Пожалуйста, введите корректные числовые значения для баллов!")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#         except Exception as e:
+#             messages.error(request, f"Произошла ошибка при создании шаблона: {str(e)}")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#     return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#
+# @login_required(login_url="/login/")
+# def comment_template_update(request, comment_id):
+#     comment = get_object_or_404(Comment, id=comment_id)
+#
+#     if request.method == 'POST':
+#         from_points = request.POST.get('from_points')
+#         to_points = request.POST.get('to_points')
+#         comment_text = request.POST.get('comment_text')
+#
+#         try:
+#             from_points = int(from_points)
+#             to_points = int(to_points)
+#
+#             if from_points > to_points:
+#                 messages.error(request, "Начальное значение баллов не может быть больше конечного!")
+#                 return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#             comment.from_points = from_points
+#             comment.to_points = to_points
+#             comment.comment_text = comment_text
+#             comment.save()
+#
+#             messages.success(request, "Шаблон комментария успешно обновлен!")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#         except ValueError:
+#             messages.error(request, "Пожалуйста, введите корректные числовые значения для баллов!")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#         except Exception as e:
+#             messages.error(request, f"Произошла ошибка при обновлении шаблона: {str(e)}")
+#             return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#     return redirect(request.META.get('HTTP_REFERER', '/'))
+#
+#
+# @login_required(login_url="/login/")
+# def comment_template_delete(request, comment_id):
+#     comment = get_object_or_404(Comment, id=comment_id)
+#
+#     try:
+#         comment.delete()
+#         messages.success(request, "Шаблон комментария успешно удален!")
+#     except Exception as e:
+#         messages.error(request, f"Произошла ошибка при удалении шаблона: {str(e)}")
+#
+#     return redirect(request.META.get('HTTP_REFERER', '/'))
 
