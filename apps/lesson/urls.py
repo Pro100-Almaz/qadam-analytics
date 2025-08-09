@@ -18,6 +18,7 @@ urlpatterns = [
     path('topic/delete/<int:pk>', views.delete_topic, name='delete_topic'),
     path('topic/distribute/<int:pk>', views.distribute_topic_weights, name='distribute_topic_weights'),
     path('subtopic/create/<int:pk>', views.create_subtopic, name='create_subtopic'),
+    path('subtopic/update/<int:pk>', views.update_subtopic, name='update_subtopic'),
     path('subtopic/distribute/<int:lesson_id>', views.distribute_subtopic_weights, name='distribute_subtopic_weights'),
 
 

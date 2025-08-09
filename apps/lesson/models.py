@@ -68,21 +68,20 @@ class Lesson(models.Model):
 
         def sum_topic(topic):
             # Get student's grade for this topic, if exists
-            try:
-                tg = TopicGrade.objects.get(topic=topic, student=student)
-                my_grade = tg.grade
-            except TopicGrade.DoesNotExist:
-                my_grade = 0
+            tg = TopicGrade.objects.filter(topic=topic, student=student).first()
+            my_grade = tg.grade if tg else 0
 
             # If topic has subtopics, sum them by weight; else, use own grade
-            children = list(topic.subtopics.all()) # children = subtopics of the topic
-            if children:
-                total = 0
-                for sub in children:
-                    total += sum_topic(sub) * (sub.weight / 100)
-                return total
-            else:
-                return my_grade
+            # children = list(topic.subtopics.all()) # children = subtopics of the topic
+            # print(children)
+            # if children:
+            #     total = 0
+            #     for sub in children:
+            #         print(sub)
+            #         total += sum_topic(sub) * (sub.weight / 100)
+            #     return total
+            # else:
+            return my_grade
 
         total_grade = 0
         for topic in self.topics.filter(parent__isnull=True):
@@ -116,8 +115,11 @@ class Topic(models.Model):
         ).values_list('grade', flat=True)
 
         return sum(grades) / len(grades) if grades else 0
+
     def __str__(self):
         return f"{self.title} ({self.weight}%)"
+
+
 
 
 
