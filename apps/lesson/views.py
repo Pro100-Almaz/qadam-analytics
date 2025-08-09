@@ -1,3 +1,4 @@
+import json
 from pydoc_data.topics import topics
 
 from django.conf import settings
@@ -13,7 +14,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from pycodestyle import continued_indentation
 
-from .forms import LessonForm, LessonGroupForm
+from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
 from .models import Lesson, Topic, TopicGrade
 from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassRoom, QuarterGrader
@@ -101,19 +102,22 @@ def lesson_group_create(request):
 def lesson_details(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
-    students = Student.objects.filter(subjects= lesson.subject)
+    students = Student.objects.filter(subjects= lesson.subject, topicgrade__topic__lesson=lesson).distinct()
+
     student_grades = {}
-    detailed_grades = {}
 
     for student in students:
-        student_grades[student.user.id] = lesson.calculate_student_grade(student)
-        topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson).select_related('topic')
+        s_key = student.user.id
+        student_grades[s_key] = {"grade_total": round(lesson.calculate_student_grade(student), 1)}
 
-        detailed_grades[student.user.id] = {}
-        for tg in topic_grades:
-            detailed_grades[student.user.id][tg.topic_id] = {
-                "grade": round(tg.grade, 1),
-                "comment": tg.comment
+        topic_grades = TopicGrade.objects.filter(
+            student=student, topic__lesson=lesson
+        ).values("topic_id", "grade", "comment")
+
+        for grade in topic_grades:
+            student_grades[s_key][grade["topic_id"]] = {
+                "grade": grade["grade"],
+                "comment": grade["comment"] or "",
             }
 
     context = {
@@ -121,7 +125,7 @@ def lesson_details(request, pk):
         'topics': topics,
         'students': students,
         'student_grades': student_grades,
-        "detailed_grades": detailed_grades,
+        'student_grades_json': json.dumps(student_grades, ensure_ascii=False)
     }
     return render(request, 'lesson/lesson_details.html', context)
 
@@ -129,111 +133,60 @@ def lesson_details(request, pk):
 @login_required(login_url="/login/")
 def create_topic(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
-    title = request.POST.get('title')
-    total_topics = Topic.objects.filter(parent__isnull = True, lesson = lesson).count()
-    weight = request.POST.get('weight')
-    topics = Topic.objects.filter(parent__isnull = True)
-
-    current_weight_proportion = (total_topics * 100) / (total_topics + 1)
-    max_new_topic_weight = 100 - current_weight_proportion
-
-
-    if weight and int(weight) <= 100:
-        weight = int(weight)
-        new_proportion = 100 - weight
-        for topic in topics:
-            topic.weight = topic.weight / 100 * new_proportion
-            topic.save()
-    else:
-        if weight:
-            weight = int(weight)
-        weight = max_new_topic_weight
-        for topic in topics:
-            topic.weight *= 100 / current_weight_proportion
+    if request.method == "POST":
+        form = TopicForm(request.POST)
+        if form.is_valid():
+            topic = form.save(commit=False)
+            topic.lesson = lesson
+            topic.parent = None
             topic.save()
 
-    topic = Topic.objects.create(lesson = lesson, title = title, weight = weight)
-
-    context = {
-        'lesson': lesson,
-        'topic': topic
-    }
-    return redirect("lesson:lesson_details", pk=pk) # Do something with that
+            recalculate_topic_weights(lesson)
+    return redirect('lesson:lesson_details', pk=pk)
 
 
-@login_required(login_url="/login/")
-def update_topic(request, pk):
-    topic = get_object_or_404(Topic, pk = pk)
-    topic.title = request.POST.get('title')
-    lesson = get_object_or_404(Lesson, pk=topic.lesson.id)
-
-    total_topics = Topic.objects.filter(lesson = lesson, parent__isnull = True)
-    total_weights = 0
-    for i in total_topics:
-        total_weights += i.weight
-
-    weight = request.POST.get('weight')
-    try:
-        topic.weight = int(weight)
-    except (TypeError, ValueError):
-        topic.weight = 0
-
-    topic.save()
-
-    context = {
-        'lesson': topic.lesson,
-        'topic': topic,
-        'parent': topic.parent,
-    }
-
-    return render(request, "lesson/lesson_details.html", context) # Do something with that
-
-
-@login_required(login_url="/login/")
-def distribute_topic_weights(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
-    topics = Topic.objects.filter(lesson = lesson, parent__isnull = True)
-    total_weight = 0
-    for i in topics:
-        total_weight += i.weight
+def recalculate_topic_weights(lesson):
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+    total_weight = sum(t.weight for t in topics)
 
     if total_weight == 0:
         equal_share = round(100 / len(topics), 1) if topics else 0
         for t in topics:
             t.weight = equal_share
             t.save()
-        return redirect('lesson:lesson_details', pk=lesson.id)
+        return
 
     factor = 100 / total_weight
     for t in topics:
         t.weight = round(t.weight * factor, 1)
         t.save()
 
-    return redirect('lesson:lesson_details', pk=lesson.id)
+@login_required(login_url="/login/")
+def update_topic(request, pk):
+    topic = get_object_or_404(Topic, pk = pk)
+    lesson = topic.lesson
 
+    if request.method == "POST":
+        form = TopicForm(request.POST, instance=topic)
+        if form.is_valid():
+            form.save()
+            recalculate_topic_weights(lesson)
+            return redirect('lesson:lesson_details', pk=lesson.id)
+    else:
+        form = TopicForm(instance=topic)
+
+    return render(request, 'lesson/lesson_details.html', {
+        'lesson': lesson,
+        'form': form,
+        'editing_topic': topic
+    })
 
 
 @login_required(login_url="/login/")
-def create_subtopic(request, pk):
-    if request.method == "POST":
-        lesson = get_object_or_404(Lesson, pk=pk)
-        parent_id = request.POST.get("parent")
-        print(parent_id)
-        title = request.POST.get('title')
-        weight = request.POST.get('weight') or 0
-
-        if not parent_id:
-            return redirect('lesson:lesson_details', pk=pk)
-
-        parent_topic = get_object_or_404(Topic, id=parent_id, lesson=lesson)
-        subtopic = Topic.objects.create(lesson=lesson, parent = parent_topic, title = title, weight = weight)
-
-        context = {
-            'lesson': lesson,
-            'subtopic': subtopic
-        }
-        return redirect('lesson:lesson_details', pk=pk)
-
+def distribute_topic_weights(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    recalculate_topic_weights(lesson)
+    return redirect('lesson:lesson_details', pk=lesson.id)
 
 @login_required(login_url="/login/")
 def delete_topic(request, pk):
@@ -250,9 +203,9 @@ def delete_topic(request, pk):
     return redirect('lesson:lesson_details', pk=lesson_id)
 
 
-@login_required(login_url="/login/")
-def distribute_subtopic_weights(request, lesson_id):
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+
+def subtopic_weight_distribution(lesson):
     topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
 
     for topic in topics:
@@ -273,7 +226,50 @@ def distribute_subtopic_weights(request, lesson_id):
                 s.weight = round(s.weight * scale_factor, 1)
                 s.save()
 
+@login_required(login_url="/login/")
+def create_subtopic(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    if request.method == "POST":
+        form = SubtopicForm(request.POST, lesson=lesson)
+        if form.is_valid():
+            subtopic = form.save(commit=False)
+            subtopic.lesson = lesson
+
+            subtopic.save()
+
+            subtopic_weight_distribution(lesson)
+    return redirect('lesson:lesson_details', pk=pk)
+
+
+@login_required(login_url="/login/")
+def update_subtopic(request, pk):
+    subtopic = get_object_or_404(Topic, pk=pk)
+    lesson = subtopic.lesson
+
+    if request.method == "POST":
+        form = SubtopicForm(request.POST, instance=subtopic, lesson=lesson)
+        if form.is_valid():
+            form.save()
+            subtopic_weight_distribution(lesson)
+            return redirect('lesson:lesson_details', pk=lesson.id)
+    else:
+        form = SubtopicForm(instance=subtopic, lesson=lesson)
+
+    return render(request, 'lesson/lesson_details.html', {
+        'lesson': lesson,
+        'form': form,
+        'editing_subtopic': subtopic
+    })
+
+
+@login_required(login_url="/login/")
+def distribute_subtopic_weights(request, lesson_id):
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    subtopic_weight_distribution(lesson)
     return redirect('lesson:lesson_details', pk=lesson.id)
+
+
+
 
 
 @login_required(login_url="/login/")
@@ -283,23 +279,36 @@ def grading(request, pk):
     topics = Topic.objects.filter(lesson = lesson)
     topic_grades = TopicGrade.objects.filter(topic__lesson=lesson, student__in=students)
 
+    topic_grade_rows = (
+        TopicGrade.objects
+        .filter(topic__lesson=lesson, student__in=students)
+        .select_related("student__user")
+        .values("student__user_id", "topic_id", "grade", "comment")
+    )
+
     topic_grade_map = {}
-    for tg in topic_grades:
-        topic_grade_map[f"{tg.student_id}_{tg.topic_id}"] = {
-            "grade": round(tg.grade, 1),
-            "comment": tg.comment
+    has_grades = {}
+
+    for grade in topic_grade_rows:
+        student_id = grade["student__user_id"]
+        key = f"{student_id}-{grade['topic_id']}"
+        topic_grade_map[key] = {
+            "grade": round(grade["grade"], 1),
+            "comment": grade["comment"] or ""
         }
+        has_grades[student_id] = True
 
     student_grades = {}
     for student in students:
-        student_grades[student.user.id] = lesson.calculate_student_grade(student)
+        student_grades[student.user.id] = round(lesson.calculate_student_grade(student), 1)
 
     context = {
         'lesson': lesson,
         'students': students,
         'topics': topics,
-        'topic_grade_map': topic_grade_map,
-        'student_grades': student_grades
+        'topic_grade_map': json.dumps(topic_grade_map,ensure_ascii=False),
+        'student_grades': student_grades,
+        'has_grades': has_grades
     }
     return render(request, "lesson/grading.html", context)
 
@@ -307,7 +316,6 @@ def grading(request, pk):
 def submit_all_topic_grades(request):
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
-        print(student_id)
         lesson_id = request.POST.get('lesson_id')
 
         student = get_object_or_404(Student, user__id=student_id)
@@ -336,7 +344,7 @@ def submit_all_topic_grades(request):
                     'comment': topic_comment
                 }
             )
-    return redirect('lesson:lesson_details', pk=lesson.id)
+    return redirect('lesson:grading', pk=lesson.id)
 
 @login_required(login_url="/login/")
 def update_grade(request):
@@ -375,12 +383,11 @@ def update_grade(request):
 
 @login_required(login_url="/login/")
 def delete_grade(request, student_id, lesson_id):
-    if request.method == 'DELETE':
-        student_id = request.POST.get('student_id')
-        lesson_id = request.POST.get('lesson_id')
-        topics = Topic.objects.filter(lesson=lesson_id)
-        topic_grades = TopicGrade.objects.filter(student=student_id, topic__in=topics)
+    if request.method == 'POST':
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        topic_grades = TopicGrade.objects.filter(student_id=student_id, topic__lesson = lesson)
         topic_grades.delete()
+        return redirect('lesson:grading', pk=lesson_id)
     return redirect('lesson:grading', pk=lesson_id)
 
 
