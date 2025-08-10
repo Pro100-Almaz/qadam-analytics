@@ -17,7 +17,8 @@ def get_students(subjects) -> dict:
     return number_of_students
 
 def get_students_count(subject_id: int) -> int:
-    return Subject.objects.filter(id=subject_id).count()
+    # Return the number of students enrolled in this subject
+    return Student.objects.filter(subjects__id=subject_id).count()
 
 
 @login_required(login_url="/login/")
@@ -98,7 +99,8 @@ def subject_details(request, pk):
     subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
 
 
-    students = Student.objects.filter(classroom=subject.teacher.classroom).select_related('user')
+    # Students enrolled in this subject
+    students = Student.objects.filter(subjects=subject).select_related('user')
 
     lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
 
@@ -137,6 +139,22 @@ def subject_details(request, pk):
 
     top_grades = sorted(student_points.items(), key=lambda x: x[1], reverse=True)
 
+    # KPI metrics for the header cards
+    students_count = students.count()
+    lessons_count = lessons.count()
+
+    # Average points across all student grades for the selected quarter's lessons
+    subject_grades_qs = grades_qs.filter(lesson__in=lessons)
+    if subject_grades_qs.exists():
+        average_subject_points = int(sum(g.points for g in subject_grades_qs) / subject_grades_qs.count())
+    else:
+        average_subject_points = 0
+
+    # Completion: ratio of existing grades to expected grades (students × lessons)
+    total_expected_grades = students_count * lessons_count
+    actual_grades_count = subject_grades_qs.count()
+    completion_percent = int((actual_grades_count / total_expected_grades) * 100) if total_expected_grades > 0 else 0
+
     context = {
         'grades': grades,
         'top_grades': top_grades,
@@ -145,7 +163,10 @@ def subject_details(request, pk):
         'subject_id': pk,
         'quarter': quarter,
         'subject': subject,
-        'students_count': get_students_count(pk),
+        'students_count': students_count,
+        'lessons_count': lessons_count,
+        'average_subject_points': average_subject_points,
+        'completion_percent': completion_percent,
         'subject_adder': subject.added_by,
         'teacher': subject.teacher,
     }
