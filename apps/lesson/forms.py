@@ -1,5 +1,5 @@
 from django import forms
-from .models import Lesson, LessonGroup
+from .models import Lesson, LessonGroup, Topic
 
 
 class DateInput(forms.DateInput):
@@ -60,4 +60,44 @@ class LessonGroupForm(forms.ModelForm):
 
     class Meta:
         model = LessonGroup
-        fields = ['name'] 
+        fields = ['name']
+
+class TopicForm(forms.ModelForm):
+    class Meta:
+        model = Topic
+        fields = ['title', 'weight']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter topic title',
+            }),
+            'weight': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'step': 0.1,
+            }),
+        }
+
+class SubtopicForm(forms.ModelForm):
+    class Meta:
+        model = Topic
+        fields = ['parent', 'title', 'weight']
+        widgets = {
+            'parent': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter subtopic title',
+            }),
+            'weight': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'step': 0.1,
+            }),
+        }
+    def __init__(self, *args, **kwargs):
+        lesson = kwargs.pop('lesson', None)
+        super().__init__(*args, **kwargs)
+        if lesson:
+            self.fields['parent'].queryset = lesson.topics.filter(parent__isnull=True)

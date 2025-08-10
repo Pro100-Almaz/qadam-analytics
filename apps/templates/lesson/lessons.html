@@ -1,5 +1,6 @@
     {% extends 'layouts/base.html' %}
 {% load static %}
+{% load custom_filters %}
 {% block title %} Subjects {% endblock title %}
 
 {% block content %}
@@ -134,17 +135,23 @@
                     </td>
                     <td>
                         <div>
-                            {{ lesson.subject.teacher }}
+                            {% if lesson.subject.teacher and lesson.subject.teacher.user %}
+                              {{ lesson.subject.teacher.user.get_full_name }}
+                            {% else %}
+                              -
+                            {% endif %}
                         </div>
                     </td>
                     <td>
                       <div class="d-flex align-items-center">
-                        <span class="completion mr-2">{{ lesson.progress }}%</span>
-                        <div>
-                          <div class="progress">
-                            <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="{{ lesson.progress }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ lesson.progress }}%;"></div>
+                        {% with pct=graded_percent_by_lesson|get_item:lesson.id %}
+                          <span class="completion mr-2">{{ pct|default:0 }}%</span>
+                          <div>
+                            <div class="progress">
+                              <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="{{ pct|default:0 }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ pct|default:0 }}%;"></div>
+                            </div>
                           </div>
-                        </div>
+                        {% endwith %}
                       </div>
                     </td>
                     <td class="text-right">
