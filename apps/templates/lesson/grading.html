@@ -24,9 +24,21 @@
 #postGradeModal .split-container { display: flex; gap: 1rem; }
 #postGradeModal .split.left { flex: 1 1 55%; min-width: 0; }
 #postGradeModal .w-55 { flex: 1 1 45%; min-width: 280px; }
+
+/* Make modal body scrollable */
+#postGradeModal .modal-body { max-height: 70vh; overflow-y: auto; }
+
+/* Highlight subtopics block to differentiate from main topics */
+#postGradeModal tr.subtopics-row > td {
+  background-color: #f7fafc; /* subtle light background */
+  border-left: 3px solid #5e72e4; /* accent line */
+}
+#postGradeModal tr.subtopics-row table {
+  background: transparent;
+}
 </style>
 
-<div class="header bg-white pb-6">
+<div class="header bg-white">
   <div class="container-fluid">
     <div class="header-body">
       <div class="row py-4">
@@ -190,94 +202,89 @@
 {#               Left: Topic totals #}
 
           <div class="modal-body">
-            <div class="split-container">
-              <div class="split left">
-                <div class="centered">
-                  <div id="topic-info-panel">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Topics</th>
-                          <th>Weight</th>
-                          <th>Grade</th>
-                          <th>Comment</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for topic in topics %}
-                          {% if not topic.parent %}
-                            <tr>
-                              <td>{{ topic.title }}</td>
-                              <td>{{ topic.weight }}</td>
-                              <td>
-                                <span class="topic-grade-display" data-topic-id="{{ topic.id }}">0</span>
-                                <input type="hidden" name="topic_{{ topic.id }}_grade" id="topic_grade_{{ topic.id }}" value="">
-                              </td>
-                              <td>
-                                <textarea class="form-control" rows="3" name="topic_{{ topic.id }}_comment"></textarea>
-                              </td>
-                            </tr>
-                          {% endif %}
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-{#               Right: Subtopics#}
-              <div class="w-55 pl-4">
-                <div class="form-group">
-                  <label for="parent">Choose Topic</label>
-                  <select id="parent" name="parent" class="form-control mb-3">
-                    <option value="">-- Select a Topic --</option>
-                    {% for topic in topics %}
-                      {% if not topic.parent %}
-                        <option value="{{ topic.id }}" data-title="{{ topic.title }}" data-weight="{{ topic.weight }}">
-                          {{ topic.title }}
-                        </option>
-                      {% endif %}
-                    {% endfor %}
-                  </select>
-                </div>
-
-                <div id="topic-subtopic-fields">
+            <div id="topic-info-panel">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Topics</th>
+                    <th>Weight (%)</th>
+                    <th>Grade / Covered?</th>
+                    <th>Comment</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {% for topic in topics %}
-                    <div class="subtopic-group" data-topic-id="{{ topic.id }}" style="display: none;">
-                      <table class="table">
-                        <thead>
-                          <tr>
-                            <th>Subtopic</th>
-                            <th>Weight</th>
-                            <th>Grade</th>
-                            <th>Comment</th>
+                    {% if not topic.parent %}
+                      {% with subcount=topic.subtopics.all|length %}
+                        <tr class="topic-row" data-topic-id="{{ topic.id }}">
+                          <td>
+                            {% if subcount > 0 %}
+                              <button type="button" class="btn btn-sm btn-link p-0 toggle-subtopics" data-topic-id="{{ topic.id }}" aria-expanded="false">></button>
+                            {% endif %}
+                            {{ topic.title }}
+                          </td>
+                          <td>{{ topic.weight }}</td>
+                          <td>
+                            <input type="hidden" name="topic_{{ topic.id }}_grade" id="topic_grade_{{ topic.id }}" value="">
+                            {% if subcount == 0 %}
+                              <div class="custom-control custom-checkbox mt-2">
+                                <input type="checkbox"
+                                       class="custom-control-input topic-covered-input"
+                                       id="topic_{{ topic.id }}_covered"
+                                       name="topic_{{ topic.id }}_covered"
+                                       data-topic-id="{{ topic.id }}">
+                                <label class="custom-control-label" for="topic_{{ topic.id }}_covered">Covered</label>
+                              </div>
+                            {% endif %}
+                          </td>
+                          <td class="topic-comment-display" data-topic-id="{{ topic.id }}">-</td>
+                        </tr>
+                        {% if subcount > 0 %}
+                          <tr class="subtopics-row d-none" data-topic-id="{{ topic.id }}">
+                            <td colspan="5">
+                              <table class="table mb-0">
+                                <thead>
+                                  <tr>
+                                    <th>Subtopic</th>
+                                    <th>Rel. Weight (%)</th>
+                                    <th>Overall (%)</th>
+                                    <th>Covered?</th>
+                                    <th>Comment</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {% for subtopic in topic.subtopics.all %}
+                                    <tr>
+                                      <td>{{ subtopic.title }}</td>
+                                      <td>{{ subtopic.weight }}</td>
+                                      <td class="subtopic-overall-weight"
+                                          data-topic-weight="{{ topic.weight }}"
+                                          data-subtopic-weight="{{ subtopic.weight }}">-</td>
+                                      <td>
+                                        <div class="custom-control custom-checkbox">
+                                          <input type="checkbox"
+                                                 class="custom-control-input subtopic-covered-input"
+                                                 id="subtopic_{{ subtopic.id }}_covered"
+                                                 name="subtopic_{{ subtopic.id }}_covered"
+                                                 data-weight="{{ subtopic.weight }}"
+                                                 data-topic-id="{{ topic.id }}"
+                                                 data-subtopic-id="{{ subtopic.id }}">
+                                          <label class="custom-control-label" for="subtopic_{{ subtopic.id }}_covered">Covered</label>
+                                        </div>
+                                      </td>
+                                      <td class="subtopic-comment-display" data-subtopic-id="{{ subtopic.id }}">-</td>
+                                    </tr>
+                                  {% endfor %}
+                                </tbody>
+                              </table>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {% for subtopic in topic.subtopics.all %}
-                            <tr>
-                              <td>{{ subtopic.title }}</td>
-                              <td>{{ subtopic.weight }}</td>
-                              <td>
-                                <input type="number" class="form-control subtopic-grade-input p-1"
-                                       name="subtopic_{{ subtopic.id }}_grade"
-                                       min="0" max="100"
-                                       data-weight="{{ subtopic.weight }}"
-                                       data-topic-id="{{ topic.id }}"
-                                       data-subtopic-id="{{ subtopic.id }}">
-                              </td>
-                              <td>
-                                <textarea class="form-control" rows="3" name="subtopic_{{ subtopic.id }}_comment"></textarea>
-                              </td>
-                            </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    </div>
+                        {% endif %}
+                      {% endwith %}
+                    {% endif %}
                   {% endfor %}
-                </div>
-              </div>
-
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -297,7 +304,7 @@
 <script>
   $(function() {
     // Parse the server JSON into an object
-    const topicGradeMap = JSON.parse('{{ topic_grade_map|escapejs }}');
+      const topicGradeMap = JSON.parse('{{ topic_grade_map|escapejs }}');
 
     // Prefill modal on open (works for both "Put Grade" and "Edit Grade" buttons)
     document.querySelectorAll('[data-target="#postGradeModal"]').forEach(button => {
@@ -306,9 +313,7 @@
         document.getElementById('modalStudentId').value = studentId;
 
         // Clear previous values
-        document.querySelectorAll('#postGradeModal input[type="number"]').forEach(input => { input.value = '' });
-        document.querySelectorAll('#postGradeModal textarea').forEach(textarea => textarea.value = '');
-        document.querySelectorAll('.topic-grade-display').forEach(span => { span.textContent = '0'; });
+        document.querySelectorAll('#postGradeModal input[type="checkbox"]').forEach(input => { input.checked = false });
         document.querySelectorAll('input[id^="topic_grade_"]').forEach(inp => { inp.value = ''; });
 
         // Prefill from topicGradeMap using keys like "<userId>-<topicId>"
@@ -317,90 +322,84 @@
           if (String(sId) !== studentId) return;
 
           // If inputs for a subtopic exist, set them
-          const subInput = document.querySelector(`[name="subtopic_${tId}_grade"]`);
-          const subComment = document.querySelector(`[name="subtopic_${tId}_comment"]`);
-          if (subInput) subInput.value = data.grade;
-          if (subComment) subComment.value = data.comment;
+          const subInput = document.querySelector(`#subtopic_${tId}_covered`);
+          const subCommentEl = document.querySelector(`.subtopic-comment-display[data-subtopic-id="${tId}"]`);
+          if (subInput) subInput.checked = Number(data.grade) >= 100;
+          if (subCommentEl) subCommentEl.textContent = (data.comment && data.comment.length) ? data.comment : '-';
 
           // If topic-level fields exist, set them
           const topicHidden = document.getElementById(`topic_grade_${tId}`);
-          const topicDisplay = document.querySelector(`.topic-grade-display[data-topic-id="${tId}"]`);
-          const topicComment = document.querySelector(`[name="topic_${tId}_comment"]`);
+          const topicCommentEl = document.querySelector(`.topic-comment-display[data-topic-id="${tId}"]`);
+          const topicCovered = document.querySelector(`#topic_${tId}_covered`);
           if (topicHidden) topicHidden.value = data.grade;
-          if (topicDisplay) topicDisplay.textContent = (typeof data.grade === 'number') ? data.grade.toFixed(1) : '';
-          if (topicComment) topicComment.value = data.comment;
+          if (topicCommentEl) topicCommentEl.textContent = (data.comment && data.comment.length) ? data.comment : '-';
+          if (topicCovered) topicCovered.checked = Number(data.grade) >= 100;
         });
 
-        // Default the subtopic pane to the first topic for convenience
-        const parentSelect = document.getElementById('parent');
-        if (parentSelect) {
-          if (!parentSelect.value) {
-            const firstOpt = parentSelect.querySelector('option[value]:not([value=""])');
-            if (firstOpt) parentSelect.value = firstOpt.value;
-          }
-          const topicId = parentSelect.value;
-          document.querySelectorAll('.subtopic-group').forEach(group => {
-            group.style.display = group.dataset.topicId === topicId ? 'block' : 'none';
-          });
-        }
+        // Compute and render overall weights for visible subtopics
+        document.querySelectorAll('#postGradeModal .subtopic-overall-weight').forEach(cell => {
+          const topicW = parseFloat(cell.getAttribute('data-topic-weight')) || 0;
+          const subW = parseFloat(cell.getAttribute('data-subtopic-weight')) || 0;
+          const overall = (topicW * subW) / 100;
+          cell.textContent = overall ? overall.toFixed(1) : '0.0';
+        });
+
       });
     });
 
-    {#Show subtopics for selected topic#}
-    const parentSelect = document.getElementById('parent');
-    if (parentSelect) {
-      parentSelect.addEventListener('change', function(){
-        const topicId = this.value;
-        document.querySelectorAll('.subtopic-group').forEach(group => {
-          group.style.display = group.dataset.topicId === topicId ? 'block' : 'none';
-        });
-      });
-    }
+    // Toggle subtopics inline in the table
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.toggle-subtopics');
+      if (!btn) return;
+      const topicId = btn.getAttribute('data-topic-id');
+      const row = document.querySelector(`.subtopics-row[data-topic-id="${topicId}"]`);
+      if (!row) return;
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      btn.textContent = expanded ? '>' : 'v';
+      row.classList.toggle('d-none', expanded);
+    });
 
-    // Validate/auto-fill empty subtopic grades before submit
+    // Validate: none needed for checkboxes
     document.getElementById('submit-grades-btn').addEventListener('click', function(e){
-      const inputs = document.querySelectorAll('#topic-subtopic-fields input[type="number"]');
-      let hasEmpty = false;
-      inputs.forEach(input => { if (input.value === '') hasEmpty = true; });
-
-      if (hasEmpty) {
-        if (confirm("Some grades are not filled. Do you want to auto-fill them with 0?")){
-          inputs.forEach(input => { if (input.value === '') input.value = 0; });
-        } else {
-          e.preventDefault();
-          return;
-        }
-      }
+      // nothing
     });
 
     {#dynamic topic grade calculation#}
-    document.addEventListener('input', function(e) {
+    document.addEventListener('change', function(e) {
       const target = e.target;
-      if (!target.classList.contains('subtopic-grade-input')) return;
+      if (!target.classList.contains('subtopic-covered-input')) return;
 
       const topicId = target.dataset.topicId;
       if (!topicId) return;
 
-      const relatedInputs = document.querySelectorAll(`.subtopic-grade-input[data-topic-id="${topicId}"]`);
+      const relatedInputs = document.querySelectorAll(`.subtopic-covered-input[data-topic-id="${topicId}"]`);
       let weightSum = 0;
       let totalWeight = 0;
 
       relatedInputs.forEach(input => {
-        const val = parseFloat(input.value);
+        const checked = input.checked;
         const weight = parseFloat(input.dataset.weight) || 0;
-        if (!isNaN(val)) {
-          weightSum += (val * weight / 100);
+        if (checked) {
+          weightSum += (100 * weight / 100);
         }
         totalWeight += weight;
       });
 
       const topicGrade = totalWeight > 0 ? weightSum : 0;
-      const displayEl = document.querySelector(`.topic-grade-display[data-topic-id="${topicId}"]`);
-      if (displayEl) {
-        displayEl.textContent = (topicGrade === 0 ? '' : topicGrade.toFixed(1));
-      }
       const hidden = document.getElementById('topic_grade_' + topicId);
       if (hidden) hidden.value = topicGrade;
+    });
+
+    // Topic-only checkbox affects displayed topic grade
+    document.addEventListener('change', function(e) {
+      const target = e.target;
+      if (!target.classList.contains('topic-covered-input')) return;
+
+      const topicId = target.dataset.topicId;
+      const gradeValue = target.checked ? 100 : 0;
+      const hidden = document.getElementById('topic_grade_' + topicId);
+      if (hidden) hidden.value = gradeValue;
     });
   });
 </script>

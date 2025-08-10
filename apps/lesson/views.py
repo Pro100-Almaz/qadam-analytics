@@ -40,8 +40,22 @@ def lessons_list(request):
         lessons = lessons.filter(subject__name=subject_filter)
 
     number_of_students = {}
+    graded_percent_by_lesson = {}
     for lesson in lessons:
-        number_of_students[lesson.title] = Student.objects.filter(classroom=lesson.subject.teacher.classroom).count()
+        # Total students for this subject
+        total_students = Student.objects.filter(subjects=lesson.subject).count()
+        number_of_students[lesson.title] = total_students
+
+        # Students who have any TopicGrade for this lesson
+        graded_count = (
+            Student.objects
+            .filter(subjects=lesson.subject, topicgrade__topic__lesson=lesson)
+            .distinct()
+            .count()
+        )
+
+        percent = int((graded_count / total_students) * 100) if total_students > 0 else 0
+        graded_percent_by_lesson[lesson.id] = percent
 
     page = request.GET.get('page')
     paginator = Paginator(lessons, 5)
@@ -49,6 +63,7 @@ def lessons_list(request):
 
     context = {'lessons': lessons,
                "number_of_students": number_of_students,
+               "graded_percent_by_lesson": graded_percent_by_lesson,
                "classrooms": classrooms,
                "classroom_filter": classroom_filter,
                "subject_filter": subject_filter,
@@ -321,33 +336,42 @@ def submit_all_topic_grades(request):
         student = get_object_or_404(Student, user__id=student_id)
         lesson = get_object_or_404(Lesson, pk=lesson_id)
 
-        for topic in lesson.topics.all():
-            for sub in topic.subtopics.all():
-                grade = request.POST.get(f'subtopic_{sub.id}_grade', '0') or '0'
-                comment = request.POST.get(f'subtopic_{sub.id}_comment', '')
+        # Iterate through all top-level topics first
+        for topic in lesson.topics.filter(parent__isnull=True):
+            # Handle subtopics as checklist
+            subtopics = list(topic.subtopics.all())
+            for sub in subtopics:
+                # Checkbox convention: presence means covered (1), absence means 0
+                covered = request.POST.get(f'subtopic_{sub.id}_covered')
+                grade_value = 100 if covered else 0
 
-                TopicGrade.objects.update_or_create(
+                # Preserve existing comment; no comment is posted from read-only UI
+                tg, _created = TopicGrade.objects.update_or_create(
                     student=student,
                     topic=sub,
-                    defaults={
-                        'grade': grade,
-                        'comment': comment
-                    }
+                    defaults={'grade': grade_value}
                 )
 
-            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '')
+            # Topic-level grade/comment
+            # No topic comment is posted from read-only UI
+            if subtopics:
+                topic_grade_value = topic.calculate_subtopics_grade(student)
+            else:
+                # For topics without subtopics, use the topic checkbox
+                covered = request.POST.get(f'topic_{topic.id}_covered')
+                topic_grade_value = 100 if covered else 0
+
             TopicGrade.objects.update_or_create(
                 student=student,
                 topic=topic,
-                defaults={
-                    'grade': topic.calculate_subtopics_grade(student),
-                    'comment': topic_comment
-                }
+                defaults={'grade': topic_grade_value}
             )
-    return redirect('lesson:grading', pk=lesson.id)
+
+        return redirect('lesson:grading', pk=lesson.id)
+    return redirect('lesson:grading', pk=request.POST.get('lesson_id'))
 
 @login_required(login_url="/login/")
-def update_grade(request):
+def update_grade(request, pk=None):
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
         lesson_id = request.POST.get('lesson_id')
@@ -355,30 +379,32 @@ def update_grade(request):
         student = get_object_or_404(Student, user__id=student_id)
         lesson = get_object_or_404(Lesson, pk=lesson_id)
 
-        for topic in lesson.topics.all():
-            for sub in topic.subtopics.all():
-                grade = request.POST.get(f'subtopic_{sub.id}_grade', '0') or '0'
-                comment = request.POST.get(f'subtopic_{sub.id}_comment', '')
+        for topic in lesson.topics.filter(parent__isnull=True):
+            subtopics = list(topic.subtopics.all())
+            for sub in subtopics:
+                covered = request.POST.get(f'subtopic_{sub.id}_covered')
+                grade_value = 100 if covered else 0
 
                 TopicGrade.objects.update_or_create(
                     student=student,
                     topic=sub,
-                    defaults={
-                        'grade': grade,
-                        'comment': comment
-                    }
+                    defaults={'grade': grade_value}
                 )
 
-            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '')
+            if subtopics:
+                topic_grade_value = topic.calculate_subtopics_grade(student)
+            else:
+                covered = request.POST.get(f'topic_{topic.id}_covered')
+                topic_grade_value = 100 if covered else 0
+
             TopicGrade.objects.update_or_create(
                 student=student,
                 topic=topic,
-                defaults={
-                    'grade': topic.calculate_subtopics_grade(student),
-                    'comment': topic_comment
-                }
+                defaults={'grade': topic_grade_value}
             )
-    return redirect('lesson:lesson_details', pk=lesson.id)
+
+        return redirect('lesson:lesson_details', pk=lesson.id)
+    return redirect('lesson:lesson_details', pk=request.POST.get('lesson_id'))
 
 
 @login_required(login_url="/login/")

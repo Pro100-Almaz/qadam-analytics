@@ -109,12 +109,32 @@ class Topic(models.Model):
     )
 
     def calculate_subtopics_grade(self, student):
-        grades = TopicGrade.objects.filter(
-            topic__in=self.subtopics.all(),
-            student=student
-        ).values_list('grade', flat=True)
+        # Compute a weighted grade (0-100) across immediate subtopics for the given student
+        # If there are no subtopics, return 0 – caller may set topic-level grade explicitly
+        subtopics_qs = self.subtopics.all()
+        if not subtopics_qs.exists():
+            return 0
 
-        return sum(grades) / len(grades) if grades else 0
+        grades_with_weights = TopicGrade.objects.filter(
+            topic__in=subtopics_qs,
+            student=student
+        ).select_related('topic').values_list('grade', 'topic__weight')
+
+        weighted_sum = 0.0
+        total_weight = 0.0
+        for grade_value, weight_value in grades_with_weights:
+            try:
+                grade_float = float(grade_value)
+            except (TypeError, ValueError):
+                grade_float = 0.0
+            try:
+                weight_float = float(weight_value)
+            except (TypeError, ValueError):
+                weight_float = 0.0
+            weighted_sum += grade_float * weight_float
+            total_weight += weight_float
+
+        return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
     def __str__(self):
         return f"{self.title} ({self.weight}%)"

@@ -18,9 +18,13 @@
   /* Scrollable Topics list */
   #topics-scroll { max-height: 320px; overflow-y: auto; }
   #topics-scroll thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+
+  /* Scrollable Students Grades table */
+  #students-scroll { max-height: 360px; overflow-y: auto; }
+  #students-scroll thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
 </style>
 
-<div class="header bg-white pb-6">
+<div class="header bg-white">
   <div class="container-fluid">
     <div class="header-body">
       <div class="row py-4">
@@ -104,7 +108,7 @@
                 <tr>
                   <th>Topics</th>
                   <th>Weight</th>
-                  <th>Action</th>
+                  <th class="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -113,7 +117,7 @@
                   <tr>
                     <td>{{ topic.title }}</td>
                     <td>{{ topic.weight }}</td>
-                    <td>
+                    <td class="text-center">
                       <a class="btn btn-primary px-4 text-white"
                          data-toggle="modal"
                          data-target="#editTopicModal"
@@ -140,12 +144,12 @@
         <div class="card-header d-flex justify-content-between align-items-center">
           <h4 class="mb-0">Subtopics List</h4>
           <div>
-            <a href="{% url 'lesson:distribute_subtopic_weights' lesson.id%}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weight proportions
-            </a>
             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createSubtopicModal">
               <i class="ni ni-fat-add"></i> Add
             </button>
+            <a href="{% url 'lesson:distribute_subtopic_weights' lesson.id%}" class="btn btn-outline-primary btn-sm">
+              <i class="ni ni-fat-add"></i> Distribute weight proportions
+            </a>
           </div>
         </div>
         <div class="card-body">
@@ -161,7 +165,7 @@
               <tr>
                 <th>Title</th>
                 <th>Weight</th>
-                <th>Action</th>
+                <th class="text-center">Action</th>
               </tr>
             </thead>
             <tbody id="subtopics-container">
@@ -170,7 +174,7 @@
                   <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
                     <td>{{ subtopic.title }}</td>
                     <td>{{ subtopic.weight }}</td>
-                    <td>
+                    <td class="text-center">
                       <a class="btn btn-primary px-4 text-white"
                          data-toggle="modal"
                          data-target="#editSubtopicModal"
@@ -193,13 +197,13 @@
 {#     Students Grades ---------------#}
     <div class="col-12">
       <div class="card mb-4">
-        <div class="row mt-4">
+        <div class="row">
           <div class="col-xl-12">
             <div class="card">
               <div class="card-header border-0">
                 <h3 class="mb-0">Оценка учеников</h3>
               </div>
-              <div class="table-responsive">
+              <div id="students-scroll" class="table-responsive">
                 <table class="table align-items-center table-flush">
                   <thead class="thead-light">
                     <tr>
