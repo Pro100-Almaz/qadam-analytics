@@ -49,8 +49,8 @@
                 <div class="card-body">
                   <div class="row">
                     <div class="col">
-                        <h5 class="card-title text-uppercase text-muted mb-0">Lessons count </h5>
-                      <span class="h2 font-weight-bold mb-0">{{ lessons.count }}</span>
+                        <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков</h5>
+                      <span class="h2 font-weight-bold mb-0">{{ lessons_count }}</span>
                     </div>
                     <div class="col-auto">
                       <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
@@ -68,7 +68,7 @@
                   <div class="row">
                     <div class="col">
                       <h5 class="card-title text-uppercase text-muted mb-0">Средняя оценка предмета</h5>
-                      <span class="h2 font-weight-bold mb-0">924</span>
+                      <span class="h2 font-weight-bold mb-0">{{ average_subject_points }}</span>
                     </div>
                     <div class="col-auto">
                       <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
@@ -86,7 +86,7 @@
                   <div class="row">
                     <div class="col">
                       <h5 class="card-title text-uppercase text-muted mb-0">Завершенность предмета</h5>
-                      <span class="h2 font-weight-bold mb-0">49,65%</span>
+                      <span class="h2 font-weight-bold mb-0">{{ completion_percent }}%</span>
                     </div>
                     <div class="col-auto">
                       <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
@@ -104,9 +104,9 @@
 
     <!-- Page content -->
     <div class="container-fluid mt--6">
-      <div class="row">
-        <div class="col-xl-8">
-          <div class="card bg-default">
+      <div class="row align-items-stretch">
+        <div class="col-xl-8 d-flex">
+          <div class="card bg-default w-100 h-100 mb-4">
             <div class="card-header bg-transparent">
               <div class="row align-items-center">
                 <div class="col">
@@ -143,8 +143,8 @@
 
 
 
-        <div class="col-xl-4">
-          <div class="card">
+        <div class="col-xl-4 d-flex">
+          <div class="card w-100 h-100 mb-4">
             <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
@@ -161,7 +161,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for student, avg_grade in top_grades %}
+                  {% for student, avg_grade in top_grades|slice:":7" %}
                     <tr>
                       <th scope="row">
                         {{ student.first_name }} {{ student.last_name }}
