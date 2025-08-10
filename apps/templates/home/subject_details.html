@@ -1,97 +1,101 @@
 {% extends 'layouts/base.html' %}
 
-
 {% block title %} Dashboard {% endblock title %}
 
-<!-- Specific CSS goes HERE -->
-{% block stylesheets %}{% endblock stylesheets %}
+{% block stylesheets %}
+<style>
+  .info-cards .card { height: 100%; }
+  .info-cards .card-header .row > .col-6:first-child h3 { white-space: nowrap; }
+
+  /* Ensure the lessons/students row cards can stretch equally */
+  .row.align-items-stretch > [class*="col-"] .card { height: 100%; }
+
+  /* Pagination styles (Bootstrap-compatible) */
+  .pagination { margin: 0.5rem 0; }
+  .pagination .page-link { cursor: pointer; }
+</style>
+{% endblock stylesheets %}
 
 {% block content %}
-    <!-- Header -->
-    <div class="header bg-white pb-6">
-      <div class="container-fluid">
-        <div class="header-body">
-          <div class="row align-items-center py-4">
-            <div class="col-lg-6 col-7">
-              <h6 class="h2 text-dark d-inline-block mb-0">{{ subject.name }}</h6>
-              <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
-                <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
-                  <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                  <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Subjects</a></li>
-                  <li class="breadcrumb-item"><a href="{% url 'subject_details' subject.pk %}">{{ subject.name }}</a></li>
-                </ol>
-              </nav>
+  <div class="header bg-white pb-6">
+    <div class="container-fluid">
+      <div class="header-body">
+        <div class="row align-items-center py-4">
+          <div class="col-lg-6 col-7">
+            <h6 class="h2 text-dark d-inline-block mb-0">{{ subject.name }}</h6>
+            <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+              <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                <li class="breadcrumb-item"><a href="{% url 'subjects' %}">Subjects</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'subject_details' subject.pk %}">{{ subject.name }}</a></li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Количество учеников</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ students_count }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-red text-white rounded-circle shadow">
+                      <i class="ni ni-active-40"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <!-- Card stats -->
-          <div class="row">
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0">Количество учеников</h5>
-                      <span class="h2 font-weight-bold mb-0">{{ students_count }}</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-red text-white rounded-circle shadow">
-                        <i class="ni ni-active-40"></i>
-                      </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ lessons_count }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
+                      <i class="ni ni-chart-pie-35"></i>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                        <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков</h5>
-                      <span class="h2 font-weight-bold mb-0">{{ lessons_count }}</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
-                        <i class="ni ni-chart-pie-35"></i>
-                      </div>
+          </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Средняя оценка предмета</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ average_subject_points }}</span>
+                  </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
+                      <i class="ni ni-money-coins"></i>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0">Средняя оценка предмета</h5>
-                      <span class="h2 font-weight-bold mb-0">{{ average_subject_points }}</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
-                        <i class="ni ni-money-coins"></i>
-                      </div>
-                    </div>
+          </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="card card-stats">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col">
+                    <h5 class="card-title text-uppercase text-muted mb-0">Завершенность предмета</h5>
+                    <span class="h2 font-weight-bold mb-0">{{ completion_percent }}%</span>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-xl-3 col-md-6">
-              <div class="card card-stats">
-                <!-- Card body -->
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col">
-                      <h5 class="card-title text-uppercase text-muted mb-0">Завершенность предмета</h5>
-                      <span class="h2 font-weight-bold mb-0">{{ completion_percent }}%</span>
-                    </div>
-                    <div class="col-auto">
-                      <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
-                        <i class="ni ni-chart-bar-32"></i>
-                      </div>
+                  <div class="col-auto">
+                    <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
+                      <i class="ni ni-chart-bar-32"></i>
                     </div>
                   </div>
                 </div>
@@ -99,360 +103,402 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Page content -->
-    <div class="container-fluid mt--6">
-      <div class="row align-items-stretch">
-        <div class="col-xl-8 d-flex">
-          <div class="card bg-default w-100 h-100 mb-4">
-            <div class="card-header bg-transparent">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h6 class="text-light text-uppercase ls-1 mb-1">Overview</h6>
-                  <h5 class="h3 text-white mb-0">Sales value</h5>
-                </div>
-                <div class="col">
-                  <ul class="nav nav-pills justify-content-end">
-                    <li class="nav-item mr-2 mr-md-0" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0, 20, 10, 30, 15, 40, 20, 60, 60]}]}}' data-prefix="$" data-suffix="k">
-                      <a href="#" class="nav-link py-2 px-3 active" data-toggle="tab">
-                        <span class="d-none d-md-block">Month</span>
-                        <span class="d-md-none">M</span>
-                      </a>
-                    </li>
-                    <li class="nav-item" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0, 20, 5, 25, 10, 30, 15, 40, 40]}]}}' data-prefix="$" data-suffix="k">
-                      <a href="#" class="nav-link py-2 px-3" data-toggle="tab">
-                        <span class="d-none d-md-block">Week</span>
-                        <span class="d-md-none">W</span>
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- Chart -->
-              <div class="chart">
-                <!-- Chart wrapper -->
-                <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-
-        <div class="col-xl-4 d-flex">
-          <div class="card w-100 h-100 mb-4">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список лучших</h3>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Ученик</th>
-                    <th scope="col">Средний балл</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for student, avg_grade in top_grades|slice:":7" %}
-                    <tr>
-                      <th scope="row">
-                        {{ student.first_name }} {{ student.last_name }}
-                      </th>
-                      <td>
-                        {{ avg_grade|floatformat:2 }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-
-
-      </div>
-      <div class="row">
-        <div class="col-xl-8">
-          <div class="card">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список уроков</h3>
-                </div>
-                <div class="col text-right">
-                  <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-                    <i class="ni ni-fat-add"></i>
-                  </a>
-                  <select id="sortSelect" name="transport_type" class="ml-2">
-                    <option class="dropdown-item" value="По названию" selected>По названию</option>
-                    <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
-                    <option class="dropdown-item" value="По статусу">По статусу</option>
-                    <option class="dropdown-item" value="По четверти">По четверти</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div class="table-responsive">
-              <!-- Projects table -->
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Название</th>
-                    <th scope="col">Средний балл</th>
-                    <th scope="col">Статус</th>
-                    <th scope="col">Четверть</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for lesson in lessons %}
-                    <tr>
-                      <th scope="row" data-type="title">
-                        {{ lesson.title }}
-                      </th>
-                      <td data-type="average-grade">
-                        {{ lesson.average_points }}
-                      </td>
-                      <td data-type="status">
-                        {{ lesson.status }}
-                      </td>
-                      <td data-type="quarter">
-                        {{ lesson.quarter }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-
-
-
-        <div class="col-xl-4">
-            <div class="card">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список учеников</h3>
-                </div>
-              </div>
-            </div>
-            <div class="table-responsive">
-              <!-- Top grades table -->
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Фамилия</th>
-                    <th scope="col">Имя</th>
-                    <th scope="col"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for student, total in top_grades.items|dictsortreversed:"1"|slice:":5" %}
-                     <tr>
-                      <th scope="row">
-                        {{ student.last_name }}
-                      </th>
-                      <th scope="row">
-                        {{ student.first_name }}
-                      </th>
-                      <th scope="row">
-                        {{ student.value }} // num_lessons
-                      </th>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-
-
-    <div class="row">
-        <div class="col-6">
-            <div class="card">
-                <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Учитель</h3>
-                </div>
-                <div class="col text-right">
+        <div class="row info-cards">
+          <div class="col-6">
+            <div class="card h-100">
+              <div class="card-header border-0">
+                <div class="row align-items-center">
+                  <div class="col-6">
+                    <h3 class="mb-0">Учитель</h3>
+                  </div>
+                  <div class="col-6 text-right">
                     {% if teacher.first_name and teacher.last_name %}
-                            {{ teacher.first_name }}
-                            {{ teacher.last_name }}
-                        {% else %}
-                            {{ teacher.username }}
-                        {% endif %}
-
-                </div>
-              </div>
-            </div>
-            </div>
-        </div>
-
-        <div class="col-6">
-            <div class="card">
-                <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Subject was added by: </h3>
-                </div>
-                <div class="col text-right">
-                    {% if subject_adder.first_name and subject_adder.last_name %}
-                        {{ subject_adder.first_name }}
-                        {{ subject_adder.last_name }}
+                      {{ teacher.first_name }} {{ teacher.last_name }}
                     {% else %}
-                        {{ subject_adder.username }}
-
+                      {{ teacher.username }}
                     {% endif %}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          <div class="col-6">
+            <div class="card h-100">
+              <div class="card-header border-0">
+                <div class="row align-items-center">
+                  <div class="col-6">
+                    <h3 class="mb-0">Subject was added by:</h3>
+                  </div>
+                  <div class="col-6 text-right">
+                    {% if subject_adder.first_name and subject_adder.last_name %}
+                      {{ subject_adder.first_name }} {{ subject_adder.last_name }}
+                    {% else %}
+                      {{ subject_adder.username }}
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
         </div>
-
+      </div>
     </div>
+  </div>
 
-
-      <div class="row">
-        <div class="col">
-          <div class="card">
-            <!-- Card header -->
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Таблица оценок</h3>
-                </div>
-                <div class="col text-right">
-                  <a href="{% url 'subject_details' subject_id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
-                </div>
+  <div class="container-fluid mt--6">
+     Chart row
+    <div class="row align-items-stretch">
+      <div class="col-xl-8 d-flex">
+        <div class="card bg-default w-100 h-100 mb-4">
+          <div class="card-header bg-transparent">
+            <div class="row align-items-center">
+              <div class="col">
+                <h6 class="text-light text-uppercase ls-1 mb-1">Overview</h6>
+                <h5 class="h3 text-white mb-0">Sales value</h5>
+              </div>
+              <div class="col">
+                <ul class="nav nav-pills justify-content-end">
+                  <li class="nav-item mr-2 mr-md-0" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0,20,10,30,15,40,20,60,60]}]}}' data-prefix="$" data-suffix="k">
+                    <a href="#" class="nav-link py-2 px-3 active" data-toggle="tab">
+                      <span class="d-none d-md-block">Month</span>
+                      <span class="d-md-none">M</span>
+                    </a>
+                  </li>
+                  <li class="nav-item" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0,20,5,25,10,30,15,40,40]}]}}' data-prefix="$" data-suffix="k">
+                    <a href="#" class="nav-link py-2 px-3" data-toggle="tab">
+                      <span class="d-none d-md-block">Week</span>
+                      <span class="d-md-none">W</span>
+                    </a>
+                  </li>
+                </ul>
               </div>
             </div>
-
-            <!-- Light table -->
-            <div class="table-responsive">
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col" class="sort" data-sort="name">Фамилия, Имя</th>
-                    <th scope="col" class="sort" data-sort="points">Средний балл</th>
-                    <th scope="col" class="sort" data-sort="grade">Оценка</th>
-                    <th scope="col"></th>
-                  </tr>
-                </thead>
-                <tbody class="list">
-                  {% for student_data in student_grades %}
-                    <tr>
-                      <th scope="row">
-                        <div class="media align-items-center">
-                          <a href="#" class="avatar rounded-circle mr-3">
-                            <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
-                          </a>
-                          <div class="media-body">
-                            <span class="name mb-0 text-sm">{{ student_data.student.last_name }}, {{ student_data.student.first_name }}</span>
-                          </div>
-                        </div>
-                      </th>
-                      <td class="budget">
-                        {{ student_data.average_points }}%
-                      </td>
-                      <td>
-                        <span class="badge badge-dot mr-4">
-                          <i class="bg-{% if student_data.grade >= 4 %}success{% elif student_data.grade >= 3 %}warning{% else %}danger{% endif %}"></i>
-                          <span class="status">{{ student_data.grade }}</span>
-                        </span>
-                      </td>
-                      <td class="text-right">
-                        <div class="dropdown">
-                          <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="fas fa-ellipsis-v"></i>
-                          </a>
-                          <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
-                            {% for grade in student_data.grades %}
-                              <a class="dropdown-item" href="#">
-                                {{ grade.lesson.title }}: {{ grade.points }}/{{ grade.lesson.maximum_points }}
-                              </a>
-                            {% endfor %}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+          </div>
+          <div class="card-body">
+            <div class="chart">
+              <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
             </div>
           </div>
         </div>
       </div>
-      {% include "includes/footer.html" %}
+
+      <div class="col-xl-4 d-flex">
+        <div class="card w-100 h-100 mb-4">
+          <div class="card-header border-0">
+            <div class="row align-items-center">
+              <div class="col">
+                <h3 class="mb-0">Список лучших</h3>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <table class="table align-items-center table-flush">
+              <thead class="thead-light">
+                <tr>
+                  <th scope="col">Ученик</th>
+                  <th scope="col">Средний балл</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for student, avg_grade in top_grades|slice:":7" %}
+                  <tr>
+                    <th scope="row">
+                      {{ student.first_name }} {{ student.last_name }}
+                    </th>
+                    <td>{{ avg_grade|floatformat:2 }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
     </div>
 
+    <div class="row mt-4 align-items-stretch">
+      <div class="col-xl-8 d-flex">
+        <div class="card w-100 h-100" id="lessons-card">
+          <div class="card-header border-0">
+            <div class="row align-items-center">
+              <div class="col">
+                <h3 class="mb-0">Список уроков</h3>
+              </div>
+              <div class="col text-right">
+                <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
+                  <i class="ni ni-fat-add"></i>
+                </a>
+                <select id="sortSelect" name="transport_type" class="ml-2">
+                  <option class="dropdown-item" value="По названию" selected>По названию</option>
+                  <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
+                  <option class="dropdown-item" value="По статусу">По статусу</option>
+                  <option class="dropdown-item" value="По четверти">По четверти</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-items-center table-flush">
+              <thead class="thead-light">
+                <tr>
+                  <th scope="col">Название</th>
+                  <th scope="col">Средний балл</th>
+                  <th scope="col">Статус</th>
+                  <th scope="col">Четверть</th>
+                </tr>
+              </thead>
+              <tbody id="lessons-table-body">
+                {% for lesson in lessons %}
+                  <tr>
+                    <th scope="row" data-type="title">{{ lesson.title }}</th>
+                    <td data-type="average-grade">{{ lesson.average_points }}</td>
+                    <td data-type="status">{{ lesson.status }}</td>
+                    <td data-type="quarter">{{ lesson.quarter }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4 d-flex">
+        <div class="card w-100 h-100" id="students-card">
+          <div class="card-header border-0">
+            <div class="row align-items-center">
+              <div class="col">
+                <h3 class="mb-0">Список учеников</h3>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-items-center table-flush">
+              <thead class="thead-light">
+                <tr>
+                  <th scope="col">Фамилия</th>
+                  <th scope="col">Имя</th>
+                </tr>
+              </thead>
+              <tbody id="students-table-body">
+                {% for student in students %}
+                  <tr>
+                    <th scope="row">{{ student.user.first_name }}</th>
+                    <th scope="row">{{ student.user.last_name }}</th>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <nav aria-label="Students pagination">
+            <ul class="pagination pagination-sm justify-content-center" id="students-pagination"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+{#     Grades table#}
+    <div class="row mt-4">
+      <div class="col">
+        <div class="card">
+          <div class="card-header border-0">
+            <div class="row align-items-center">
+              <div class="col">
+                <h3 class="mb-0">Таблица оценок</h3>
+              </div>
+              <div class="col text-right">
+                <a href="{% url 'subject_details' subject_id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
+                <a href="{% url 'subject_details' subject_id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
+                <a href="{% url 'subject_details' subject_id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
+                <a href="{% url 'subject_details' subject_id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-items-center table-flush">
+              <thead class="thead-light">
+                <tr>
+                  <th scope="col" class="sort" data-sort="name">Ученик</th>
+                  <th scope="col" class="sort" data-sort="points">Средний балл</th>
+                  <th scope="col" class="sort" data-sort="grade">Оценка</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody class="list" id="grades-table-body">
+                {% for student, avg_grade in top_grades %}
+                  <tr>
+                    <th scope="row">
+                      <div class="media align-items-center">
+                        <a href="#" class="avatar rounded-circle mr-3">
+                          <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
+                        </a>
+                        <div class="media-body">
+                          <span class="name mb-0 text-sm">{{ student.first_name }}, {{ student.last_name }}</span>
+                        </div>
+                      </div>
+                    </th>
+                    <td>{{ avg_grade|floatformat:2 }}</td>
+                    <td>
+                      {% if avg_grade >= 80 %}
+                        5
+                      {% elif avg_grade >= 60 %}
+                        4
+                      {% elif avg_grade >= 40 %}
+                        3
+                      {% else %}
+                        2
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+{#           Grades pagination#}
+          <nav aria-label="Grades pagination">
+            <ul class="pagination pagination-sm justify-content-center" id="grades-pagination"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    {% include "includes/footer.html" %}
+  </div>
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
 {% block javascripts %}
-  <script>
-    document.getElementById('sortSelect').addEventListener('change', function () {
-        const sortBy = this.value;
-        sortTable(sortBy);
+<script>
+
+  document.getElementById('sortSelect').addEventListener('change', function () {
+    const sortBy = this.value;
+    sortTable(sortBy);
+  });
+
+  function sortTable(sortBy) {
+    const table = document.querySelector('#lessons-table-body');
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    rows.sort((a, b) => {
+      let aValue, bValue;
+      switch (sortBy) {
+        case 'По названию':
+          aValue = a.querySelector('[data-type="title"]').innerText.trim();
+          bValue = b.querySelector('[data-type="title"]').innerText.trim();
+          break;
+        case 'По среднему баллу':
+          aValue = parseFloat(a.querySelector('[data-type="average-grade"]').innerText) || 0;
+          bValue = parseFloat(b.querySelector('[data-type="average-grade"]').innerText) || 0;
+          break;
+        case 'По статусу':
+          aValue = a.querySelector('[data-type="status"]').innerText.trim();
+          bValue = b.querySelector('[data-type="status"]').innerText.trim();
+          break;
+        case 'По четверти':
+          aValue = a.querySelector('[data-type="quarter"]').innerText.trim();
+          bValue = b.querySelector('[data-type="quarter"]').innerText.trim();
+          break;
+        default:
+          return 0;
+      }
+      if (aValue < bValue) return -1;
+      if (aValue > bValue) return 1;
+      return 0;
     });
 
-    function sortTable(sortBy) {
-        const table = document.querySelector('.table.align-items-center.table-flush tbody');
-        const rows = Array.from(table.querySelectorAll('tr'));
+    table.innerHTML = '';
+    rows.forEach(row => table.appendChild(row));
+  }
 
-        rows.sort((a, b) => {
-            let aValue, bValue;
+  {#table paginator#}
+  function makePaginator(tbodyId, paginationId, perPage) {
+    const tbody = document.getElementById(tbodyId);
+    const pager = document.getElementById(paginationId);
+    if (!tbody || !pager) return;
 
-            switch (sortBy) {
-                case 'По названию':
-                    aValue = a.querySelector('[data-type="title"]').innerText;
-                    bValue = b.querySelector('[data-type="title"]').innerText;
-                    break;
-                case 'По среднему баллу':
-                    aValue = new Date(a.querySelector('[data-type="average-grade"]').innerText);
-                    bValue = new Date(b.querySelector('[data-type="average-grade"]').innerText);
-                    break;
-                case 'По статусу':
-                    aValue = a.querySelector('[data-type="status"]').innerText;
-                    bValue = b.querySelector('[data-type="status"]').innerText;
-                    break;
-                case 'По четверти':
-                    aValue = a.querySelector('[data-type="quarter"]').innerText;
-                    bValue = b.querySelector('[data-type="quarter"]').innerText;
-                    break;
-                default:
-                    return;
-            }
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const total = rows.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    let current = 1;
 
-            if (aValue < bValue) return -1;
-            if (aValue > bValue) return 1;
-            return 0;
-        });
-
-        table.innerHTML = '';
-        rows.forEach(row => table.appendChild(row));
+    function renderPage(page) {
+      current = page;
+      const start = (page - 1) * perPage;
+      const end = start + perPage;
+      rows.forEach((row, idx) => {
+        row.style.display = (idx >= start && idx < end) ? '' : 'none';
+      });
+      renderControls();
     }
-  </script>
 
-  <script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
-  <script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
+    function renderControls() {
+      pager.innerHTML = '';
+      const prev = document.createElement('li');
+      prev.className = 'page-item ' + (current === 1 ? 'disabled' : '');
+      prev.innerHTML = '<a class="page-link">«</a>';
+      prev.onclick = () => current > 1 && renderPage(current - 1);
+      pager.appendChild(prev);
 
+      for (let i = 1; i <= pages; i++) {
+        const li = document.createElement('li');
+        li.className = 'page-item ' + (i === current ? 'active' : '');
+        li.innerHTML = '<a class="page-link">' + i + '</a>';
+        li.onclick = () => renderPage(i);
+        pager.appendChild(li);
+      }
+
+      const next = document.createElement('li');
+      next.className = 'page-item ' + (current === pages ? 'disabled' : '');
+      next.innerHTML = '<a class="page-link">»</a>';
+      next.onclick = () => current < pages && renderPage(current + 1);
+      pager.appendChild(next);
+    }
+
+    renderPage(1);
+
+    return {
+      goto: renderPage,
+      refresh: () => renderPage(current),
+      getPageCount: () => pages
+    };
+  }
+
+  {#lessons card as tall as students card#}
+  function equalizeLessonsHeight() {
+    const lessonsCard = document.getElementById('lessons-card');
+    const studentsCard = document.getElementById('students-card');
+    if (!lessonsCard || !studentsCard) return;
+    lessonsCard.style.minHeight = '0px';
+    const sH = studentsCard.offsetHeight;
+    lessonsCard.style.minHeight = sH + 'px';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const studentsPager = makePaginator('students-table-body', 'students-pagination', 5);
+    const gradesPager = makePaginator('grades-table-body', 'grades-pagination', 5);
+
+    equalizeLessonsHeight();
+    window.addEventListener('resize', equalizeLessonsHeight);
+
+    const studentsPaginationEl = document.getElementById('students-pagination');
+    const gradesPaginationEl = document.getElementById('grades-pagination');
+    if (studentsPaginationEl) {
+      studentsPaginationEl.addEventListener('click', function (e) {
+        if (e.target.classList.contains('page-link')) {
+          setTimeout(equalizeLessonsHeight, 0);
+        }
+      });
+    }
+    if (gradesPaginationEl) {
+      gradesPaginationEl.addEventListener('click', function () {
+      });
+    }
+  });
+</script>
+
+<script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
+<script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
 {% endblock javascripts %}

@@ -163,6 +163,7 @@ def subject_details(request, pk):
         'subject_id': pk,
         'quarter': quarter,
         'subject': subject,
+        'students': students,
         'students_count': students_count,
         'lessons_count': lessons_count,
         'average_subject_points': average_subject_points,
