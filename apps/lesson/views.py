@@ -31,8 +31,8 @@ def lessons_list(request):
     classrooms = ClassRoom.objects.all()
 
     if classroom_filter != 'all':
-        subjects = Subject.objects.filter(classroom__name=classroom_filter)
-        lessons = lessons.filter(subject__classroom__name=classroom_filter)
+        subjects = Subject.objects.filter(teacher__classroom__name=classroom_filter)
+        lessons = lessons.filter(subject__teacher__classroom__name=classroom_filter)
     else:
         subjects = []
 

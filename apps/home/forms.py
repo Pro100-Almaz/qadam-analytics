@@ -14,6 +14,7 @@ class SubjectForm(forms.ModelForm):
             "average_points",
             "maximum_points",
             "teacher",
+            "academic_year",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -38,5 +39,8 @@ class SubjectForm(forms.ModelForm):
             }),
             "teacher": forms.Select(attrs={
                 "class": "form-control",
-            })
+            }),
+            "academic_year": forms.Select(attrs={
+                "class": "form-control",
+            }),
         }

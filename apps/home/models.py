@@ -6,6 +6,14 @@ from apps.authentication.models import Teacher
 class ClassRoom(models.Model):
     name = models.CharField(max_length=100, help_text="Optional classroom or location info")
     capacity = models.PositiveIntegerField(default=1)
+    academic_year = models.ForeignKey(
+        'home.AcademicYear',
+        related_name='classrooms',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text="School year this classroom assignment applies to"
+    )
 
     def __str__(self):
         return f"{self.name}"

@@ -15,12 +15,21 @@ def classes(request):
 @login_required(login_url="/login/")
 def students_list(request):
     selected_class = request.GET.get('class', 'all')
+    selected_year = request.GET.get('year')
     students = Student.objects.all()
 
     if selected_class != 'all':
-        students = Student.objects.filter(classroom__name = selected_class)
+        students = students.filter(classroom__name=selected_class)
+
+    if selected_year:
+        students = students.filter(academic_year_id=selected_year)
 
     classrooms = ClassRoom.objects.all()
+    from apps.home.models import AcademicYear
+    years = AcademicYear.objects.order_by('-year')
+    if not selected_year and years.exists():
+        selected_year = str(years.first().id)
+        students = students.filter(academic_year_id=selected_year)
 
     page = request.GET.get('page')
     paginator = Paginator(students, 5)
@@ -31,6 +40,8 @@ def students_list(request):
         'classrooms': classrooms,
         'page_obj': page_obj,
         'selected_class': selected_class,
+        'years': years,
+        'selected_year': int(selected_year) if selected_year else None,
     }
     return render(request, 'home/students.html', context)
 
