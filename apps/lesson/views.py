@@ -165,7 +165,7 @@ def recalculate_topic_weights(lesson):
     total_weight = sum(t.weight for t in topics)
 
     if total_weight == 0:
-        equal_share = round(100 / len(topics), 1) if topics else 0
+        equal_share = round(100 / len(topics) + 1, 1) if topics else 0
         for t in topics:
             t.weight = equal_share
             t.save()
@@ -198,10 +198,23 @@ def update_topic(request, pk):
 
 
 @login_required(login_url="/login/")
-def distribute_topic_weights(request, pk):
+def distribute_topic_weights_proportionally(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     recalculate_topic_weights(lesson)
     return redirect('lesson:lesson_details', pk=lesson.id)
+
+
+@login_required(login_url="/login/")
+def distribute_topic_weights_equally(request, pk):
+    lesson = get_object_or_404(Lesson, pk=pk)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+
+    calculated_weight = 100 / len(topics)
+    for t in topics:
+        t.weight = calculated_weight
+        t.save()
+    return redirect('lesson:lesson_details', pk=lesson.id)
+
 
 @login_required(login_url="/login/")
 def delete_topic(request, pk):
@@ -278,11 +291,34 @@ def update_subtopic(request, pk):
 
 
 @login_required(login_url="/login/")
-def distribute_subtopic_weights(request, lesson_id):
+def distribute_subtopic_weights_proportionally(request, lesson_id):
     lesson = get_object_or_404(Lesson, pk=lesson_id)
     subtopic_weight_distribution(lesson)
     return redirect('lesson:lesson_details', pk=lesson.id)
 
+@login_required(login_url="/login/")
+def distribute_subtopic_weights_equally(request, lesson_id):
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+
+    for topic in topics:
+        subtopics = Topic.objects.filter(parent=topic)
+        if not subtopics.exists():
+            continue
+
+        total_weight = sum(s.weight for s in subtopics)
+
+        if total_weight == 0:
+            equal_share = round(100 / len(subtopics), 1)
+            for s in subtopics:
+                s.weight = equal_share
+                s.save()
+        else:
+            scale_factor = 100 / len(topics)
+            for s in subtopics:
+                s.weight = scale_factor
+                s.save()
+    return redirect('lesson:lesson_details', pk=lesson.id)
 
 
 

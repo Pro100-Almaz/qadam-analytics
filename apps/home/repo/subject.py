@@ -112,14 +112,14 @@ def delete_subject(request, pk):
 
 @login_required(login_url="/login/")
 def subject_details(request, pk):
-    quarter = int(request.GET.get('quarter', '1'))
+    # quarter = int(request.GET.get('quarter', '1'))
     subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
 
 
     # Students enrolled in this subject
     students = Student.objects.filter(subjects=subject).select_related('user')
 
-    lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
+    lessons = Lesson.objects.filter(subject=subject).order_by('created_at')
 
     lesson_ids = lessons.values_list('id', flat=True)
     student_users = [student.user for student in students]
@@ -178,7 +178,6 @@ def subject_details(request, pk):
         'num_lessons': max_num_of_grades,
         'lessons': lessons,
         'subject_id': pk,
-        'quarter': quarter,
         'subject': subject,
         'students_count': students_count,
         'lessons_count': lessons_count,
