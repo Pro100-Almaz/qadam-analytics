@@ -40,24 +40,41 @@ def subject_create(request):
 
 
 @login_required(login_url="/login/")
-def subjects_list(request):
-    status = request.GET.get('status', 'all')
+def subjects_list(request, status=None):
+    # Default to active subjects only unless overridden by URLconf
+    if status is None:
+        status = request.GET.get('status', 'active')
+    year_id = request.GET.get('year')
 
     if status == 'all':
         subjects = Subject.objects.all()
+    elif status == 'archived':
+        subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
     else:
         subjects = Subject.objects.filter(status=status)
+
+    from apps.home.models import AcademicYear
+    current_year = AcademicYear.objects.order_by('-year').first()
+    if not year_id and current_year:
+        year_id = str(current_year.id)
+
+    if year_id:
+        subjects = subjects.filter(academic_year_id=year_id)
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
     page_obj = paginator.get_page(page)
 
+    years = AcademicYear.objects.order_by('-year')
+
     context = {
         'subjects': subjects,
         'number_of_students': get_students(subjects),
         'page_obj': page_obj,
-        'status': request.GET.get('status', 'all'),
-        'STATUS_CHOICES': Subject.STATUS_CHOICES
+        'status': status,
+        'STATUS_CHOICES': Subject.STATUS_CHOICES,
+        'years': years,
+        'selected_year': int(year_id) if year_id else None,
         }
     return render(request, "home/subjects.html", context)
 

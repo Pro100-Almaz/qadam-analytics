@@ -13,10 +13,20 @@
                 <ul class="navbar-nav">
                     {% if user.is_manager or user.is_superuser %}
                         <li class="nav-item">
-                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'subjects' %}">
+                            <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-default"></i>
-                                <span class="nav-link-text">Subjects List</span>
+                                <span class="nav-link-text">Предметы</span>
                             </a>
+                            <div class="collapse {% if request.path|slice:":10" == '/subjects' %}show{% endif %}" id="navbar-subjects">
+                                <ul class="nav nav-sm flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/subjects' %} active {% endif %}" href="{% url 'subjects' %}">Активные предметы</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/subjects/archive' %} active {% endif %}" href="{% url 'subjects_archived' %}">Архив</a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
                     {% endif %}
                     {% if user.is_teacher %}

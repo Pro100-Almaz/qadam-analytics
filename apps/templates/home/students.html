@@ -32,19 +32,26 @@
                 <div class="col">
                   <h3 class="mb-0">Список учеников</h3>
                 </div>
-                <div class="col text-right">
-                  <select id="sortSelect" class="form-control">
-                    <option value="all" {% if selected_class == "all" %}selected{% endif %}>Все классы </option>
-
-                    {% for classroom in classrooms %}
-                      <option value="{{ classroom.name }}" {% if selected_class == classroom.name %}selected{% endif %}>
-                        {{ classroom.name }}
-
-                      </option>
-                    {% endfor %}
-
-                  </select>
-                </div>
+          <div class="col text-right d-flex justify-content-end">
+              <div class="mr-2">
+                <select id="yearSelect" class="form-control">
+                  <option value="">Все годы</option>
+                  {% for y in years %}
+                    <option value="{{ y.id }}" {% if selected_year == y.id %}selected{% endif %}>{{ y.year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <select id="sortSelect" class="form-control">
+                  <option value="all" {% if selected_class == "all" %}selected{% endif %}>Все классы </option>
+                  {% for classroom in classrooms %}
+                    <option value="{{ classroom.name }}" {% if selected_class == classroom.name %}selected{% endif %}>
+                      {{ classroom.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
               </div>
             </div>
 
@@ -121,9 +128,24 @@
 {% block javascripts %}
    <script>
 
-        document.getElementById('sortSelect').addEventListener('change', function () {
+         document.getElementById('sortSelect').addEventListener('change', function () {
             const selectedClass = this.value;
-            window.location.href = `?class=${selectedClass}&page=1`;
+            const selectedYear = document.getElementById('yearSelect').value;
+            const searchParams = new URLSearchParams(window.location.search);
+            if (selectedYear) searchParams.set('year', selectedYear); else searchParams.delete('year');
+            searchParams.set('class', selectedClass);
+            searchParams.set('page', 1);
+            window.location.search = searchParams.toString();
+        });
+
+        document.getElementById('yearSelect').addEventListener('change', function () {
+            const selectedYear = this.value;
+            const selectedClass = document.getElementById('sortSelect').value;
+            const searchParams = new URLSearchParams(window.location.search);
+            if (selectedYear) searchParams.set('year', selectedYear); else searchParams.delete('year');
+            searchParams.set('class', selectedClass);
+            searchParams.set('page', 1);
+            window.location.search = searchParams.toString();
         });
 
 
@@ -153,7 +175,8 @@
 
             const a = document.createElement('a');
             a.className = 'page-link';
-            a.href = `?class={{ selected_class }}&page=${page}`;
+             const params = new URLSearchParams(window.location.search);
+             a.href = `?class={{ selected_class }}&year=${'{{ selected_year }}'}&page=${page}`;
             a.textContent = page;
 
             li.appendChild(a);

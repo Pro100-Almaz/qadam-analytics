@@ -109,15 +109,47 @@ class Student(models.Model):
         null=True,
         blank=True
     )
-
     subjects = models.ManyToManyField(
         'home.Subject',
         blank=True,
         related_name="students"
     )
-
     school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
+    academic_year = models.ForeignKey(
+        'home.AcademicYear',
+        related_name='students',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text='Enrollment year for this student'
+    )
 
+
+@receiver(pre_save, sender=Student)
+def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
+    """Auto-assign student's academic year before save.
+
+    Priority:
+    1) If student has a classroom with an academic_year, use it
+    2) Otherwise, default to the latest AcademicYear (by year desc) if available
+    """
+    if instance.academic_year_id:
+        return
+
+    try:
+        classroom = instance.classroom
+        if classroom and getattr(classroom, 'academic_year_id', None):
+            instance.academic_year_id = classroom.academic_year_id
+            return
+
+        # Fallback: latest academic year
+        from apps.home.models import AcademicYear  # local import to avoid circular deps
+        latest_year = AcademicYear.objects.order_by('-year').first()
+        if latest_year:
+            instance.academic_year = latest_year
+    except Exception:
+        # Do not block save on any failure here
+        pass
 
 
 class Parent(models.Model):
@@ -155,6 +187,10 @@ class Teacher(models.Model):
         null=True,
         blank=True
     )
+
+    def __str__(self):
+        full_name = self.user.get_full_name()
+        return full_name if full_name.strip() else self.user.username
 
 
 class Supervisor(models.Model):
