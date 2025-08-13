@@ -22,6 +22,7 @@ urlpatterns = [
     path('teachers/<int:pk>', teacher_details, name='teacher_details'),
     path('subjects', subjects_list, name='subjects'),
     path('subjects/archive', subjects_list, {'status': 'archived'}, name='subjects_archived'),
+    path('subjects/planned', subjects_list, {'status': 'planned'}, name='subjects_planned'),
     path("subjects/<int:pk>/archive/", archive_subject, name="archive_subject"),
     path("subjects/<int:pk>/delete/", delete_subject, name="delete_subject"),
     path('my_subjects', my_subjects_list, name='my_subjects'),
