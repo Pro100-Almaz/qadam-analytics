@@ -23,6 +23,10 @@
                                         <a class="nav-link {% if request.path == '/subjects' %} active {% endif %}" href="{% url 'subjects' %}">Активные предметы</a>
                                     </li>
                                     <li class="nav-item">
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/subjects/planned' %} active {% endif %}" href="{% url 'subjects_planned' %}">Предметы в обработке</a>
+                                    </li>
+                                    <li class="nav-item">
                                         <a class="nav-link {% if request.path == '/subjects/archive' %} active {% endif %}" href="{% url 'subjects_archived' %}">Архив</a>
                                     </li>
                                 </ul>
