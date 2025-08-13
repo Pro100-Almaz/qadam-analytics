@@ -348,18 +348,6 @@
                         data-value="{% widthratio state.score 1 20 %}">
                     </div>
                 </div >
-                {% if state.comment %}
-                    <br>
-                  <div class="indicator-label">
-                    <span class="text-gray text-sm">{{ state.comment }}</span>
-                    <span class="indicator-value">
-                    <button
-                    class="btn bg-red text-white"
-                    data-toggle="modal"
-                    data-id="{{ state.id }}"
-                    data-target="#confirmDeleteModal">x</button></span>
-                </div>
-                {% endif %}
 
             </div>
         {% endfor %}

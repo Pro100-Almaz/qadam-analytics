@@ -7,6 +7,39 @@
 {% block stylesheets %}{% endblock stylesheets %}
 
 {% block content %}
+<style>
+.row.align-items-stretch .card {
+  height: 100%;
+}
+
+/* Make table fill available space */
+.card-body.d-flex.flex-column {
+  height: 100%;
+}
+
+.table-responsive.flex-grow-1 {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.table.h-100 {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+/* Style empty rows to maintain consistent spacing */
+.empty-row td {
+  border-top: none;
+  height: 2.5rem;
+}
+
+/* Ensure consistent row heights */
+.table tbody tr {
+  height: 2.5rem;
+}
+</style>
+    </style>
     <!-- Header -->
     <div class="header bg-white pb-6">
       <div class="container-fluid">
@@ -104,203 +137,13 @@
 
     <!-- Page content -->
     <div class="container-fluid mt--6">
-      <div class="row align-items-stretch">
-        <div class="col-xl-8 d-flex">
-          <div class="card bg-default w-100 h-100 mb-4">
-            <div class="card-header bg-transparent">
-              <div class="row align-items-center">
-                 <div class="col">
-                   <h6 class="text-light text-uppercase ls-1 mb-1">Академический год</h6>
-                   <h5 class="h3 text-white mb-0">{{ subject.academic_year.year }}</h5>
-                 </div>
-                <div class="col">
-                  <ul class="nav nav-pills justify-content-end">
-                    <li class="nav-item mr-2 mr-md-0" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0, 20, 10, 30, 15, 40, 20, 60, 60]}]}}' data-prefix="$" data-suffix="k">
-                      <a href="#" class="nav-link py-2 px-3 active" data-toggle="tab">
-                        <span class="d-none d-md-block">Month</span>
-                        <span class="d-md-none">M</span>
-                      </a>
-                    </li>
-                    <li class="nav-item" data-toggle="chart" data-target="#chart-sales-dark" data-update='{"data":{"datasets":[{"data":[0, 20, 5, 25, 10, 30, 15, 40, 40]}]}}' data-prefix="$" data-suffix="k">
-                      <a href="#" class="nav-link py-2 px-3" data-toggle="tab">
-                        <span class="d-none d-md-block">Week</span>
-                        <span class="d-md-none">W</span>
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <!-- Chart -->
-              <div class="chart">
-                <!-- Chart wrapper -->
-                <canvas id="chart-sales-dark" class="chart-canvas"></canvas>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-
-        <div class="col-xl-4 d-flex">
-          <div class="card w-100 h-100 mb-4">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список лучших</h3>
-                </div>
-              </div>
-            </div>
-            <div class="card-body">
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Ученик</th>
-                    <th scope="col">Средний балл</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for student, avg_grade in top_grades|slice:":7" %}
-                    <tr>
-                      <th scope="row">
-                        {{ student.first_name }} {{ student.last_name }}
-                      </th>
-                      <td>
-                        {{ avg_grade|floatformat:2 }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-
-
-      </div>
-      <div class="row">
-        <div class="col-xl-8">
-          <div class="card">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список уроков</h3>
-                </div>
-                   <div>
-                        <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-                            <i class="ni ni-fat-add"></i>
-                          </a>
-                    </div>
-                <div class="col text-right">
-                    <div>
-                        Сортировать по:
-                        <select id="sortSelect" name="transport_type" class="ml-2">
-                            <option class="dropdown-item" selected></option>
-                            <option class="dropdown-item" value="По названию">По названию</option>
-                            <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
-                            <option class="dropdown-item" value="По статусу">По статусу</option>
-                          </select>
-                    </div>
-
-                </div>
-                <div >
-                  <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
-                  <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
-                  <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
-                  <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
-                </div>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <!-- Projects table -->
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Название</th>
-                    <th scope="col">Средний балл</th>
-                    <th scope="col">Статус</th>
-                    <th scope="col">Четверть</th>
-                  </tr>
-                </thead>
-                <tbody id="sortingTable">
-                  {% for lesson in lessons %}
-                    <tr>
-                      <th scope="row" data-type="title">
-                        {{ lesson.title }}
-                      </th>
-                      <td data-type="average-grade">
-                        {{ lesson.average_points }}
-                      </td>
-                      <td data-type="status">
-                        {{ lesson.status }}
-                      </td>
-                      <td data-type="quarter">
-                        {{ lesson.quarter }}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-
-
-
-        <div class="col-xl-4">
-            <div class="card">
-            <div class="card-header border-0">
-              <div class="row align-items-center">
-                <div class="col">
-                  <h3 class="mb-0">Список учеников</h3>
-                </div>
-              </div>
-            </div>
-            <div class="table-responsive">
-              <!-- Top grades table -->
-              <table class="table align-items-center table-flush">
-                <thead class="thead-light">
-                  <tr>
-                    <th scope="col">Фамилия</th>
-                    <th scope="col">Имя</th>
-                    <th scope="col"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for student, total in top_grades.items|dictsortreversed:"1"|slice:":5" %}
-                     <tr>
-                      <th scope="row">
-                        {{ student.last_name }}
-                      </th>
-                      <th scope="row">
-                        {{ student.first_name }}
-                      </th>
-                      <th scope="row">
-                        {{ student.value }} // num_lessons
-                      </th>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-
-
-    <div class="row">
+        <div class="row">
         <div class="col-6">
             <div class="card">
                 <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
-                  <h3 class="mb-0">Учитель</h3>
+                  <h3 class="mb-0">Учитель:</h3>
                 </div>
                 <div class="col text-right">
                     {% if teacher.first_name and teacher.last_name %}
@@ -321,7 +164,7 @@
                 <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
-                  <h3 class="mb-0">Subject was added by: </h3>
+                  <h3 class="mb-0">Данный урок добавил: </h3>
                 </div>
                 <div class="col text-right">
                     {% if subject_adder.first_name and subject_adder.last_name %}
@@ -336,11 +179,108 @@
             </div>
             </div>
         </div>
-
     </div>
 
+      <div class="row align-items-stretch">
+  <div class="col-xl-8 d-flex">
+    <div class="card w-100 h-100">
+      <div class="card-header border-0">
+        <div class="row align-items-center">
+          <div class="col">
+            <h3 class="mb-0">Список уроков</h3>
+          </div>
+          <div class="col-auto">
+            <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
+              <i class="ni ni-fat-add"></i>
+            </a>
+          </div>
+          <div class="col text-right">
+            <div class="d-inline-block">
+              Сортировать по:
+              <select id="sortSelect" name="transport_type" class="ml-2">
+                <option value="" selected></option>
+                <option value="По названию">По названию</option>
+                <option value="По среднему баллу">По среднему баллу</option>
+                <option value="По статусу">По статусу</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-auto">
+            <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
+            <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
+            <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
+            <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
+          </div>
+        </div>
+      </div>
 
-      <div class="row">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table align-items-center table-flush">
+            <thead class="thead-light">
+              <tr>
+                <th scope="col">Название</th>
+                <th scope="col">Средний балл</th>
+                <th scope="col">Статус</th>
+                <th scope="col">Четверть</th>
+              </tr>
+            </thead>
+            <tbody id="sortingTable">
+              {% for lesson in lessons|slice:":7" %}
+                <tr>
+                  <th scope="row" data-type="title">{{ lesson.title }}</th>
+                  <td data-type="average-grade">{{ lesson.average_points }}</td>
+                  <td data-type="status">{{ lesson.status }}</td>
+                  <td data-type="quarter">{{ lesson.quarter }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if lessons|length > 7 %}
+          <div class="text-center mt-2">
+            <small class="text-muted">Показано 7 из {{ lessons|length }} уроков</small>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4 d-flex">
+    <div class="card w-100 h-100 mb-4">
+      <div class="card-header border-0">
+        <div class="row align-items-center">
+          <div class="col">
+            <h3 class="mb-0">Список лучших</h3>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <table class="table align-items-center table-flush">
+          <thead class="thead-light">
+            <tr>
+              <th scope="col">Ученик</th>
+              <th scope="col">Средний балл</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for student, avg_grade in top_grades|slice:":7" %}
+              <tr>
+                <th scope="row">{{ student.first_name }} {{ student.last_name }}</th>
+                <td>{{ avg_grade|floatformat:2 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+      <div class="row mt-4">
         <div class="col">
           <div class="card">
             <!-- Card header -->
@@ -423,45 +363,56 @@
 {% block javascripts %}
   <script>
     document.getElementById('sortSelect').addEventListener('change', function () {
-        const sortBy = this.value;
+      const sortBy = this.value;
+      if (sortBy) {
         sortTable(sortBy);
+      }
     });
 
     function sortTable(sortBy) {
-        const table = document.getElementById('sortingTable');
-        const rows = Array.from(table.querySelectorAll('tr'));
+      const table = document.querySelector('#sortingTable');
+      const rows = Array.from(table.querySelectorAll('tr:not(.empty-row)'));
 
-        rows.sort((a, b) => {
-            let aValue, bValue;
-
-            switch (sortBy) {
-                case 'По названию':
-                    aValue = a.querySelector('[data-type="title"]').innerText;
-                    bValue = b.querySelector('[data-type="title"]').innerText;
-                    break;
-                case 'По среднему баллу':
-                    aValue = a.querySelector('[data-type="average-grade"]').innerText;
-                    bValue = b.querySelector('[data-type="average-grade"]').innerText;
-                    break;
-                case 'По статусу':
-                    aValue = a.querySelector('[data-type="status"]').innerText;
-                    bValue = b.querySelector('[data-type="status"]').innerText;
-                    break;
-                default:
-                    return;
-            }
-
-            if (aValue < bValue) return 1;
-            if (aValue > bValue) return -1;
+      rows.sort((a, b) => {
+        let aValue, bValue;
+        switch (sortBy) {
+          case 'По названию':
+            aValue = a.querySelector('[data-type="title"]').innerText.trim();
+            bValue = b.querySelector('[data-type="title"]').innerText.trim();
+            break;
+          case 'По среднему баллу':
+            aValue = parseFloat(a.querySelector('[data-type="average-grade"]').innerText) || 0;
+            bValue = parseFloat(b.querySelector('[data-type="average-grade"]').innerText) || 0;
+            break;
+          case 'По статусу':
+            aValue = a.querySelector('[data-type="status"]').innerText.trim();
+            bValue = b.querySelector('[data-type="status"]').innerText.trim();
+            break;
+          default:
             return 0;
-        });
+        }
+        if (aValue < bValue) return -1;
+        if (aValue > bValue) return 1;
+        return 0;
+      });
 
-        table.innerHTML = '';
-        rows.forEach(row => table.appendChild(row));
+      // Clear table and re-add sorted rows
+      table.innerHTML = '';
+      rows.forEach(row => table.appendChild(row));
+
+      // Re-add empty rows if needed
+      const currentRows = table.querySelectorAll('tr').length;
+      for (let i = currentRows; i < 7; i++) {
+        const emptyRow = document.createElement('tr');
+        emptyRow.className = 'empty-row';
+        emptyRow.innerHTML = '<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>';
+        table.appendChild(emptyRow);
+      }
     }
-  </script>
 
-  <script src="/static/assets/vendor/chart.js/dist/Chart.min.js"></script>
-  <script src="/static/assets/vendor/chart.js/dist/Chart.extension.js"></script>
-
+    function toggleAllLessons() {
+      // This would typically show a modal or expand the table
+      // For now, just show an alert
+      alert('Feature to show all lessons - implement as needed');
+    }
 {% endblock javascripts %}
