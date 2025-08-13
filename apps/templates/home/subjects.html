@@ -54,7 +54,10 @@
         <div class="card">
           <!-- Card header -->
           <div class="card-header border-0">
-             <h3 class="mb-0">{% if selected_year %}Активные предметы{% else %}Активные предметы{% endif %}</h3>
+             <h3 class="mb-0">
+                 {% if status == 'active' %}Активные предметы
+                 {% elif status == 'planned' %}Предметы в обработке
+                 {% else %}Архивированные предметы{% endif %}</h3>
           </div>
           <!-- Light table -->
           <div class="table-responsive">
@@ -140,15 +143,30 @@
                               {% csrf_token %}
                               <button type="submit" class="dropdown-item">Удалить</button>
                           </form>
-                         {% if subject.status == 'active' or subject.status == 'planned' %}
+                         {% if subject.status == 'active'%}
                          	<form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="dropdown-item">Архивировать</button>
                               </form>
+
+                         {% elif subject.status == 'planned' %}
+                         	 <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Архивировать</button>
+                              </form>
+                             <form method="POST" action="{% url 'extract_subject' subject.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Сделать активным</button>
+                              </form>
+
                          {% else %}
-                             <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
+                             <form method="POST" action="{% url 'extract_subject' subject.pk %}" style="display: inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="dropdown-item">Разархивировать</button>
+                              </form>
+                             <form method="POST" action="{% url 'processing_subject' subject.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Отправить в обработку</button>
                               </form>
                          {% endif %}
 

@@ -102,6 +102,24 @@ def archive_subject(request, pk):
         subject.status = "archived"
         subject.save()
         return redirect("subjects")
+    return (JsonResponse({"error": "Invalid request"}, status=400))
+
+@login_required(login_url="/login/")
+def extract_subject(request, pk):
+    if request.method == "POST":
+        subject = get_object_or_404(Subject, pk=pk)
+        subject.status = "active"
+        subject.save()
+        return redirect("subjects")
+    return (JsonResponse({"error": "Invalid request"}, status=400))
+
+@login_required(login_url="/login/")
+def process_status_subject(request, pk):
+    if request.method == "POST":
+        subject = get_object_or_404(Subject, pk=pk)
+        subject.status = "planned"
+        subject.save()
+        return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required(login_url="/login/")
