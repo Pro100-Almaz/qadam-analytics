@@ -96,8 +96,11 @@
             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createTopicModal">
               <i class="ni ni-fat-add"></i> Add
             </button>
-            <a href="{% url 'lesson:distribute_topic_weights' lesson.id %}" class="btn btn-outline-primary btn-sm">
+            <a href="{% url 'lesson:distribute_topic_weights_proportionally' lesson.id %}" class="btn btn-outline-primary btn-sm">
               <i class="ni ni-fat-add"></i> Distribute weight proportions
+            </a>
+            <a href="{% url 'lesson:distribute_topic_weights_equally' lesson.id %}" class="btn btn-outline-primary btn-sm">
+              <i class="ni ni-fat-add"></i> Distribute weights equally
             </a>
           </div>
         </div>
@@ -147,8 +150,11 @@
             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createSubtopicModal">
               <i class="ni ni-fat-add"></i> Add
             </button>
-            <a href="{% url 'lesson:distribute_subtopic_weights' lesson.id%}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weight proportions
+            <a href="{% url 'lesson:distribute_subtopic_weights_proportionally' lesson.id%}" class="btn btn-outline-primary btn-sm">
+              <i class="ni ni-fat-add"></i> Distribute weights proportions
+            </a>
+            <a href="{% url 'lesson:distribute_subtopic_weights_equally' lesson.id%}" class="btn btn-outline-primary btn-sm">
+              <i class="ni ni-fat-add"></i> Distribute weights equally
             </a>
           </div>
         </div>
