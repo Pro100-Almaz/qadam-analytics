@@ -160,22 +160,6 @@ def create_topic(request, pk):
     return redirect('lesson:lesson_details', pk=pk)
 
 
-def recalculate_topic_weights(lesson):
-    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
-    total_weight = sum(t.weight for t in topics)
-
-    if total_weight == 0:
-        equal_share = round(100 / len(topics) + 1, 1) if topics else 0
-        for t in topics:
-            t.weight = equal_share
-            t.save()
-        return
-
-    factor = 100 / total_weight
-    for t in topics:
-        t.weight = round(t.weight * factor, 1)
-        t.save()
-
 @login_required(login_url="/login/")
 def update_topic(request, pk):
     topic = get_object_or_404(Topic, pk = pk)
@@ -185,23 +169,52 @@ def update_topic(request, pk):
         form = TopicForm(request.POST, instance=topic)
         if form.is_valid():
             form.save()
-            recalculate_topic_weights(lesson)
             return redirect('lesson:lesson_details', pk=lesson.id)
     else:
         form = TopicForm(instance=topic)
 
+    total_topic_weights = 0
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull = True)
+    for topic in topics:
+        total_topic_weights += topic.topic_weight
+
+    if total_topic_weights != 100:
+        messages.warning(request, f"The total topic weight after editing is equal to {total_topic_weights}, but should be equal to 100.")
+
+
     return render(request, 'lesson/lesson_details.html', {
         'lesson': lesson,
         'form': form,
-        'editing_topic': topic
+        'editing_topic': topic,
+        'total_topic_weights': total_topic_weights
     })
 
 
 @login_required(login_url="/login/")
-def distribute_topic_weights_proportionally(request, pk):
-    lesson = get_object_or_404(Lesson, pk=pk)
-    recalculate_topic_weights(lesson)
-    return redirect('lesson:lesson_details', pk=lesson.id)
+def delete_topic(request, pk):
+    topic = get_object_or_404(Topic, pk = pk)
+    lesson_id = topic.lesson.id
+    topic.delete()
+
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull = True)
+    for topic in topics:
+        topic.weight = round(100 / (topics.count()), 1)
+        topic.save()
+    subtopic_weight_distribution(lesson = lesson)
+
+    return redirect('lesson:lesson_details', pk=lesson_id)
+
+
+def recalculate_topic_weights(lesson):
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+    total_weight = sum(t.weight for t in topics)
+
+    equal_share = round(100 / len(topics), 1) if topics else 0
+    for t in topics:
+        t.weight = equal_share
+        t.save()
+    return
 
 
 @login_required(login_url="/login/")
@@ -216,43 +229,6 @@ def distribute_topic_weights_equally(request, pk):
     return redirect('lesson:lesson_details', pk=lesson.id)
 
 
-@login_required(login_url="/login/")
-def delete_topic(request, pk):
-    topic = get_object_or_404(Topic, pk = pk)
-    lesson_id = topic.lesson.id
-    topic.delete()
-
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-    topics = Topic.objects.filter(lesson=lesson, parent__isnull = True)
-    for topic in topics:
-        topic.weight = round(100 / (topics.count()), 1)
-        topic.save()
-
-    return redirect('lesson:lesson_details', pk=lesson_id)
-
-
-
-
-def subtopic_weight_distribution(lesson):
-    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
-
-    for topic in topics:
-        subtopics = Topic.objects.filter(parent=topic)
-        if not subtopics.exists():
-            continue
-
-        total_weight = sum(s.weight for s in subtopics)
-
-        if total_weight == 0:
-            equal_share = round(100 / len(subtopics), 1)
-            for s in subtopics:
-                s.weight = equal_share
-                s.save()
-        else:
-            scale_factor = 100 / total_weight
-            for s in subtopics:
-                s.weight = round(s.weight * scale_factor, 1)
-                s.save()
 
 @login_required(login_url="/login/")
 def create_subtopic(request, pk):
@@ -266,6 +242,8 @@ def create_subtopic(request, pk):
             subtopic.save()
 
             subtopic_weight_distribution(lesson)
+
+
     return redirect('lesson:lesson_details', pk=pk)
 
 
@@ -278,23 +256,41 @@ def update_subtopic(request, pk):
         form = SubtopicForm(request.POST, instance=subtopic, lesson=lesson)
         if form.is_valid():
             form.save()
-            subtopic_weight_distribution(lesson)
             return redirect('lesson:lesson_details', pk=lesson.id)
     else:
         form = SubtopicForm(instance=subtopic, lesson=lesson)
 
+    total_subtopic_weights = 0
+    parent = subtopic.parent
+    subtopics = Topic.objects.filter(lesson=lesson, parent=parent)
+    for subtopic in subtopics:
+        total_subtopic_weights += subtopic.weight
+
+    if total_subtopic_weights != 100:
+        messages.warning(request, f"The total topic weight after editing is equal to {total_subtopic_weights}, but should be equal to 100.")
+
+
     return render(request, 'lesson/lesson_details.html', {
         'lesson': lesson,
         'form': form,
-        'editing_subtopic': subtopic
+        'editing_subtopic': subtopic,
+        'total_subtopic_weights': total_subtopic_weights
     })
 
 
-@login_required(login_url="/login/")
-def distribute_subtopic_weights_proportionally(request, lesson_id):
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-    subtopic_weight_distribution(lesson)
-    return redirect('lesson:lesson_details', pk=lesson.id)
+def subtopic_weight_distribution(lesson):
+    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
+
+    for topic in topics:
+        subtopics = Topic.objects.filter(parent=topic)
+        if not subtopics.exists():
+            continue
+
+        equal_share = round(100 / len(subtopics), 1)
+        for s in subtopics:
+            s.weight = equal_share
+            s.save()
+
 
 @login_required(login_url="/login/")
 def distribute_subtopic_weights_equally(request, lesson_id):
@@ -319,7 +315,6 @@ def distribute_subtopic_weights_equally(request, lesson_id):
                 s.weight = scale_factor
                 s.save()
     return redirect('lesson:lesson_details', pk=lesson.id)
-
 
 
 
@@ -363,6 +358,7 @@ def grading(request, pk):
     }
     return render(request, "lesson/grading.html", context)
 
+
 @login_required(login_url="/login/")
 def submit_all_topic_grades(request):
     if request.method == 'POST':
@@ -405,6 +401,25 @@ def submit_all_topic_grades(request):
 
         return redirect('lesson:grading', pk=lesson.id)
     return redirect('lesson:grading', pk=request.POST.get('lesson_id'))
+
+
+@login_required(login_url="/login/")
+def display_grade(request, student_id, lesson_id):
+    student = get_object_or_404(Student, user__id=student_id)
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    topics = Topic.objects.filter(lesson=lesson)
+    topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson)
+
+    all_grades = {}
+    for tg in topic_grades:
+        all_grades[tg.topic_id] = tg.grade
+    context = {
+        'topics': topics,
+        'all_grades':all_grades
+    }
+
+    return render(request,'lesson:lesson_details', pk=lesson.id)
+
 
 @login_required(login_url="/login/")
 def update_grade(request, pk=None):
@@ -453,22 +468,7 @@ def delete_grade(request, student_id, lesson_id):
     return redirect('lesson:grading', pk=lesson_id)
 
 
-@login_required(login_url="/login/")
-def display_grade(request, student_id, lesson_id):
-    student = get_object_or_404(Student, user__id=student_id)
-    lesson = get_object_or_404(Lesson, pk=lesson_id)
-    topics = Topic.objects.filter(lesson=lesson)
-    topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson)
 
-    all_grades = {}
-    for tg in topic_grades:
-        all_grades[tg.topic_id] = tg.grade
-    context = {
-        'topics': topics,
-        'all_grades':all_grades
-    }
-
-    return render(request,'lesson:lesson_details', pk=lesson.id)
 
 
 #EMAIL SENDING SIGNAL ------------------------------------------

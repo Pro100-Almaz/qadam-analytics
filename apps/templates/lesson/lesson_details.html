@@ -96,9 +96,6 @@
             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createTopicModal">
               <i class="ni ni-fat-add"></i> Add
             </button>
-            <a href="{% url 'lesson:distribute_topic_weights_proportionally' lesson.id %}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weight proportions
-            </a>
             <a href="{% url 'lesson:distribute_topic_weights_equally' lesson.id %}" class="btn btn-outline-primary btn-sm">
               <i class="ni ni-fat-add"></i> Distribute weights equally
             </a>
@@ -148,19 +145,16 @@
           <h4 class="mb-0">Subtopics List</h4>
           <div>
             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createSubtopicModal">
-              <i class="ni ni-fat-add"></i> Add
+              <i class="ni ni-fat-add"></i> Добавить
             </button>
-            <a href="{% url 'lesson:distribute_subtopic_weights_proportionally' lesson.id%}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weights proportions
-            </a>
             <a href="{% url 'lesson:distribute_subtopic_weights_equally' lesson.id%}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weights equally
+              <i class="ni ni-fat-add"></i> Расспределить значимость поровну
             </a>
           </div>
         </div>
         <div class="card-body">
-          <label for="topicSelect" class="form-label">Choose a Topic</label>
-          <select id="topicSelect" class="form-control mb-3">
+          <label for="topicSelect" class="form-label" >Выберите тему</label>
+          <select id="topicSelect" class="form-control mb-3" required>
             <option value="">-- Select a Topic --</option>
             {% for topic in topics %}
               <option value="{{ topic.id }}">{{ topic.title }}</option>
@@ -288,9 +282,9 @@
             <label for="title">Title</label>
             <input type="text" class="form-control" id="title" name="title" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" hidden>
             <label for="weight">Weight</label>
-            <input type="number" class="form-control" id="weight" name="weight" min="0" max="100">
+            <input type="number" class="form-control" id="weight" name="weight" min="0" max="100" value="100">
           </div>
         </div>
         <div class="modal-footer">
@@ -323,13 +317,17 @@
           </div>
           <div class="text-warning">
             <small>
-              After changing this topic's weight, the total weight proportions for all other grades will be distributed automatically
+                After changing this topic's weight, the total weight proportions for all other grades will NOT be distributed automatically
+                Please, make sure to manually distribute weights, or auto equalize them!
             </small>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>
+          <button type="submit" class="btn btn-primary"
+                  onclick="setTimeout(() => window.location.reload(), 2000);">
+              Сохранить
+          </button>
         </div>
       </div>
     </form>
@@ -350,7 +348,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label for="parent" class="form-label">Choose a Topic</label>
-            <select id="parent" name="parent" class="form-control mb-3">
+            <select id="parent" name="parent" class="form-control mb-3" required>
               <option value="">-- Select a Topic --</option>
               {% for topic in topics %}
                 {% if not topic.parent %}
@@ -363,9 +361,9 @@
             <label for="title">Subtopic Title:</label>
             <input type="text" name="title" class="form-control" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" hidden>
             <label for="weight">Weight (%):</label>
-            <input type="number" name="weight" class="form-control" min="0" max="100">
+            <input type="number" name="weight" class="form-control" min="0" max="100" value="100">
           </div>
           <div class="text-warning">
             <small>After adding a new subtopic, the total weight proportions for all other subtopics (even from other topics) will be distributed automatically</small>
