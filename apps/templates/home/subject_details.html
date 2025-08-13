@@ -188,19 +188,32 @@
                 <div class="col">
                   <h3 class="mb-0">Список уроков</h3>
                 </div>
+                   <div>
+                        <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
+                            <i class="ni ni-fat-add"></i>
+                          </a>
+                    </div>
                 <div class="col text-right">
-                  <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-                    <i class="ni ni-fat-add"></i>
-                  </a>
-                  <select id="sortSelect" name="transport_type" class="ml-2">
-                    <option class="dropdown-item" value="По названию" selected>По названию</option>
-                    <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
-                    <option class="dropdown-item" value="По статусу">По статусу</option>
-                    <option class="dropdown-item" value="По четверти">По четверти</option>
-                  </select>
+                    <div>
+                        Сортировать по:
+                        <select id="sortSelect" name="transport_type" class="ml-2">
+                            <option class="dropdown-item" selected></option>
+                            <option class="dropdown-item" value="По названию">По названию</option>
+                            <option class="dropdown-item" value="По среднему баллу">По среднему баллу</option>
+                            <option class="dropdown-item" value="По статусу">По статусу</option>
+                          </select>
+                    </div>
+
+                </div>
+                <div >
+                  <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
                 </div>
               </div>
             </div>
+
             <div class="table-responsive">
               <!-- Projects table -->
               <table class="table align-items-center table-flush">
@@ -212,7 +225,7 @@
                     <th scope="col">Четверть</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="sortingTable">
                   {% for lesson in lessons %}
                     <tr>
                       <th scope="row" data-type="title">
@@ -337,10 +350,10 @@
                   <h3 class="mb-0">Таблица оценок</h3>
                 </div>
                 <div class="col text-right">
-                  <a href="{% url 'subject_details' subject_id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
-                  <a href="{% url 'subject_details' subject_id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn btn-sm btn-primary">Q3</a>
+                  <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn btn-sm btn-primary">Q4</a>
                 </div>
               </div>
             </div>
@@ -415,7 +428,7 @@
     });
 
     function sortTable(sortBy) {
-        const table = document.querySelector('.table.align-items-center.table-flush tbody');
+        const table = document.getElementById('sortingTable');
         const rows = Array.from(table.querySelectorAll('tr'));
 
         rows.sort((a, b) => {
@@ -427,23 +440,19 @@
                     bValue = b.querySelector('[data-type="title"]').innerText;
                     break;
                 case 'По среднему баллу':
-                    aValue = new Date(a.querySelector('[data-type="average-grade"]').innerText);
-                    bValue = new Date(b.querySelector('[data-type="average-grade"]').innerText);
+                    aValue = a.querySelector('[data-type="average-grade"]').innerText;
+                    bValue = b.querySelector('[data-type="average-grade"]').innerText;
                     break;
                 case 'По статусу':
                     aValue = a.querySelector('[data-type="status"]').innerText;
                     bValue = b.querySelector('[data-type="status"]').innerText;
                     break;
-                case 'По четверти':
-                    aValue = a.querySelector('[data-type="quarter"]').innerText;
-                    bValue = b.querySelector('[data-type="quarter"]').innerText;
-                    break;
                 default:
                     return;
             }
 
-            if (aValue < bValue) return -1;
-            if (aValue > bValue) return 1;
+            if (aValue < bValue) return 1;
+            if (aValue > bValue) return -1;
             return 0;
         });
 
