@@ -4,7 +4,7 @@ from apps.home import views
 from apps.home.repo.students import students_list, student_details, classes
 from apps.home.repo.teachers import teacher_details
 from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
-    delete_subject
+    delete_subject, extract_subject, process_status_subject
 from apps.home.views import delete_psychological_state
 
 urlpatterns = [
@@ -24,6 +24,8 @@ urlpatterns = [
     path('subjects/archive', subjects_list, {'status': 'archived'}, name='subjects_archived'),
     path('subjects/planned', subjects_list, {'status': 'planned'}, name='subjects_planned'),
     path("subjects/<int:pk>/archive/", archive_subject, name="archive_subject"),
+    path("subjects/<int:pk>/extract/", extract_subject, name="extract_subject"),
+    path("subjects/<int:pk>/processing/", process_status_subject, name="processing_subject"),
     path("subjects/<int:pk>/delete/", delete_subject, name="delete_subject"),
     path('my_subjects', my_subjects_list, name='my_subjects'),
     path('subjects/new', subject_create, name='new_subject'),
