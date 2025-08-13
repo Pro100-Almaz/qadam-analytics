@@ -76,31 +76,17 @@
                           <small class="text-danger">{{ form.academic_year.errors.0 }}</small>
                         {% endif %}
                       </div>
-                    </div>
-
-                    <div class="row">
-                      <div class="col-md-4 mb-3">
-                        {{ form.progress.label_tag }}
-                        {{ form.progress }}
-                        {% if form.progress.errors %}
-                          <small class="text-danger">{{ form.progress.errors.0 }}</small>
-                        {% endif %}
-                      </div>
-                      <div class="col-md-4 mb-3">
-                        {{ form.average_points.label_tag }}
-                        {{ form.average_points }}
-                        {% if form.average_points.errors %}
-                          <small class="text-danger">{{ form.average_points.errors.0 }}</small>
-                        {% endif %}
-                      </div>
-                      <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                         {{ form.maximum_points.label_tag }}
                         {{ form.maximum_points }}
                         {% if form.maximum_points.errors %}
                           <small class="text-danger">{{ form.maximum_points.errors.0 }}</small>
                         {% endif %}
                       </div>
+
+
                     </div>
+
 
                     <div class="d-flex justify-content-end">
                       <a href="{% url 'subjects' %}" class="btn btn-outline-secondary me-2">

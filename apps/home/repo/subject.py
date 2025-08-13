@@ -50,6 +50,8 @@ def subjects_list(request, status=None):
         subjects = Subject.objects.all()
     elif status == 'archived':
         subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
+    elif status == 'planned':
+        subjects = Subject.objects.filter(status__in=['planned'])
     else:
         subjects = Subject.objects.filter(status=status)
 
@@ -100,6 +102,24 @@ def archive_subject(request, pk):
         subject.status = "archived"
         subject.save()
         return redirect("subjects")
+    return (JsonResponse({"error": "Invalid request"}, status=400))
+
+@login_required(login_url="/login/")
+def extract_subject(request, pk):
+    if request.method == "POST":
+        subject = get_object_or_404(Subject, pk=pk)
+        subject.status = "active"
+        subject.save()
+        return redirect("subjects")
+    return (JsonResponse({"error": "Invalid request"}, status=400))
+
+@login_required(login_url="/login/")
+def process_status_subject(request, pk):
+    if request.method == "POST":
+        subject = get_object_or_404(Subject, pk=pk)
+        subject.status = "planned"
+        subject.save()
+        return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 @login_required(login_url="/login/")
@@ -112,14 +132,14 @@ def delete_subject(request, pk):
 
 @login_required(login_url="/login/")
 def subject_details(request, pk):
-    # quarter = int(request.GET.get('quarter', '1'))
+    quarter = int(request.GET.get('quarter', '1'))
     subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
 
 
     # Students enrolled in this subject
     students = Student.objects.filter(subjects=subject).select_related('user')
 
-    lessons = Lesson.objects.filter(subject=subject).order_by('created_at')
+    lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
 
     student_users = [student.user for student in students]
 
@@ -177,6 +197,7 @@ def subject_details(request, pk):
         'num_lessons': max_num_of_grades,
         'lessons': lessons,
         'subject_id': pk,
+        'quarter': quarter,
         'subject': subject,
         'students_count': students_count,
         'lessons_count': lessons_count,

@@ -10,9 +10,14 @@ class LessonForm(forms.ModelForm):
     class Meta:
         model = Lesson
         fields = [
-            "title", "description", "subject",
-            "average_points", "maximum_points",
-            "status", "quarter", "group", "unit"
+            "title",
+            "description",
+            "subject",
+            "maximum_points",
+            "status",
+            "quarter",
+            "group",
+            "unit"
         ]
         widgets = {
             "title": forms.TextInput(attrs={
@@ -25,10 +30,6 @@ class LessonForm(forms.ModelForm):
                 "placeholder": "Введите подробное описание",
             }),
             "subject": forms.Select(attrs={"class": "form-control"}),
-            "average_points": forms.NumberInput(attrs={
-                "class": "form-control",
-                "min": 1,
-            }),
             "maximum_points": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 0,

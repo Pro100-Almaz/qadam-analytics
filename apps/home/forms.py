@@ -10,8 +10,6 @@ class SubjectForm(forms.ModelForm):
         fields = [
             "name",
             "status",
-            "progress",
-            "average_points",
             "maximum_points",
             "teacher",
             "academic_year",
@@ -24,15 +22,7 @@ class SubjectForm(forms.ModelForm):
             "status": forms.Select(attrs={
                 "class": "form-control",
             }),
-            "progress": forms.NumberInput(attrs={
-                "class": "form-control",
-                "min": 0,
-                "max": 100,
-            }),
-            "average_points": forms.NumberInput(attrs={
-                "class": "form-control",
-                "min": 0,
-            }),
+
             "maximum_points": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 0,
