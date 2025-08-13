@@ -176,6 +176,7 @@ def subject_details(request, pk):
         'top_grades': top_grades,
         'num_lessons': max_num_of_grades,
         'lessons': lessons,
+        'subject_id': pk,
         'subject': subject,
         'students_count': students_count,
         'lessons_count': lessons_count,
