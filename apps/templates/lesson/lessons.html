@@ -106,7 +106,7 @@
                     {% for title, number in number_of_students.items %}
                       {% if title == lesson.title %}
                         <td class="classroom">
-                          {{ lesson.subject.classroom.name }}
+                          {{ lesson.subject.teacher.classroom.name }}
                         </td>
 
                         <td class="budget" >
@@ -248,12 +248,12 @@
         let start = 1;
         let end = totalPages;
 
-        if (totalPages > 3) {
-            if (currPage <= 2) {
+        if (totalPages > 5) {
+            if (currPage <= 4) {
                 start = 1;
-                end = 3;
+                end = 5;
             } else if (currPage >= totalPages - 1) {
-                start = totalPages - 2;
+                start = totalPages - 4;
                 end = totalPages;
             } else {
                 start = currPage - 1;

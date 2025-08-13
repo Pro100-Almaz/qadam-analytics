@@ -34,14 +34,12 @@
 
 
             {% if user.is_manager or user.is_superuser %}
-              {% if status != 'archived' %}
                 <button type="button" class="btn btn-primary">
                   <a href="{% url 'new_subject' %}"
                    style="color: white !important; text-decoration: none !important;">
                     Новый
                   </a>
                 </button>
-              {% endif %}
             {% endif %}
           </div>
         </div>
@@ -101,7 +99,7 @@
                         {% if subject.status == 'active' %}
                           <i class="bg-success"></i>
                         {% elif subject.status == 'planned'%}
-                          <i class="bg-warning"></i>
+                          <i class="bg-info"></i>
                         {% else %}
                           <i class="bg-danger"></i>
                         {% endif %}
@@ -142,11 +140,18 @@
                               {% csrf_token %}
                               <button type="submit" class="dropdown-item">Удалить</button>
                           </form>
+                         {% if subject.status == 'active' or subject.status == 'planned' %}
+                         	<form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Архивировать</button>
+                              </form>
+                         {% else %}
+                             <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item">Разархивировать</button>
+                              </form>
+                         {% endif %}
 
-                          <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="dropdown-item">Архивировать</button>
-                          </form>
                         </div>
                       </div>
                     </td>

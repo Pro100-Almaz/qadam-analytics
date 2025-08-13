@@ -50,6 +50,8 @@ def subjects_list(request, status=None):
         subjects = Subject.objects.all()
     elif status == 'archived':
         subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
+    elif status == 'planned':
+        subjects = Subject.objects.filter(status__in=['planned'])
     else:
         subjects = Subject.objects.filter(status=status)
 
