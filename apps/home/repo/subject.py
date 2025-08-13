@@ -121,7 +121,6 @@ def subject_details(request, pk):
 
     lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
 
-    lesson_ids = lessons.values_list('id', flat=True)
     student_users = [student.user for student in students]
 
     grades_qs = StudentGrade.objects.filter(
@@ -158,7 +157,7 @@ def subject_details(request, pk):
 
     # KPI metrics for the header cards
     students_count = students.count()
-    lessons_count = lessons.count()
+    lessons_count = Lesson.objects.filter(subject=subject).count()
 
     # Average points across all student grades for the selected quarter's lessons
     subject_grades_qs = grades_qs.filter(lesson__in=lessons)
@@ -177,8 +176,6 @@ def subject_details(request, pk):
         'top_grades': top_grades,
         'num_lessons': max_num_of_grades,
         'lessons': lessons,
-        'subject_id': pk,
-        'quarter': quarter,
         'subject': subject,
         'students_count': students_count,
         'lessons_count': lessons_count,
