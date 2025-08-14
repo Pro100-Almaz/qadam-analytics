@@ -73,6 +73,14 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.is_teacher %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
+                            <i class="ni ni-collection text-default"></i>
+                            <span class="nav-link-text">Список уроков</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'teachers' in segment %} active {% endif %}" href="{% url 'teachers' %}">
                             <i class="ni ni-hat-3 text-default"></i>

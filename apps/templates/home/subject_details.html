@@ -215,23 +215,57 @@
       </div>
 
       <div class="card-body">
-        <div class="table-responsive">
+        <div id="lessons-table-wrap" class="table-responsive">
           <table class="table align-items-center table-flush">
             <thead class="thead-light">
               <tr>
-                <th scope="col">Название</th>
-                <th scope="col">Средний балл</th>
+                <th scope="col">Тема</th>
+                <th scope="col">Баллы</th>
+                <th scope="col">Оценка</th>
                 <th scope="col">Статус</th>
                 <th scope="col">Четверть</th>
+                <th scope="col">Макс. балл</th>
+                <th scope="col" class="text-right">Действия</th>
               </tr>
             </thead>
             <tbody id="sortingTable">
               {% for lesson in lessons|slice:":7" %}
                 <tr>
-                  <th scope="row" data-type="title">{{ lesson.title }}</th>
+                  <th scope="row" data-type="title">
+                    <a href="{% url 'lesson:lesson_details' lesson.id %}" class="text-primary">{{ lesson.title }}</a>
+                  </th>
                   <td data-type="average-grade">{{ lesson.average_points }}</td>
-                  <td data-type="status">{{ lesson.status }}</td>
+                  <td>
+                    {% if lesson.average_points >= 90 %}
+                      5
+                    {% elif lesson.average_points >= 70 %}
+                      4
+                    {% elif lesson.average_points >= 50 %}
+                      3
+                    {% else %}
+                      2
+                    {% endif %}
+                  </td>
+                  <td data-type="status">
+                    <span class="badge badge-dot mr-3">
+                      {% if lesson.status == 'delayed' %}
+                        <i class="bg-danger"></i>
+                      {% elif lesson.status == 'pending' %}
+                        <i class="bg-warning"></i>
+                      {% elif lesson.status == 'on schedule' %}
+                        <i class="bg-info"></i>
+                      {% else %}
+                        <i class="bg-success"></i>
+                      {% endif %}
+                      <span class="status">{{ lesson.status }}</span>
+                    </span>
+                  </td>
                   <td data-type="quarter">{{ lesson.quarter }}</td>
+                  <td>{{ lesson.maximum_points }}</td>
+                  <td class="text-right">
+                    <a href="{% url 'lesson:lesson_details' lesson.id %}" class="btn btn-sm btn-outline-primary mr-2">Открыть</a>
+                    <a href="{% url 'lesson:grading' lesson.id %}" class="btn btn-sm btn-primary">Оценить</a>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
