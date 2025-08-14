@@ -5,7 +5,7 @@
 
 <!-- Specific CSS goes HERE -->
 {% block stylesheets %}{% endblock stylesheets %}
-
+{% load custom_filters %}
 {% block content %}
 <style>
 .row.align-items-stretch .card {
@@ -146,12 +146,16 @@
                   <h3 class="mb-0">Учитель:</h3>
                 </div>
                 <div class="col text-right">
-                    {% if teacher.first_name and teacher.last_name %}
-                            {{ teacher.first_name }}
-                            {{ teacher.last_name }}
-                        {% else %}
-                            {{ teacher.username }}
-                        {% endif %}
+                {% if subject.teacher %}
+                    {% if teacher.user.first_name and teacher.user.last_name %}
+                        {{ teacher.user.get_full_name }}
+                    {% else %}
+                        {{ teacher.username }}
+                    {% endif %}
+                {% else %}
+                    {{ subject_adder.username }}
+                {% endif %}
+
 
                 </div>
               </div>
@@ -191,7 +195,7 @@
           </div>
           <div class="col-auto">
             <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-              <i class="ni ni-fat-add"></i>
+              <i class="ni ni-fat-add"></i>Добавить урок
             </a>
           </div>
           <div class="col text-right">
@@ -299,10 +303,10 @@
             </tr>
           </thead>
           <tbody>
-            {% for student, avg_grade in top_grades|slice:":7" %}
+            {% for student, info in top_grades|slice:":7" %}
               <tr>
-                <th scope="row">{{ student.first_name }} {{ student.last_name }}</th>
-                <td>{{ avg_grade|floatformat:2 }}</td>
+                <th scope="row">{{ info|get_item:'student_info' }} </th>
+                <td>{{ info|get_item:'grade' }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -314,10 +318,10 @@
 
 
 
+      <!-- Grades Table -->
       <div class="row mt-4">
         <div class="col">
           <div class="card">
-            <!-- Card header -->
             <div class="card-header border-0">
               <div class="row align-items-center">
                 <div class="col">
@@ -332,19 +336,18 @@
               </div>
             </div>
 
-            <!-- Light table -->
             <div class="table-responsive">
               <table class="table align-items-center table-flush">
                 <thead class="thead-light">
                   <tr>
-                    <th scope="col" class="sort" data-sort="name">Фамилия, Имя</th>
-                    <th scope="col" class="sort" data-sort="points">Средний балл</th>
-                    <th scope="col" class="sort" data-sort="grade">Оценка</th>
+                    <th scope="col">Фамилия, Имя</th>
+                    <th scope="col">Средний балл</th>
+                    <th scope="col">Оценка</th>
                     <th scope="col"></th>
                   </tr>
                 </thead>
-                <tbody class="list">
-                  {% for student_data in student_grades %}
+                <tbody>
+                  {% for student, info in all_grades %}
                     <tr>
                       <th scope="row">
                         <div class="media align-items-center">
@@ -352,43 +355,84 @@
                             <img alt="Image placeholder" src="/static/assets/img/theme/bootstrap.jpg">
                           </a>
                           <div class="media-body">
-                            <span class="name mb-0 text-sm">{{ student_data.student.last_name }}, {{ student_data.student.first_name }}</span>
+                            <span class="name mb-0 text-sm">{{ info|get_item:'student_info' }}</span>
                           </div>
                         </div>
                       </th>
-                      <td class="budget">
-                        {{ student_data.average_points }}%
-                      </td>
+                      <td class="budget">{{ info|get_item:'grade'|floatformat:1 }}%</td>
                       <td>
                         <span class="badge badge-dot mr-4">
-                          <i class="bg-{% if student_data.grade >= 4 %}success{% elif student_data.grade >= 3 %}warning{% else %}danger{% endif %}"></i>
-                          <span class="status">{{ student_data.grade }}</span>
+                          {% with grade=info|get_item:'grade' %}
+                            <i class="bg-{% if grade >= 80 %}success{% elif grade >= 60 %}warning{% else %}danger{% endif %}"></i>
+                            <span class="status">
+                              {% if grade >= 80 %}
+                                5
+                              {% elif grade >= 60 %}
+                                4
+                              {% elif grade >= 40 %}
+                                3
+                              {% else %}
+                                2
+                              {% endif %}
+                            </span>
+                          {% endwith %}
                         </span>
-                      </td>
-                      <td class="text-right">
-                        <div class="dropdown">
-                          <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="fas fa-ellipsis-v"></i>
-                          </a>
-                          <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
-                            {% for grade in student_data.grades %}
-                              <a class="dropdown-item" href="#">
-                                {{ grade.lesson.title }}: {{ grade.points }}/{{ grade.lesson.maximum_points }}
-                              </a>
-                            {% endfor %}
-                          </div>
-                        </div>
                       </td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
+
+            <!-- Grades Pagination -->
+            {% if all_grades.has_other_pages %}
+              <div class="card-footer py-4">
+                <div class="row align-items-center">
+                  <div class="col text-right">
+                    <nav aria-label="Grades pagination">
+                      <ul class="pagination justify-content-end mb-0">
+                        {% if all_grades.has_previous %}
+                          <li class="page-item">
+                            <a class="page-link" href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}grades_page={{ all_grades.previous_page_number }}">&laquo;</a>
+                          </li>
+                        {% else %}
+                          <li class="page-item disabled">
+                            <span class="page-link">&laquo;</span>
+                          </li>
+                        {% endif %}
+
+                        {% for num in all_grades.paginator.page_range %}
+                          {% if all_grades.number == num %}
+                            <li class="page-item active">
+                              <span class="page-link">{{ num }}</span>
+                            </li>
+                          {% elif num > all_grades.number|add:'-3' and num < all_grades.number|add:'3' %}
+                            <li class="page-item">
+                              <a class="page-link" href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}grades_page={{ num }}">{{ num }}</a>
+                            </li>
+                          {% endif %}
+                        {% endfor %}
+
+                        {% if all_grades.has_next %}
+                          <li class="page-item">
+                            <a class="page-link" href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}grades_page={{ all_grades.next_page_number }}">&raquo;</a>
+                          </li>
+                        {% else %}
+                          <li class="page-item disabled">
+                            <span class="page-link">&raquo;</span>
+                          </li>
+                        {% endif %}
+                      </ul>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
           </div>
         </div>
       </div>
-      {% include "includes/footer.html" %}
 
+      {% include "includes/footer.html" %}
     </div>
 
 {% endblock content %}
