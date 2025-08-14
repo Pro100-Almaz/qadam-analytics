@@ -189,12 +189,15 @@
           <div class="col">
             <h3 class="mb-0">Список уроков</h3>
           </div>
-          <div class="col-auto">
+
+
+              <div class="col">
             <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-              <i class="ni ni-fat-add"></i>
+              <i class="ni ni-fat-add"></i> Добавить урок
             </a>
           </div>
-          <div class="col text-right">
+
+          <div class="col-auto">
             <div class="d-inline-block">
               Сортировать по:
               <select id="sortSelect" name="transport_type" class="ml-2">
@@ -205,6 +208,7 @@
               </select>
             </div>
           </div>
+
           <div class="col-auto">
             <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn btn-sm btn-primary">Q1</a>
             <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn btn-sm btn-primary">Q2</a>
@@ -228,7 +232,10 @@
             <tbody id="sortingTable">
               {% for lesson in lessons|slice:":7" %}
                 <tr>
-                  <th scope="row" data-type="title">{{ lesson.title }}</th>
+
+                  <th scope="row" data-type="title">
+                      <a href="{% url 'lesson:lesson_details' lesson.id %}">{{ lesson.title }}</a>
+                  </th>
                   <td data-type="average-grade">{{ lesson.average_points }}</td>
                   <td data-type="status">{{ lesson.status }}</td>
                   <td data-type="quarter">{{ lesson.quarter }}</td>

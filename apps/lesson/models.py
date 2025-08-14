@@ -102,7 +102,7 @@ class Topic(models.Model):
         related_name='subtopics',
         on_delete=models.CASCADE
     )
-    title = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255, unique=False)
     weight = models.FloatField(
         default=0.0,
         help_text="Percent weight in lesson (must sum to 100% for all siblings under same parent)"
