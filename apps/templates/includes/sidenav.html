@@ -36,12 +36,6 @@
 
 
                     {% if user.is_teacher %}
-{#                        <li class="nav-item">#}
-{#                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">#}
-{#                                <i class="ni ni-books text-default"></i>#}
-{#                                <span class="nav-link-text">Subject</span>#}
-{#                            </a>#}
-{#                        </li>#}
                         <li class="nav-item">
                             <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-default"></i>
@@ -61,6 +55,14 @@
                                     </li>
                                 </ul>
                             </div>
+                        </li>
+
+
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'lesson' in segment %} active {% endif %}" href="{% url 'lesson:my_lessons' %}">
+                                <i class="ni ni-collection text-default"></i>
+                                <span class="nav-link-text">Lessons</span>
+                            </a>
                         </li>
                     {% endif %}
 

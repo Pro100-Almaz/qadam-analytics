@@ -76,6 +76,63 @@ def lessons_list(request):
 
 
 @login_required(login_url="/login/")
+def my_lessons_list(request):
+    user = request.user
+    subjects = Subject.objects.filter(teacher__user = user)
+    subject_filter = request.GET.get('subject', 'all')
+
+    classrooms = ClassRoom.objects.all()
+    classroom_filter = request.GET.get('classroom', 'all')
+
+    lessons = Lesson.objects.filter(subject__in=subjects)
+
+    if classroom_filter != 'all':
+        subjects = Subject.objects.filter(teacher__classroom__name=classroom_filter, teacher__user=user)
+        lessons = lessons.filter(subject__teacher__classroom__name=classroom_filter, subject__in=subjects)
+    else:
+        subjects = []
+
+    if subject_filter != "all":
+        lessons = lessons.filter(subject__name=subject_filter)
+
+    number_of_students = {}
+    graded_percent_by_lesson = {}
+    for lesson in lessons:
+        # Total students for this subject
+        total_students = Student.objects.filter(subjects=lesson.subject).count()
+        number_of_students[lesson.title] = total_students
+
+        # Students who have any TopicGrade for this lesson
+        graded_count = (
+            Student.objects
+            .filter(subjects=lesson.subject, topicgrade__topic__lesson=lesson)
+            .distinct()
+            .count()
+        )
+
+        percent = int((graded_count / total_students) * 100) if total_students > 0 else 0
+        graded_percent_by_lesson[lesson.id] = percent
+
+    page = request.GET.get('page')
+    paginator = Paginator(lessons, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'lessons': lessons,
+               "number_of_students": number_of_students,
+               "graded_percent_by_lesson": graded_percent_by_lesson,
+               "classrooms": classrooms,
+               "classroom_filter": classroom_filter,
+               "subject_filter": subject_filter,
+               "subjects": subjects,
+               "page_obj": page_obj,
+               'user': user
+               }
+
+    return render(request, 'lesson/lessons.html', context)
+
+
+
+@login_required(login_url="/login/")
 def lesson_create(request, subject_id=None):
     if request.method == "POST":
         form = LessonForm(request.POST)

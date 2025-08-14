@@ -5,6 +5,7 @@ app_name = 'lesson'
 
 urlpatterns = [
     path('', views.lessons_list, name='lessons'),
+    path('my_lessons/', views.my_lessons_list, name='my_lessons'),
     path('grading/<int:pk>', views.grading, name='grading'),
     path('grading/submit', views.submit_all_topic_grades, name='submit_all_topic_grades'),
     path('grading/update/<int:pk>', views.update_grade, name='update_grade'),
