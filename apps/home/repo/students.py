@@ -1,8 +1,9 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 
-from apps.home.models import ClassRoom, Subject
+from apps.home.models import ClassRoom, Subject, AcademicYear
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, Student
 from apps.lesson.models import Lesson
 
@@ -57,7 +58,10 @@ def student_details(request, pk):
     last_updated = last_state.time_added if last_state else None
 
 
+    academic_years = AcademicYear.objects.all()
+
     context = {
+        'academic_years': academic_years,
         'student': student,
         'subjects': subjects,
         'total_subjects': subjects.count(),
@@ -67,4 +71,43 @@ def student_details(request, pk):
         'last_updated': last_updated,
     }
     return render(request, 'home/student_details.html', context)
+
+
+@login_required(login_url="/login/")
+def student_profile_update(request, pk):
+    if request.method == "POST":
+        student = get_object_or_404(Student, id = pk)
+        user = student.user
+
+
+        # Update basic user information
+        user.username = request.POST.get('username')
+        user.email = request.POST.get('email')
+        user.first_name = request.POST.get('first_name')
+        user.last_name = request.POST.get('last_name')
+        user.phone_number = request.POST.get('phone_number')
+        user.address = request.POST.get('address')
+        birth_date = request.POST.get('date_of_birth')
+        if birth_date:
+            user.date_of_birth = birth_date
+
+        student.school_group = request.POST.get('school_group')
+        student.academic_year = request.POST.get('academic_year')
+
+        classroom_id = request.POST.get('classroom')
+        if classroom_id:
+            student.classroom_id = classroom_id
+
+        # Handle avatar upload
+        if 'avatar' in request.FILES:
+            user.avatar = request.FILES['avatar']
+
+        try:
+            user.save()
+            student.save()
+            messages.success(request, f"Profile for {student.user.get_full_name()} updated successfully!")
+        except Exception as e:
+            messages.error(request, f"Error updating profile: {str(e)}")
+
+    return redirect('student_details', pk=student.user.id)
 
