@@ -1,4 +1,4 @@
-    {% extends 'layouts/base.html' %}
+{% extends 'layouts/base.html' %}
 {% load static %}
 {% load custom_filters %}
 {% block title %} Subjects {% endblock title %}
@@ -48,6 +48,20 @@
                     <a id="subjectValue" href="?classroom={{ classroom_filter }}&subject=all" class="btn dropdown-item  filter-btn" data-value="all">All Subjects {% if subject_filter == 'all' %} - Выбрано{% endif %}</a>
                     {% for subject in subjects %}
                         <a id="subjectValue" href="?classroom={{ classroom_filter }}&subject={{ subject.name }}" class="btn dropdown-item filter-btn" data-value="{{ subject.name }}">{{ subject.name }} {% if subject_filter == subject.name %} - Выбрано{% endif %}</a>
+                    {% endfor %}
+                </div>
+              </div>
+
+
+              <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButtonQuarter" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" >
+                  Quarter
+                </button>
+
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    <a id="quarterValue" href="?classroom={{ classroom_filter }}&subject={{ subject_filter }}&quarter=all" class="btn dropdown-item  filter-btn" data-value="all">All quarters {% if quarter_filter == 'all' %} - Выбрано{% endif %}</a>
+                    {% for quarter in quarters %}
+                        <a id="quarterValue" href="?classroom={{ classroom_filter }}&subject={{ subject_filter }}&quarter={{ quarter }}" class="btn dropdown-item filter-btn" data-value="{{ quarter }}">{{ quarter }} {% if quarter_filter == quarter %} - Выбрано{% endif %}</a>
                     {% endfor %}
                 </div>
               </div>
@@ -220,10 +234,19 @@
         const params = new URLSearchParams(window.location.search);
         const selectedClassroom = params.get("classroom");
 
-        if( selectedClassroom && selectedClassroom !== "all" ){
-            document.getElementById("dropdownMenuButtonSubject").disabled = false;
-        }else{
-            document.getElementById("dropdownMenuButtonSubject").disabled = true;
+        const subjectDropdown = document.getElementById("dropdownMenuButtonSubject");
+        const quarterDropdown = document.getElementById("dropdownMenuButtonQuarter");
+
+        if (selectedClassroom && selectedClassroom !== "all") {
+            subjectDropdown.disabled = false;
+            if (params.get("subject") && params.get("subject") !== "all") {
+                quarterDropdown.disabled = false;
+            } else {
+                quarterDropdown.disabled = true;
+            }
+        } else {
+            subjectDropdown.disabled = true;
+            quarterDropdown.disabled = true;
         }
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
