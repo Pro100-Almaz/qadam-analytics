@@ -11,7 +11,7 @@
             <div class="collapse navbar-collapse" id="sidenav-collapse-main">
                 <!-- Nav items -->
                 <ul class="navbar-nav">
-                    {% if user.is_manager or user.is_superuser %}
+                    {% if user.is_manager or user.is_superuser%}
                         <li class="nav-item">
                             <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-default"></i>
@@ -33,14 +33,38 @@
                             </div>
                         </li>
                     {% endif %}
+
+
                     {% if user.is_teacher %}
+{#                        <li class="nav-item">#}
+{#                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">#}
+{#                                <i class="ni ni-books text-default"></i>#}
+{#                                <span class="nav-link-text">Subject</span>#}
+{#                            </a>#}
+{#                        </li>#}
                         <li class="nav-item">
-                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">
+                            <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-default"></i>
-                                <span class="nav-link-text">Subject</span>
+                                <span class="nav-link-text">Предметы</span>
                             </a>
+                            <div class="collapse {% if request.path|slice:":10" == '/subjects' %}show{% endif %}" id="navbar-subjects">
+                                <ul class="nav nav-sm flex-column"  >
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/my_subjects/' %} active {% endif %}" href="{% url 'my_subjects' %}">Активные предметы</a>
+                                    </li>
+                                    <li class="nav-item">
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/my_subjects/planned' %} active {% endif %}" href="{% url 'my_subjects_status' 'planned'%}">Предметы в обработке</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == '/my_subjects/archived' %} active {% endif %}" href="{% url 'my_subjects_status' 'archived'%}">Архив</a>
+                                    </li>
+                                </ul>
+                            </div>
                         </li>
                     {% endif %}
+
+
                     {% if user.is_manager or user.is_superuser %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">

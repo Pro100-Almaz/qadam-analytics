@@ -82,9 +82,21 @@ def subjects_list(request, status=None):
 
 
 @login_required(login_url="/login/")
-def my_subjects_list(request):
+def my_subjects_list(request, status=None):
     user = CustomUser.objects.get(id=request.user.id)
+    if status is None:
+        status = request.GET.get('status', 'active')
+
     subjects = Subject.objects.filter(teacher__user=user)
+
+    if status == 'all':
+        subjects = Subject.objects.filter(teacher__user = user)
+    elif status == 'archived':
+        subjects = Subject.objects.filter(status__in=['archived', 'disabled'], teacher__user = user)
+    elif status == 'planned':
+        subjects = Subject.objects.filter(status__in=['planned'], teacher__user = user)
+    else:
+        subjects = Subject.objects.filter(status=status, teacher__user = user)
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
@@ -92,7 +104,10 @@ def my_subjects_list(request):
 
     context = {'subjects': subjects,
                'number_of_students': get_students(subjects),
-               "page_obj": page_obj}
+               "page_obj": page_obj,
+               'status': status,
+               'STATUS_CHOICES': Subject.STATUS_CHOICES,
+               'is_my_subjects': True,}
     return render(request, "home/subjects.html", context)
 
 @login_required(login_url="/login/")

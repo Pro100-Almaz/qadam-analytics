@@ -16,11 +16,9 @@ urlpatterns = [
     path('topic/create/<int:pk>', views.create_topic, name='create_topic'),
     path('topic/update/<int:pk>', views.update_topic, name='update_topic'),
     path('topic/delete/<int:pk>', views.delete_topic, name='delete_topic'),
-    path('topic/distribute/<int:pk>', views.distribute_topic_weights_proportionally, name='distribute_topic_weights_proportionally'),
     path('topic/distribute_equally/<int:pk>', views.distribute_topic_weights_equally, name='distribute_topic_weights_equally'),
     path('subtopic/create/<int:pk>', views.create_subtopic, name='create_subtopic'),
     path('subtopic/update/<int:pk>', views.update_subtopic, name='update_subtopic'),
-    path('subtopic/distribute/<int:lesson_id>', views.distribute_subtopic_weights_proportionally, name='distribute_subtopic_weights_proportionally'),
     path('subtopic/distribute_equally/<int:lesson_id>', views.distribute_subtopic_weights_equally, name='distribute_subtopic_weights_equally'),
 
 
