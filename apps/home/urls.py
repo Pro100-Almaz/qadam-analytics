@@ -28,6 +28,7 @@ urlpatterns = [
     path("subjects/<int:pk>/processing/", process_status_subject, name="processing_subject"),
     path("subjects/<int:pk>/delete/", delete_subject, name="delete_subject"),
     path('my_subjects', my_subjects_list, name='my_subjects'),
+    path('my_subjects/<str:status>', my_subjects_list, name='my_subjects_status'),
     path('subjects/new', subject_create, name='new_subject'),
     path('subjects/<int:pk>', subject_details, name='subject_details'),
     path('psychological/delete/<int:pk>/', delete_psychological_state, name='delete_psychological_state'),
