@@ -291,94 +291,158 @@
         </div>
     </div>
 
-    {# Personal information   #}
-    <div class="card stats-card">
-        <div class="card-header border-0">
-            <h3 class="mb-0 text-dark">Персональная Информация</h3>
+
+    <div class="col-xl-12 order-xl-1 card stats-card">
+      <div class="">
+        <div class="card-header">
+          <div class="row align-items-center">
+            <div class="col">
+              <h3 class="mb-0">Profile Information</h3>
+            </div>
+            {% if user.is_manager or user.is_supervisor or user.is_admin%}
+            	<button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal" >
+                  <i class="ni ni-settings-gear-65"></i> Изменить Данные
+                </button>
+            {% endif %}
+
+           </div>
         </div>
 
         <div class="card-body">
-            <div>
-                <div class="row">
-                    <div>
-                        <h3 class="text-red">Identification info:</h3>
-                        <hr class="my-4" />
-                    </div>
+          <h6 class="heading-small text-muted mb-4">Персональные данные</h6>
+          <div class="pl-lg-4">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Username</label>
+                  <p class="form-control-static">{{ teacher.user.username }}</p>
                 </div>
-                <div class="row">
-                    <div class="col-6">
-                        <h4>Пол: {{ teacher.gender }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Дата Рождения: {{ teacher.user.date_of_birth }}</h4>
-                    </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Email </label>
+                  <p class="form-control-static">{{ teacher.user.email }}</p>
                 </div>
+              </div>
             </div>
-            <hr class="my-4" />
-
-
-            <div>
-                <div class="row">
-                    <div>
-                        <h3 class="text-red">Professional info:</h3>
-                        <hr class="my-4" />
-                    </div>
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Имя</label>
+                  <p class="form-control-static">{{ teacher.user.first_name|default:"Not provided" }}</p>
                 </div>
-                <div class="row">
-                    <div class="col-6">
-                        <h4>Academic Degree: {{ teacher.academic_degree }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Тип Занятости: {{ teacher.employment_type }}</h4>
-                    </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Фамилия</label>
+                  <p class="form-control-static">{{ teacher.user.last_name|default:"Not provided" }}</p>
                 </div>
+              </div>
             </div>
-            <hr class="my-4" />
 
-            <div>
-                <div class="row">
-                    <div>
-                        <h3 class="text-red">Working Place info:</h3>
-                        <hr class="my-4" />
-                    </div>
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Дата рождения</label>
+                  <p class="form-control-static">{{ teacher.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
                 </div>
-                <div class="row">
-                    <div class="col-6">
-                        <h4>Школа: {{ teacher.user.school }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Occupation: {{ teacher.occupation }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Рабочие часы: {{ teacher.working_hours }}</h4>
-                    </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Телефонный номер</label>
+                  <p class="form-control-static">{{ teacher.user.phone_number|default:"Not provided" }}</p>
                 </div>
+              </div>
             </div>
-            <hr class="my-4" />
-
-            <div>
-                <div class="row">
-                    <div>
-                        <h3 class="text-red">Contact info:</h3>
-                        <hr class="my-4" />
-
-                    </div>
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Пол</label>
+                  <p class="form-control-static">{{ teacher.gender }}</p>
                 </div>
-                <div class="row">
-                    <div class="col-6">
-                        <h4>Контактный Номер: {{ teacher.user.phone_number }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Почта: {{ teacher.user.email }}</h4>
-                    </div>
-                    <div class="col-6">
-                        <h4>Адрес: {{ teacher.user.address }}</h4>
-                    </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Академическая степень</label>
+                  <p class="form-control-static">{{ teacher.academic_degree }}</p>
                 </div>
+              </div>
             </div>
-            <hr class="my-4" />
+          </div>
 
+          <hr class="my-4" />
+
+          <h6 class="heading-small text-muted mb-4">Данные о школе</h6>
+          <div class="pl-lg-4">
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Роль</label>
+                  <p class="form-control-static">
+                    <span class="badge badge-lg badge-{{ teacher.user.role|default:'secondary' }}">
+                      {{ teacher.user.get_role_display }}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Школа</label>
+                  <p class="form-control-static">{{ teacher.user.get_school_display }}</p>
+                </div>
+              </div>
+            </div>
+            {% if user.classroom %}
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Класс</label>
+                  <p class="form-control-static">{{ user.classroom.name }}</p>
+                </div>
+              </div>
+              {% if user.student_id %}
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">ID Ученика</label>
+                  <p class="form-control-static">{{ user.student_id }}</p>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if teacher.occupation %}
+            <div class="row">
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Занятость</label>
+                  <p class="form-control-static">{{ teacher.occupation }}</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="form-group">
+                  <label class="form-control-label">Тип занятости</label>
+                  <p class="form-control-static">{{ teacher.employment_type }}</p>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          <hr class="my-4" />
+
+          <h6 class="heading-small text-muted mb-4">Данные для связи</h6>
+          <div class="pl-lg-4">
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label class="form-control-label">Адрес</label>
+                  <p class="form-control-static">{{ user.address|default:"Not provided" }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
 
     <!-- Subjects Performance -->
@@ -427,7 +491,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge badge-lg badge-secondary"><h5>{{ subject.classroom }}</h5></span>
+                                <span class="badge badge-lg badge-secondary"><h5>{{ subject.teacher.classroom.name }}</h5></span>
                             </td>
                             <td class="text-dark">
                                 {{ subject.teacher }}
@@ -460,6 +524,142 @@
     </div>
 </div>
 
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <form method="post" enctype="multipart/form-data" action="{% url 'teacher_profile_update' teacher.id%}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="editProfileModalLabel">Изменить Данные</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          {% if user.is_admin or user.is_supervisor or user.is_manager %}
+              <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
+          {% else %}
+              <p class="text-warning">
+                  You are not allowed to directly change your profile information!<br>
+                  The changes will be sent to the managing council and applied after review.
+              </p>
+          {% endif %}
+
+          <!-- Basic Info -->
+          <div class="row">
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-username">Username</label>
+                <input type="text" id="input-username" name="username" class="form-control" value="{{ teacher.user.username }}" required>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-email">Email</label>
+                <input type="email" id="input-email" name="email" class="form-control" value="{{ teacher.user.email }}" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Name -->
+          <div class="row">
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-first-name">Имя</label>
+                <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ teacher.user.first_name }}">
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-last-name">Фамилия</label>
+                <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ teacher.user.last_name }}">
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div class="row">
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-phone">Телефонный номер</label>
+                <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ teacher.user.phone_number }}">
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-dob">Дата рождения</label>
+                <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ teacher.user.date_of_birth|date:'Y-m-d' }}">
+              </div>
+            </div>
+          </div>
+
+          <!-- Teacher Fields -->
+          <div class="row">
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-occupation">Занятость</label>
+                <input type="text" id="input-occupation" name="occupation" class="form-control" value="{{ teacher.user.occupation }}">
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-degree">Academic Degree</label>
+                <input type="text" id="input-degree" name="academic_degree" class="form-control" value="{{ teacher.user.academic_degree }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- Gender Select -->
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-gender">Пол</label>
+                <select id="input-gender" name="gender" class="form-control">
+                  <option value="">Выбрать</option>
+                  <option value="male" {% if teacher.gender == 'male' %}selected{% endif %}>Male</option>
+                  <option value="female" {% if teacher.gender == 'female' %}selected{% endif %}>Female</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Classroom Select -->
+            <div class="col-lg-6">
+              <div class="form-group">
+                <label for="input-classroom">Класс</label>
+                <select id="input-classroom" name="classroom" class="form-control">
+                  <option value="">Выбрать</option>
+                  {% for classroom in classrooms %}
+                    <option value="{{ teacher.classroom.id }}" {% if teacher.classroom.id == classroom.id %}selected{% endif %}>
+                      {{ classroom.name }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Avatar Upload -->
+          <div class="row">
+            <div class="col-lg-12">
+              <div class="form-group">
+                <label for="input-avatar">Profile Picture (отправится на почту)</label>
+                <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+            	<button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 
 
