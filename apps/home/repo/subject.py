@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
 
 from apps.home.forms import SubjectForm
@@ -150,66 +150,61 @@ def subject_details(request, pk):
     quarter = int(request.GET.get('quarter', '1'))
     subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
 
-
     # Students enrolled in this subject
     students = Student.objects.filter(subjects=subject).select_related('user')
-
     lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
 
-    student_users = [student.user for student in students]
+    lesson_avgs = {}
 
-    grades_qs = StudentGrade.objects.filter(
-        student__in=student_users
-    ).select_related('lesson', 'student')
+    for lesson in lessons:
+        lesson_avgs[lesson.id] = {}
+        for student in students:
+            lesson_avgs[lesson.id][student.id] = round(lesson.calculate_student_grade(student), 1)
 
-    grades_lookup = {(grade.student_id, grade.lesson_id): grade for grade in grades_qs}
+    student_grades = {}
 
-    grades = {}
+    len_lessons = len(lessons)
     for student in students:
-        student_grades = []
+        student_grade = 0
         for lesson in lessons:
-            grade = grades_lookup.get((student.user_id, lesson.id))
-            student_grades.append({'lesson': lesson, 'grade': grade})
-        grades[student] = student_grades
+            student_grade += lesson_avgs[lesson.id][student.id]
+        student_grade /= len_lessons
 
-    student_points = {student.user: 0 for student in students}
-    max_num_of_grades = 1
-
-    for student in students:
-        user = student.user
-        student_grades = [g for g in grades_qs if g.student == user]
-        num = len(student_grades)
-        if num > max_num_of_grades:
-            max_num_of_grades = num
-        total_points = sum(g.points for g in student_grades)
-        student_points[user] = total_points
+        student_grades[student.id] = {}
+        student_grades[student.id] = {
+            'grade': student_grade,
+            'student_info': student.user.get_full_name()
+        }
+    top_grades = sorted(student_grades.items(), key=lambda x: x[1]['grade'], reverse=True)
 
 
-    for user in student_points:
-        student_points[user] /= max_num_of_grades
+    grades_table = request.GET.get('grades_page', 1)
+    grades_paginator = Paginator(top_grades, 5)
 
-    top_grades = sorted(student_points.items(), key=lambda x: x[1], reverse=True)
+    try:
+        all_grades = grades_paginator.page(grades_table)
+    except PageNotAnInteger:
+        all_grades = grades_paginator.page(1)
+    except EmptyPage:
+        all_grades = grades_paginator.page(grades_paginator.num_pages)
 
     # KPI metrics for the header cards
     students_count = students.count()
     lessons_count = Lesson.objects.filter(subject=subject).count()
 
-    # Average points across all student grades for the selected quarter's lessons
-    subject_grades_qs = grades_qs.filter(lesson__in=lessons)
-    if subject_grades_qs.exists():
-        average_subject_points = int(sum(g.points for g in subject_grades_qs) / subject_grades_qs.count())
+
+    if student_grades:
+        average_subject_points = round(sum(info['grade'] for info in student_grades.values()) / len(student_grades), 1)
     else:
         average_subject_points = 0
 
     # Completion: ratio of existing grades to expected grades (students × lessons)
-    total_expected_grades = students_count * lessons_count
-    actual_grades_count = subject_grades_qs.count()
-    completion_percent = int((actual_grades_count / total_expected_grades) * 100) if total_expected_grades > 0 else 0
+    students_with_grades = len([s for s in student_grades.values() if s['grade'] > 0])
+    completion_percent = round((students_with_grades / students_count) * 100, 1) if students_count > 0 else 0
 
     context = {
-        'grades': grades,
         'top_grades': top_grades,
-        'num_lessons': max_num_of_grades,
+        'all_grades': all_grades,
         'lessons': lessons,
         'subject_id': pk,
         'quarter': quarter,
