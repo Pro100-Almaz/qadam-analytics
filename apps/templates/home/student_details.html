@@ -316,7 +316,7 @@
             <div>
 
 
-                <button type="button" class="btn btn-primary btn-facebook" data-toggle="modal" data-target="#addPsychologicalStateModal">
+                <button type="button" class="btn btn-primary btn-primary" data-toggle="modal" data-target="#addPsychologicalStateModal">
                     <i class="fas fa-plus mr-2"></i>Добавить состояние
                 </button>
                 <br>
@@ -378,88 +378,149 @@
     </div>
 
     <!-- Subjects Performance -->
-    <div class="card stats-card">
-        <div class="card-header border-0">
-            <h4 class="mb-0 text-dark">Subjects</h4>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-flush">
-                    <thead>
-                        <tr>
-                            <th class="text-dark">Subject</th>
-                            <th class="text-dark">Score</th>
-                            <th class="text-dark">Teacher</th>
-                            <th class="text-dark">Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for subject in subjects %}
-                        <tr class="subject-row" style="cursor: pointer;" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    {% if subject.name == "Math" %}
-                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-calculator"></i>
-                                        </div>
-                                    {% elif subject.name == "English" %}
-                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-language"></i>
-                                        </div>
-                                    {% elif subject.name == "Kazakh" %}
-                                        <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-flag"></i>
-                                        </div>
-                                    {% elif subject.name == "Science" %}
-                                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-flask"></i>
-                                        </div>
-                                    {% else %}
-                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-book"></i>
-                                        </div>
-                                    {% endif %}
-                                    <span class="font-weight-bold text-dark">{{ subject.name }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                {% if subject.id in subject_averages %}
-                                    <span class="badge badge-lg badge-primary">
-                                        {{ subject_averages|get_item:subject.id|get_item:'average_grade'|floatformat:0 }}%
-                                    </span>
-                                {% else %}
-                                    <span class="badge badge-lg badge-secondary">-</span>
+        <div class="card stats-card">
+            <div class="card-header">
+                <h4 class="mb-0 text-dark">Subjects</h4>
+                <div class="text-right">
+
+
+                    <button
+                        type="button"
+                       class="btn btn-primary btn-sm"
+                       data-toggle="modal"
+                       data-target="#addSubjectModal">
+                        <i class="fas fa-plus mr-2"></i>Add Subject
+                    </button>
+                </div>
+
+
+
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-flush">
+                        <thead>
+                            <tr>
+                                <th class="text-dark">Subject</th>
+                                <th class="text-dark">Score</th>
+                                <th class="text-dark">Teacher</th>
+                                <th class="text-dark">Progress</th>
+                                {% if user.is_manager or user.is_supervisor or user.is_admin %}
+                                    <th class="text-dark">Action</th>
                                 {% endif %}
-                            </td>
-                            <td class="text-dark">
-                                {{ subject.teacher }}
-                            </td>
-                            <td>
-                                {% if subject.id in subject_averages %}
-                                    {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject in subjects %}
+                            <tr class="subject-row" style="cursor: pointer;" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
+                                <td>
+                                    <div class="d-flex align-items-center subjectName">
+                                        {% if subject.name == "Math" %}
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-calculator"></i>
+                                            </div>
+                                        {% elif subject.name == "English" %}
+                                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-language"></i>
+                                            </div>
+                                        {% elif subject.name == "Kazakh" %}
+                                            <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-flag"></i>
+                                            </div>
+                                        {% elif subject.name == "Science" %}
+                                            <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-flask"></i>
+                                            </div>
+                                        {% else %}
+                                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-book"></i>
+                                            </div>
+                                        {% endif %}
+                                        <span class="font-weight-bold text-dark">{{ subject.name }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if subject.id in subject_averages %}
+                                        <span class="badge badge-lg badge-primary">
+                                            {{ subject_averages|get_item:subject.id|get_item:'average_grade'|floatformat:0 }}%
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-lg badge-secondary">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-dark">
+                                    {{ subject.teacher }}
+                                </td>
+                                <td>
+                                    {% if subject.id in subject_averages %}
+                                        {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
+                                            <div class="d-flex align-items-center">
+                                                <div class="subject-progress-bar flex-grow-1 mr-2">
+                                                    <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
+                                                </div>
+                                                <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
+                                            </div>
+                                        {% endwith %}
+                                    {% else %}
                                         <div class="d-flex align-items-center">
                                             <div class="subject-progress-bar flex-grow-1 mr-2">
-                                                <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
+                                                <div class="progress-fill bg-secondary" style="width: 0%"></div>
                                             </div>
-                                            <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
+                                            <span class="text-sm text-dark">0%</span>
                                         </div>
-                                    {% endwith %}
-                                {% else %}
-                                    <div class="d-flex align-items-center">
-                                        <div class="subject-progress-bar flex-grow-1 mr-2">
-                                            <div class="progress-fill bg-secondary" style="width: 0%"></div>
-                                        </div>
-                                        <span class="text-sm text-dark">0%</span>
-                                    </div>
+                                    {% endif %}
+                                </td>
+                                {% if user.is_manager or user.is_supervisor or user.is_admin %}
+                                    <td>
+                                        <a href="{% url 'delete_subject_from_student' subject.id student.id %}"
+                                           class="btn btn-danger btn-sm"
+                                           onclick="return confirm('Are you sure you want to remove this subject from the student?')">
+                                            <i class="fas fa-minus mr-2"></i>Delete
+                                        </a>
+                                    </td>
                                 {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+
+{#        Add Subject Modal#}
+        <div class="modal fade" id="addSubjectModal" tabindex="-1" role="dialog" aria-labelledby="addSubjectModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addSubjectModalLabel">Добавить Предмет</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form method="POST" action="{% url 'add_subject_to_student' student.user.id %}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="input-subject">Предметы</label>
+                                <select id="input-subject" name="subject" class="form-control" required>
+                                  <option value="">Выбрать</option>
+                                  {% for subject in non_student_subjects %}
+                                    <option value="{{ subject.id }}">
+                                      {{ subject.name }}
+                                    </option>
+                                  {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Добавить предмет</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
 
     <!-- Performance Charts -->
     <div class="row mt-4">
@@ -767,14 +828,13 @@ $(document).ready(function() {
                 }
             },
             error: function() {
-                showError('По этому предмету нету заняти или возникли проблемы на стороне сервера!');
+                showError('По этому предмету нету занятий или возникли проблемы на стороне сервера!');
             }
         });
     }
 
     // Function to display lessons in modal
     function displayLessonsInModal(lessons) {
-        console.log("I am in displayLessonsInModal")
         let html = '';
         if (lessons.length === 0) {
             html = '<tr><td colspan="5" class="text-center">No lessons found</td></tr>';
@@ -792,7 +852,7 @@ $(document).ready(function() {
                         <td>
                             <p class="text-xs font-weight-bold mb-0">${lesson.date}</p>
                         </td>
-                        <td class="align-middle text-center text-sm">
+                         <td class="align-middle text-center text-sm">
                             <span class="badge badge-sm bg-gradient-info">
                                 ${lesson.points !== null ? lesson.points : '-'} / ${lesson.maximum_points}
                             </span>
@@ -820,7 +880,7 @@ $(document).ready(function() {
     }
 
     // Handle subject row clicks
-    $('.subject-row').on('click', function() {
+    $('.subjectName').on('click', function() {
         const subjectId = $(this).data('subjectId');
         const subjectName = $(this).data('subjectName');
         const studentId = {{ student.id }};
@@ -1088,6 +1148,43 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
             alert('Ошибка при удалении');
         }
     });
+});
+
+
+
+document.querySelectorAll('[data-target="#deleteStudent_Subject"]').forEach((button) => {
+    button.addEventListener('click', function () {
+        const subjectId = this.getAttribute('data-subject_id');
+        const studentId = {{ student.user.id }}
+
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.action = `/students/${subjectId}/${studentId}/delete_subject_from_student/`;
+    });
+});
+
+{#document.getElementById('confirmDeleteButton').addEventListener('click', () => {#}
+{#    const element = document.getElementById('confirmDeleteButton');#}
+{#    const deleteSubjectId = element.getAttribute('data-subject_id');#}
+{#    const studentId = element.getAttribute('data-student_id');#}
+{##}
+{#    element.setAttribute('href', `/students/${deleteSubjectId}/${studentId}/delete_subject_from_student/`);#}
+
+    {#fetch(`/students/${deleteSubjectId}/${studentId}/delete_subject_from_student`, {#}
+    {#    method: 'POST',#}
+    {#    headers: {#}
+    {#        'X-CSRFToken': getCSRFToken(),#}
+    {#        'Content-Type': 'application/json',#}
+    {#    },#}
+    {#    body: JSON.stringify({})#}
+    {#})#}
+    {#.then(response => {#}
+    {#    if (response.ok) {#}
+    {#        document.querySelector(`[data-subject_id="${deleteSubjectId}"]`).closest('.indicator-item').remove();#}
+    {#        $('#deleteStudent_Subject').modal('hide');#}
+    {#    } else {#}
+    {#        alert('Ошибка при удалении');#}
+    {#    }#}
+    {#});#}
 });
 
 </script>
