@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 
 from apps.home.models import ClassRoom, Subject
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, Student
@@ -55,6 +55,7 @@ def student_details(request, pk):
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
     last_state = psychological_states.last()
     last_updated = last_state.time_added if last_state else None
+    non_student_subjects = Subject.objects.exclude(id__in=subjects.values_list('id', flat=True))
 
 
     context = {
@@ -65,6 +66,26 @@ def student_details(request, pk):
         'templates': templates,
         'psychological_states': psychological_states,
         'last_updated': last_updated,
+        'non_student_subjects': non_student_subjects
     }
     return render(request, 'home/student_details.html', context)
 
+
+@login_required(login_url="/login/")
+def add_subject_to_student(request, pk):
+    student = get_object_or_404(Student, user_id=pk)
+    if request.method == 'POST':
+        subject = request.POST.get('subject')
+        student.subjects.add(subject)
+
+    return redirect('student_details', pk=student.user.id)
+
+
+@login_required(login_url="/login/")
+def delete_subject_from_student(request, subject_id, student_id):
+    student = get_object_or_404(Student, pk=student_id)
+    if request.method == "POST":
+        subject = get_object_or_404(Subject, pk=subject_id)
+        student.subjects.remove(subject)
+
+    return redirect('student_details', pk=student.user.id)
