@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 
+from apps.authentication.forms import UserUpdateForm
 from apps.authentication.models import Teacher
 from apps.home.models import Subject, ClassRoom
 from apps.lesson.models import Lesson
@@ -29,16 +30,9 @@ def teacher_profile_update(request, pk):
 
 
         # Update basic user information
-        user.username = request.POST.get('username')
-        user.email = request.POST.get('email')
-        user.first_name = request.POST.get('first_name')
-        user.last_name = request.POST.get('last_name')
-        user.phone_number = request.POST.get('phone_number')
-        user.address = request.POST.get('address')
-
-        birth_date = request.POST.get('date_of_birth')
-        if birth_date:
-            user.date_of_birth = birth_date
+        form = UserUpdateForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
 
         teacher.gender = request.POST.get('gender')
         teacher.academic_degree = request.POST.get('academic_degree')
