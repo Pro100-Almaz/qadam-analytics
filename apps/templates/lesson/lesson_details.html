@@ -220,7 +220,8 @@
                         <th scope="row">
                           <div class="media align-items-center">
                             <a href="#" class="avatar rounded-circle mr-3">
-                              <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
+                              <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}"
+                                   alt="Photo" class="profile-avatar">
                             </a>
                             <div class="media-body">
                               <span class="name mb-0 text-sm">{{ student.user.get_full_name }}</span>
@@ -366,7 +367,8 @@
             <input type="number" name="weight" class="form-control" min="0" max="100" value="100">
           </div>
           <div class="text-warning">
-            <small>After adding a new subtopic, the total weight proportions for all other subtopics (even from other topics) will be distributed automatically</small>
+            <small>After adding a new subtopic, the total weight proportions for all other subtopics
+                (even from other topics) will be distributed automatically</small>
           </div>
         </div>
         <div class="modal-footer">
