@@ -311,18 +311,15 @@
 
 <div id="buttons" class="mb-4">
     <button type="button" class="btn btn-primary " data-toggle="modal"
-    onclick="
-    document.getElementById('personalInfo').hidden=true;
-    document.getElementById('generalInformation').hidden=false;
-    "><i class="fas mr-2"></i>Общая информация
+
+    onclick="generalInfoBtn()"><i class="fas mr-2"></i>Общая информация
     </button>
 
 
     <button type="button" class="btn btn-primary " data-toggle="modal"
-    onclick="
-    document.getElementById('personalInfo').hidden=false;
-    document.getElementById('generalInformation').hidden=true;
-    "><i class="fas mr-2"></i>Персональная информация
+        onclick="personalInfoBtn()">
+
+        <i class="fas mr-2"></i>Персональная информация
     </button>
 </div>
 
@@ -1373,6 +1370,15 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
         }
     });
 });
+
+function generalInfoBtn(){
+    document.getElementById('generalInformation').hidden = false;
+    document.getElementById('personalInfo').hidden = true;
+};
+function personalInfoBtn(){
+    document.getElementById('generalInformation').hidden = true;
+    document.getElementById('personalInfo').hidden = false;
+}
 
 </script>
 {% endblock javascripts %}
