@@ -472,11 +472,12 @@
                                 </td>
                                 {% if user.is_manager or user.is_supervisor or user.is_admin %}
                                     <td>
-                                        <a href="{% url 'delete_subject_from_student' subject.id student.id %}"
-                                           class="btn btn-danger btn-sm"
-                                           onclick="return confirm('Are you sure you want to remove this subject from the student?')">
-                                            <i class="fas fa-minus mr-2"></i>Delete
-                                        </a>
+                                        <form method="post" action="{% url 'delete_subject_from_student' subject.id student.id %}">
+                                            {% csrf_token %}
+                                            <button class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this subject from the student?')">
+                                                <i class="fas fa-minus mr-2"></i>Delete
+                                            </button>
+                                        </form>
                                     </td>
                                 {% endif %}
                             </tr>
