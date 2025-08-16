@@ -21,6 +21,7 @@ urlpatterns = [
     path('students/<int:pk>/add_subject_to_student', add_subject_to_student, name='add_subject_to_student'),
     path('students/<int:subject_id>/<int:student_id>/delete_subject_from_student/', delete_subject_from_student, name='delete_subject_from_student'),
 
+
     path('teachers', views.teachers_list, name='teachers'),
     path('teachers/<int:pk>', teacher_details, name='teacher_details'),
     path('subjects', subjects_list, name='subjects'),

@@ -83,9 +83,14 @@ def add_subject_to_student(request, pk):
 
 @login_required(login_url="/login/")
 def delete_subject_from_student(request, subject_id, student_id):
+    print(request.POST)
+
     student = get_object_or_404(Student, pk=student_id)
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=subject_id)
+        print(subject)
+        print(student)
         student.subjects.remove(subject)
+
 
     return redirect('student_details', pk=student.user.id)
