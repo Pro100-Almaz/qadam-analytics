@@ -192,13 +192,13 @@
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Username</label>
-                  <p class="form-control-static">{{ student.username }}</p>
+                  <p class="form-control-static">{{ student.user.username }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Email </label>
-                  <p class="form-control-static">{{ student.email }}</p>
+                  <p class="form-control-static">{{ student.user.email }}</p>
                 </div>
               </div>
             </div>
@@ -206,13 +206,13 @@
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Имя</label>
-                  <p class="form-control-static">{{ student.first_name|default:"Not provided" }}</p>
+                  <p class="form-control-static">{{ student.user.first_name|default:"Not provided" }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Фамилия</label>
-                  <p class="form-control-static">{{ student.last_name|default:"Not provided" }}</p>
+                  <p class="form-control-static">{{ student.user.last_name|default:"Not provided" }}</p>
                 </div>
               </div>
             </div>
@@ -221,13 +221,13 @@
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Дата рождения</label>
-                  <p class="form-control-static">{{ student.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                  <p class="form-control-static">{{ student.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="form-group">
                   <label class="form-control-label">Телефонный номер</label>
-                  <p class="form-control-static">{{ student.phone_number|default:"Not provided" }}</p>
+                  <p class="form-control-static">{{ student.user.phone_number|default:"Not provided" }}</p>
                 </div>
               </div>
             </div>
