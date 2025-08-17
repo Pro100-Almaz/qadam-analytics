@@ -26,9 +26,11 @@ def lessons_list(request):
     user = request.user
     classroom_filter = request.GET.get('classroom', 'all')
     subject_filter = request.GET.get('subject', 'all')
+    quarter_filter = request.GET.get('quarter', 'all')
 
     lessons = Lesson.objects.all()
     classrooms = ClassRoom.objects.all()
+    quarters = [1, 2, 3, 4]
 
     if classroom_filter != 'all':
         subjects = Subject.objects.filter(teacher__classroom__name=classroom_filter)
@@ -38,6 +40,8 @@ def lessons_list(request):
 
     if subject_filter != "all":
         lessons = lessons.filter(subject__name=subject_filter)
+    if quarter_filter != "all":
+        lessons = lessons.filter(subject__name=subject_filter, quarter=quarter_filter)
 
     number_of_students = {}
     graded_percent_by_lesson = {}
@@ -68,6 +72,8 @@ def lessons_list(request):
                "classroom_filter": classroom_filter,
                "subject_filter": subject_filter,
                "subjects": subjects,
+               "quarter_filter": quarter_filter,
+               "quarters": quarters,
                "page_obj": page_obj,
                'user': user
                }
