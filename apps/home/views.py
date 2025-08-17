@@ -49,8 +49,8 @@ def profile(request):
     student = None
     if user.is_parent():
         try:
-            parent = Parent.objects.select_related('student').get(user=user)
-            student = parent.student
+            parent = Parent.objects.prefetch_related('students').get(user=user)
+            student = parent.students.all()
         except Parent.DoesNotExist:
             pass
     teacher = Teacher.objects.filter(user=user).first() if user.is_teacher() else None
