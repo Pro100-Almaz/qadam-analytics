@@ -21,6 +21,73 @@ class LoginForm(forms.Form):
             }
         ))
 
+class UserUpdateForm(forms.ModelForm):
+    class Meta:
+        model = CustomUser
+        fields = ['username','email',
+                  'first_name', 'last_name',
+                  'address', 'phone_number', 'date_of_birth']
+    username = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    email = forms.CharField(
+        required=False,
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    first_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control"
+            }
+        )
+    )
+    last_name = forms.CharField(
+        required=False,
+        widget = forms.TextInput(
+            attrs = {
+                "class" : "form-control"
+            }
+        )
+    )
+    phone_number = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "multisteps-form__input form-control",
+                "type": "number",
+                "pattern": r"\d*",
+                "inputmode": "numeric"
+            }
+        )
+    )
+    address = forms.CharField(
+        required = False,
+        widget=forms.TextInput(
+            attrs = {
+                "class" : "form-control"
+            }
+        )
+    )
+    date_of_birth = forms.DateField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "type": "date"
+            }
+        )
+    )
+
 
 class SignUpForm(UserCreationForm):
     first_name = forms.CharField(
@@ -235,4 +302,6 @@ class VerificationPasswordForm(forms.Form):
     class Meta:
         model = CustomUser
         fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+
+
 

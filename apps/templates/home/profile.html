@@ -27,8 +27,6 @@
         <div class="card-header text-center border-0 pt-8 pt-md-4 pb-0 pb-md-4">
           <div class="d-flex justify-content-between">
             {% if user.role != 'student' %}
-{#              <a href="#" class="btn btn-sm btn-info mr-4">Connect</a>#}
-{#              <a href="#" class="btn btn-sm btn-default">Message</a>#}
             {% else %}
               <span class="badge badge-lg badge-{{ user.role|default:'secondary' }}">
                 {{ user.get_role_display }}
