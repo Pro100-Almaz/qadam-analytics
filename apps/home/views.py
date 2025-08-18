@@ -185,12 +185,11 @@ def create_psychological_state(request, pk):
         name = request.POST.get('state_name')
         comment = request.POST.get('comment')
         score = request.POST.get('star_rating')
-        student_id = request.POST.get('student_id')
 
         try:
-            student = Student.objects.get(pk=student_id)
+            student = Student.objects.get(pk=pk)
         except Student.DoesNotExist:
-            messages.error(request, f"Student with id={student_id} does not exist.")
+            messages.error(request, f"Student with id={pk} does not exist.")
             return redirect('students')
 
         if not PsychologicalStateTemplates.objects.filter(name=name).exists():
@@ -223,7 +222,7 @@ def psycho_state_pre_save(sender, instance, **kwargs):
     student_custom_user = target_student.user
 
     try:
-        parent = Parent.objects.get(student_id=student_custom_user.id)
+        parent = Parent.objects.get(student__user=student_custom_user)
     except Parent.DoesNotExist:
         parent = None
 
