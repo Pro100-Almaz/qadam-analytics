@@ -1,8 +1,8 @@
 from django.urls import path, re_path
 from apps.home import views
 
-from apps.home.repo.students import students_list, student_details, classes, student_profile_update
-from apps.home.repo.teachers import teacher_details, teacher_profile_update
+from apps.home.repo.students import students_list, student_details, classes
+from apps.home.repo.teachers import teacher_details
 from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
     delete_subject, extract_subject, process_status_subject
 from apps.home.views import delete_psychological_state
@@ -15,13 +15,11 @@ urlpatterns = [
     path('classes/', classes, name='classes'),
     path('students/', students_list, name='students'),
     path('students/<int:pk>', student_details, name='student_details'),
-    path('students/<int:pk>/update', student_profile_update, name='student_profile_update'),
     path('students/<int:pk>/psychological_state_create', views.create_psychological_state, name='psychological_state_create'),
     path('students/<int:pk>/psychological_state_create/template', views.create_psychological_state_template, name='psychological_state_create_template'),
 
     path('teachers', views.teachers_list, name='teachers'),
     path('teachers/<int:pk>', teacher_details, name='teacher_details'),
-    path('teachers/<int:pk>/update', teacher_profile_update, name='teacher_profile_update'),
     path('subjects', subjects_list, name='subjects'),
     path('subjects/archive', subjects_list, {'status': 'archived'}, name='subjects_archived'),
     path('subjects/planned', subjects_list, {'status': 'planned'}, name='subjects_planned'),
