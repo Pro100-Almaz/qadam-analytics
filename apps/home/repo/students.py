@@ -47,6 +47,31 @@ def students_list(request):
     }
     return render(request, 'home/students.html', context)
 
+def calculate_quarter_grade(quarter, subject_id, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    lessons = Lesson.objects.filter(subject_id=subject_id, quarter=quarter)
+    lesson_quarter_grades = []
+    for lesson in lessons:
+        lesson_quarter_grades.append(round(lesson.calculate_student_grade(student), 1))
+    try:
+        subject_quarter_grade = sum(lesson_quarter_grades)/len(lesson_quarter_grades)
+        return subject_quarter_grade
+    except ZeroDivisionError:
+        return 0
+
+def grade_identifier(percent):
+    grade = 0
+    if percent > 80:
+        grade = 5
+    elif percent > 60:
+        grade = 4
+    elif percent > 40:
+        grade = 3
+    else:
+        grade = 2
+    return grade
+
+
 
 @login_required(login_url="/login/")
 def student_details(request, pk):
@@ -58,10 +83,41 @@ def student_details(request, pk):
     last_state = psychological_states.last()
     last_updated = last_state.time_added if last_state else None
 
+    subject_quarter_grades = {}
+
+    for quarter in [1,2,3,4]:
+        subject_quarter_grades[quarter] = {}
+        for subject in subjects:
+            grade = calculate_quarter_grade(quarter, subject.id, student.id)
+            subject_quarter_grades[quarter][subject.name] = grade if grade is not None else 0
+
+    total_quarter_grades = {}
+    num_subjects = len(subjects)
+    student_total_grade = 0
+    for quarter in [1,2,3,4]:
+        to_add = 0
+        for i in subject_quarter_grades[quarter]:
+            to_add = subject_quarter_grades[quarter][i]
+        to_add = round(to_add / num_subjects, 1)
+        student_total_grade += round(to_add / 4, 1)
+        total_quarter_grades[quarter] = grade_identifier(to_add)
+
+    cumulative_subject_grades = {}
+    for subject in subjects:
+        to_add = 0
+        for quarter in [1,2,3,4]:
+            to_add += subject_quarter_grades[quarter][subject.name]
+        to_add = round(to_add / 4, 1)
+        cumulative_subject_grades[subject.name] = to_add
 
     academic_years = AcademicYear.objects.all()
 
+
     context = {
+        'student_total_grade': student_total_grade,
+        'total_quarter_grades': total_quarter_grades,
+        'cumulative_subject_grades': cumulative_subject_grades,
+        'subject_quarter_grades': list(subject_quarter_grades.items()),
         'academic_years': academic_years,
         'student': student,
         'subjects': subjects,
