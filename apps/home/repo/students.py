@@ -166,3 +166,41 @@ def student_profile_update(request, pk):
 
     return redirect('student_details', pk=student.user.id)
 
+
+@login_required(login_url="/login/")
+def student_profile_update(request, pk):
+    if request.method == "POST":
+        student = get_object_or_404(Student, id = pk)
+        user = student.user
+
+
+        # Update basic user information
+        form = UserUpdateForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+
+        birth_date = request.POST.get('date_of_birth')
+        if birth_date:
+            user.date_of_birth = birth_date
+
+        student.school_group = request.POST.get('school_group')
+        student.academic_year = request.POST.get('academic_year')
+
+        classroom_id = request.POST.get('classroom')
+        if classroom_id:
+            student.classroom_id = classroom_id
+
+        # Handle avatar upload
+        if 'avatar' in request.FILES:
+            user.avatar = request.FILES['avatar']
+
+        try:
+            user.save()
+            student.save()
+            messages.success(request, f"Profile for {student.user.get_full_name()} updated successfully!")
+        except Exception as e:
+            messages.error(request, f"Error updating profile: {str(e)}")
+
+    return redirect('student_details', pk=student.user.id)
+
+
