@@ -1,4 +1,4 @@
-{% extends 'layouts/base.html' %}
+    {% extends 'layouts/base.html' %}
 {% load custom_filters %}
 
 {% block title %} {{ student.get_full_name }} - Профиль ученика {% endblock title %}
@@ -110,7 +110,7 @@
     color: #333;
     margin-bottom: 0.5rem;
     display: flex;
-    justify-content: between;
+    justify-content: left;
     align-items: center;
 }
 
@@ -274,32 +274,28 @@
 
                 <!-- Quick Stats -->
                 <div class="row mt-4">
+{#                    <div class="col-md-4">#}
+{#                        <div class="text-center p-3 bg-light rounded">#}
+{#                            <div class="h4 mb-1 text-primary">{{ attendance_rate|floatformat:0 }}%</div>#}
+{#                            <div class="text-black-50   small" style="color: white">Посещаемость</div>#}
+{#                        </div>#}
+{#                    </div>#}
+{#                    <div class="col-md-4">#}
+{#                        <div class="text-center p-3 bg-light rounded">#}
+{#                            <div class="h4 mb-1 text-success">#}
+{#                                {% if completed_assignments %}#}
+{#                                {{ completed_assignments }}#}
+{#                                {% else %}#}
+{#                                --#}
+{#                                {% endif %}#}
+{#                            </div>#}
+{#                            <div class="text-black-50 small">Заданий выполнено</div>#}
+{#                        </div>#}
+{#                    </div>#}
                     <div class="col-md-4">
                         <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-primary">{{ attendance_rate|floatformat:0 }}%</div>
-                            <div class="text-black-50   small" style="color: white">Посещаемость</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-success">
-                                {% if completed_assignments %}
-                                {{ completed_assignments }}
-                                {% else %}
-                                --
-                                {% endif %}
-                            </div>
-                            <div class="text-black-50 small">Заданий выполнено</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-info">
-                                {% if overall_average %}
-                                {{ overall_average|floatformat:2 }}
-                                {% else %}
-                                --
-                                {% endif %}
+                            <div class="h4 mb-1 text-danger">
+                                {{ student_total_grade }}
                             </div>
                             <div class="text-black-50 small">Средний балл</div>
                         </div>
@@ -311,20 +307,24 @@
 
 <div id="buttons" class="mb-4">
     <button type="button" class="btn btn-primary " data-toggle="modal"
-
     onclick="generalInfoBtn()"><i class="fas mr-2"></i>Общая информация
     </button>
 
 
     <button type="button" class="btn btn-primary " data-toggle="modal"
         onclick="personalInfoBtn()">
-
         <i class="fas mr-2"></i>Персональная информация
     </button>
+
+    <button type="button" class="btn btn-primary " data-toggle="modal"
+        onclick="psychoInfoBtn()">
+        <i class="fas mr-2"></i>Психологическое состояние
+    </button>
+
 </div>
 
-<div id="generalInformation">
-<!-- Dynamic Psychological State Indicators -->
+<div id="psychologicalInformation" hidden>
+    <!-- Dynamic Psychological State Indicators -->
     <div class="psychological-indicators">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="mb-0 text-dark">Психологические показатели</h4>
@@ -376,20 +376,172 @@
         {% endif %}
     </div>
 
+
+<!-- Add Psychological State Modal -->
+<div class="modal fade" id="addPsychologicalStateModal" tabindex="-1" role="dialog" aria-labelledby="addPsychologicalStateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить психологическое состояние</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'psychological_state_create' student.id %}" >
+                {% csrf_token %}
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label for="state_name">Название состояния</label>
+                                <input type="text" class="form-control" id="state_name" name="state_name" required placeholder="Например: Тревожность, Мотивация, Концентрация">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Шаблоны</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle w-100" type="button" id="templateDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-list-alt mr-2"></i>Выбрать шаблон
+                                    </button>
+                                    <div class="dropdown-menu w-100" aria-labelledby="templateDropdown">
+                                        <a class="dropdown-item template-option" href="#" data-name="Тревожность" data-comment="Уровень тревожности студента в учебной среде" data-stars="3">
+                                            <i class="fas fa-exclamation-triangle text-warning mr-2"></i>Тревожность
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Мотивация" data-comment="Уровень мотивации к обучению и участию в занятиях" data-stars="4">
+                                            <i class="fas fa-fire text-danger mr-2"></i>Мотивация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Концентрация" data-comment="Способность сосредоточиться на учебных задачах" data-stars="3">
+                                            <i class="fas fa-bullseye text-info mr-2"></i>Концентрация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Адаптация" data-comment="Уровень адаптации в коллективе и социальных взаимодействий" data-stars="4">
+                                            <i class="fas fa-users text-success mr-2"></i>Адаптация
+                                        </a>
+                                        <a class="dropdown-item template-option" href="#" data-name="Стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
+                                            <i class="fas fa-heart text-primary mr-2"></i>Стабильность
+                                        </a>
+                                            {% for template in templates %}
+                                                <a class="dropdown-item template-option " href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
+                                                    {{ template.name}}
+                                                 </a>
+                                            {% endfor %}
+
+
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
+                                            <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="star_rating">Оценка (звезды)</label>
+                        <div class="star-rating-container">
+                            <div class="star-rating" id="starRating">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                            <input type="hidden" id="star_rating" name="star_rating" value="0" required>
+                            <small class="form-text text-muted">Нажмите на звезды для оценки (1-5)</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comment">Комментарий</label>
+                        <textarea class="form-control" id="comment" name="comment" rows="4" placeholder="Подробное описание психологического состояния студента..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="observation_date">Дата наблюдения</label>
+                        <input type="date" class="form-control" id="observation_date" name="observation_date" value="{% now 'Y-m-d' %}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Create Template Modal -->
+<div class="modal fade" id="createTemplateModal" tabindex="-1" role="dialog" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTemplateModalLabel">Создать шаблон</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'psychological_state_create_template' student.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="template_name">Название шаблона</label>
+                        <input type="text" class="form-control" id="template_name" name="template_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="template_comment">Описание по умолчанию</label>
+                        <textarea class="form-control" id="template_comment" name="template_comment" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать шаблон</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        Вы уверены, что хотите удалить это психологическое состояние?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div id="generalInformation">
     <!-- Quarter Charts (keeping the existing one) -->
     <div class="psychological-chart">
         <h4 class="mb-4 text-dark">Показатели по четвертям:</h4>
         <div class="row">
             {% for quarter in "1234" %}
-            <div class="col-md-3">
-                <div class="quarter-indicator">
-                    <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
-                    <div style="height: 150px; position: relative;">
-                        <canvas id="quarter-{{ quarter }}-chart"></canvas>
-                    </div>
+                <div class="col-md-3">
+                    <div class="quarter-indicator">
+                        <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
+                        <div style="height: 150px; position: relative;">
+                            <canvas id="quarter-{{ quarter }}-chart"></canvas>
+                        </div>
 
+                    </div>
                 </div>
-            </div>
             {% endfor %}
         </div>
     </div>
@@ -440,16 +592,12 @@
                                 </div>
                             </td>
                             <td>
-                                {% if subject.id in subject_averages %}
                                     <span class="badge badge-lg badge-primary">
-                                        {{ subject_averages|get_item:subject.id|get_item:'average_grade'|floatformat:0 }}%
+                                        {{ cumulative_subject_grades|get_item:subject.name}}%
                                     </span>
-                                {% else %}
-                                    <span class="badge badge-lg badge-secondary">-</span>
-                                {% endif %}
                             </td>
                             <td class="text-dark">
-                                {{ subject.student }}
+                                {{ student.user.get_full_name }}
                             </td>
                             <td>
                                 {% if subject.id in subject_averages %}
@@ -606,155 +754,6 @@
             </div>
         </div>
     </div>
-</div>
-
-<!-- Add Psychological State Modal -->
-<div class="modal fade" id="addPsychologicalStateModal" tabindex="-1" role="dialog" aria-labelledby="addPsychologicalStateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить психологическое состояние</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form method="POST" action="{% url 'psychological_state_create' student.id %}" >
-                {% csrf_token %}
-                <input type="hidden" name="student_id" value="{{ student.id }}">
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="form-group">
-                                <label for="state_name">Название состояния</label>
-                                <input type="text" class="form-control" id="state_name" name="state_name" required placeholder="Например: Тревожность, Мотивация, Концентрация">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Шаблоны</label>
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-primary dropdown-toggle w-100" type="button" id="templateDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fas fa-list-alt mr-2"></i>Выбрать шаблон
-                                    </button>
-                                    <div class="dropdown-menu w-100" aria-labelledby="templateDropdown">
-                                        <a class="dropdown-item template-option" href="#" data-name="Тревожность" data-comment="Уровень тревожности студента в учебной среде" data-stars="3">
-                                            <i class="fas fa-exclamation-triangle text-warning mr-2"></i>Тревожность
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Мотивация" data-comment="Уровень мотивации к обучению и участию в занятиях" data-stars="4">
-                                            <i class="fas fa-fire text-danger mr-2"></i>Мотивация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Концентрация" data-comment="Способность сосредоточиться на учебных задачах" data-stars="3">
-                                            <i class="fas fa-bullseye text-info mr-2"></i>Концентрация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Адаптация" data-comment="Уровень адаптации в коллективе и социальных взаимодействий" data-stars="4">
-                                            <i class="fas fa-users text-success mr-2"></i>Адаптация
-                                        </a>
-                                        <a class="dropdown-item template-option" href="#" data-name="Стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
-                                            <i class="fas fa-heart text-primary mr-2"></i>Стабильность
-                                        </a>
-                                            {% for template in templates %}
-                                                <a class="dropdown-item template-option " href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
-                                                    {{ template.name}}
-                                                 </a>
-                                            {% endfor %}
-
-
-                                        <div class="dropdown-divider"></div>
-                                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
-                                            <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="star_rating">Оценка (звезды)</label>
-                        <div class="star-rating-container">
-                            <div class="star-rating" id="starRating">
-                                <span class="star" data-value="1">★</span>
-                                <span class="star" data-value="2">★</span>
-                                <span class="star" data-value="3">★</span>
-                                <span class="star" data-value="4">★</span>
-                                <span class="star" data-value="5">★</span>
-                            </div>
-                            <input type="hidden" id="star_rating" name="star_rating" value="0" required>
-                            <small class="form-text text-muted">Нажмите на звезды для оценки (1-5)</small>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="comment">Комментарий</label>
-                        <textarea class="form-control" id="comment" name="comment" rows="4" placeholder="Подробное описание психологического состояния студента..."></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="observation_date">Дата наблюдения</label>
-                        <input type="date" class="form-control" id="observation_date" name="observation_date" value="{% now 'Y-m-d' %}">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save mr-2"></i>Сохранить
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Create Template Modal -->
-<div class="modal fade" id="createTemplateModal" tabindex="-1" role="dialog" aria-labelledby="createTemplateModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createTemplateModalLabel">Создать шаблон</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form method="POST" action="{% url 'psychological_state_create_template' student.id %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="template_name">Название шаблона</label>
-                        <input type="text" class="form-control" id="template_name" name="template_name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="template_comment">Описание по умолчанию</label>
-                        <textarea class="form-control" id="template_comment" name="template_comment" rows="3"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Создать шаблон</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        Вы уверены, что хотите удалить это психологическое состояние?
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
-        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
-      </div>
-    </div>
-  </div>
-</div>
 </div>
 
 <div id="personalInfo" hidden>
@@ -1023,6 +1022,10 @@
 
 {% include "includes/footer.html" %}
 </div>
+
+{{ subject_quarter_grades|json_script:"subject_quarter_grades" }}
+{{ total_quarter_grades|json_script:"total_quarter_grades" }}
+{{ cumulative_subject_grades|json_script:"cumulative_subject_grades" }}
 {% endblock content %}
 
 {% block javascripts %}
@@ -1120,25 +1123,32 @@ $(document).ready(function() {
           $('#lessonsModal').modal('show');
         });
     });
+
+    const jsonObjects = JSON.parse(document.getElementById('subject_quarter_grades').textContent);
+    let quarter_counter = 0;
+
     {% for quarter in "1234" %}
+        quarter_counter = {{ forloop.counter0 }}
+
         const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');
+
         new Chart(quarter{{ quarter }}Ctx, {
             type: 'bar',
             data: {
                     labels: [
-                        {% for subject in quarter_average|get_item:quarter %}
-                            '{{ subject.subject }}',
+                        {% for subject in subjects %}
+                            "{{ subject.name }}",
                         {% endfor %}
                     ],
-                datasets: [{
-                    data: [
-                        {% for subject in quarter_average|get_item:quarter %}
-                            {{ subject.grade }},
-                        {% endfor %}
-                    ],
-                    backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
-                    borderWidth: 0
-                }]
+                    datasets: [{
+                        data: [
+                            {% for subject in subjects %}
+                                jsonObjects[quarter_counter][1]["{{ subject.name }}"],
+                            {% endfor %}
+                        ],
+                        backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
+                        borderWidth: 2
+                    }]
             },
             options: {
                 responsive: true,
@@ -1154,7 +1164,7 @@ $(document).ready(function() {
                     },
                     y: {
                         display: false,
-                        max: 25
+                        max: 100
                     }
                 }
             }
@@ -1162,6 +1172,8 @@ $(document).ready(function() {
     {% endfor %}
 
     // Quarterly Performance Chart
+    const quarterTotalGrades = JSON.parse(document.getElementById('total_quarter_grades').textContent);
+
     const quarterlyCtx = document.getElementById('quarterly-performance-chart').getContext('2d');
     new Chart(quarterlyCtx, {
         type: 'line',
@@ -1170,10 +1182,10 @@ $(document).ready(function() {
             datasets: [{
                 label: 'Средняя оценка',
                 data: [
-                    {{ quarter_grades.1|default:0 }},
-                    {{ quarter_grades.2|default:0 }},
-                    {{ quarter_grades.3|default:0 }},
-                    {{ quarter_grades.4|default:0 }}
+                    quarterTotalGrades[1],
+                    quarterTotalGrades[2],
+                    quarterTotalGrades[3],
+                    quarterTotalGrades[4],
                 ],
                 borderColor: '#007bff',
                 backgroundColor: 'rgba(0, 123, 255, 0.1)',
@@ -1194,6 +1206,22 @@ $(document).ready(function() {
         }
     });
 
+    const cumulativeSubjectGrades = JSON.parse(document.getElementById('cumulative_subject_grades').textContent);
+
+    function percent_to_grade(percent){
+        let grade = 0;
+        if(percent > 80){
+            grade = 5;
+        }else if (percent > 60){
+            grade = 4;
+        }else if(percent > 40){
+            grade = 3;
+        }else{
+            grade = 2;
+        }
+        return grade;
+    }
+
     // Subjects Performance Chart
     const subjectsCtx = document.getElementById('subjects-performance-chart').getContext('2d');
     new Chart(subjectsCtx, {
@@ -1208,11 +1236,7 @@ $(document).ready(function() {
                 label: 'Успеваемость',
                 data: [
                     {% for subject in subjects %}
-                        {% if subject.id in subject_averages %}
-                            {{ subject_averages|get_item:subject.id|get_item:'average_grade'|default:0 }},
-                        {% else %}
-                            0,
-                        {% endif %}
+                        percent_to_grade(cumulativeSubjectGrades["{{ subject.name }}"]),
                     {% endfor %}
                 ],
                 borderColor: '#28a745',
@@ -1374,10 +1398,20 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
 function generalInfoBtn(){
     document.getElementById('generalInformation').hidden = false;
     document.getElementById('personalInfo').hidden = true;
+    document.getElementById('psychologicalInformation').hidden = true;
+
 };
 function personalInfoBtn(){
     document.getElementById('generalInformation').hidden = true;
     document.getElementById('personalInfo').hidden = false;
+    document.getElementById('psychologicalInformation').hidden = true;
+
+}
+
+function psychoInfoBtn(){
+    document.getElementById('generalInformation').hidden = true;
+    document.getElementById('personalInfo').hidden = true;
+    document.getElementById('psychologicalInformation').hidden = false;
 }
 
 </script>
