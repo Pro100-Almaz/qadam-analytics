@@ -314,23 +314,41 @@
         </div>
     </div>
 
-    <!-- Navigation Buttons -->
-    <div class="row">
-        <div class="col-8">
-            <div class="nav-buttons">
-                <button type="button" class="btn btn-outline-primary active" id="generalInfoBtn" onclick="generalInfoBtn()">
-                    <i class="fas fa-chart-bar mr-2"></i>Общая информация
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="personalInfoBtn" onclick="personalInfoBtn()">
-                    <i class="fas fa-user mr-2"></i>Персональная информация
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="psychoInfoBtn" onclick="psychoInfoBtn()">
-                    <i class="fas fa-brain mr-2"></i>Психологическое состояние
-                </button>
-            </div>
-        </div>
-    </div>
+<div class="row">
+        <div class="nav-buttons">
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="generalInfoBtn"
+                onclick="generalInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black;">
+                <i class="fas fa-chart-bar mr-2"></i> Общая информация
+            </button>
 
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="personalInfoBtn"
+                onclick="personalInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-user mr-2"></i> Персональная информация
+            </button>
+
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="psychoInfoBtn"
+                onclick="psychoInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-brain mr-2"></i> Психологическое состояние
+            </button>
+
+        </div>
+
+</div>
     <!-- Psychological Information Section -->
     <div id="psychologicalInformation" class="content-section" hidden>
         <div class="row">
@@ -1307,41 +1325,47 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
     });
 });
 
-// Navigation functions with improved button styling
-function generalInfoBtn(){
-    // Show/hide sections
+function generalInfoBtn() {
     document.getElementById('generalInformation').hidden = false;
-    document.getElementById('personalInfo').hidden = true;
-    document.getElementById('psychologicalInformation').hidden = true;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('generalInfoBtn').style.color = '#0d6efd';
 
-    // Update button styles
-    document.getElementById('generalInfoBtn').classList.add('active');
-    document.getElementById('personalInfoBtn').classList.remove('active');
-    document.getElementById('psychoInfoBtn').classList.remove('active');
+    document.getElementById('personalInfo').hidden = true;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('personalInfoBtn').style.color = 'black';
+
+    document.getElementById('psychologicalInformation').hidden = true;
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('psychoInfoBtn').style.color = 'black';
 }
 
-function personalInfoBtn(){
-    // Show/hide sections
+function personalInfoBtn() {
     document.getElementById('generalInformation').hidden = true;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('generalInfoBtn').style.color = 'black';
+
     document.getElementById('personalInfo').hidden = false;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('personalInfoBtn').style.color = '#0d6efd';
+
     document.getElementById('psychologicalInformation').hidden = true;
-
-    // Update button styles
-    document.getElementById('generalInfoBtn').classList.remove('active');
-    document.getElementById('personalInfoBtn').classList.add('active');
-    document.getElementById('psychoInfoBtn').classList.remove('active');
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('psychoInfoBtn').style.color = 'black';
 }
 
-function psychoInfoBtn(){
-    // Show/hide sections
+function psychoInfoBtn() {
     document.getElementById('generalInformation').hidden = true;
-    document.getElementById('personalInfo').hidden = true;
-    document.getElementById('psychologicalInformation').hidden = false;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('generalInfoBtn').style.color = 'black';
 
-    // Update button styles
-    document.getElementById('generalInfoBtn').classList.remove('active');
-    document.getElementById('personalInfoBtn').classList.remove('active');
-    document.getElementById('psychoInfoBtn').classList.add('active');
+    document.getElementById('personalInfo').hidden = true;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('personalInfoBtn').style.color = 'black';
+
+    document.getElementById('psychologicalInformation').hidden = false;
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('psychoInfoBtn').style.color = '#0d6efd';
 }
+
 </script>
 {% endblock javascripts %}
