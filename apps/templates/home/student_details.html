@@ -1,4 +1,4 @@
-    {% extends 'layouts/base.html' %}
+{% extends 'layouts/base.html' %}
 {% load custom_filters %}
 
 {% block title %} {{ student.get_full_name }} - Профиль ученика {% endblock title %}
@@ -42,6 +42,7 @@
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     border: none;
     transition: transform 0.3s ease;
+    margin-bottom: 2rem;
 }
 
 .stats-card:hover {
@@ -110,7 +111,7 @@
     color: #333;
     margin-bottom: 0.5rem;
     display: flex;
-    justify-content: left;
+    justify-content: space-between;
     align-items: center;
 }
 
@@ -144,6 +145,34 @@
     font-size: 0.8rem;
     color: #6c757d;
     margin-top: 0.5rem;
+}
+
+/* Navigation buttons styling */
+.nav-buttons {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.nav-buttons .btn {
+    margin-right: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.nav-buttons .btn.active {
+    background-color: #007bff;
+    color: white;
+    border-bottom: 4px solid #0056b3;
+}
+
+/* Content sections */
+.content-section {
+    width: 100%;
+    margin-bottom: 2rem;
 }
 
 /* Star Rating Styles for Psychological State Modal */
@@ -216,70 +245,68 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Student Profile Header -->
-    <div class="mt-4 student-profile-header"
-        {% if student.school_group_id == 4 %}
-            style="background: linear-gradient(to bottom, #F9A84C, #0B0C1B)"
-
-        {% elif student.school_group_id == 2 %}
-            style="background: linear-gradient(to bottom, #0e6642, #031d1d)"
-
-
-        {% elif student.school_group_id == 3 %}
-            style="background: linear-gradient(to bottom, #1c2b83, #060b2b)"
-
-        {% elif student.school_group_id == 1 %}
-            style="background: linear-gradient(to bottom, #2c001e, #0b0a10)"
-
-        {% else %}
-            style="background: linear-gradient(to bottom, purple, red)"
-
-        {% endif %}>
-        <div class="row align-items-stretch">
-            <div class="col-md-3 d-flex align-items-center justify-content-center">
-                <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
-            </div>
-            <div class="col-md-2 d-flex align-items-center justify-content-center">
-                <div class="text-center" style="color: white">
-                    <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
-                         alt="School Group"
-                         class="school-group-image mb-2"
-                        style="width: 90px; height: 90px">
-                    <small class="text-white d-block">Роль: {{ student.user.role }}</small>
-                </div>
-            </div>
-            <div class="col-md-7 d-flex flex-column justify-content-center" style="color: white">
-                <h2 class="mb-4 text-white">{{ student.get_full_name }}</h2>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <div class="student-info-label" style="color: white">ФИО:</div>
-                            <div class="student-info-value" style="color: white">{{ student.user.get_full_name }}</div>
-                        </div>
-                        <div class="mb-3" >
-                            <div class="student-info-label" style="color: white">Класс:</div>
-                            <div class="student-info-value" style="color: white">{{ student.classroom.name }}</div>
+    <div class="row">
+        <div class="col-12">
+            <div class="mt-4 student-profile-header"
+                {% if student.school_group_id == 4 %}
+                    style="background: linear-gradient(to bottom, #F9A84C, #0B0C1B)"
+                {% elif student.school_group_id == 2 %}
+                    style="background: linear-gradient(to bottom, #0e6642, #031d1d)"
+                {% elif student.school_group_id == 3 %}
+                    style="background: linear-gradient(to bottom, #1c2b83, #060b2b)"
+                {% elif student.school_group_id == 1 %}
+                    style="background: linear-gradient(to bottom, #2c001e, #0b0a10)"
+                {% else %}
+                    style="background: linear-gradient(to bottom, purple, red)"
+                {% endif %}>
+                <div class="row align-items-stretch">
+                    <div class="col-md-3 d-flex align-items-center justify-content-center">
+                        <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center justify-content-center">
+                        <div class="text-center" style="color: white">
+                            <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
+                                 alt="School Group"
+                                 class="school-group-image mb-2"
+                                style="width: 90px; height: 90px">
+                            <small class="text-white d-block">Роль: {{ student.user.role }}</small>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <div class="student-info-label" style="color: white">Email:</div>
-                            <div class="student-info-value" style="color: white">{{ student.user.email }}</div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="student-info-label" style="color: white">Очки активности:</div>
-                            <div class="student-info-value" style="color: white">{{ participation_score|floatformat:0 }}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Stats -->
-                <div class="row mt-4">
-                    <div class="col-md-6 ">
-                        <div class="text-center p-3 bg-light rounded">
-                            <div class="h4 mb-1 text-danger">
-                                {{ student_total_grade }}
+                    <div class="col-md-7 d-flex flex-column justify-content-center" style="color: white">
+                        <h2 class="mb-4 text-white">{{ student.get_full_name }}</h2>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <div class="student-info-label" style="color: white">ФИО:</div>
+                                    <div class="student-info-value" style="color: white">{{ student.user.get_full_name }}</div>
+                                </div>
+                                <div class="mb-3" >
+                                    <div class="student-info-label" style="color: white">Класс:</div>
+                                    <div class="student-info-value" style="color: white">{{ student.classroom.name }}</div>
+                                </div>
                             </div>
-                            <div class="text-black-50 small">Средний балл</div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <div class="student-info-label" style="color: white">Email:</div>
+                                    <div class="student-info-value" style="color: white">{{ student.user.email }}</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="student-info-label" style="color: white">Очки активности:</div>
+                                    <div class="student-info-value" style="color: white">{{ participation_score|floatformat:0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Stats -->
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="text-center p-3 bg-light rounded">
+                                    <div class="h4 mb-1 text-danger">
+                                        {{ student_total_grade }}
+                                    </div>
+                                    <div class="text-black-50 small">Средний балл</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -287,77 +314,350 @@
         </div>
     </div>
 
-<div id="buttons" class="mb-4">
-    <button type="button" class="btn btn-primary " data-toggle="modal"
-    onclick="generalInfoBtn()"><i class="fas mr-2"></i>Общая информация
-    </button>
+<div class="row">
+        <div class="nav-buttons">
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="generalInfoBtn"
+                onclick="generalInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black;">
+                <i class="fas fa-chart-bar mr-2"></i> Общая информация
+            </button>
 
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="personalInfoBtn"
+                onclick="personalInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-user mr-2"></i> Персональная информация
+            </button>
 
-    <button type="button" class="btn btn-primary " data-toggle="modal"
-        onclick="personalInfoBtn()">
-        <i class="fas mr-2"></i>Персональная информация
-    </button>
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="psychoInfoBtn"
+                onclick="psychoInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-brain mr-2"></i> Психологическое состояние
+            </button>
 
-    <button type="button" class="btn btn-primary " data-toggle="modal"
-        onclick="psychoInfoBtn()">
-        <i class="fas mr-2"></i>Психологическое состояние
-    </button>
+        </div>
 
 </div>
+    <!-- Psychological Information Section -->
+    <div id="psychologicalInformation" class="content-section" hidden>
+        <div class="row">
+            <div class="col-12">
+                <div class="psychological-indicators">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0 text-dark">Психологические показатели</h4>
+                        <div>
+                            {% if user.is_manager or user.is_admin or user.is_supervisor %}
+                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addPsychologicalStateModal">
+                                    <i class="fas fa-plus mr-2"></i>Добавить состояние
+                                </button>
+                                <br>
+                                <small class="text-muted mr-3">Обновлено: {{ last_updated|date:"d.m.Y" }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
 
-<div id="psychologicalInformation" hidden>
-    <!-- Dynamic Psychological State Indicators -->
-    <div class="psychological-indicators">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="mb-0 text-dark">Психологические показатели</h4>
-            <div>
+                    {% if psychological_states %}
+                        {% for state in psychological_states %}
+                        <div class="indicator-item">
+                            <div class="indicator-label">
+                                <span>{{ state.name }}</span>
+                                <span class="indicator-value">{{ state.score }}</span>
+                            </div>
+                            <div class="horizontal-progress">
+                                <div class="progress-bar-horizontal
+                                    {% if state.score == 5 %}progress-excellent
+                                    {% elif state.score == 4 %}progress-good
+                                    {% elif state.score >= 3 %}progress-average
+                                    {% else %}progress-poor
+                                    {% endif %}"
+                                    style="width: {{ state.score|add:"0" }}0%"
+                                    data-value="{% widthratio state.score 1 20 %}">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Психологические показатели пока не добавлены</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 
-                {% if user.is_manager or user.is_admin or user.is_supervisor %}
-                	<button type="button" class="btn btn-primary " data-toggle="modal" data-target="#addPsychologicalStateModal">
-                        <i class="fas fa-plus mr-2"></i>Добавить состояние
-                    </button>
-                    <br>
-                    <small class="text-muted mr-3">Обновлено: {{ last_updated|date:"d.m.Y" }}</small>
-                {% endif %}
-
-
+    <!-- General Information Section -->
+    <div id="generalInformation" class="content-section">
+        <!-- Quarter Charts -->
+        <div class="row">
+            <div class="col-12">
+                <div class="psychological-chart">
+                    <h4 class="mb-4 text-dark">Показатели по четвертям:</h4>
+                    <div class="row">
+                        {% for quarter in "1234" %}
+                            <div class="col-md-3">
+                                <div class="quarter-indicator">
+                                    <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
+                                    <div style="height: 150px; position: relative;">
+                                        <canvas id="quarter-{{ quarter }}-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
 
-        {% if psychological_states %}
-            {% for state in psychological_states %}
-            <div class="indicator-item">
-                <div class="indicator-label">
-                    <span>{{ state.name }}</span>
-                    <span class="indicator-value">{{ state.score }}</span>
-                </div>
-                <div class="horizontal-progress">
-                    <div class="progress-bar-horizontal
-
-                        {% if state.score == 5 %}progress-excellent
-
-                        {% elif state.score == 4 %}progress-good
-
-                        {% elif state.score >= 3 %}progress-average
-
-                        {% else %}progress-poor
-
-                        {% endif %}"
-                        style="width: {{ state.score|add:"0" }}0%"
-                        data-value="{% widthratio state.score 1 20 %}">
+        <!-- Subjects Performance -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card stats-card">
+                    <div class="card-header border-0">
+                        <h4 class="mb-0 text-dark">Subjects</h4>
                     </div>
-                </div >
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-flush">
+                                <thead>
+                                    <tr>
+                                        <th class="text-dark">Subject</th>
+                                        <th class="text-dark">Score</th>
+                                        <th class="text-dark">Student</th>
+                                        <th class="text-dark">Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for subject in subjects %}
+                                    <tr class="subject-row" style="cursor: pointer;" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if subject.name == "Math" %}
+                                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-calculator"></i>
+                                                    </div>
+                                                {% elif subject.name == "English" %}
+                                                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-language"></i>
+                                                    </div>
+                                                {% elif subject.name == "Kazakh" %}
+                                                    <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-flag"></i>
+                                                    </div>
+                                                {% elif subject.name == "Science" %}
+                                                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-flask"></i>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
+                                                        <i class="fas fa-book"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <span class="font-weight-bold text-dark">{{ subject.name }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-lg badge-primary">
+                                                {{ cumulative_subject_grades|get_item:subject.name}}%
+                                            </span>
+                                        </td>
+                                        <td class="text-dark">
+                                            {{ student.user.get_full_name }}
+                                        </td>
+                                        <td>
+                                            {% if subject.id in subject_averages %}
+                                                {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="subject-progress-bar flex-grow-1 mr-2">
+                                                            <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
+                                                        </div>
+                                                        <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
+                                                    </div>
+                                                {% endwith %}
+                                            {% else %}
+                                                <div class="d-flex align-items-center">
+                                                    <div class="subject-progress-bar flex-grow-1 mr-2">
+                                                        <div class="progress-fill bg-secondary" style="width: 0%"></div>
+                                                    </div>
+                                                    <span class="text-sm text-dark">0%</span>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- Performance Charts -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header border-0">
+                        <h5 class="mb-0 text-dark">Успеваемость за четверти</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="quarterly-performance-chart" style="height: 300px;"></canvas>
+                    </div>
+                </div>
             </div>
-        {% endfor %}
-        {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-                <p class="text-muted">Психологические показатели пока не добавлены</p>
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header border-0">
+                        <h5 class="mb-0 text-dark">Средние оценки по предметам</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="subjects-performance-chart" style="height: 300px;"></canvas>
+                    </div>
+                </div>
             </div>
-        {% endif %}
+        </div>
     </div>
 
+    <!-- Personal Information Section -->
+    <div id="personalInfo" class="content-section" hidden>
+        <div class="row">
+            <div class="col-12">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h3 class="mb-0">Profile Information</h3>
+                            </div>
+                            {% if user.is_manager or user.is_supervisor or user.is_admin %}
+                                <div class="col-auto">
+                                    <button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal">
+                                        <i class="ni ni-settings-gear-65"></i> Изменить Данные
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <h6 class="heading-small text-muted mb-4">Персональные данные</h6>
+                        <div class="pl-lg-4">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Username</label>
+                                        <p class="form-control-static">{{ student.user.username }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Email</label>
+                                        <p class="form-control-static">{{ student.user.email }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Имя</label>
+                                        <p class="form-control-static">{{ student.user.first_name|default:"Not provided" }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Фамилия</label>
+                                        <p class="form-control-static">{{ student.user.last_name|default:"Not provided" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Дата рождения</label>
+                                        <p class="form-control-static">{{ student.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Телефонный номер</label>
+                                        <p class="form-control-static">{{ student.user.phone_number|default:"Not provided" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Академический Год</label>
+                                        <p class="form-control-static">{{ student.academic_year }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <h6 class="heading-small text-muted mb-4">Данные о школе</h6>
+                        <div class="pl-lg-4">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Роль</label>
+                                        <p class="form-control-static">
+                                            <span class="badge badge-lg badge-{{ student.user.role|default:'secondary' }}">
+                                                {{ student.user.get_role_display }}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Школа</label>
+                                        <p class="form-control-static">{{ student.user.get_school_display }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if student.classroom %}
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Класс</label>
+                                        <p class="form-control-static">{{ student.classroom.name }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <h6 class="heading-small text-muted mb-4">Данные для связи</h6>
+                        <div class="pl-lg-4">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label class="form-control-label">Адрес</label>
+                                        <p class="form-control-static">{{ student.user.address|default:"Not provided" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Add Psychological State Modal -->
 <div class="modal fade" id="addPsychologicalStateModal" tabindex="-1" role="dialog" aria-labelledby="addPsychologicalStateModalLabel" aria-hidden="true">
@@ -369,7 +669,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form method="POST" action="{% url 'psychological_state_create' student.id %}" >
+            <form method="POST" action="{% url 'psychological_state_create' student.id %}">
                 {% csrf_token %}
                 <input type="hidden" name="student_id" value="{{ student.id }}">
                 <div class="modal-body">
@@ -403,13 +703,11 @@
                                         <a class="dropdown-item template-option" href="#" data-name="Стабильность" data-comment="Способность контролировать эмоции и справляться со стрессом" data-stars="3">
                                             <i class="fas fa-heart text-primary mr-2"></i>Стабильность
                                         </a>
-                                            {% for template in templates %}
-                                                <a class="dropdown-item template-option " href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
-                                                    {{ template.name}}
-                                                 </a>
-                                            {% endfor %}
-
-
+                                        {% for template in templates %}
+                                            <a class="dropdown-item template-option" href="#" data-name="{{ template.name }}" data-comment="{{ template.comment }}">
+                                                {{ template.name}}
+                                            </a>
+                                        {% endfor %}
                                         <div class="dropdown-divider"></div>
                                         <a class="dropdown-item" href="#" data-toggle="modal" data-target="#createTemplateModal">
                                             <i class="fas fa-plus text-muted mr-2"></i>Создать новый шаблон
@@ -487,225 +785,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        Вы уверены, что хотите удалить это психологическое состояние?
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
-        <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-</div>
-
-<div id="generalInformation">
-    <!-- Quarter Charts (keeping the existing one) -->
-    <div class="psychological-chart">
-        <h4 class="mb-4 text-dark">Показатели по четвертям:</h4>
-        <div class="row">
-            {% for quarter in "1234" %}
-                <div class="col-md-3">
-                    <div class="quarter-indicator">
-                        <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
-                        <div style="height: 150px; position: relative;">
-                            <canvas id="quarter-{{ quarter }}-chart"></canvas>
-                        </div>
-
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Subjects Performance -->
-    <div class="card stats-card">
-        <div class="card-header border-0">
-            <h4 class="mb-0 text-dark">Subjects</h4>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-flush">
-                    <thead>
-                        <tr>
-                            <th class="text-dark">Subject</th>
-                            <th class="text-dark">Score</th>
-                            <th class="text-dark">student</th>
-                            <th class="text-dark">Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for subject in subjects %}
-                        <tr class="subject-row" style="cursor: pointer;" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    {% if subject.name == "Math" %}
-                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-calculator"></i>
-                                        </div>
-                                    {% elif subject.name == "English" %}
-                                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-language"></i>
-                                        </div>
-                                    {% elif subject.name == "Kazakh" %}
-                                        <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-flag"></i>
-                                        </div>
-                                    {% elif subject.name == "Science" %}
-                                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-flask"></i>
-                                        </div>
-                                    {% else %}
-                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-book"></i>
-                                        </div>
-                                    {% endif %}
-                                    <span class="font-weight-bold text-dark">{{ subject.name }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                    <span class="badge badge-lg badge-primary">
-                                        {{ cumulative_subject_grades|get_item:subject.name}}%
-                                    </span>
-                            </td>
-                            <td class="text-dark">
-                                {{ student.user.get_full_name }}
-                            </td>
-                            <td>
-                                {% if subject.id in subject_averages %}
-                                    {% with progress=subject_averages|get_item:subject.id|get_item:'average_grade' %}
-                                        <div class="d-flex align-items-center">
-                                            <div class="subject-progress-bar flex-grow-1 mr-2">
-                                                <div class="progress-fill bg-success" style="width: {{ progress }}%"></div>
-                                            </div>
-                                            <span class="text-sm text-dark">{{ progress|floatformat:0 }}%</span>
-                                        </div>
-                                    {% endwith %}
-                                {% else %}
-                                    <div class="d-flex align-items-center">
-                                        <div class="subject-progress-bar flex-grow-1 mr-2">
-                                            <div class="progress-fill bg-secondary" style="width: 0%"></div>
-                                        </div>
-                                        <span class="text-sm text-dark">0%</span>
-                                    </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Performance Charts -->
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card stats-card">
-                <div class="card-header border-0">
-                    <h5 class="mb-0 text-dark">Успеваемость за четверти</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="quarterly-performance-chart" style="height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card stats-card">
-                <div class="card-header border-0">
-                    <h5 class="mb-0 text-dark">Средние оценки по предметам</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="subjects-performance-chart" style="height: 300px;"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Detailed Performance Modal -->
-<div class="modal fade" id="detailedPerformanceModal" tabindex="-1" role="dialog" aria-labelledby="detailedPerformanceModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="detailedPerformanceModalLabel">Детальная успеваемость</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-flush">
-                        <thead>
-                            <tr>
-                                <th class="text-dark">Subject</th>
-                                <th class="text-dark">Score</th>
-                                <th class="text-dark">Phase</th>
-                                <th class="text-dark">%</th>
-                                <th class="text-dark">Комментарии</th>
-                                <th class="text-dark">Тема</th>
-                                <th class="text-dark">Комментарий к уроку</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for subject in subjects %}
-                            <tr class="detailed-row" data-subject-id="{{ subject.id }}" style="display: none;">
-                                <td class="font-weight-bold text-dark">{{ subject.name }}</td>
-                                <td class="text-dark">
-                                    {% if subject.id in subject_averages %}
-                                        {{ subject_averages|get_item:subject.id|get_item:'average_points'|floatformat:0 }}|24
-                                    {% else %}
-                                        -|24
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge badge-warning">III</span>
-                                </td>
-                                <td class="text-dark">
-                                    {% if subject.id in subject_averages %}
-                                        100%
-                                    {% else %}
-                                        0%
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="d-flex">
-                                        <span class="badge badge-success mr-1">Жаксы</span>
-                                        <span class="badge badge-warning mr-1">Орташа</span>
-                                        <span class="badge badge-danger">Томен</span>
-                                    </div>
-                                </td>
-                                <td class="text-sm text-dark">Последняя изученная тема</td>
-                                <td class="text-sm text-dark">
-                                    {% if subject.id in subject_averages and subject_averages|get_item:subject.id|get_item:'latest_lesson_comment' %}
-                                        {{ subject_averages|get_item:subject.id|get_item:'latest_lesson_comment'|truncatechars:50 }}
-                                    {% else %}
-                                        <span class="text-muted">Нет комментария</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Lessons Modal -->
 <div class="modal fade" id="lessonsModal" tabindex="-1" role="dialog" aria-labelledby="lessonsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
@@ -738,272 +817,144 @@
     </div>
 </div>
 
-<div id="personalInfo" hidden>
-
-    <div class="col-xl-12 order-xl-1 card stats-card">
-      <div class="">
-        <div class="card-header">
-          <div class="row align-items-center">
-            <div class="col">
-              <h3 class="mb-0">Profile Information</h3>
-            </div>
-            {% if user.is_manager or user.is_supervisor or user.is_admin%}
-            	<button type="button" class="btn btn-neutral" data-toggle="modal" data-target="#editProfileModal" >
-                  <i class="ni ni-settings-gear-65"></i> Изменить Данные
-                </button>
-            {% endif %}
-
-           </div>
-        </div>
-
-        <div class="card-body">
-          <h6 class="heading-small text-muted mb-4">Персональные данные</h6>
-          <div class="pl-lg-4">
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Username</label>
-                  <p class="form-control-static">{{ student.user.username }}</p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Email </label>
-                  <p class="form-control-static">{{ student.user.email }}</p>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Имя</label>
-                  <p class="form-control-static">{{ student.user.first_name|default:"Not provided" }}</p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Фамилия</label>
-                  <p class="form-control-static">{{ student.user.last_name|default:"Not provided" }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Дата рождения</label>
-                  <p class="form-control-static">{{ student.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Телефонный номер</label>
-                  <p class="form-control-static">{{ student.user.phone_number|default:"Not provided" }}</p>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Акакдемический Год</label>
-                  <p class="form-control-static">{{ student.academic_year}}</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <hr class="my-4" />
-
-          <h6 class="heading-small text-muted mb-4">Данные о школе</h6>
-          <div class="pl-lg-4">
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Роль</label>
-                  <p class="form-control-static">
-                    <span class="badge badge-lg badge-{{ student.user.role|default:'secondary' }}">
-                      {{ student.user.get_role_display }}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Школа</label>
-                  <p class="form-control-static">{{ student.user.get_school_display }}</p>
-                </div>
-              </div>
-            </div>
-            {% if user.classroom %}
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Класс</label>
-                  <p class="form-control-static">{{ user.classroom.name }}</p>
-                </div>
-              </div>
-              {% if user.student_id %}
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">ID Ученика</label>
-                  <p class="form-control-static">{{ user.student_id }}</p>
-                </div>
-              </div>
-              {% endif %}
-            </div>
-            {% endif %}
-          </div>
-
-          <hr class="my-4" />
-
-          <h6 class="heading-small text-muted mb-4">Данные для связи</h6>
-          <div class="pl-lg-4">
-            <div class="row">
-              <div class="col-md-12">
-                <div class="form-group">
-                  <label class="form-control-label">Адрес</label>
-                  <p class="form-control-static">{{ user.address|default:"Not provided" }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-</div>
-
 <!-- Edit Profile Modal -->
 <div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <form method="post" enctype="multipart/form-data" action="{% url 'student_profile_update' student.id%}">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="editProfileModalLabel">Изменить Данные</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data" action="{% url 'student_profile_update' student.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfileModalLabel">Изменить Данные</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    {% if user.is_admin or user.is_supervisor or user.is_manager %}
+                        <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
+                    {% else %}
+                        <p class="text-warning">
+                            You are not allowed to directly change your profile information!<br>
+                            The changes will be sent to the managing council and applied after review.
+                        </p>
+                    {% endif %}
+
+                    <!-- Basic Info -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-username">Username</label>
+                                <input type="text" id="input-username" name="username" class="form-control" value="{{ student.user.username }}" required>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-email">Email</label>
+                                <input type="email" id="input-email" name="email" class="form-control" value="{{ student.user.email }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Name -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-first-name">Имя</label>
+                                <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ student.user.first_name }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-last-name">Фамилия</label>
+                                <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ student.user.last_name }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-phone">Телефонный номер</label>
+                                <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ student.user.phone_number }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-dob">Дата рождения</label>
+                                <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ student.user.date_of_birth|date:'Y-m-d' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Student Fields -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-academic-year">Академический Год</label>
+                                <select id="input-academic-year" name="academic_year" class="form-control">
+                                    <option value="">Выбрать</option>
+                                    {% for year in academic_years %}
+                                        <option value="{{ year.id }}" {% if student.academic_year == year %}selected{% endif %}>{{ year }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="form-group">
+                                <label for="input-classroom">Класс</label>
+                                <select id="input-classroom" name="classroom" class="form-control">
+                                    <option value="">Выбрать</option>
+                                    {% for classroom in classrooms %}
+                                        <option value="{{ classroom.id }}" {% if student.classroom.id == classroom.id %}selected{% endif %}>
+                                            {{ classroom.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Avatar Upload -->
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="form-group">
+                                <label for="input-avatar">Profile Picture</label>
+                                <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </div>
+            </form>
         </div>
-
-        <div class="modal-body">
-          {% if user.is_admin or user.is_supervisor or user.is_manager %}
-              <h6 class="heading-small text-muted mb-4">Персональные Данные</h6>
-          {% else %}
-              <p class="text-warning">
-                  You are not allowed to directly change your profile information!<br>
-                  The changes will be sent to the managing council and applied after review.
-              </p>
-          {% endif %}
-
-          <!-- Basic Info -->
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-username">Username</label>
-                <input type="text" id="input-username" name="username" class="form-control" value="{{ student.user.username }}" required>
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-email">Email</label>
-                <input type="email" id="input-email" name="email" class="form-control" value="{{ student.user.email }}" required>
-              </div>
-            </div>
-          </div>
-
-          <!-- Name -->
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-first-name">Имя</label>
-                <input type="text" id="input-first-name" name="first_name" class="form-control" value="{{ student.user.first_name }}">
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-last-name">Фамилия</label>
-                <input type="text" id="input-last-name" name="last_name" class="form-control" value="{{ student.user.last_name }}">
-              </div>
-            </div>
-          </div>
-
-          <!-- Contact -->
-          <div class="row">
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-phone">Телефонный номер</label>
-                <input type="tel" id="input-phone" name="phone_number" class="form-control" value="{{ student.user.phone_number }}">
-              </div>
-            </div>
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-dob">Дата рождения</label>
-                <input type="date" id="input-dob" name="date_of_birth" class="form-control" value="{{ student.user.date_of_birth|date:'Y-m-d' }}">
-              </div>
-            </div>
-          </div>
-
-          <!-- student Fields -->
-          <div class="row">
-            <!-- Gender Select -->
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-gender">Акакдемический Год</label>
-                <select id="input-gender" name="gender" class="form-control">
-                  <option value="">Выбрать</option>
-                  {% for year in academic_years %}
-                      <option value="year" {% if student.academic_year == year %}selected{% endif %}>{{ year }}</option>
-                  {% endfor %}
-                  
-                </select>
-              </div>
-            </div>
-
-            <!-- Classroom Select -->
-            <div class="col-lg-6">
-              <div class="form-group">
-                <label for="input-classroom">Класс</label>
-                <select id="input-classroom" name="classroom" class="form-control">
-                  <option value="">Выбрать</option>
-                  {% for classroom in classrooms %}
-                    <option value="{{ student.classroom.id }}" {% if student.classroom.id == classroom.id %}selected{% endif %}>
-                      {{ classroom.name }}
-                    </option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Avatar Upload -->
-          <div class="row">
-            <div class="col-lg-12">
-              <div class="form-group">
-                <label for="input-avatar">Profile Picture (отправится на почту)</label>
-                <input type="file" id="input-avatar" name="avatar" class="form-control" accept="image/*">
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="modal-footer">
-            	<button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
 
-
-
+<!-- Confirm Delete Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteLabel">Подтвердите удаление</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите удалить это психологическое состояние?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Удалить</button>
+            </div>
+        </div>
+    </div>
 </div>
-
-
 
 {% include "includes/footer.html" %}
-</div>
 
 {{ subject_quarter_grades|json_script:"subject_quarter_grades" }}
 {{ total_quarter_grades|json_script:"total_quarter_grades" }}
@@ -1040,7 +991,6 @@ $(document).ready(function() {
 
     // Function to display lessons in modal
     function displayLessonsInModal(lessons) {
-        console.log("I am in displayLessonsInModal")
         let html = '';
         if (lessons.length === 0) {
             html = '<tr><td colspan="5" class="text-center">No lessons found</td></tr>';
@@ -1101,36 +1051,34 @@ $(document).ready(function() {
         fetchSubjectLessons(studentId, subjectId);
 
         // Show the modal
-        $(function() {
-          $('#lessonsModal').modal('show');
-        });
+        $('#lessonsModal').modal('show');
     });
 
     const jsonObjects = JSON.parse(document.getElementById('subject_quarter_grades').textContent);
     let quarter_counter = 0;
 
     {% for quarter in "1234" %}
-        quarter_counter = {{ forloop.counter0 }}
+        quarter_counter = {{ forloop.counter0 }};
 
         const quarter{{ quarter }}Ctx = document.getElementById('quarter-{{ quarter }}-chart').getContext('2d');
 
         new Chart(quarter{{ quarter }}Ctx, {
             type: 'bar',
             data: {
-                    labels: [
+                labels: [
+                    {% for subject in subjects %}
+                        "{{ subject.name }}",
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
                         {% for subject in subjects %}
-                            "{{ subject.name }}",
+                            jsonObjects[quarter_counter][1]["{{ subject.name }}"],
                         {% endfor %}
                     ],
-                    datasets: [{
-                        data: [
-                            {% for subject in subjects %}
-                                jsonObjects[quarter_counter][1]["{{ subject.name }}"],
-                            {% endfor %}
-                        ],
-                        backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
-                        borderWidth: 2
-                    }]
+                    backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#A020F0'],
+                    borderWidth: 2
+                }]
             },
             options: {
                 responsive: true,
@@ -1377,23 +1325,46 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
     });
 });
 
-function generalInfoBtn(){
+function generalInfoBtn() {
     document.getElementById('generalInformation').hidden = false;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('generalInfoBtn').style.color = '#0d6efd';
+
     document.getElementById('personalInfo').hidden = true;
-    document.getElementById('psychologicalInformation').hidden = true;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('personalInfoBtn').style.color = 'black';
 
-};
-function personalInfoBtn(){
-    document.getElementById('generalInformation').hidden = true;
-    document.getElementById('personalInfo').hidden = false;
     document.getElementById('psychologicalInformation').hidden = true;
-
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('psychoInfoBtn').style.color = 'black';
 }
 
-function psychoInfoBtn(){
+function personalInfoBtn() {
     document.getElementById('generalInformation').hidden = true;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('generalInfoBtn').style.color = 'black';
+
+    document.getElementById('personalInfo').hidden = false;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('personalInfoBtn').style.color = '#0d6efd';
+
+    document.getElementById('psychologicalInformation').hidden = true;
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('psychoInfoBtn').style.color = 'black';
+}
+
+function psychoInfoBtn() {
+    document.getElementById('generalInformation').hidden = true;
+    document.getElementById('generalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('generalInfoBtn').style.color = 'black';
+
     document.getElementById('personalInfo').hidden = true;
+    document.getElementById('personalInfoBtn').style.borderBottom = '4px solid #ddd';
+    document.getElementById('personalInfoBtn').style.color = 'black';
+
     document.getElementById('psychologicalInformation').hidden = false;
+    document.getElementById('psychoInfoBtn').style.borderBottom = '4px solid #0d6efd';
+    document.getElementById('psychoInfoBtn').style.color = '#0d6efd';
 }
 
 </script>
