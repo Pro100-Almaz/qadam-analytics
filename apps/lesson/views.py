@@ -383,11 +383,14 @@ def submit_all_topic_grades(request):
                 covered = request.POST.get(f'subtopic_{sub.id}_covered')
                 grade_value = 100 if covered else 0
 
+                comment = request.POST.get(f'subtopic_{sub.id}_comment', '').strip()
+
                 # Preserve existing comment; no comment is posted from read-only UI
                 tg, _created = TopicGrade.objects.update_or_create(
                     student=student,
                     topic=sub,
-                    defaults={'grade': grade_value}
+                    defaults={'grade': grade_value,
+                              'comment': comment}
                 )
 
             # Topic-level grade/comment
@@ -399,10 +402,14 @@ def submit_all_topic_grades(request):
                 covered = request.POST.get(f'topic_{topic.id}_covered')
                 topic_grade_value = 100 if covered else 0
 
+            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '').strip()
+
             TopicGrade.objects.update_or_create(
                 student=student,
                 topic=topic,
-                defaults={'grade': topic_grade_value}
+                defaults={'grade': topic_grade_value,
+                          'comment': topic_comment
+                          }
             )
 
         return redirect('lesson:grading', pk=lesson.id)
