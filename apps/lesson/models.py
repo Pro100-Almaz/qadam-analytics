@@ -153,21 +153,7 @@ class TopicGrade(models.Model):
         unique_together = ('topic', 'student')
 
 
-class StudentGrade(models.Model):
-    lesson = models.ForeignKey(Lesson, related_name='lesson_grade', on_delete=models.DO_NOTHING)
-    student = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='lesson_student_grade',
-                                on_delete=models.DO_NOTHING)
-    grade = models.PositiveIntegerField(default=0, help_text="Grade of the lesson")
-    points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
-
-    comment = models.TextField(blank=True, help_text="Comment of the lesson")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.lesson.title} - {self.student}"
-
-
-class Comment(models.Model):
+class GeneralLessonComment(models.Model):
     lesson = models.ForeignKey(
         Lesson,
         related_name='lesson_comment',
@@ -175,10 +161,15 @@ class Comment(models.Model):
         null=True,
         blank=True
     )
+    student = models.ForeignKey(
+        'authentication.Student',
+        related_name='lesson_comment',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL
+    )
 
-    from_points = models.PositiveIntegerField(default=0, help_text="Points of the lesson")
-    to_points = models.PositiveIntegerField(default=100, help_text="Points of the lesson")
     comment_text = models.TextField(help_text="Template comment text")
 
     def __str__(self):
-        return f"Comment template for points {self.from_points}-{self.to_points}"
+        return f"{self.student} - {self.lesson}: {self.comment_text[:30]}"
