@@ -4,7 +4,7 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
 
 from apps.home.forms import SubjectForm
-from apps.lesson.models import Lesson, StudentGrade
+from apps.lesson.models import Lesson
 from apps.home.models import Subject
 from apps.authentication.models import CustomUser, Student
 from django.shortcuts import render, redirect, get_object_or_404
