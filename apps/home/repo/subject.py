@@ -45,6 +45,8 @@ def subjects_list(request, status=None):
     if status is None:
         status = request.GET.get('status', 'active')
     year_id = request.GET.get('year')
+    lang_filter = request.GET.get('lang', 'all')
+
 
     if status == 'all':
         subjects = Subject.objects.all()
@@ -63,20 +65,44 @@ def subjects_list(request, status=None):
     if year_id:
         subjects = subjects.filter(academic_year_id=year_id)
 
+    langs = ['kaz', 'rus', 'eng']
+    if lang_filter == 'all':
+        subjects = Subject.objects.filter(status=status, academic_year_id=year_id)
+    else:
+        subjects = Subject.objects.filter(status=status, academic_year_id=year_id, language_group=lang_filter)
+
+
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
     page_obj = paginator.get_page(page)
 
     years = AcademicYear.objects.order_by('-year')
 
+    subjects_classrooms = {} #key = subject_id : value = {}
+
+    students = Student.objects.all()
+    for student in students:
+        for subject in student.subjects.all():
+            if subject.id not in subjects_classrooms:
+                subjects_classrooms[subject.id] = []
+            if student.classroom and student.classroom.name not in subjects_classrooms[subject.id]:
+                subjects_classrooms[subject.id].append(student.classroom.name)
+
+    print(subjects_classrooms)
+
+
+
     context = {
         'subjects': subjects,
+        'subjects_classrooms': subjects_classrooms,
         'number_of_students': get_students(subjects),
         'page_obj': page_obj,
         'status': status,
         'STATUS_CHOICES': Subject.STATUS_CHOICES,
         'years': years,
         'selected_year': int(year_id) if year_id else None,
+        'lang_filter': lang_filter,
+        'lang_groups': langs
         }
     return render(request, "home/subjects.html", context)
 
@@ -172,7 +198,7 @@ def subject_details(request, pk):
 
         student_grades[student.id] = {}
         student_grades[student.id] = {
-            'grade': student_grade,
+            'grade': round(student_grade, 1),
             'student_info': student.user.get_full_name()
         }
     top_grades = sorted(student_grades.items(), key=lambda x: x[1]['grade'], reverse=True)
