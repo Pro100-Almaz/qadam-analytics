@@ -1,255 +1,330 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
 {% block title %} Subjects {% endblock title %}
+{% load custom_filters %}
 
 {% block content %}
 
-  <div class="header bg-white pb-6">
-    <div class="container-fluid">
-      <div class="header-body">
-        <div class="row py-4">
-          <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Subjects</h6>
-            <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
-              <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
-                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-                <li class="breadcrumb-item"><a href="#">Subjects</a></li>
-              </ol>
-            </nav>
-          </div>
-          <div class="col-lg-6 col-5 text-right d-flex justify-content-end align-items-center gap-2">
-              <div class="dropdown mr-2">
-                  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownYearButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    Учебный год
-                  </button>
-                  <div class="dropdown-menu" aria-labelledby="dropdownYearButton">
-                    <a href="?status={{ status }}" class="dropdown-item">Все годы {% if not selected_year %}- Выбрано{% endif %}</a>
-                    {% for y in years %}
-                      <a href="?status={{ status }}&year={{ y.id }}" class="dropdown-item{% if selected_year == y.id %} active{% endif %}">
-                        {{ y.year }} {% if selected_year == y.id %}- Выбрано{% endif %}
-                      </a>
-                    {% endfor %}
-                  </div>
-              </div>
+    <div class="header bg-white pb-6">
+        <div class="container-fluid">
+            <div class="header-body">
+                <div class="row py-4">
+                    <div class="col-lg-6 col-7">
+                        <h6 class="h2 d-inline-block mb-0">Subjects</h6>
+                        <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+                            <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                                <li class="breadcrumb-item"><a href="#">Subjects</a></li>
+                            </ol>
+                        </nav>
+                    </div>
+                    <div class="col-lg-6 col-5 text-right d-flex justify-content-end align-items-center gap-2">
+                        <div class="dropdown mr-2">
+                            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownYearButton"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Учебный год
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="dropdownYearButton">
+                                <a href="?status={{ status }}" class="dropdown-item">Все годы {% if not selected_year %}
+                                    - Выбрано{% endif %}</a>
 
-
-            {% if user.is_manager or user.is_superuser %}
-                <button type="button" class="btn btn-primary">
-                  <a href="{% url 'new_subject' %}"
-                   style="color: white !important; text-decoration: none !important;">
-                    Новый
-                  </a>
-                </button>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Page content -->
-  <div class="container-fluid mt--6">
-    <div class="row">
-      <div class="col">
-        <div class="card">
-          <!-- Card header -->
-          <div class="card-header border-0">
-             <h3 class="mb-0">
-                 {% if status == 'active' %}Активные предметы
-                 {% elif status == 'planned' %}Предметы в обработке
-                 {% else %}Архивированные предметы{% endif %}</h3>
-          </div>
-          <!-- Light table -->
-          <div class="table-responsive">
-            <table class="table align-items-center table-flush">
-              <thead class="thead-light">
-                <tr>
-                  <th scope="col" class="sort" data-sort="name">Название</th>
-                  <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
-                  <th scope="col" class="sort" data-sort="status">Статус</th>
-                  <th scope="col" class="sort" data-sort="teacher">Учитель</th>
-                  <th scope="col" class="sort" data-sort="completion">Прогресс</th>
-                  <th scope="col"></th>
-                </tr>
-              </thead>
-              <tbody class="list">
-                {% for subject in page_obj %}
-                  <tr>
-                    <th scope="row">
-                      <div class="media align-items-center">
-                        <a href="#" class="avatar rounded-circle mr-3">
-                          <img alt="Image placeholder" src="{% static '/assets/img/theme/bootstrap.jpg' %}">
-                        </a>
-                        <div class="media-body">
-                          <a
-                            href="{% url 'subject_details' subject.pk %}"
-                            class="name mb-0 text-sm"
-                          >
-                            {{ subject.name }}
-                          </a>
+                                {% for y in years %}
+                                    <a href="?status={{ status }}&year={{ y.id }}"
+                                       class="dropdown-item{% if selected_year == y.id %} active{% endif %}">
+                                        {{ y.year }} {% if selected_year == y.id %}- Выбрано{% endif %}
+                                    </a>
+                                {% endfor %}
+                            </div>
                         </div>
-                      </div>
-                    </th>
-                    {% for id, number in number_of_students.items %}
-                      {% if id == subject.id %}
-                        <td class="budget">
-                          {{ number }}
-                        </td>
-                      {% endif %}
-                    {% endfor %}
-                    <td>
-                      <span class="badge badge-dot mr-4">
-                        {% if subject.status == 'active' %}
-                          <i class="bg-success"></i>
-                        {% elif subject.status == 'planned'%}
-                          <i class="bg-info"></i>
-                        {% else %}
-                          <i class="bg-danger"></i>
+
+                        <div class="dropdown mr-2">
+                            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownLangButton"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled>
+                                Языковая Группа
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="dropdownLangButton">
+                                <a href="?status={{ status }}&year={{ selected_year }}&lang=all" class="dropdown-item">
+                                    Все Языки {% if lang_filter == 'all' %} - Выбрано{% endif %}
+                                </a>
+                                {% for lang in lang_groups %}
+                                    <a href="?status={{ status }}&year={{ selected_year }}&lang={{ lang }}"
+                                       class="dropdown-item{% if lang_filter == lang %} active{% endif %}">
+                                        {{ lang }} {% if lang_filter == lang %}- Выбрано{% endif %}
+                                    </a>
+                                {% endfor %}
+
+                            </div>
+                        </div>
+
+
+                        {% if user.is_manager or user.is_superuser %}
+                            <button type="button" class="btn btn-primary">
+                                <a href="{% url 'new_subject' %}"
+                                   style="color: white !important; text-decoration: none !important;">
+                                    Новый
+                                </a>
+                            </button>
                         {% endif %}
 
-                        <span class="status">{{ subject.status }}</span>
-                      </span>
-                    </td>
-                    <td>
 
-
-                      <div class="avatar-group">
-                          {% if subject.teacher != null %}
-                            <a href="#" class="avatar avatar-sm rounded-circle" data-toggle="tooltip" data-original-title="{{ subject.teacher.user.first_name }} {{ subject.teacher.user.last_name }}">
-                                <img alt="Image placeholder" src="media/user_avatars/teacher.user.email/teacher.user.avatar">
-                            </a>
-                          {% else %}
-                            <a>No teacher</a>
-                          {% endif %}
-                      </div>
-                    </td>
-                    <td>
-                      <div class="d-flex align-items-center">
-                        <span class="completion mr-2">{{ subject.progress }}%</span>
-                        <div>
-                          <div class="progress">
-                            <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="{{ subject.progress }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ subject.progress }}%;"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="text-right">
-                      <div class="dropdown">
-                        <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                          <i class="fas fa-ellipsis-v"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
-                          <form method="POST" action="{% url 'delete_subject' subject.pk%}" style="display: inline;">
-                              {% csrf_token %}
-                              <button type="submit" class="dropdown-item">Удалить</button>
-                          </form>
-                         {% if subject.status == 'active'%}
-                         	<form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item">Архивировать</button>
-                              </form>
-
-                         {% elif subject.status == 'planned' %}
-                         	 <form method="POST" action="{% url 'archive_subject' subject.pk %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item">Архивировать</button>
-                              </form>
-                             <form method="POST" action="{% url 'extract_subject' subject.pk %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item">Сделать активным</button>
-                              </form>
-
-                         {% else %}
-                             <form method="POST" action="{% url 'extract_subject' subject.pk %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item">Разархивировать</button>
-                              </form>
-                             <form method="POST" action="{% url 'processing_subject' subject.pk %}" style="display: inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item">Отправить в обработку</button>
-                              </form>
-                         {% endif %}
-
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <!-- Card footer -->
-          <div class="card-footer py-4">
-            <nav aria-label="...">
-              <ul class="pagination justify-content-end mb-0" >
-                  {% if page_obj.has_previous %}
-                    <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                        <i class="fas fa-angle-left"></i>
-                        <span class="sr-only">Previous</span>
-                      </a>
-                    </li>
-                  {% endif %}
-
-              <div class="pagination mb-0" id="pageNumerization"></div>
-
-                  {% if page_obj.has_next %}
-                    <li class="page-item">
-                      <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                        <i class="fas fa-angle-right"></i>
-                        <span class="sr-only">Next</span>
-                      </a>
-                    </li>
-                  {% endif %}
-                </ul>
-
-            </nav>
-          </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
 
-    {% include "includes/footer.html" %}
+    <!-- Page content -->
+    <div class="container-fluid mt--6">
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <!-- Card header -->
+                    <div class="card-header border-0">
+                        <h3 class="mb-0">
+                            {% if status == 'active' %}Активные предметы
+                            {% elif status == 'planned' %}Предметы в обработке
+                            {% else %}Архивированные предметы{% endif %}</h3>
+                    </div>
+                    <!-- Light table -->
+                    <div class="table-responsive">
+                        <table class="table align-items-center table-flush">
+                            <thead class="thead-light">
+                            <tr>
+                                <th scope="col" class="sort" data-sort="name">Название</th>
+                                <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
+                                <th scope="col" class="sort" data-sort="budget">Класс(ы)</th>
+                                <th scope="col" class="sort" data-sort="budget">Языковая группа</th>
+                                <th scope="col" class="sort" data-sort="status">Статус</th>
+                                <th scope="col" class="sort" data-sort="teacher">Учитель</th>
+                                <th scope="col" class="sort" data-sort="completion">Прогресс</th>
+                                <th scope="col"></th>
+                            </tr>
+                            </thead>
+                            <tbody class="list">
+                            {% for subject in page_obj %}
+                                <tr>
+                                    <th scope="row">
+                                        <div class="media align-items-center">
+                                            <a href="#" class="avatar rounded-circle mr-3">
+                                                <img alt="Image placeholder"
+                                                     src="{% static '/assets/img/theme/bootstrap.jpg' %}">
+                                            </a>
+                                            <div class="media-body">
+                                                <a
+                                                        href="{% url 'subject_details' subject.pk %}"
+                                                        class="name mb-0 text-sm"
+                                                >
+                                                    {{ subject.name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </th>
+                                    {% for id, number in number_of_students.items %}
+                                        {% if id == subject.id %}
+                                            <td class="budget">
+                                                {{ number }}
+                                            </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <td>
+                                        {% if subjects_classrooms|get_item:subject.id %}
+                                            {% for classroom_name in subjects_classrooms|get_item:subject.id %}
+                                                {{ classroom_name }}
+                                            {% endfor %}
+                                        {% else %}
+                                            No Students
+                                        {% endif %}
 
-  </div>
+                                    </td>
+                                    <td>
+                                        {{ subject.language_group }}
+
+                                    </td>
+                                    <td>
+                      <span class="badge badge-dot mr-4">
+                        {% if subject.status == 'active' %}
+                            <i class="bg-success"></i>
+                        {% elif subject.status == 'planned' %}
+                            <i class="bg-info"></i>
+                        {% else %}
+                            <i class="bg-danger"></i>
+                        {% endif %}
+
+                          <span class="status">{{ subject.status }}</span>
+                      </span>
+                                    </td>
+                                    <td>
+
+
+                                        <div class="avatar-group">
+                                            {% if subject.teacher %}
+                                                <a href="#" class="avatar avatar-sm rounded-circle"
+                                                   data-toggle="tooltip"
+                                                   data-original-title="{{ subject.teacher.user.first_name }} {{ subject.teacher.user.last_name }}">
+                                                    <img alt="Image placeholder"
+                                                         src="{{subject.teacher.user.avatar.url }}">  ">
+                                                </a>
+                                            {% else %}
+                                                <a>No teacher</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="completion mr-2">{{ subject.progress }}%</span>
+                                            <div>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-warning" role="progressbar"
+                                                         aria-valuenow="{{ subject.progress }}" aria-valuemin="0"
+                                                         aria-valuemax="100"
+                                                         style="width: {{ subject.progress }}%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <div class="dropdown">
+                                            <a class="btn btn-sm btn-icon-only text-light" href="#" role="button"
+                                               data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </a>
+                                            <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
+                                                <form method="POST" action="{% url 'delete_subject' subject.pk %}"
+                                                      style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="dropdown-item">Удалить</button>
+                                                </form>
+                                                {% if subject.status == 'active' %}
+                                                    <form method="POST" action="{% url 'archive_subject' subject.pk %}"
+                                                          style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="dropdown-item">Архивировать
+                                                        </button>
+                                                    </form>
+
+                                                {% elif subject.status == 'planned' %}
+                                                    <form method="POST" action="{% url 'archive_subject' subject.pk %}"
+                                                          style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="dropdown-item">Архивировать
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST" action="{% url 'extract_subject' subject.pk %}"
+                                                          style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="dropdown-item">Сделать активным
+                                                        </button>
+                                                    </form>
+
+                                                {% else %}
+                                                    <form method="POST" action="{% url 'extract_subject' subject.pk %}"
+                                                          style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="dropdown-item">Разархивировать
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST"
+                                                          action="{% url 'processing_subject' subject.pk %}"
+                                                          style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="dropdown-item">Отправить в
+                                                            обработку
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Card footer -->
+                    <div class="card-footer py-4">
+                        <nav aria-label="...">
+                            <ul class="pagination justify-content-end mb-0">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                            <i class="fas fa-angle-left"></i>
+                                            <span class="sr-only">Previous</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                <div class="pagination mb-0" id="pageNumerization"></div>
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                            <i class="fas fa-angle-right"></i>
+                                            <span class="sr-only">Next</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% include "includes/footer.html" %}
+
+    </div>
 
 {% endblock content %}
 
 {% block javascripts %}
-<script>
+    <script>
 
-  const currPage = {{ page_obj.number }};
-  const totalPages = {{ page_obj.paginator.num_pages }};
-  const container = document.getElementById('pageNumerization');
+        const params = new URLSearchParams(window.location.search)
+        const selectedYear = params.get("year")
 
-  let start = 1;
-  let end = totalPages;
+        const langGroupDropdown = document.getElementById("dropdownLangButton")
 
-  if (totalPages > 3) {
-    if (currPage <= 2) {
-      start = 1;
-      end = 3;
-    } else if (currPage >= totalPages - 1) {
-      start = totalPages - 2;
-      end = totalPages;
-    } else {
-      start = currPage - 1;
-      end = currPage + 1;
-    }
-  }
+        if(selectedYear && selectedYear !== 'all'){
+            langGroupDropdown.disabled = false;
+        }else{
+            langGroupDropdown.disabled = true;
+        }
 
-  for (let page = start; page <= end; page++) {
-    const li = document.createElement('li');
-    li.className = 'page-item' + (page === currPage ? ' active' : '');
 
-    const a = document.createElement('a');
-    a.className = 'page-link';
-    a.href = `?page=${page}`;
-    a.textContent = page;
+        const currPage = {{ page_obj.number }};
+        const totalPages = {{ page_obj.paginator.num_pages }};
+        const container = document.getElementById('pageNumerization');
 
-    li.appendChild(a);
-    container.appendChild(li);
-  }
-</script>
+        let start = 1;
+        let end = totalPages;
+
+        if (totalPages > 3) {
+            if (currPage <= 2) {
+                start = 1;
+                end = 3;
+            } else if (currPage >= totalPages - 1) {
+                start = totalPages - 2;
+                end = totalPages;
+            } else {
+                start = currPage - 1;
+                end = currPage + 1;
+            }
+        }
+
+        for (let page = start; page <= end; page++) {
+            const li = document.createElement('li');
+            li.className = 'page-item' + (page === currPage ? ' active' : '');
+
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = `?page=${page}`;
+            a.textContent = page;
+
+            li.appendChild(a);
+            container.appendChild(li);
+        }
+    </script>
 {% endblock javascripts %}
 

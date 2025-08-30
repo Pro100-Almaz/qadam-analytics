@@ -34,6 +34,12 @@ class Subject(models.Model):
         ('archived', 'Archived'),
     )
 
+    LANGUAGE_CHOICES = (
+        ('kaz', 'KAZ'),
+        ('rus', 'RUS'),
+        ('eng', 'ENG')
+    )
+    language_group = models.CharField(max_length=20, choices=LANGUAGE_CHOICES, default='KAZ')
     name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
 
