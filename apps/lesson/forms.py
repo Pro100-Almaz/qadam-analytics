@@ -66,11 +66,15 @@ class LessonGroupForm(forms.ModelForm):
 class TopicForm(forms.ModelForm):
     class Meta:
         model = Topic
-        fields = ['title', 'weight']
+        fields = ['title', 'weight', 'comment_template']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter topic title',
+            }),
+            'comment_template': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Шаблон для комментария',
             }),
             'weight': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -82,7 +86,7 @@ class TopicForm(forms.ModelForm):
 class SubtopicForm(forms.ModelForm):
     class Meta:
         model = Topic
-        fields = ['parent', 'title', 'weight']
+        fields = ['parent', 'title', 'weight', 'comment_template']
         widgets = {
             'parent': forms.Select(attrs={
                 'class': 'form-control',
@@ -90,6 +94,10 @@ class SubtopicForm(forms.ModelForm):
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter subtopic title',
+            }),
+            'comment_template': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Шаблон для комментария',
             }),
             'weight': forms.NumberInput(attrs={
                 'class': 'form-control',

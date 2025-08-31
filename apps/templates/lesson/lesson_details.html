@@ -4,623 +4,718 @@
 {% load custom_filters %}
 
 {% block content %}
-<style>
-  .split-container { display: flex; height: 500px; gap: 1rem; }
-  .split { width: 50%; padding: 20px; overflow-y: auto; }
-  .left { background-color: #f8f9fa; border-right: 1px solid #ccc; }
-  .right { background-color: #fff; }
-  .centered { height: 100%; width: 80%; }
+    <style>
+        .split-container {
+            display: flex;
+            height: 500px;
+            gap: 1rem;
+        }
 
-  /* Wider grades display modal */
-  #GradeModal .modal-dialog { max-width: 90vw; }
-  @media (min-width: 1200px) { #GradeModal .modal-dialog { max-width: 1140px; } }
+        .split {
+            width: 50%;
+            padding: 20px;
+            overflow-y: auto;
+        }
 
-  /* Scrollable Topics list */
-  #topics-scroll { max-height: 320px; overflow-y: auto; }
-  #topics-scroll thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+        .left {
+            background-color: #f8f9fa;
+            border-right: 1px solid #ccc;
+        }
 
-  /* Scrollable Students Grades table */
-  #students-scroll { max-height: 360px; overflow-y: auto; }
-  #students-scroll thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
-</style>
+        .right {
+            background-color: #fff;
+        }
 
-<div class="header bg-white">
-  <div class="container-fluid">
-    <div class="header-body">
-      <div class="row py-4">
-        <div class="col-lg-6 col-7">
-          <h6 class="h2 d-inline-block mb-0">Детали Урока</h6>
-          <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
-            <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
-              <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
-              <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Lessons</a></li>
-              <li class="breadcrumb-item active">{{ lesson.title }}</li>
-            </ol>
-          </nav>
-        </div>
-        <div class="col-lg-6 col-5 text-right">
-          <a href="{% url 'lesson:lessons' %}" class="btn btn-secondary px-4">Назад</a>
-          <a href="{% url 'lesson:grading' lesson.id%}" class="btn btn-primary px-4">
-            <i class="fas fa-edit"></i> Оценить учеников
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+        .centered {
+            height: 100%;
+            width: 80%;
+        }
 
-{#    Lesson Info --------------------------#}
+        /* Wider grades display modal */
+        #GradeModal .modal-dialog {
+            max-width: 90vw;
+        }
 
-<div class="container-fluid">
-  <div class="row">
-         <div class="col-12">
-      <div class="card mb-4">
-        <div class="card-header border-0">
-          <h3 class="mb-0">Общяя информация</h3>
-        </div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6">
-              <h4>{{ lesson.title }}</h4>
-              <p class="text-sm">{{ lesson.description }}</p>
+        @media (min-width: 1200px) {
+            #GradeModal .modal-dialog {
+                max-width: 1140px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            #GradeModal .modal-dialog {
+                max-width: 1140px;
+            }
+        }
+
+        /* Scrollable Topics list */
+        #topics-scroll {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        #topics-scroll thead th {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 1;
+        }
+
+        /* Scrollable Students Grades table */
+        #students-scroll {
+            max-height: 360px;
+            overflow-y: auto;
+        }
+
+        #students-scroll thead th {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 1;
+        }
+    </style>
+
+    <div class="header bg-white">
+        <div class="container-fluid">
+            <div class="header-body">
+                <div class="row py-4">
+                    <div class="col-lg-6 col-7">
+                        <h6 class="h2 d-inline-block mb-0">Детали Урока</h6>
+                        <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
+                            <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
+                                <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
+                                <li class="breadcrumb-item"><a href="{% url 'lesson:lessons' %}">Lessons</a></li>
+                                <li class="breadcrumb-item active">{{ lesson.title }}</li>
+                            </ol>
+                        </nav>
+                    </div>
+                    <div class="col-lg-6 col-5 text-right">
+                        <a href="{% url 'lesson:lessons' %}" class="btn btn-secondary px-4">Назад</a>
+                        <a href="{% url 'lesson:grading' lesson.id %}" class="btn btn-primary px-4">
+                            <i class="fas fa-edit"></i> Оценить учеников
+                        </a>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-              <ul class="list-unstyled">
-                <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
-                <li>
-                  <strong>Статус:</strong>
-                  <span class="badge badge-dot mr-4">
+        </div>
+    </div>
+
+    {#    Lesson Info --------------------------#}
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header border-0">
+                        <h3 class="mb-0">Общяя информация</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h4>{{ lesson.title }}</h4>
+                                <p class="text-sm">{{ lesson.description }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
+                                    <li>
+                                        <strong>Статус:</strong>
+                                        <span class="badge badge-dot mr-4">
                     <i class="bg-{{ lesson.status|lower }}"></i>
                     <span class="status">{{ lesson.status }}</span>
                   </span>
-                </li>
-                <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
-                <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
-                <li><strong>Средний балл:</strong> {{ lesson.average_points }}</li>
-                {% if lesson.group %}
-                  <li><strong>Тематическая группа:</strong> {{ lesson.group.name }}</li>
-                {% endif %}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-{#     Topics List ===-----------------------------#}
-    <div class="col-12">
-      <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h4 class="mb-0">Topics List</h4>
-          <div>
-            <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createTopicModal">
-              <i class="ni ni-fat-add"></i> Add
-            </button>
-            <a href="{% url 'lesson:distribute_topic_weights_equally' lesson.id %}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Distribute weights equally
-            </a>
-          </div>
-        </div>
-        <div class="card-body">
-          <div id="topics-scroll" class="table-responsive">
-            <table class="table mb-0">
-              <thead>
-                <tr>
-                  <th>Topics</th>
-                  <th>Weight</th>
-                  <th class="text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for topic in topics %}
-                  {% if not topic.parent %}
-                  <tr>
-                    <td>{{ topic.title }}</td>
-                    <td>{{ topic.weight }}</td>
-                    <td class="text-center">
-                      <a class="btn btn-primary px-4 text-white"
-                         data-toggle="modal"
-                         data-target="#editTopicModal"
-                         data-title="{{ topic.title }}"
-                         data-weight="{{ topic.weight }}"
-                         data-id="{{ topic.id }}">
-                        <i class="fas fa-edit"></i> Edit
-                      </a>
-                      <a class="btn btn-danger px-4" href="/lessons/topic/delete/{{ topic.id }}">Delete</a>
-                    </td>
-                  </tr>
-                  {% endif %}
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-{#     Subtopics List -------------------------------------#}
-    <div class="col-12">
-      <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h4 class="mb-0">Subtopics List</h4>
-          <div>
-            <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal" data-target="#createSubtopicModal">
-              <i class="ni ni-fat-add"></i> Добавить
-            </button>
-            <a href="{% url 'lesson:distribute_subtopic_weights_equally' lesson.id%}" class="btn btn-outline-primary btn-sm">
-              <i class="ni ni-fat-add"></i> Расспределить значимость поровну
-            </a>
-          </div>
-        </div>
-        <div class="card-body">
-          <label for="topicSelect" class="form-label" >Выберите тему</label>
-          <select id="topicSelect" class="form-control mb-3" required>
-            <option value="">-- Select a Topic --</option>
-            {% for topic in topics %}
-              <option value="{{ topic.id }}">{{ topic.title }}</option>
-            {% endfor %}
-          </select>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Weight</th>
-                <th class="text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="subtopics-container">
-              {% for topic in topics %}
-                {% for subtopic in topic.subtopics.all %}
-                  <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
-                    <td>{{ subtopic.title }}</td>
-                    <td>{{ subtopic.weight }}</td>
-                    <td class="text-center">
-                      <a class="btn btn-primary px-4 text-white"
-                         data-toggle="modal"
-                         data-target="#editSubtopicModal"
-                         data-id="{{ subtopic.id }}"
-                         data-title="{{ subtopic.title }}"
-                         data-weight="{{ subtopic.weight }}">
-                        Edit
-                      </a>
-                      <a class="btn btn-danger px-4" href="/lessons/topic/delete/{{ subtopic.id }}">Delete</a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-{#     Students Grades ---------------#}
-    <div class="col-12">
-      <div class="card mb-4">
-        <div class="row">
-          <div class="col-xl-12">
-            <div class="card">
-              <div class="card-header border-0">
-                <h3 class="mb-0">Оценка учеников</h3>
-              </div>
-              <div id="students-scroll" class="table-responsive">
-                <table class="table align-items-center table-flush">
-                  <thead class="thead-light">
-                    <tr>
-                      <th scope="col">Ученик</th>
-                      <th scope="col">Баллы</th>
-                      <th scope="col">Оценка</th>
-                      <th scope="col">Действия</th>
-                    </tr>
-                  </thead>
-                  <tbody class="list">
-                    {% for student in students %}
-                      {% with total=student_grades|get_item:student.user.id|get_item:"grade_total" %}
-                      <tr>
-                        <th scope="row">
-                          <div class="media align-items-center">
-                            <a href="#" class="avatar rounded-circle mr-3">
-                              <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}"
-                                   alt="Photo" class="profile-avatar">
-                            </a>
-                            <div class="media-body">
-                              <span class="name mb-0 text-sm">{{ student.user.get_full_name }}</span>
+                                    </li>
+                                    <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
+                                    <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
+                                    <li><strong>Средний балл:</strong> {{ lesson.average_points }}</li>
+                                    {% if lesson.group %}
+                                        <li><strong>Тематическая группа:</strong> {{ lesson.group.name }}</li>
+                                    {% endif %}
+                                </ul>
                             </div>
-                          </div>
-                        </th>
-                        <td>{{ total }}</td>
-                        <td>
-                          {% if total >= 90 %}
-                            5
-                          {% elif total >= 70 %}
-                            4
-                          {% elif total >= 50 %}
-                            3
-                          {% else %}
-                            2
-                          {% endif %}
-                        </td>
-                        <td>
-                          <button type="button" class="btn btn-sm btn-primary"
-                                  data-student-id="{{ student.user.id }}"
-                                  data-lesson_id="{{ lesson.id }}"
-                                  data-target="#GradeModal"
-                                  data-toggle="modal">
-                            Смотреть оценку
-                          </button>
-                        </td>
-                      </tr>
-                      {% endwith %}
-                    {% empty %}
-                      <tr>
-                        <td colspan="5" class="text-center">Нет учеников для оценки</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            {#     Topics List ===-----------------------------#}
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Topics List</h4>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal"
+                                    data-target="#createTopicModal">
+                                <i class="ni ni-fat-add"></i> Add
+                            </button>
+                            <a href="{% url 'lesson:distribute_topic_weights_equally' lesson.id %}"
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="ni ni-fat-add"></i> Distribute weights equally
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="topics-scroll" class="table-responsive">
+                            <table class="table mb-0">
+                                <thead>
+                                <tr>
+                                    <th>Topics</th>
+                                    <th>Weight</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for topic in topics %}
+                                    {% if not topic.parent %}
+                                        <tr>
+                                            <td>{{ topic.title }}</td>
+                                            <td>{{ topic.weight }}</td>
+                                            <td class="text-center">
+                                                <a class="btn btn-primary px-4 text-white"
+                                                   data-toggle="modal"
+                                                   data-target="#editTopicModal"
+                                                   data-title="{{ topic.title }}"
+                                                   data-weight="{{ topic.weight }}"
+                                                   data-comment_template="{{ topic.comment_template}}"
+                                                   data-id="{{ topic.id }}">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </a>
+                                                <a class="btn btn-danger px-4"
+                                                   href="/lessons/topic/delete/{{ topic.id }}">Delete</a>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {#     Subtopics List -------------------------------------#}
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Subtopics List</h4>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal"
+                                    data-target="#createSubtopicModal">
+                                <i class="ni ni-fat-add"></i> Добавить
+                            </button>
+                            <a href="{% url 'lesson:distribute_subtopic_weights_equally' lesson.id %}"
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="ni ni-fat-add"></i> Расспределить значимость поровну
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <label for="topicSelect" class="form-label">Выберите тему</label>
+                        <select id="topicSelect" class="form-control mb-3" required>
+                            <option value="">-- Select a Topic --</option>
+                            {% for topic in topics %}
+                                <option value="{{ topic.id }}">{{ topic.title }}</option>
+                            {% endfor %}
+                        </select>
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Weight</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody id="subtopics-container">
+                            {% for topic in topics %}
+                                {% for subtopic in topic.subtopics.all %}
+                                    <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
+                                        <td>{{ subtopic.title }}</td>
+                                        <td>{{ subtopic.weight }}</td>
+                                        <td class="text-center">
+                                            <a class="btn btn-primary px-4 text-white"
+                                               data-toggle="modal"
+                                               data-target="#editSubtopicModal"
+                                               data-id="{{ subtopic.id }}"
+                                               data-title="{{ subtopic.title }}"
+                                               data-weight="{{ subtopic.weight }}"
+                                               data-comment_template="{{ subtopic.comment_template}}">
+                                                Edit
+                                            </a>
+                                            <a class="btn btn-danger px-4"
+                                               href="/lessons/topic/delete/{{ subtopic.id }}">Delete</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {#     Students Grades ---------------#}
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="row">
+                        <div class="col-xl-12">
+                            <div class="card">
+                                <div class="card-header border-0">
+                                    <h3 class="mb-0">Оценка учеников</h3>
+                                </div>
+                                <div id="students-scroll" class="table-responsive">
+                                    <table class="table align-items-center table-flush">
+                                        <thead class="thead-light">
+                                        <tr>
+                                            <th scope="col">Ученик</th>
+                                            <th scope="col">Баллы</th>
+                                            <th scope="col">Оценка</th>
+                                            <th scope="col">Действия</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody class="list">
+                                        {% for student in students %}
+                                            {% with total=student_grades|get_item:student.user.id|get_item:"grade_total" %}
+                                                <tr>
+                                                    <th scope="row">
+                                                        <div class="media align-items-center">
+                                                            <a href="#" class="avatar rounded-circle mr-3">
+                                                                <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg' }}"
+                                                                     alt="Photo" class="profile-avatar">
+                                                            </a>
+                                                            <div class="media-body">
+                                                                <span class="name mb-0 text-sm">{{ student.user.get_full_name }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </th>
+                                                    <td>{{ total }}</td>
+                                                    <td>
+                                                        {% if total >= 90 %}
+                                                            5
+                                                        {% elif total >= 70 %}
+                                                            4
+                                                        {% elif total >= 50 %}
+                                                            3
+                                                        {% else %}
+                                                            2
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-primary"
+                                                                data-student-id="{{ student.user.id }}"
+                                                                data-lesson_id="{{ lesson.id }}"
+                                                                data-target="#GradeModal"
+                                                                data-toggle="modal">
+                                                            Смотреть оценку
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            {% endwith %}
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="5" class="text-center">Нет учеников для оценки</td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
-      </div>
     </div>
 
-  </div>
-</div>
-
-{# Create Topic Modal #}
-<div class="modal fade" id="createTopicModal" tabindex="-1" role="dialog" aria-labelledby="createTopicModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl" role="document">
-    <form action="{% url 'lesson:create_topic' lesson.id %}" method="post">
-      {% csrf_token %}
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="createTopicModalLabel">Add Topic</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="title">Title</label>
-            <input type="text" class="form-control" id="title" name="title" required>
-          </div>
-          <div class="form-group" hidden>
-            <label for="weight">Weight</label>
-            <input type="number" class="form-control" id="weight" name="weight" min="0" max="100" value="100">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary">Создать</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-{# Edit Topic Modal #}
-<div class="modal fade" id="editTopicModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <form action="" method="post">
-      {% csrf_token %}
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Topic</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Topic's title is to be changed to:</label>
-            <input type="text" class="form-control" name="title" value="" placeholder="" required>
-          </div>
-          <div class="form-group">
-            <label>Enter Topic's Weight</label>
-            <input type="number" class="form-control" name="weight" value="" placeholder="" min="0" max="100" required>
-          </div>
-          <div class="text-warning">
-            <small>
-                After changing this topic's weight, the total weight proportions for all other grades will NOT be distributed automatically
-                Please, make sure to manually distribute weights, or auto equalize them!
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary"
-                  onclick="setTimeout(() => window.location.reload(), 2000);">
-              Сохранить
-          </button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-{# Add Subtopic Modal #}
-<div class="modal fade" id="createSubtopicModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <form method="post" action="{% url 'lesson:create_subtopic' lesson.id %}">
-      {% csrf_token %}
-      <input type="hidden" name="parent" id="modalTopicId">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Add Subtopic</h5>
-          <button type="button" class="close" data-dismiss="modal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="parent" class="form-label">Choose a Topic</label>
-            <select id="parent" name="parent" class="form-control mb-3" required>
-              <option value="">-- Select a Topic --</option>
-              {% for topic in topics %}
-                {% if not topic.parent %}
-                  <option value="{{ topic.id }}">{{ topic.title }}</option>
-                {% endif %}
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="title">Subtopic Title:</label>
-            <input type="text" name="title" class="form-control" required>
-          </div>
-          <div class="form-group" hidden>
-            <label for="weight">Weight (%):</label>
-            <input type="number" name="weight" class="form-control" min="0" max="100" value="100">
-          </div>
-          <div class="text-warning">
-            <small>After adding a new subtopic, the total weight proportions for all other subtopics
-                (even from other topics) will be distributed automatically</small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Create</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-{# Edit Subtopic Modal #}
-<div class="modal fade" id="editSubtopicModal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <form action="" method="post">
-      {% csrf_token %}
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Subtopic</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="title">Title</label>
-            <input type="text" id="title" class="form-control" name="title" value="" required>
-          </div>
-          <div class="form-group">
-            <label>Weight</label>
-            <input type="number" class="form-control" name="weight" value="" placeholder="" min="0" max="100" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary" onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить</button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-{# Grades Display Modal #}
-<div class="modal fade" id="GradeModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl" role="document">
-    <form method="GET" action="" id="grading_form">
-      {% csrf_token %}
-      <input type="hidden" name="parent" id="modalTopicId">
-      <input type="hidden" name="student_id" id="modalStudentId">
-      <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Add Grades</h5>
-          <button type="button" class="close" data-dismiss="modal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="split-container">
-{#             left: topic  -------------------------------#}
-            <div class="split left">
-              <div class="centered">
-                <div id="topic-info-panel">
-                  <table class="table">
-                    <thead>
-                      <tr>
-                        <th>Topics</th>
-                        <th>Weight</th>
-                        <th>Grade</th>
-                        <th>Comment</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for topic in topics %}
-                        {% if not topic.parent %}
-                          <tr>
-                            <td>{{ topic.title }}</td>
-                            <td>{{ topic.weight }}</td>
-                            <td class="displayTopicGrade" data-topic-id="{{ topic.id }}"></td>
-                            <td class="displayTopicComment" data-topic-id="{{ topic.id }}"></td>
-                          </tr>
-                        {% endif %}
-                      {% endfor %}
-                    </tbody>
-                  </table>
+    {# Create Topic Modal #}
+    <div class="modal fade" id="createTopicModal" tabindex="-1" role="dialog" aria-labelledby="createTopicModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <form action="{% url 'lesson:create_topic' lesson.id %}" method="post">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="createTopicModalLabel">Добавить тему</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                                aria-hidden="true">×</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="title">Название</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="title">Шаблон для комментария</label>
+                            <input type="text" class="form-control" id="comment_template" name="comment_template" required>
+                        </div>
+                        <div class="form-group" hidden>
+                            <label for="weight">Вес</label>
+                            <input type="number" class="form-control" id="weight" name="weight" min="0" max="100"
+                                   value="100">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Создать</button>
+                    </div>
                 </div>
-              </div>
-            </div>
-
-{#             right: Subtopics  -------------#}
-            <div class="split right">
-              <div class="form-group">
-                <label for="parent">Choose Topic</label>
-                <select id="gradeModalParent" name="parent" class="form-control mb-3">
-                  <option value="">-- Select a Topic --</option>
-                  {% for topic in topics %}
-                    {% if not topic.parent %}
-                      <option value="{{ topic.id }}" data-title="{{ topic.title }}" data-weight="{{ topic.weight }}">{{ topic.title }}</option>
-                    {% endif %}
-                  {% endfor %}
-                </select>
-              </div>
-              <div id="topic-subtopic-fields">
-                {% for topic in topics %}
-                  <div class="subtopic-group" data-topic-id="{{ topic.id }}" style="display: none;">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Subtopic</th>
-                          <th>Weight</th>
-                          <th>Grade</th>
-                          <th>Comment</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for subtopic in topic.subtopics.all %}
-                          <tr>
-                            <td>{{ subtopic.title }}</td>
-                            <td>{{ subtopic.weight }}</td>
-                            <td class="displaySubtopicGrade" data-subtopic-id="{{ subtopic.id }}"></td>
-                            <td class="displaySubtopicComment" data-subtopic-id="{{ subtopic.id }}"></td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                {% endfor %}
-              </div>
-            </div>
-
-          </div>
+            </form>
         </div>
-      </div>
-    </form>
-  </div>
-</div>
+    </div>
 
-{{ student_grades|json_script:"student-grades-data" }}
+    {# Edit Topic Modal #}
+    <div class="modal fade" id="editTopicModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form action="" method="post">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Topic</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                                aria-hidden="true">×</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>Название темы будет изменено на:</label>
+                            <input type="text" class="form-control" name="title" value="" placeholder="" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Вес темы будет изменен на:</label>
+                            <input type="number" class="form-control" name="weight" value="" placeholder="" min="0"
+                                   max="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Шаблон комментария будет изменен на:</label>
+                            <input type="text" class="form-control" name="comment_template" value="" placeholder="" required>
+                        </div>
+                        <div class="text-warning">
+                            <small>
+                                After changing this topic's weight, the total weight proportions for all other grades
+                                will NOT be distributed automatically
+                                Please, make sure to manually distribute weights, or auto equalize them!
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary"
+                                onclick="setTimeout(() => window.location.reload(), 2000);">
+                            Сохранить
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
-{% include "includes/footer.html" %}
+    {# Add Subtopic Modal #}
+    <div class="modal fade" id="createSubtopicModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form method="post" action="{% url 'lesson:create_subtopic' lesson.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="parent" id="modalTopicId">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Subtopic</h5>
+                        <button type="button" class="close" data-dismiss="modal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="parent" class="form-label">Choose a Topic</label>
+                            <select id="parent" name="parent" class="form-control mb-3" required>
+                                <option value="">-- Select a Topic --</option>
+                                {% for topic in topics %}
+                                    {% if not topic.parent %}
+                                        <option value="{{ topic.id }}">{{ topic.title }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="title">Название подтемы</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="title">Шаблон комментария</label>
+                            <input type="text" class="form-control" id="comment_template" name="comment_template" required>
+                        </div>
+                        <div class="form-group" hidden>
+                            <label for="weight">Вес (%):</label>
+                            <input type="number" name="weight" class="form-control" min="0" max="100" value="100">
+                        </div>
+                        <div class="text-warning">
+                            <small>After adding a new subtopic, the total weight proportions for all other subtopics
+                                (even from other topics) will be distributed automatically</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Edit Subtopic Modal #}
+    <div class="modal fade" id="editSubtopicModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form action="" method="post">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Subtopic</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                                aria-hidden="true">×</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="title">Title</label>
+                            <input type="text" id="title" class="form-control" name="title" value="" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Weight</label>
+                            <input type="number" class="form-control" name="weight" value="" placeholder="" min="0"
+                                   max="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Шаблон комментария будет изменен на:</label>
+                            <input type="text" class="form-control" name="comment_template" value="" placeholder="" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary"
+                                onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Grades Display Modal #}
+    <div class="modal fade" id="GradeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <form method="GET" action="" id="grading_form">
+                {% csrf_token %}
+                <input type="hidden" name="parent" id="modalTopicId">
+                <input type="hidden" name="student_id" id="modalStudentId">
+                <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Grades</h5>
+                        <button type="button" class="close" data-dismiss="modal">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="split-container">
+                            {#             left: topic  -------------------------------#}
+                            <div class="split left">
+                                <div class="centered">
+                                    <div id="topic-info-panel">
+                                        <table class="table">
+                                            <thead>
+                                            <tr>
+                                                <th>Topics</th>
+                                                <th>Weight</th>
+                                                <th>Grade</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for topic in topics %}
+                                                {% if not topic.parent %}
+                                                    <tr>
+                                                        <td>{{ topic.title }}</td>
+                                                        <td>{{ topic.weight }}</td>
+                                                        <td class="displayTopicGrade"
+                                                            data-topic-id="{{ topic.id }}"></td>
+                                                        <td class="displayTopicComment"
+                                                            data-topic-id="{{ topic.id }}"></td>
+                                                    </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {#             right: Subtopics  -------------#}
+                            <div class="split right">
+                                <div class="form-group">
+                                    <label for="parent">Choose Topic</label>
+                                    <select id="gradeModalParent" name="parent" class="form-control mb-3">
+                                        <option value="">-- Select a Topic --</option>
+                                        {% for topic in topics %}
+                                            {% if not topic.parent %}
+                                                <option value="{{ topic.id }}" data-title="{{ topic.title }}"
+                                                        data-weight="{{ topic.weight }}">{{ topic.title }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div id="topic-subtopic-fields">
+                                    {% for topic in topics %}
+                                        <div class="subtopic-group" data-topic-id="{{ topic.id }}"
+                                             style="display: none;">
+                                            <table class="table">
+                                                <thead>
+                                                <tr>
+                                                    <th>Subtopic</th>
+                                                    <th>Weight</th>
+                                                    <th>Grade</th>
+                                                    <th>Comment</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                {% for subtopic in topic.subtopics.all %}
+                                                    <tr>
+                                                        <td>{{ subtopic.title }}</td>
+                                                        <td>{{ subtopic.weight }}</td>
+                                                        <td class="displaySubtopicGrade"
+                                                            data-subtopic-id="{{ subtopic.id }}"></td>
+                                                        <td class="displaySubtopicComment"
+                                                            data-subtopic-id="{{ subtopic.id }}"></td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{ student_grades|json_script:"student-grades-data" }}
+
+    {% include "includes/footer.html" %}
 {% endblock content %}
 
 {% block javascripts %}
-<script>
-  // Helper: show only the subtopics matching selected topic in the GradeModal
-  function showSubtopicsFor(topicId) {
-    document.querySelectorAll('#GradeModal .subtopic-group').forEach(group => {
-      group.style.display = (group.dataset.topicId === topicId && topicId) ? '' : 'none';
-    });
-  }
-
-  // Fill topic/subtopic display cells (GradeModal)
-  function fillModalForStudent(studentId) {
-    const scriptEl = document.getElementById('student-grades-data');
-    const gradeDict = scriptEl ? JSON.parse(scriptEl.textContent || '{}') : {};
-    const studentMap = gradeDict[String(studentId)] || {};
-
-    // Left side: per-topic grade/comment
-    document.querySelectorAll('#GradeModal .displayTopicGrade').forEach(el => {
-      const topicId = el.dataset.topicId;
-      const entry = studentMap[topicId];
-      el.textContent = (entry && typeof entry.grade === 'number') ? entry.grade.toFixed(1) : '';
-    });
-    document.querySelectorAll('#GradeModal .displayTopicComment').forEach(el => {
-      const topicId = el.dataset.topicId;
-      const entry = studentMap[topicId];
-      el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
-    });
-
-    // Right side: per-subtopic grade/comment
-    document.querySelectorAll('#GradeModal .displaySubtopicGrade').forEach(el => {
-      const subId = el.dataset.subtopicId;
-      const entry = studentMap[subId];
-      el.textContent = (entry && typeof entry.grade === 'number') ? entry.grade.toFixed(1) : '';
-    });
-    document.querySelectorAll('#GradeModal .displaySubtopicComment').forEach(el => {
-      const subId = el.dataset.subtopicId;
-      const entry = studentMap[subId];
-      el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
-    });
-  }
-
-  // Open GradeModal and populate
-  document.querySelectorAll('[data-target="#GradeModal"]').forEach(btn => {
-    btn.addEventListener('click', function () {
-      const studentId = this.getAttribute('data-student-id');
-      const lessonId = this.getAttribute('data-lesson_id');
-
-      const gradingForm = document.getElementById('grading_form');
-      if (gradingForm) gradingForm.setAttribute('action', `/lessons/grading/display/${studentId}/${lessonId}`);
-
-      fillModalForStudent(studentId);
-
-      const parentSelect = document.querySelector('#GradeModal select#gradeModalParent');
-      if (parentSelect) {
-        if (!parentSelect.value) {
-          const firstOption = parentSelect.querySelector('option[value]:not([value=""])');
-          if (firstOption) parentSelect.value = firstOption.value;
+    <script>
+        // Helper: show only the subtopics matching selected topic in the GradeModal
+        function showSubtopicsFor(topicId) {
+            document.querySelectorAll('#GradeModal .subtopic-group').forEach(group => {
+                group.style.display = (group.dataset.topicId === topicId && topicId) ? '' : 'none';
+            });
         }
-        showSubtopicsFor(parentSelect.value);
-      }
-    });
-  });
 
-  // Toggle GradeModal subtopics by selection
-  document.addEventListener('change', function (e) {
-    if (e.target && e.target.matches('#GradeModal select#gradeModalParent')) {
-      showSubtopicsFor(e.target.value);
-    }
-  });
+        // Fill topic/subtopic display cells (GradeModal)
+        function fillModalForStudent(studentId) {
+            const scriptEl = document.getElementById('student-grades-data');
+            const gradeDict = scriptEl ? JSON.parse(scriptEl.textContent || '{}') : {};
+            const studentMap = gradeDict[String(studentId)] || {};
 
-  // Restore Subtopics List toggling in the main page
-  (function initSubtopicListToggle() {
-    const select = document.getElementById('topicSelect');
-    if (!select) return;
+            // Left side: per-topic grade/comment
+            document.querySelectorAll('#GradeModal .displayTopicGrade').forEach(el => {
+                const topicId = el.dataset.topicId;
+                const entry = studentMap[topicId];
+                el.textContent = (entry && typeof entry.grade === 'number') ? entry.grade.toFixed(1) : '';
+            });
+            document.querySelectorAll('#GradeModal .displayTopicComment').forEach(el => {
+                const topicId = el.dataset.topicId;
+                const entry = studentMap[topicId];
+                el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
+            });
 
-    function apply() {
-      const selectedId = select.value;
-      document.querySelectorAll('.subtopic-row').forEach(row => {
-        if (!selectedId) {
-          row.classList.add('d-none');
-        } else {
-          row.classList.toggle('d-none', row.dataset.parent !== selectedId);
+            // Right side: per-subtopic grade/comment
+            document.querySelectorAll('#GradeModal .displaySubtopicGrade').forEach(el => {
+                const subId = el.dataset.subtopicId;
+                const entry = studentMap[subId];
+                el.textContent = (entry && typeof entry.grade === 'number') ? entry.grade.toFixed(1) : '';
+            });
+            document.querySelectorAll('#GradeModal .displaySubtopicComment').forEach(el => {
+                const subId = el.dataset.subtopicId;
+                const entry = studentMap[subId];
+                el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
+            });
         }
-      });
-      // If you also want to set createSubtopicModal's hidden parent:
-      const hidden = document.getElementById('modalTopicId');
-      if (hidden) hidden.value = selectedId || '';
-    }
 
-    select.addEventListener('change', apply);
-    // Initialize on load (keeps the list hidden until a topic is chosen)
-    apply();
-  })();
+        // Open GradeModal and populate
+        document.querySelectorAll('[data-target="#GradeModal"]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const studentId = this.getAttribute('data-student-id');
+                const lessonId = this.getAttribute('data-lesson_id');
 
-  // Restore Edit Topic modal prefill
-  $('#editTopicModal').on('show.bs.modal', function (event) {
-    const button = $(event.relatedTarget);
-    const id = button.data('id');
-    const title = button.data('title');
-    const weight = button.data('weight');
-    const modal = $(this);
-    modal.find('input[name="title"]').val(title);
-    modal.find('input[name="weight"]').val(weight);
-    modal.find('form').attr('action', `/lessons/topic/update/${id}`);
-  });
+                const gradingForm = document.getElementById('grading_form');
+                if (gradingForm) gradingForm.setAttribute('action', `/lessons/grading/display/${studentId}/${lessonId}`);
 
-  // Optional: Edit Subtopic modal prefill
-  $('#editSubtopicModal').on('show.bs.modal', function (event) {
-    const button = $(event.relatedTarget);
-    const id = button.data('id');
-    const title = button.data('title');
-    const weight = button.data('weight');
-    const modal = $(this);
-    modal.find('input[name="title"]').val(title);
-    modal.find('input[name="weight"]').val(weight);
-    modal.find('form').attr('action', `/lessons/topic/update/${id}`);
-  });
-</script>
+                fillModalForStudent(studentId);
+
+                const parentSelect = document.querySelector('#GradeModal select#gradeModalParent');
+                if (parentSelect) {
+                    if (!parentSelect.value) {
+                        const firstOption = parentSelect.querySelector('option[value]:not([value=""])');
+                        if (firstOption) parentSelect.value = firstOption.value;
+                    }
+                    showSubtopicsFor(parentSelect.value);
+                }
+            });
+        });
+
+        // Toggle GradeModal subtopics by selection
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.matches('#GradeModal select#gradeModalParent')) {
+                showSubtopicsFor(e.target.value);
+            }
+        });
+
+        // Restore Subtopics List toggling in the main page
+        (function initSubtopicListToggle() {
+            const select = document.getElementById('topicSelect');
+            if (!select) return;
+
+            function apply() {
+                const selectedId = select.value;
+                document.querySelectorAll('.subtopic-row').forEach(row => {
+                    if (!selectedId) {
+                        row.classList.add('d-none');
+                    } else {
+                        row.classList.toggle('d-none', row.dataset.parent !== selectedId);
+                    }
+                });
+                // If you also want to set createSubtopicModal's hidden parent:
+                const hidden = document.getElementById('modalTopicId');
+                if (hidden) hidden.value = selectedId || '';
+            }
+
+            select.addEventListener('change', apply);
+            // Initialize on load (keeps the list hidden until a topic is chosen)
+            apply();
+        })();
+
+        // Restore Edit Topic modal prefill
+        $('#editTopicModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const id = button.data('id');
+            const title = button.data('title');
+            const weight = button.data('weight');
+            const comment_template = button.data('comment_template');
+            const modal = $(this);
+            modal.find('input[name="title"]').val(title);
+            modal.find('input[name="weight"]').val(weight);
+            modal.find('input[name="comment_template"]').val(comment_template);
+            modal.find('form').attr('action', `/lessons/topic/update/${id}`);
+        });
+
+        // Optional: Edit Subtopic modal prefill
+        $('#editSubtopicModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const id = button.data('id');
+            const title = button.data('title');
+            const weight = button.data('weight');
+            const comment_template = button.data('comment_template');
+            const modal = $(this);
+            modal.find('input[name="title"]').val(title);
+            modal.find('input[name="weight"]').val(weight);
+            modal.find('input[name="comment_template"]').val(comment_template);
+            modal.find('form').attr('action', `/lessons/topic/update/${id}`);
+        });
+    </script>
 {% endblock javascripts %}

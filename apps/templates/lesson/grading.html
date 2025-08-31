@@ -1,5 +1,6 @@
 {% extends "layouts/base.html" %}
 {% load custom_filters %}
+{% load static %}
 
 {% block title %} Оценка урока {% endblock %}
 
@@ -111,7 +112,73 @@
             border-collapse: collapse;
         }
 
+        .custom-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .custom-modal .modal-content {
+            background: #fff;
+            padding: 20px 25px;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .custom-modal .modal-title {
+            margin: 0 0 10px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 8px;
+        }
+
+        .custom-modal .close-btn {
+            float: right;
+            font-size: 22px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .custom-modal .close-btn:hover {
+            color: #333;
+        }
+
+        .custom-modal .modal-body {
+            margin-top: 10px;
+            font-size: 16px;
+            line-height: 1.5;
+            white-space: pre-line;
+            color: #444;
+        }
+
+        @keyframes fadeIn {
+            from {opacity: 0; transform: scale(0.95);}
+            to {opacity: 1; transform: scale(1);}
+        }
+
+        /* Comment prefill animation */
+        .comment-prefill-animation {
+            background-color: #e3f2fd !important;
+            transition: background-color 0.5s ease;
+        }
+
+        .comment-prefill-animation:focus {
+            background-color: #bbdefb !important;
+        }
     </style>
+    <link rel="stylesheet" href="{% static 'assets/css/grading_style.css' %}">
 
     <div class="header bg-white">
         <div class="container-fluid">
@@ -155,9 +222,9 @@
                                     <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
                                     <li><strong>Статус:</strong>
                                         <span class="badge badge-dot mr-4">
-                    <i class="bg-{{ lesson.status|lower }}"></i>
-                    <span class="status">{{ lesson.status }}</span>
-                  </span>
+                                            <i class="bg-{{ lesson.status|lower }}"></i>
+                                            <span class="status">{{ lesson.status }}</span>
+                                          </span>
                                     </li>
                                     <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
                                     <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
@@ -183,6 +250,7 @@
                                 <th scope="col">Ученик</th>
                                 <th scope="col">Баллы</th>
                                 <th scope="col">Оценка</th>
+                                <th scope="col">Комментарий</th>
                                 <th scope="col">Действия</th>
                             </tr>
                             </thead>
@@ -222,6 +290,29 @@
                                             {% else %}
                                                 -
                                             {% endif %}
+                                        </td>
+                                        <td id="comment_display">
+                                            {% with full_comment=merged_comment_map|get_item:student.user.id %}
+                                                {% if full_comment %}
+                                                    <span class="comment-preview"
+                                                          style="cursor: pointer; color: blue; text-decoration: underline;"
+                                                          data-full="{{ full_comment }}">
+                                                        {{ full_comment|slice:":20" }}{% if full_comment|length > 20 %}...{% endif %}
+                                                    </span>
+                                                {% elif selected_comments_map|get_item:student.user.id %}
+                                                    <span class="comment-preview"
+                                                          style="cursor: pointer; color: blue; text-decoration: underline;"
+                                                          data-full="{{ selected_comments_map|get_item:student.user.id  }}">
+                                                    {{ selected_comments_map|get_item:student.user.id|slice:":20" }}
+                                                    {% if selected_comments_map|get_item:student.user.id|length > 20 %}
+                                                        ...
+                                                    {% endif %}
+                                                    </span>
+
+                                                {% else %}
+                                                    <em>No comment</em>
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                         <td>
                                             {% if has %}
@@ -263,6 +354,15 @@
             </div>
         </div>
 
+{#    Display comment modal#}
+        <div id="commentModal" class="custom-modal">
+            <div class="modal-content">
+                <span class="close-btn" id="closeModal">&times;</span>
+                <h2 class="modal-title">Полный комментарий</h2>
+                <div id="modalComment" class="modal-body"></div>
+            </div>
+        </div>
+
         {# Add/Edit Grade Modal #}
         <div class="modal fade" id="postGradeModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg" role="document">
@@ -279,11 +379,11 @@
 
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <div class="btn-group btn-group-toggle ml-4" data-toggle="buttons">
-                                <label class="btn btn-outline-primary active" id="separated-mode-btn">
-                                    <input type="radio" name="comment_mode" value="separated" checked> Separate Comments
+                                <label class="btn btn-outline-primary active" id="selected-mode-btn">
+                                    <input type="radio" name="comment_mode" value="selected" checked> Selected Comment
                                 </label>
-                                <label class="btn btn-outline-primary" id="general-mode-btn">
-                                    <input type="radio" name="comment_mode" value="general"> General Comment
+                                <label class="btn btn-outline-primary" id="merged-mode-btn">
+                                    <input type="radio" name="comment_mode" value="merged"> Merged Comments
                                 </label>
                             </div>
                         </div>
@@ -297,8 +397,9 @@
                                     <tr>
                                         <th>Topics</th>
                                         <th>Weight (%)</th>
-                                        <th>Grade / Covered?</th>
+                                        <th>Covered?</th>
                                         <th>Comment</th>
+                                        <th id="select-checkbox-header">Select to display</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -341,17 +442,17 @@
                                                                 rows="2"
                                                                 placeholder="Добавьте коментрий"></textarea>
                                                     </td>
-
-                                                    {% if forloop.first %}
-                                                        <td id="general-comment-cell" class="d-none" rowspan="100"
-                                                            style="width: 40%; vertical-align: top;">
-                                                        <textarea class="form-control"
-                                                                  name="general_comment"
-                                                                  id="general_comment"
-                                                                  rows="10"
-                                                                  placeholder="Общий комментарий для ученика"></textarea>
-                                                        </td>
-                                                    {% endif %}
+                                                    <td id="select-checkbox-button">
+                                                        <div class="toggle-container blue">
+                                                            <input class="toggle-checkbox"
+                                                                   type="checkbox"
+                                                                   name="topic_{{ topic.id }}_comment_selected"
+                                                                   value="True">
+                                                            <div class="toggle-track">
+                                                                <div class="toggle-thumb"></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                 </tr>
 
                                                 {% if subcount > 0 %}
@@ -363,8 +464,8 @@
                                                                     <th>Subtopic</th>
                                                                     <th>Rel. Weight (%)</th>
                                                                     <th>Overall (%)</th>
-                                                                    <th>Covered?</th>
                                                                     <th>Comment</th>
+                                                                    <th>Covered?</th>
                                                                 </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -376,6 +477,15 @@
                                                                             data-topic-weight="{{ topic.weight }}"
                                                                             data-subtopic-weight="{{ subtopic.weight }}">
                                                                             -
+                                                                        </td>
+                                                                        <td class="separated-comment-cell">
+                                                                          <textarea
+                                                                                  class="form-control form-control-sm subtopic-comment-input"
+                                                                                  name="subtopic_{{ subtopic.id }}_comment"
+                                                                                  id="subtopic_{{ subtopic.id }}_comment"
+                                                                                  data-subtopic-id="{{ subtopic.id }}"
+                                                                                  rows="2"
+                                                                                  placeholder="Добавьте комментарий"></textarea>
                                                                         </td>
                                                                         <td>
                                                                             <div class="custom-control custom-checkbox ">
@@ -389,15 +499,6 @@
                                                                                 <label class="custom-control-label"
                                                                                        for="subtopic_{{ subtopic.id }}_covered">Covered</label>
                                                                             </div>
-                                                                        </td>
-                                                                        <td class="separated-comment-cell">
-                                                                          <textarea
-                                                                                  class="form-control form-control-sm subtopic-comment-input"
-                                                                                  name="subtopic_{{ subtopic.id }}_comment"
-                                                                                  id="subtopic_{{ subtopic.id }}_comment"
-                                                                                  data-subtopic-id="{{ subtopic.id }}"
-                                                                                  rows="2"
-                                                                                  placeholder="Добавьте комментарий"></textarea>
                                                                         </td>
                                                                     </tr>
                                                                 {% endfor %}
@@ -430,14 +531,43 @@
 
         {% include "includes/footer.html" %}
     </div>
+
 {% endblock content %}
 
 {% block javascripts %}
     <script>
-        $(function () {
-            const topicGradeMap = JSON.parse('{{ topic_grade_map|escapejs }}');
-            const generalCommentMap = JSON.parse('{{ general_comment_map|escapejs }}');
+        const topicGradeMap = JSON.parse('{{ topic_grade_map|escapejs }}');
+        const comments_templates = JSON.parse('{{ comment_templates|escapejs }}');
+        const selectedCommentMap = JSON.parse('{{ selected_comments_map_json|escapejs }}');
+        const mergedCommentMap = JSON.parse('{{ merged_comment_map_json|escapejs }}');
 
+        // Enhanced comment prefill function
+        function prefillComment(textarea, topicId, subtopicId = null) {
+            const key = subtopicId || topicId;
+            const template = comments_templates[key];
+
+            if (template && !textarea.value.trim()) {
+                textarea.classList.add('comment-prefill-animation');
+                textarea.value = template;
+
+                // Focus and select text for easy editing
+                setTimeout(() => {
+                    textarea.focus();
+                    textarea.select();
+                }, 100);
+
+                // Remove animation class after animation completes
+                setTimeout(() => {
+                    textarea.classList.remove('comment-prefill-animation');
+                }, 1000);
+            }
+        }
+        function clearComment(textarea) {
+            textarea.value = "";
+            textarea.classList.remove('comment-prefill-animation');
+        }
+
+        $(function () {
             document.querySelectorAll('[data-target="#postGradeModal"]').forEach(button => {
                 button.addEventListener('click', function (e) {
                     const studentId = this.getAttribute('data-student-id');
@@ -457,20 +587,55 @@
                         lessonIdField.value = lessonId;
                     }
 
-                    // Clear previous values
+                    // Clear previous values and reset animation states
                     document.querySelectorAll('#postGradeModal input[type="checkbox"]').forEach(input => {
                         input.checked = false;
+                        input.classList.remove('toggled-once');
                     });
                     document.querySelectorAll('input[id^="topic_grade_"]').forEach(inp => {
                         inp.value = '';
                     });
                     document.querySelectorAll('#postGradeModal textarea').forEach(textarea => {
                         textarea.value = '';
+                        textarea.classList.remove('comment-prefill-animation');
                     });
 
-                    const generalComment = generalCommentMap[studentId];
-                    if (generalComment) {
-                        document.getElementById("general_comment").value = generalComment;
+                    const selectedModeBtn = document.getElementById("selected-mode-btn");
+                    const mergedModeBtn = document.getElementById("merged-mode-btn");
+
+                    if (mergedCommentMap[studentId]) {
+                        mergedModeBtn.classList.add("active");
+                        mergedModeBtn.querySelector("input").checked = true;
+                        selectedModeBtn.classList.remove("active");
+                        selectedModeBtn.querySelector("input").checked = false;
+                        toggleSelectMode(false);
+                    } else if (selectedCommentMap[studentId]) {
+                        selectedModeBtn.classList.add("active");
+                        selectedModeBtn.querySelector("input").checked = true;
+                        mergedModeBtn.classList.remove("active");
+                        mergedModeBtn.querySelector("input").checked = false;
+                        toggleSelectMode(true);
+
+                        setTimeout(() => {
+                            const commentText = selectedCommentMap[studentId].trim();
+                            document.querySelectorAll('#postGradeModal .topic-comment-input').forEach(ta => {
+                                if (ta.value.trim() === commentText) {
+                                    const toggle = ta.closest("tr").querySelector('.toggle-checkbox');
+                                    if (toggle) {
+                                        toggle.classList.add('toggled-once');
+                                        setTimeout(() => {
+                                            toggle.checked = true;
+                                        }, 10);
+                                    }
+                                }
+                            });
+                        }, 100);
+                    } else {
+                        selectedModeBtn.classList.add("active");
+                        selectedModeBtn.querySelector("input").checked = true;
+                        mergedModeBtn.classList.remove("active");
+                        mergedModeBtn.querySelector("input").checked = false;
+                        toggleSelectMode(true);
                     }
 
                     // Prefill from topicGradeMap using keys like "<userId>-<topicId>"
@@ -481,7 +646,12 @@
                         // If inputs for a subtopic exist, set them
                         const subInput = document.querySelector(`#subtopic_${tId}_covered`);
                         const subCommentInput = document.querySelector(`#subtopic_${tId}_comment`);
-                        if (subInput) subInput.checked = Number(data.grade) >= 100;
+                        if (subInput) {
+                            subInput.classList.add('toggled-once');
+                            setTimeout(() => {
+                                subInput.checked = Number(data.grade) >= 100;
+                            }, 10);
+                        }
                         if (subCommentInput) subCommentInput.value = data.comment || '';
 
                         // If topic-level fields exist, set them
@@ -490,7 +660,12 @@
                         const topicCovered = document.querySelector(`#topic_${tId}_covered`);
                         if (topicHidden) topicHidden.value = data.grade;
                         if (topicCommentInput) topicCommentInput.value = data.comment || '';
-                        if (topicCovered) topicCovered.checked = Number(data.grade) >= 100;
+                        if (topicCovered) {
+                            topicCovered.classList.add('toggled-once');
+                            setTimeout(() => {
+                                topicCovered.checked = Number(data.grade) >= 100;
+                            }, 10);
+                        }
                     });
 
                     // Compute and render overall weights for visible subtopics
@@ -502,7 +677,7 @@
                     });
 
                     // Calculate initial total after everything is loaded
-                    setTimeout(calculateTotalGrade, 100);
+                    setTimeout(calculateTotalGrade, 200);
                 });
             });
 
@@ -519,12 +694,25 @@
                 row.classList.toggle('d-none', expanded);
             });
 
+            // Enhanced dynamic calculation with comment prefill
             document.addEventListener('change', function (e) {
                 const target = e.target;
 
                 if (target.classList.contains('subtopic-covered-input')) {
                     const topicId = target.dataset.topicId;
+                    const subtopicId = target.dataset.subtopicId;
+
                     if (!topicId) return;
+
+                    // Handle comment prefill for subtopics
+                    const subtopicCommentInput = document.querySelector(`#subtopic_${subtopicId}_comment`);
+                    if (subtopicCommentInput) {
+                        if (target.checked) {
+                            prefillComment(subtopicCommentInput, topicId, subtopicId);
+                        } else {
+                            clearComment(subtopicCommentInput);
+                        }
+                    }
 
                     const relatedInputs = document.querySelectorAll(`.subtopic-covered-input[data-topic-id="${topicId}"]`);
                     let weightSum = 0;
@@ -550,6 +738,17 @@
                 } else if (target.classList.contains('topic-covered-input')) {
                     const topicId = target.dataset.topicId;
                     const gradeValue = target.checked ? 100 : 0;
+
+                    // Handle comment prefill for topics
+                    const topicCommentInput = document.querySelector(`#topic_${topicId}_comment`);
+                    if (topicCommentInput) {
+                        if (target.checked) {
+                            prefillComment(topicCommentInput, topicId);
+                        } else {
+                            clearComment(topicCommentInput);
+                        }
+                    }
+
                     const hidden = document.getElementById('topic_grade_' + topicId);
                     if (hidden) {
                         hidden.value = gradeValue;
@@ -589,24 +788,86 @@
             window.calculateTotalGrade = calculateTotalGrade;
         });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            const generalBtn = document.getElementById("general-mode-btn");
-            const separatedBtn = document.getElementById("separated-mode-btn");
-
-            generalBtn.addEventListener("click", () => {
-                document.querySelectorAll(".separated-comment-cell").forEach(td => td.classList.add("d-none"));
-                document.getElementById("general-comment-cell").classList.remove("d-none");
-            });
-
-            separatedBtn.addEventListener("click", () => {
-                document.querySelectorAll(".separated-comment-cell").forEach(td => td.classList.remove("d-none"));
-                document.getElementById("general-comment-cell").classList.add("d-none");
-            });
-        });
-
         $('#postGradeModal').on('shown.bs.modal', function () {
             setTimeout(calculateTotalGrade, 200);
         });
 
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        const detectToggleOnce = (e) => {
+            e.target.classList.add('toggled-once');
+        };
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('click', detectToggleOnce, {once: true});
+        });
+
+        function toggleSelectMode(isSelected) {
+            const header = document.getElementById('select-checkbox-header');
+            const selectCheckboxes = document.querySelectorAll('.toggle-checkbox');
+
+            if (isSelected) {
+                selectCheckboxes.forEach(cb => {
+                    cb.disabled = false;
+                });
+            } else {
+                selectCheckboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.disabled = true;
+                    cb.classList.remove('toggled-once');
+                });
+            }
+        }
+
+        const selectedModeBtn = document.getElementById("selected-mode-btn");
+        const mergedModeBtn = document.getElementById("merged-mode-btn");
+
+        selectedModeBtn.addEventListener('click', () => {
+            toggleSelectMode(true);
+            mergedModeBtn.classList.remove('active');
+            selectedModeBtn.classList.add('active');
+        });
+
+        mergedModeBtn.addEventListener('click', () => {
+            toggleSelectMode(false);
+            selectedModeBtn.classList.remove('active');
+            mergedModeBtn.classList.add('active');
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // One selected comment at a time
+            document.getElementById("postGradeModal").addEventListener("change", function (e) {
+                if (e.target.classList.contains("toggle-checkbox")) {
+                    if (e.target.checked) {
+                        document.querySelectorAll('#postGradeModal .toggle-checkbox').forEach(cb => {
+                            if (cb !== e.target) {
+                                cb.checked = false;
+                                cb.classList.remove('toggled-once');
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Comment Preview
+            document.querySelectorAll(".comment-preview").forEach(span => {
+                span.addEventListener("click", function() {
+                    const modal = document.getElementById("commentModal");
+                    const modalComment = document.getElementById("modalComment");
+                    modalComment.textContent = this.dataset.full;
+                    modal.style.display = "flex";
+                });
+            });
+
+            document.getElementById("closeModal").addEventListener("click", function() {
+                document.getElementById("commentModal").style.display = "none";
+            });
+
+            window.addEventListener("click", function(e) {
+                const modal = document.getElementById("commentModal");
+                if (e.target === modal) {
+                    modal.style.display = "none";
+                }
+            });
+        });
     </script>
 {% endblock javascripts %}

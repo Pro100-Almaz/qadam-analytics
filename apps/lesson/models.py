@@ -85,7 +85,7 @@ class Lesson(models.Model):
 
         total_grade = 0
         for topic in self.topics.filter(parent__isnull=True):
-            total_grade += sum_topic(topic) * (topic.weight / 100)
+            total_grade += (sum_topic(topic) * (float(topic.weight) / 100))
         return total_grade
 
 
@@ -103,10 +103,17 @@ class Topic(models.Model):
         on_delete=models.CASCADE
     )
     title = models.CharField(max_length=255)
-    weight = models.FloatField(
+    weight = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
         default=0.0,
         help_text="Percent weight in lesson (must sum to 100% for all siblings under same parent)"
     )
+    comment_template = models.CharField(
+        max_length=255,
+        default='',
+    )
+
 
     def calculate_subtopics_grade(self, student):
         # Compute a weighted grade (0-100) across immediate subtopics for the given student
@@ -143,19 +150,18 @@ class Topic(models.Model):
 
 
 
-
-
 class TopicGrade(models.Model):
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
     grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
     comment = models.TextField(blank=True)
+    comment_selected = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('topic', 'student')
 
 
-class GeneralLessonComment(models.Model):
+class MergedLessonComment(models.Model):
     lesson = models.ForeignKey(
         Lesson,
         related_name='lesson_comment',
