@@ -15,7 +15,7 @@ from django.utils.html import strip_tags
 from pycodestyle import continued_indentation
 
 from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
-from .models import Lesson, Topic, TopicGrade
+from .models import Lesson, Topic, TopicGrade, MergedLessonComment, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassRoom, QuarterGrader
 from ..notification.models import Notification, GradingNotify
@@ -129,7 +129,7 @@ def lesson_details(request, pk):
 
     for student in students:
         s_key = student.user.id
-        student_grades[s_key] = {"grade_total": round(lesson.calculate_student_grade(student), 1)}
+        student_grades[s_key] = {"grade_total": (round(lesson.calculate_student_grade(student), 1))}
 
         topic_grades = TopicGrade.objects.filter(
             student=student, topic__lesson=lesson
@@ -182,7 +182,7 @@ def update_topic(request, pk):
     total_topic_weights = 0
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True)
     for topic in topics:
-        total_topic_weights += topic.topic_weight
+        total_topic_weights += topic.weight
 
     if total_topic_weights != 100:
         messages.warning(request, f"The total topic weight after editing is equal to {total_topic_weights}, but should be equal to 100.")
@@ -276,12 +276,7 @@ def update_subtopic(request, pk):
         messages.warning(request, f"The total topic weight after editing is equal to {total_subtopic_weights}, but should be equal to 100.")
 
 
-    return render(request, 'lesson/lesson_details.html', {
-        'lesson': lesson,
-        'form': form,
-        'editing_subtopic': subtopic,
-        'total_subtopic_weights': total_subtopic_weights
-    })
+    return redirect('lesson:lesson_details')
 
 
 def subtopic_weight_distribution(lesson):
@@ -327,10 +322,8 @@ def distribute_subtopic_weights_equally(request, lesson_id):
 @login_required(login_url="/login/")
 def grading(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
-    students = Student.objects.filter(subjects = lesson.subject)
-    topics = Topic.objects.filter(lesson = lesson)
-    topic_grades = TopicGrade.objects.filter(topic__lesson=lesson, student__in=students)
-
+    students = Student.objects.filter(subjects=lesson.subject)
+    topics = Topic.objects.filter(lesson=lesson)
     topic_grade_rows = (
         TopicGrade.objects
         .filter(topic__lesson=lesson, student__in=students)
@@ -350,17 +343,62 @@ def grading(request, pk):
         }
         has_grades[student_id] = True
 
+
+    # Comments merged/selecteed
+    merged_comments = (
+        MergedLessonComment.objects
+        .filter(lesson=lesson, student__in=students)
+        .select_related("student__user")
+        .values("student__user_id", "comment_text")
+    )
+    merged_comment_map = {
+        merged_comment["student__user_id"]: merged_comment["comment_text"] for merged_comment in merged_comments
+    }
+
+    selected_comments = (
+        TopicGrade.objects
+        .filter(topic__lesson=lesson, comment_selected=True)
+        .select_related("student__user")
+        .values("student__user_id", "comment").exclude(comment__isnull=True).exclude(comment="")
+    )
+    selected_comments_map = {
+        selected_comment["student__user_id"]: selected_comment["comment"] for selected_comment in selected_comments
+    }
+
+    comment_modes = {}
+    for student in students:
+        if student.user.id in merged_comment_map:
+            comment_modes[student.user.id] = "merged"
+        elif student.user.id in selected_comments_map:
+            comment_modes[student.user.id] = "selected"
+        else:
+            comment_modes[student.user.id] = None
+
+    # comment templates
+    comment_templates = {}
+    for topic in topics:
+        comment_templates[topic.id] = topic.comment_template
+
     student_grades = {}
     for student in students:
         student_grades[student.user.id] = round(lesson.calculate_student_grade(student), 1)
 
+
+
+
     context = {
-        'lesson': lesson,
-        'students': students,
-        'topics': topics,
-        'topic_grade_map': json.dumps(topic_grade_map,ensure_ascii=False),
-        'student_grades': student_grades,
-        'has_grades': has_grades
+        "lesson": lesson,
+        "students": students,
+        "topics": topics,
+        "topic_grade_map": json.dumps(topic_grade_map, ensure_ascii=False),
+        "student_grades": student_grades,
+        "has_grades": has_grades,
+        "merged_comment_map": merged_comment_map,  #json.dumps(merged_comment_map, ensure_ascii=False),
+        "merged_comment_map_json": json.dumps(merged_comment_map, ensure_ascii=False),
+        "selected_comments_map": selected_comments_map,
+        "selected_comments_map_json": json.dumps(selected_comments_map, ensure_ascii=False),
+        "comment_templates": json.dumps(comment_templates, ensure_ascii=False),
+        "comment_modes": comment_modes,
     }
     return render(request, "lesson/grading.html", context)
 
@@ -370,50 +408,80 @@ def submit_all_topic_grades(request):
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
         lesson_id = request.POST.get('lesson_id')
+        comment_mode = request.POST.get('comment_mode')
+
+        try:
+            student_id = int(student_id)
+            lesson_id = int(lesson_id)
+        except (ValueError, TypeError):
+            return redirect('lesson:lessons')
 
         student = get_object_or_404(Student, user__id=student_id)
         lesson = get_object_or_404(Lesson, pk=lesson_id)
+        toMerge = ""
 
-        # Iterate through all top-level topics first
         for topic in lesson.topics.filter(parent__isnull=True):
-            # Handle subtopics as checklist
             subtopics = list(topic.subtopics.all())
+            top_defaults = {
+                'comment': request.POST.get(f'topic_{topic.id}_comment', '').strip(),
+                'comment_selected': bool(request.POST.get(f'topic_{topic.id}_comment_selected', ''))
+            }
+
+            if comment_mode == "merged":
+                toMerge += f"{topic.title}:"+ top_defaults['comment'] + '\n'
+
+
             for sub in subtopics:
-                # Checkbox convention: presence means covered (1), absence means 0
                 covered = request.POST.get(f'subtopic_{sub.id}_covered')
                 grade_value = 100 if covered else 0
 
-                comment = request.POST.get(f'subtopic_{sub.id}_comment', '').strip()
+                sub_defaults = {'grade': grade_value,
+                            'comment': request.POST.get(f'subtopic_{sub.id}_comment', '').strip(),
+                            'comment_selected': False}
 
-                # Preserve existing comment; no comment is posted from read-only UI
-                tg, _created = TopicGrade.objects.update_or_create(
+                if comment_mode == "merged":
+                    toMerge += f"{topic.title} -- {sub.title}: " + sub_defaults['comment'] + '\n'
+
+                TopicGrade.objects.update_or_create(
                     student=student,
                     topic=sub,
-                    defaults={'grade': grade_value,
-                              'comment': comment}
-                )
+                    defaults=sub_defaults)
 
-            # Topic-level grade/comment
-            # No topic comment is posted from read-only UI
+
             if subtopics:
                 topic_grade_value = topic.calculate_subtopics_grade(student)
             else:
-                # For topics without subtopics, use the topic checkbox
                 covered = request.POST.get(f'topic_{topic.id}_covered')
                 topic_grade_value = 100 if covered else 0
 
-            topic_comment = request.POST.get(f'topic_{topic.id}_comment', '').strip()
+            top_defaults['grade'] = topic_grade_value
 
             TopicGrade.objects.update_or_create(
                 student=student,
                 topic=topic,
-                defaults={'grade': topic_grade_value,
-                          'comment': topic_comment
-                          }
+                defaults=top_defaults
             )
 
+        if comment_mode == "merged":
+            TopicGrade.objects.filter(
+                topic__lesson=lesson,
+                student=student
+            ).update(comment_selected=False)
+
+            MergedLessonComment.objects.update_or_create(
+                lesson=lesson,
+                student=student,
+                defaults={'comment_text': toMerge}
+            )
+        else:
+
+            MergedLessonComment.objects.filter(
+                lesson=lesson,
+                student=student
+            ).delete()
+
         return redirect('lesson:grading', pk=lesson.id)
-    return redirect('lesson:grading', pk=request.POST.get('lesson_id'))
+    return redirect('lesson:lessons')
 
 
 @login_required(login_url="/login/")
