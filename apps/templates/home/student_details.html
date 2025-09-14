@@ -314,7 +314,7 @@
         </div>
     </div>
 
-<div class="row">
+<div class="row ml-1">
         <div class="nav-buttons">
             <button
                 type="button"
@@ -322,7 +322,7 @@
                 data-toggle="modal"
                 id="generalInfoBtn"
                 onclick="generalInfoBtn()"
-                style="border-bottom: 4px solid #ddd; color:black;">
+                style="border-bottom: 4px solid #0d6efd; color:#0d6efd;">
                 <i class="fas fa-chart-bar mr-2"></i> Общая информация
             </button>
 
@@ -385,7 +385,14 @@
                                     data-value="{% widthratio state.score 1 20 %}">
                                 </div>
                             </div>
+                            <button type="button" class="btn btn-danger mt-2" data-toggle="modal"
+                                id="deletePsychologicalStateBTN"
+                                data-target="#deletePsychologicalStateModal"
+                                data-delete-url="{% url 'psychological_state_delete' student.id state.id %}">
+                                <i class="fas fa-minus mr-2"></i>Убрать
+                            </button>
                         </div>
+
                         {% endfor %}
                     {% else %}
                         <div class="text-center py-4">
@@ -747,6 +754,35 @@
                     <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save mr-2"></i>Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Delete Psychological State Modal -->
+<div
+    class="modal fade"
+    id="deletePsychologicalStateModal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="deletePsychologicalStateModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePsychologicalStateModalLabel">Убрать Психологическое Состояние?</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="deletePsychoForm" method="POST">
+                {% csrf_token %}
+                <div class="modal-footer text-center">
+                    <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times mr-2"></i>Убрать
                     </button>
                 </div>
             </form>
@@ -1278,6 +1314,13 @@ $(document).ready(function() {
             alert("Пожалуйста, выберите оценку (звезды)");
             return false;
         }
+    });
+
+   $('#deletePsychologicalStateModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+        const deleteUrl = button.data('deleteUrl');
+
+        $('#deletePsychoForm').attr('action', deleteUrl);
     });
 
     // Handle template modal

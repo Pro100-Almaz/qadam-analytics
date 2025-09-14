@@ -106,17 +106,17 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 
 if DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'qadam_dev',
-            'USER': 'yersultan',
-            'PASSWORD': '76429',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
-    }
-else:
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': 'qadam_dev',
+#             'USER': 'yersultan',
+#             'PASSWORD': '76429',
+#             'HOST': 'localhost',
+#             'PORT': '5432',
+#         }
+#     }
+# else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
