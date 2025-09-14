@@ -45,7 +45,7 @@ class Lesson(models.Model):
         default=1,
         validators=[
             MinValueValidator(1),
-            MaxValueValidator(4)
+            MaxValueValidator(15)
         ],
         help_text="Unit of the lesson"
     )

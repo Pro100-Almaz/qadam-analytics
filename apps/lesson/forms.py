@@ -42,7 +42,7 @@ class LessonForm(forms.ModelForm):
             "group": forms.Select(attrs={"class": "form-control"}),
             "unit": forms.NumberInput(attrs={
                 "class": "form-control",
-                "min": 1, "max": 4,
+                "min": 1, "max": 15,
             }),
         }
 
