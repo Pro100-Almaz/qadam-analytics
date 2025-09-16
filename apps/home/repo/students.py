@@ -98,7 +98,11 @@ def student_details(request, pk):
         to_add = 0
         for i in subject_quarter_grades[quarter]:
             to_add = subject_quarter_grades[quarter][i]
-        to_add = round(to_add / num_subjects, 1)
+        if num_subjects != 0:
+            to_add = round(to_add / num_subjects, 1)
+        else:
+            to_add = round(to_add / 1, 1)
+
         student_total_grade += round(to_add / 4, 1)
         total_quarter_grades[quarter] = grade_identifier(to_add)
 

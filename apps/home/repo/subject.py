@@ -203,7 +203,7 @@ def subject_details(request, pk):
         }
     top_grades = sorted(student_grades.items(), key=lambda x: x[1]['grade'], reverse=True)
 
-
+    #grading table pagination
     grades_table = request.GET.get('grades_page', 1)
     grades_paginator = Paginator(top_grades, 5)
 
@@ -213,6 +213,10 @@ def subject_details(request, pk):
         all_grades = grades_paginator.page(1)
     except EmptyPage:
         all_grades = grades_paginator.page(grades_paginator.num_pages)
+
+    #subject's lessons pagination
+
+
 
     # KPI metrics for the header cards
     students_count = students.count()
