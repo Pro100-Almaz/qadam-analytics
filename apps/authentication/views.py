@@ -80,6 +80,12 @@ def register_user(request):
                         occupation=form.cleaned_data['occupation'],
                         classroom=form.cleaned_data['classroom']
                     )
+                if user.is_student():
+                    Student.objects.create(
+                        user=user,
+                        school_group=form.cleaned_data['school_group'],
+                        classroom=form.cleaned_data['classroom']
+                    )
                 elif user.is_manager():
                     Supervisor.objects.create(user=user)
 
