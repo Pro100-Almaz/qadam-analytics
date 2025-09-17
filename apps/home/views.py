@@ -182,41 +182,43 @@ def teachers_list(request):
 @login_required(login_url="/login/")
 def create_psychological_state(request, pk):
     if request.method == "POST":
-        name = request.POST.get('state_name')
-        comment = request.POST.get('comment')
-        score = request.POST.get('star_rating')
+        if request.POST.get("_method") == "DELETE":
+            state_id = request.POST.get("state_id")
+            try:
+                student = Student.objects.get(pk=pk)
+                state = PsychologicalState.objects.get(pk=state_id, student_id=pk)
+                state.delete()
+                messages.success(request, "Психологическое состояние было удалено!")
+                return redirect("student_details", pk=student.user.id)
+
+            except PsychologicalState.DoesNotExist:
+                messages.error(request, f"Психологическое состояние с данным id не существует: {state_id}")
+                return redirect("student_details", pk=pk)
+
+        name = request.POST.get("state_name")
+        comment = request.POST.get("comment")
+        score = request.POST.get("star_rating")
 
         try:
             student = Student.objects.get(pk=pk)
         except Student.DoesNotExist:
-            messages.error(request, f"Student with id={pk} does not exist.")
-            return redirect('students')
+            messages.error(request, f"Студент с данным id не существует: {pk}")
+            return redirect("students")
 
         if not PsychologicalStateTemplates.objects.filter(name=name).exists():
             PsychologicalStateTemplates.objects.create(name=name, comment=comment)
 
-        PsychologicalState.objects.create(name=name,
-                                          comment=comment,
-                                          score = score,
-                                          student=student,
-                                          added_by=request.user)
-        print(student.id)
-        print(student.user.id)
-        return redirect('student_details', pk=student.user.id)
-    return redirect('students')
+        PsychologicalState.objects.create(
+            name=name,
+            comment=comment,
+            score=score,
+            student=student,
+            added_by=request.user,
+        )
+        messages.success(request, "Психологическое состояние успешно добавлено!")
+        return redirect("student_details", pk=student.user.id)
 
-@login_required(login_url="/login/")
-def delete_psychological_state(request, pk, state_id):
-    if request.method == "POST":
-        try:
-            student = Student.objects.get(pk=pk)
-            state=PsychologicalState.objects.get(pk=state_id, student_id=pk)
-            state.delete()
-            messages.success(request, "Psychological State Deleted.")
-            return redirect('student_details', pk=student.user.id)
-        except PsychologicalState.DoesNotExist:
-            messages.error(request, f"Psychological State with id={pk} does not exist.")
-    return redirect('student_details', pk=pk)
+    return redirect("students")
 
 #
 # @receiver(pre_save, sender=PsychologicalState)
