@@ -15,7 +15,6 @@ urlpatterns = [
     path('students/', students_list, name='students'),
     path('students/<int:pk>', student_details, name='student_details'),
     path('students/<int:pk>/psychological_state_create', views.create_psychological_state, name='psychological_state_create'),
-    # path('students/<int:pk>/psychological_state_delete/<int:state_id>/', delete_psychological_state, name='psychological_state_delete'),
     path('students/<int:pk>/student_profile_update', student_profile_update, name='student_profile_update'),
     path('students/<int:pk>/psychological_state_create/template', views.create_psychological_state_template, name='psychological_state_create_template'),
 
