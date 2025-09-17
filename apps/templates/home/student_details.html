@@ -386,9 +386,9 @@
                                 </div>
                             </div>
                             <button type="button" class="btn btn-danger mt-2" data-toggle="modal"
-                                id="deletePsychologicalStateBTN"
                                 data-target="#deletePsychologicalStateModal"
-                                data-delete-url="{% url 'psychological_state_delete' student.id state.id %}">
+                                data-state-id="{{ state.id }}"
+                                data-delete-url="{% url 'psychological_state_create' student.id %}">
                                 <i class="fas fa-minus mr-2"></i>Убрать
                             </button>
                         </div>
@@ -779,6 +779,8 @@
             </div>
             <form id="deletePsychoForm" method="POST">
                 {% csrf_token %}
+                <input type="hidden" name="_method" value="DELETE">
+                <input type="hidden" name="state_id" id="state_id_input">
                 <div class="modal-footer text-center">
                     <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-danger">
@@ -1316,12 +1318,16 @@ $(document).ready(function() {
         }
     });
 
-   $('#deletePsychologicalStateModal').on('show.bs.modal', function (event) {
-        const button = $(event.relatedTarget);
-        const deleteUrl = button.data('deleteUrl');
+$('#deletePsychologicalStateModal').on('show.bs.modal', function (event) {
+    let button = $(event.relatedTarget);
+    let stateId = button.data('state-id');
+    let modal = $(this);
 
-        $('#deletePsychoForm').attr('action', deleteUrl);
-    });
+    document.getElementById('state_id_input').value = stateId;
+    let form = modal.find('#deletePsychoForm');
+    form.attr('action', button.data('delete-url'));
+});
+
 
     // Handle template modal
     $("#createTemplateModal").on("show.bs.modal", function() {
