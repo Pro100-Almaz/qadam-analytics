@@ -224,11 +224,11 @@
             <thead class="thead-light">
               <tr>
                 <th scope="col">Тема</th>
-                <th scope="col">Баллы</th>
-                <th scope="col">Оценка</th>
+{#                <th scope="col">Баллы</th>#}
+{#                <th scope="col">Оценка</th>#}
                 <th scope="col">Статус</th>
                 <th scope="col">Четверть</th>
-                <th scope="col">Макс. балл</th>
+                <th scope="col">Unit</th>
                 <th scope="col" class="text-right">Действия</th>
               </tr>
             </thead>
@@ -238,18 +238,7 @@
                   <th scope="row" data-type="title">
                     <a href="{% url 'lesson:lesson_details' lesson.id %}" class="text-primary">{{ lesson.title }}</a>
                   </th>
-                  <td data-type="average-grade">{{ lesson.average_points }}</td>
-                  <td>
-                    {% if lesson.average_points >= 90 %}
-                      5
-                    {% elif lesson.average_points >= 70 %}
-                      4
-                    {% elif lesson.average_points >= 50 %}
-                      3
-                    {% else %}
-                      2
-                    {% endif %}
-                  </td>
+
                   <td data-type="status">
                     <span class="badge badge-dot mr-3">
                       {% if lesson.status == 'delayed' %}
@@ -265,7 +254,7 @@
                     </span>
                   </td>
                   <td data-type="quarter">{{ lesson.quarter }}</td>
-                  <td>{{ lesson.maximum_points }}</td>
+                  <td>{{ lesson.unit     }}</td>
                   <td class="text-right">
                     <a href="{% url 'lesson:lesson_details' lesson.id %}" class="btn btn-sm btn-outline-primary mr-2">Открыть</a>
                     <a href="{% url 'lesson:grading' lesson.id %}" class="btn btn-sm btn-primary">Оценить</a>
