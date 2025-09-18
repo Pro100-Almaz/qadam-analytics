@@ -235,13 +235,9 @@ class PsychologicalStateTemplates(models.Model):
 @receiver(post_save, sender=CustomUser)
 def registration_email_post_send(sender, instance, created, *args, **kwargs):
     if created:
-        raw_password = "Qadam!123_" + instance.username
-        instance.password = make_password(raw_password)
-        CustomUser.objects.filter(pk=instance.pk).update(password=instance.password)
-
         subject = 'Уведомление о учетной записи Qadam Analytics'
         html_message = render_to_string("email/registration_login_pw_email.html",
-                                   {"user": instance, "password": raw_password})
+                                   {"user": instance, "password": instance.password})
         plain_message = strip_tags(html_message)
         from_mail = settings.DEFAULT_FROM_EMAIL
         to_mail = [instance.email]
