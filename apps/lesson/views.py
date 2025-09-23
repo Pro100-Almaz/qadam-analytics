@@ -102,6 +102,14 @@ def lesson_create(request, subject_id=None):
 
     return render(request, "lesson/new_lesson.html", {"form": form})
 
+@login_required(login_url="/login/")
+def lesson_delete(request, lesson_id):
+    if request.method == "POST":
+        lesson = Lesson.objects.get(pk=lesson_id)
+        lesson.delete()
+        messages.success(request, "Lesson deleted successfully!")
+    return redirect("lesson:lessons")
+
 
 @login_required(login_url="/login/")
 def lesson_group_create(request):
