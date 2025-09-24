@@ -208,11 +208,20 @@
                         <a class="btn btn-sm btn-icon-only text-light" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                           <i class="fas fa-ellipsis-v"></i>
                         </a>
-                        <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow">
-                          <a class="dropdown-item" href="#">Action</a>
-                          <a class="dropdown-item" href="#">Another action</a>
-                          <a class="dropdown-item" href="#">Something else here</a>
+                        <div class="dropdown-menu dropdown-menu-right dropdown-menu-arrow " id="deleteButtonRight">
+                            <form method="POST" action="{% url 'lesson:lesson_delete' lesson.id %}">
+                                {% csrf_token %}
+                                {% if user.is_admin or user.is_manager or user.is_principal %}
+                                	<button type="submit" class="dropdown-item">Удалить</button>
+                                {% else %}
+                                    <button type="submit" class="dropdown-item disabled">Удалить</button>
+                                {% endif %}
+
+                            </form>
+
                         </div>
+
+
                       </div>
                     </td>
                   </tr>
@@ -310,12 +319,9 @@
             if (currPage <= 4) {
                 start = 1;
                 end = 5;
-            } else if (currPage >= totalPages - 1) {
+            } else{
                 start = totalPages - 4;
                 end = totalPages;
-            } else {
-                start = currPage - 1;
-                end = currPage + 1;
             }
         }
 
