@@ -20,7 +20,7 @@ class ClassRoom(models.Model):
 
 
 class AcademicYear(models.Model):
-    year = models.CharField(max_length=9) # 2024/2025
+    year = models.CharField(max_length=40) # 2024/2025
 
     def __str__(self):
         return self.year
