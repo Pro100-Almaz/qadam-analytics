@@ -47,15 +47,16 @@ def subjects_list(request, status=None):
     year_id = request.GET.get('year')
     lang_filter = request.GET.get('lang', 'all')
 
-
+    subjects = Subject.objects.all()
     if status == 'all':
-        subjects = Subject.objects.all()
-    elif status == 'archived':
+        pass
+    elif status == 'archived' or status == 'disabled':
         subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
+        print("archived", subjects)
     elif status == 'planned':
         subjects = Subject.objects.filter(status__in=['planned'])
-    else:
-        subjects = Subject.objects.filter(status=status)
+    elif status == 'active':
+        subjects = Subject.objects.filter(status__in=['active'])
 
     from apps.home.models import AcademicYear
     current_year = AcademicYear.objects.order_by('-year').first()
@@ -64,13 +65,11 @@ def subjects_list(request, status=None):
 
     if year_id:
         subjects = subjects.filter(academic_year_id=year_id)
+    print("year", subjects)
 
     langs = ['kaz', 'rus', 'eng']
-    if lang_filter == 'all':
-        subjects = Subject.objects.filter(status=status, academic_year_id=year_id)
-    else:
+    if lang_filter != 'all':
         subjects = Subject.objects.filter(status=status, academic_year_id=year_id, language_group=lang_filter)
-
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)
@@ -87,9 +86,6 @@ def subjects_list(request, status=None):
                 subjects_classrooms[subject.id] = []
             if student.classroom and student.classroom.name not in subjects_classrooms[subject.id]:
                 subjects_classrooms[subject.id].append(student.classroom.name)
-
-    print(subjects_classrooms)
-
 
 
     context = {
@@ -117,7 +113,7 @@ def my_subjects_list(request, status=None):
 
     if status == 'all':
         subjects = Subject.objects.filter(teacher__user = user)
-    elif status == 'archived':
+    elif status == 'archived' or status== 'disabled':
         subjects = Subject.objects.filter(status__in=['archived', 'disabled'], teacher__user = user)
     elif status == 'planned':
         subjects = Subject.objects.filter(status__in=['planned'], teacher__user = user)
@@ -178,7 +174,8 @@ def subject_details(request, pk):
 
     # Students enrolled in this subject
     students = Student.objects.filter(subjects=subject).select_related('user')
-    lessons = Lesson.objects.filter(subject=subject, quarter=quarter).order_by('created_at')
+    total_lessons = Lesson.objects.filter(subject=subject)
+    lessons = total_lessons.filter(quarter=quarter).order_by('created_at')
 
     lesson_avgs = {}
 
@@ -188,25 +185,54 @@ def subject_details(request, pk):
             lesson_avgs[lesson.id][student.id] = round(lesson.calculate_student_grade(student), 1)
 
     student_grades = {}
+    total_student_grades = {}
 
     len_lessons = len(lessons)
+    len_total_lessons = len(total_lessons)
     for student in students:
+        total_student_grade = 0
         student_grade = 0
+        for lesson in total_lessons:
+            total_student_grade += lesson_avgs[lesson.id][student.id]
         for lesson in lessons:
             student_grade += lesson_avgs[lesson.id][student.id]
-        student_grade /= len_lessons
+
+        if len_lessons == 0:
+            student_grade = 0
+        else:
+            student_grade /= len_lessons
+
+        if len_total_lessons == 0:
+            total_student_grade = 0
+        else:
+            total_student_grade /= len_total_lessons
 
         student_grades[student.id] = {}
         student_grades[student.id] = {
             'grade': round(student_grade, 1),
             'student_info': student.user.get_full_name()
         }
+        total_student_grades[student.id] = {}
+        total_student_grades[student.id] = {
+            'grade': round(total_student_grade, 1)
+        }
     top_grades = sorted(student_grades.items(), key=lambda x: x[1]['grade'], reverse=True)
+
+    #lessons paginator
+    lessons_table = request.GET.get('lessons_page', '1')
+    lessons_paginator = Paginator(lessons, 7)
+    try:
+        all_lessons = lessons_paginator.page(lessons_table)
+    except PageNotAnInteger:
+        all_lessons = lessons_paginator.page(1)
+    except EmptyPage:
+        all_lessons= lessons_paginator.page(lessons_paginator.num_pages)
+
+
 
     #grading table pagination
     grades_table = request.GET.get('grades_page', 1)
     grades_paginator = Paginator(top_grades, 5)
-
     try:
         all_grades = grades_paginator.page(grades_table)
     except PageNotAnInteger:
@@ -214,14 +240,10 @@ def subject_details(request, pk):
     except EmptyPage:
         all_grades = grades_paginator.page(grades_paginator.num_pages)
 
-    #subject's lessons pagination
-
-
 
     # KPI metrics for the header cards
     students_count = students.count()
     lessons_count = Lesson.objects.filter(subject=subject).count()
-
 
     if student_grades:
         average_subject_points = round(sum(info['grade'] for info in student_grades.values()) / len(student_grades), 1)
@@ -229,12 +251,15 @@ def subject_details(request, pk):
         average_subject_points = 0
 
     # Completion: ratio of existing grades to expected grades (students × lessons)
-    students_with_grades = len([s for s in student_grades.values() if s['grade'] > 0])
+    students_with_grades = len([s for s in total_student_grades.values() if s['grade'] > 0])
     completion_percent = round((students_with_grades / students_count) * 100, 1) if students_count > 0 else 0
+
+
 
     context = {
         'top_grades': top_grades,
         'all_grades': all_grades,
+        'all_lessons': all_lessons,
         'lessons': lessons,
         'subject_id': pk,
         'quarter': quarter,

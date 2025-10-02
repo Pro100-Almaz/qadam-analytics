@@ -90,6 +90,7 @@ for sheet_name, df in dfs.items():
                 "progress": 0,
                 "average_points": 0,
                 "maximum_points": 100,
+                "added_by_id": 8, #id of the admin user
             }
         )[0]
         student.subjects.add(subject)
