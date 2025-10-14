@@ -5,9 +5,32 @@ services:
     restart: always
     env_file: .env
     build: .
+    environment:
+      - DEBUG=False
+      - DB_NAME=${DB_NAME:-qadam}
+      - DB_USER=${DB_USER:-qadam}
+      - DB_PASSWORD=${DB_PASSWORD:-qadam}
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      - db
     networks:
       - db_network
       - web_network
+  db:
+    container_name: postgres
+    image: postgres:14-alpine
+    restart: always
+    environment:
+      - POSTGRES_DB=${DB_NAME:-qadam}
+      - POSTGRES_USER=${DB_USER:-qadam}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-qadam}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - db_network
   nginx:
     container_name: nginx
     restart: always
@@ -25,4 +48,6 @@ networks:
     driver: bridge
   web_network:
     driver: bridge
+volumes:
+  postgres_data:
  
