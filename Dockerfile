@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.13-slim AS base
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,25 +7,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PATH="/home/appuser/.local/bin:${PATH}"
 
-# System deps for psycopg2, Pillow, healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential gcc libpq-dev curl netcat-openbsd \
   && rm -rf /var/lib/apt/lists/*
 
-# non-root user
 RUN useradd -m appuser
 WORKDIR /app
 
-# use layers for faster rebuilds
+# deps first for caching
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# copy the rest
+# app source
 COPY . /app
 
-# runtime helper
+# make static dir & permissions
+RUN mkdir -p /vol/static && chown -R appuser:appuser /vol /app
+
+# entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && chown -R appuser:appuser /app
+RUN chmod +x /entrypoint.sh
 
 USER appuser
 EXPOSE 8000

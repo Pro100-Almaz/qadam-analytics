@@ -1,53 +1,68 @@
 version: '3.8'
+
+x-django-env: &django-env
+  env_file: .env
+  environment:
+    DEBUG: ${DEBUG:-False}
+    DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-core.settings}
+    SECRET_KEY: ${SECRET_KEY}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+    DB_NAME: ${DB_NAME:-qadam}
+    DB_USER: ${DB_USER:-qadam}
+    DB_PASSWORD: ${DB_PASSWORD:-qadam}
+    DB_HOST: db
+    DB_PORT: 5432
+    # AWS_... vars needed by boto3 at runtime:
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME}
+    AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME}
+    AWS_S3_CUSTOM_DOMAIN: ${AWS_S3_CUSTOM_DOMAIN}
+
 services:
   appseed-app:
     container_name: appseed_app
-    restart: always
-    env_file: .env
     build: .
-    environment:
-      - DEBUG=False
-      - DB_NAME=${DB_NAME:-qadam}
-      - DB_USER=${DB_USER:-qadam}
-      - DB_PASSWORD=${DB_PASSWORD:-qadam}
-      - DB_HOST=db
-      - DB_PORT=5432
-    depends_on:
-      - db
-    networks:
-      - db_network
-      - web_network
+    restart: unless-stopped
+    <<: *django-env
+    depends_on: [db]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [db_network, web_network]
+    volumes:
+      - static_volume:/vol/static
+
   db:
     container_name: postgres
     image: postgres:14-alpine
-    restart: always
+    restart: unless-stopped
     environment:
-      - POSTGRES_DB=${DB_NAME:-qadam}
-      - POSTGRES_USER=${DB_USER:-qadam}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-qadam}
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-qadam}
+      POSTGRES_USER: ${DB_USER:-qadam}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-qadam}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - db_network
+    networks: [db_network]
+
   nginx:
     container_name: nginx
-    restart: always
-    image: "nginx:latest"
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [appseed-app]
     ports:
       - "85:85"
     volumes:
-      - ./nginx:/etc/nginx/conf.d
-    networks:
-      - web_network
-    depends_on: 
-      - appseed-app
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static_volume:/vol/static:ro
+    networks: [web_network]
+
 networks:
-  db_network:
-    driver: bridge
-  web_network:
-    driver: bridge
+  db_network: { driver: bridge }
+  web_network: { driver: bridge }
+
 volumes:
   postgres_data:
- 
+  static_volume:
