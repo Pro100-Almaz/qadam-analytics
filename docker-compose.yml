@@ -19,18 +19,23 @@ x-django-env: &django-env
 services:
   appseed-app:
     container_name: appseed_app
-    build: .
     restart: unless-stopped
-    <<: *django-env
+    build: .
+    env_file: .env
+    environment:
+      DEBUG: "False"
+      DB_NAME: ${DB_NAME:-qadam}
+      DB_USER: ${DB_USER:-qadam}
+      DB_PASSWORD: ${DB_PASSWORD:-qadam}
+      DB_HOST: db
+      DB_PORT: 5432
     depends_on: [db]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-    networks: [db_network, web_network]
+    # Expose ONLY to the host, not the internet:
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
-      - static_volume:/vol/static
+      - ./staticfiles:/vol/static    # <-- host path for static
+    networks: [db_network]
 
   db:
     container_name: postgres
@@ -44,32 +49,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks: [db_network]
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: nginx
-    restart: unless-stopped
-    depends_on: [ appseed-app ]
-    ports:
-      - "80:80"   # <-- required for Let's Encrypt HTTP-01
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - static_volume:/vol/static:ro
-      - ./certbot/www:/var/www/certbot:ro         # <-- challenge files
-      - ./certbot/conf:/etc/letsencrypt:ro        # <-- certs live here
-    networks: [ web_network ]
-
-  certbot:
-    image: certbot/certbot:v2.11.0
-    container_name: certbot
-    volumes:
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
-
 networks:
   db_network: { driver: bridge }
-  web_network: { driver: bridge }
 
 volumes:
   postgres_data:
-  static_volume:
