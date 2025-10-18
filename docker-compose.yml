@@ -15,9 +15,6 @@ x-django-env: &django-env
     # AWS_... vars needed by boto3 at runtime:
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-    AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME}
-    AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME}
-    AWS_S3_CUSTOM_DOMAIN: ${AWS_S3_CUSTOM_DOMAIN}
 
 services:
   appseed-app:
