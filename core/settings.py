@@ -15,7 +15,7 @@ SECRET_KEY = config('SECRET_KEY', default='S#perS3crEt_1122')
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # load production server from .env
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['dashboard.qadam.edu.kz', 'dashboard.qadam.edu.kz']
 
 # Application definition
 
