@@ -33,20 +33,7 @@ def login_view(request):
         if form.is_valid():
             username = form.cleaned_data.get("username")
             password = form.cleaned_data.get("password")
-            
-            # Debug login process
-            print(f"LOGIN DEBUG - Username: {username}")
-            print(f"LOGIN DEBUG - Password: {password}")
-            print(f"LOGIN DEBUG - Password length: {len(password)}")
-            
-            # Check if user exists and get their stored password
-            try:
-                db_user = CustomUser.objects.get(username=username)
-                print(f"LOGIN DEBUG - DB User found: {db_user}")
-                print(f"LOGIN DEBUG - DB Password hash: {db_user.password}")
-                print(f"LOGIN DEBUG - User is_active: {db_user.is_active}")
-            except CustomUser.DoesNotExist:
-                print(f"LOGIN DEBUG - User does not exist in database")
+
             
             user = authenticate(username=username, password=password)
             print(f"LOGIN DEBUG - Authentication result: {user}")
@@ -81,15 +68,6 @@ def register_user(request):
 
             user = form.save(commit=False)
             user.username = user.email
-
-            # Debug password hashing
-            raw_password = form.cleaned_data.get("password1")
-            print(f"REGISTRATION DEBUG - Raw password: {raw_password}")
-            print(f"REGISTRATION DEBUG - Password length: {len(raw_password)}")
-            
-            user.set_password(raw_password)
-            print(f"REGISTRATION DEBUG - Hashed password: {user.password}")
-            print(f"REGISTRATION DEBUG - Password hash length: {len(user.password)}")
             
             if CustomUser.objects.filter(username=user.username).exists():
                 context["error"] = find_error_by_key("email")
