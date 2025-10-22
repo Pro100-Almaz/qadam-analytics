@@ -1,6 +1,7 @@
 import random
 
 from django.contrib import messages
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, user_logged_in
@@ -9,9 +10,13 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.http import HttpResponse, HttpRequest, HttpResponseRedirect
 from django.core.signing import Signer
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from django.urls import reverse
 
 from core import settings
-from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm
+from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm, ResetPasswordForm
 from .models import CustomUser, Teacher, Parent, Supervisor, Student
 from errors import find_error_by_key
 
@@ -28,7 +33,23 @@ def login_view(request):
         if form.is_valid():
             username = form.cleaned_data.get("username")
             password = form.cleaned_data.get("password")
+            
+            # Debug login process
+            print(f"LOGIN DEBUG - Username: {username}")
+            print(f"LOGIN DEBUG - Password: {password}")
+            print(f"LOGIN DEBUG - Password length: {len(password)}")
+            
+            # Check if user exists and get their stored password
+            try:
+                db_user = CustomUser.objects.get(username=username)
+                print(f"LOGIN DEBUG - DB User found: {db_user}")
+                print(f"LOGIN DEBUG - DB Password hash: {db_user.password}")
+                print(f"LOGIN DEBUG - User is_active: {db_user.is_active}")
+            except CustomUser.DoesNotExist:
+                print(f"LOGIN DEBUG - User does not exist in database")
+            
             user = authenticate(username=username, password=password)
+            print(f"LOGIN DEBUG - Authentication result: {user}")
             if user:
                 login(request, user)
                 return redirect("/")
@@ -61,11 +82,20 @@ def register_user(request):
             user = form.save(commit=False)
             user.username = user.email
 
+            # Debug password hashing
+            raw_password = form.cleaned_data.get("password1")
+            print(f"REGISTRATION DEBUG - Raw password: {raw_password}")
+            print(f"REGISTRATION DEBUG - Password length: {len(raw_password)}")
+            
+            user.set_password(raw_password)
+            print(f"REGISTRATION DEBUG - Hashed password: {user.password}")
+            print(f"REGISTRATION DEBUG - Password hash length: {len(user.password)}")
             
             if CustomUser.objects.filter(username=user.username).exists():
                 context["error"] = find_error_by_key("email")
             else:
                 user.save()
+
                 # Handle avatar upload
                 if 'avatar' in request.FILES:
                     user.avatar = request.FILES['avatar']
@@ -89,11 +119,13 @@ def register_user(request):
                 elif user.is_manager():
                     Supervisor.objects.create(user=user)
 
+                reset_password_link(request, user)
 
                 login(request, user)
                 if user.is_parent:
                     return redirect("/pages/teachers")
                 return redirect("/pages")
+
         else:
             # Add form errors to context
             for field, errors in form.errors.items():
@@ -104,6 +136,57 @@ def register_user(request):
                     break
 
     return render(request, "accounts/register.html", context)
+
+def reset_password_link(request, user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    url = request.build_absolute_uri(f"/reset/{uid}/{token}/")
+
+    subject = "Reset Password"
+    message = render_to_string(
+        "email/reset_password_email.html",
+        context={
+            "subject": subject,
+            "user": user,
+            "url": url,
+        }
+    )
+    from_mail = settings.DEFAULT_FROM_EMAIL
+    to_mail = [user.email]
+
+    email = EmailMultiAlternatives(subject, "", from_mail, to_mail)
+    email.attach_alternative(message, "text/html")
+    email.send()
+
+
+def reset_password_view(request, token, uidb64):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = CustomUser.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+        user = None
+
+    if user and default_token_generator.check_token(user, token):
+        form = ResetPasswordForm(request.POST or None)
+
+        if request.method == "POST":
+            new_password = form.cleaned_data.get("new_password")
+            confirm_password = form.cleaned_data.get("confirm_password")
+
+            if new_password != confirm_password:
+                messages.error(request, "Пароли не совпадают")
+            else:
+                user.set_password(new_password)
+                user.save()
+                messages.success(request, "Пароль успешно изменен!")
+                return redirect('login')
+
+        return render(request, 'accounts/reset_password.html', {'form': form, 'link': True})
+    else:
+        messages.error(request, "Invalid link or token.")
+        return render(request, 'accounts/reset_password.html', {'link': False})
+
+
 
 def send_email_password_change(request, username):
     user = CustomUser.objects.filter(username=username).first()
@@ -185,4 +268,7 @@ def custom_logout_view(request):
     logout(request)
 
     return redirect('/login/')
+
+
+
 

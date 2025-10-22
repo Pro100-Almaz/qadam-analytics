@@ -304,4 +304,26 @@ class VerificationPasswordForm(forms.Form):
         fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
 
 
+class ResetPasswordForm(forms.Form):
+    new_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Новый Пароль",
+            "class": "form-control"
+        })
+    )
+    confirm_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Повторите Пароль",
+            "class": "form-control"
+        })
+    )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = cleaned_data.get("new_password")
+        confirm_password = cleaned_data.get("confirm_password")
+
+        if new_password and confirm_password:
+            if new_password != confirm_password:
+                raise forms.ValidationError("Пароли не совпадают")
+        return cleaned_data

@@ -1,14 +1,48 @@
 version: '3.8'
+
+x-django-env: &django-env
+  env_file: .env
+  environment:
+    DEBUG: ${DEBUG:-True}
+    DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-core.settings}
+    SECRET_KEY: ${SECRET_KEY}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+    DB_NAME: ${DB_NAME:-qadam}
+    DB_USER: ${DB_USER:-qadam}
+    DB_PASSWORD: ${DB_PASSWORD:-qadam}
+    DB_HOST: db
+    DB_PORT: 5432
+
 services:
   appseed-app:
+    container_name: appseed_app_dev
+    restart: unless-stopped
+    build: .
+    <<: *django-env
     command: python manage.py runserver 0.0.0.0:8000
-    environment:
-      DEBUG: "True"
+    depends_on: [db]
     volumes:
       - .:/app
     ports:
       - "8000:8000"
-  db:
-    ports:
-      - "5432:5432"  # ok in dev only
+    networks: [db_network]
 
+  db:
+    container_name: postgres_dev
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-qadam}
+      POSTGRES_USER: ${DB_USER:-qadam}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-qadam}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks: [db_network]
+
+networks:
+  db_network: { driver: bridge }
+
+volumes:
+  postgres_data_dev:
