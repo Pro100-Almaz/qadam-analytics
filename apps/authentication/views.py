@@ -1,23 +1,9 @@
-import random
-
 from django.contrib import messages
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout, user_logged_in
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail, EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.http import HttpResponse, HttpRequest, HttpResponseRedirect
-from django.core.signing import Signer
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.contrib.auth.tokens import default_token_generator
-from django.urls import reverse
 
-from core import settings
 from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm, ResetPasswordForm
-from .models import CustomUser, Teacher, Parent, Supervisor, Student
+from .models import CustomUser
 from apps.authentication.services import get_user_service
 from errors import find_error_by_key
 
@@ -121,47 +107,3 @@ def custom_logout_view(request):
 # @receiver(user_logged_in)
 # def show_log_in_notification(sender, request, user = CustomUser, **kwargs):
 #     message = str(user.role)
-
-def reset_password_link(request, user):
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    url = request.build_absolute_uri(f"/reset/{uid}/{token}/")
-
-    subject = "Reset Password"
-    message = render_to_string(
-        "email/reset_password_email.html",
-        context={
-            "subject": subject,
-            "user": user,
-            "url": url,
-        }
-    )
-    from_mail = settings.DEFAULT_FROM_EMAIL
-    to_mail = [user.email]
-
-    email = EmailMultiAlternatives(subject, "", from_mail, to_mail)
-    email.attach_alternative(message, "text/html")
-    email.send()
-
-
-def send_email_password_change(request, username):
-    user = CustomUser.objects.filter(username=username).first()
-    if not user:
-        return redirect('/login/')
-
-
-    verification_code = random.randint(100000, 999999)
-
-    subject = "Verification email"
-    message = render_to_string("email/verification_email.html", {"user": user, "verification_code": verification_code})
-    from_mail = settings.DEFAULT_FROM_EMAIL
-    to_mail = [user.email]
-
-    email = EmailMultiAlternatives(subject, "", from_mail, to_mail)
-    email.attach_alternative(message, "text/html")
-    email.send()
-
-    signer = Signer()
-    signed_code = signer.sign(str(verification_code))
-
-    return redirect("verification_code", username=user.username, signed_code=signed_code)
