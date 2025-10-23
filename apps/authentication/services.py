@@ -78,6 +78,7 @@ class AccountService:
                 occupation=form.cleaned_data.get("occupation"),
                 classroom=form.cleaned_data.get("classroom"),
             )
+
         elif user.is_student():
             Student.objects.create(
                 user=user,
@@ -90,7 +91,7 @@ class AccountService:
         self.send_reset_password_link(request, user)
 
         login(request, user)
-        redirect_url = "/pages/teachers" if user.is_parent() else "/pages"
+        redirect_url = "/pages/teachers" if user.is_parent() else "/"
         return user, None, redirect_url
 
     def send_reset_password_link(self, request, user: CustomUser) -> None:
@@ -139,7 +140,7 @@ class AccountService:
         return True, None
 
     @staticmethod
-    def validate_reset_link(self, uidb64: str, token: str) -> Optional[User]:
+    def validate_reset_link(uidb64: str, token: str) -> Optional[User]:
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
@@ -149,7 +150,7 @@ class AccountService:
         return user if default_token_generator.check_token(user, token) else None
 
     @staticmethod
-    def set_new_password(self, user: User, new_password: str) -> None:
+    def set_new_password(user: User, new_password: str) -> None:
         user.set_password(new_password)
         user.save(update_fields=["password"])
 

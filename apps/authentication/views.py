@@ -57,7 +57,7 @@ def reset_password_view(request, uidb64, token):
         else:
             get_user_service().set_new_password(user, new_password)
             messages.success(request, "Пароль успешно изменен!")
-            return redirect("login")
+            return redirect("/")
 
     return render(request, "accounts/reset_password.html", {"form": form, "link": True})
 
