@@ -1,188 +1,109 @@
-import random
-
 from django.contrib import messages
-from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout, user_logged_in
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail, EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.http import HttpResponse, HttpRequest, HttpResponseRedirect
-from django.core.signing import Signer
 
-from core import settings
-from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm
-from .models import CustomUser, Teacher, Parent, Supervisor, Student
+from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm, ResetPasswordForm
+from .models import CustomUser
+from apps.authentication.services import get_user_service
 from errors import find_error_by_key
-
 
 
 def login_view(request):
     form = LoginForm(request.POST or None)
-
-    msg = None
     context = {"form": form}
 
-    if request.method == "POST":
+    if request.method == "POST" and form.is_valid():
+        username = form.cleaned_data.get("username")
+        password = form.cleaned_data.get("password")
+        result = get_user_service().authenticate_and_login(request, username, password)
+        if result.ok:
+            return redirect("/")
+        context["error"] = find_error_by_key(result.error_key)
 
-        if form.is_valid():
-            username = form.cleaned_data.get("username")
-            password = form.cleaned_data.get("password")
-            user = authenticate(username=username, password=password)
-            if user:
-                login(request, user)
-                return redirect("/")
-            else:
-                if not CustomUser.objects.filter(username=username).exists():
-                    context["error"] = find_error_by_key("email_log")
-                else:
-                    context["error"] = find_error_by_key("password2")
-
-        for error in form.errors.keys():
-            error_text = find_error_by_key(error)
-            context["error"] = error_text
+    if request.method == "POST" and not form.is_valid():
+        for key in form.errors.keys():
+            context["error"] = find_error_by_key(key)
             break
 
     return render(request, "accounts/login.html", context)
 
-@receiver(user_logged_in)
-def show_log_in_notification(sender, request, user = CustomUser, **kwargs):
-    message = str(user.role)
-
 
 def register_user(request):
-    form = SignUpForm()
+    form = SignUpForm(request.POST or None, request.FILES or None)
     context = {"form": form}
 
     if request.method == "POST":
-        form = SignUpForm(request.POST, request.FILES)
-        if form.is_valid():
-
-            user = form.save(commit=False)
-            user.username = user.email
-
-            
-            if CustomUser.objects.filter(username=user.username).exists():
-                context["error"] = find_error_by_key("email")
-            else:
-                user.save()
-                # Handle avatar upload
-                if 'avatar' in request.FILES:
-                    user.avatar = request.FILES['avatar']
-                    user.save()
-
-                if user.role == CustomUser.ROLE_TEACHER:
-                    Teacher.objects.create(
-                        user=user,
-                        gender=form.cleaned_data['gender'],
-                        academic_degree=form.cleaned_data['academic_degree'],
-                        employment_type=form.cleaned_data['employment_type'],
-                        occupation=form.cleaned_data['occupation'],
-                        classroom=form.cleaned_data['classroom']
-                    )
-                if user.is_student():
-                    Student.objects.create(
-                        user=user,
-                        school_group=form.cleaned_data['school_group'],
-                        classroom=form.cleaned_data['classroom']
-                    )
-                elif user.is_manager():
-                    Supervisor.objects.create(user=user)
-
-
-                login(request, user)
-                if user.is_parent:
-                    return redirect("/pages/teachers")
-                return redirect("/pages")
+        user, error_message, redirect_url = get_user_service().register_user(request, form)
+        if error_message:
+            context["error"] = error_message
         else:
-            # Add form errors to context
-            for field, errors in form.errors.items():
-                for error in errors:
-                    context["error"] = error
-                    break
-                if context.get("error"):
-                    break
+            return redirect(redirect_url)
 
     return render(request, "accounts/register.html", context)
 
-def send_email_password_change(request, username):
-    user = CustomUser.objects.filter(username=username).first()
+
+def reset_password_view(request, uidb64, token):
+    user = get_user_service().validate_reset_link(uidb64, token)
     if not user:
-        return redirect('/login/')
+        messages.error(request, "Invalid link or token.")
+        return render(request, "accounts/reset_password.html", {"link": False})
 
+    form = ResetPasswordForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        new_password = form.cleaned_data.get("new_password")
+        confirm_password = form.cleaned_data.get("confirm_password")
+        if new_password != confirm_password:
+            messages.error(request, "Пароли не совпадают")
+        else:
+            get_user_service().set_new_password(user, new_password)
+            messages.success(request, "Пароль успешно изменен!")
+            return redirect("/")
 
-    verification_code = random.randint(100000, 999999)
-
-    subject = "Verification email"
-    message = render_to_string("email/verification_email.html", {"user": user, "verification_code": verification_code})
-    from_mail = settings.DEFAULT_FROM_EMAIL
-    to_mail = [user.email]
-
-    email = EmailMultiAlternatives(subject, "", from_mail, to_mail)
-    email.attach_alternative(message, "text/html")
-    email.send()
-
-    signer = Signer()
-    signed_code = signer.sign(str(verification_code))
-
-    return redirect("verification_code", username=user.username, signed_code=signed_code)
+    return render(request, "accounts/reset_password.html", {"form": form, "link": True})
 
 
 def forget_password_view(request):
     form = ForgetPasswordForm(request.POST or None)
-    context = {"form": form}
-
-    if request.method == "POST":
-        if form.is_valid():
-            username = form.cleaned_data.get("username")
-            return  send_email_password_change(request, username)
-    return render(request, 'accounts/forget_password.html', context)
+    if request.method == "POST" and form.is_valid():
+        username = form.cleaned_data.get("username")
+        return get_user_service().start_password_change_flow(request, username)
+    return render(request, "accounts/forget_password.html", {"form": form})
 
 
 def verification_code_check(request, username, signed_code):
     user = get_object_or_404(CustomUser, username=username)
     form = VerificationPasswordForm(request.POST or None)
-    signer = Signer()
 
     if request.method == "POST":
-
-        entered = request.POST.get("verification_code")
-        if not entered.isdigit():
-            form.add_error('verification_code', "Неверный код.")
-            return render(request, "accounts/verification_waitlist.html", {"form": form})
-
-        entered = int(entered)
-        actual = int(signer.unsign(signed_code))
-
-        if entered != actual:
-            form.add_error('verification_code', "Неверный код.")
-        else:
+        entered = request.POST.get("verification_code", "")
+        ok, error = get_user_service().check_verification_code(signed_code, entered)
+        if ok:
             return redirect("password_change", username=user.username, signed_code=signed_code)
+        form.add_error("verification_code", error or "Неверный код.")
 
     return render(request, "accounts/verification_waitlist.html", {"form": form})
+
 
 def password_change_final(request, username, signed_code):
     user = get_object_or_404(CustomUser, username=username)
     form = VerificationPasswordForm(request.POST or None)
 
     if request.method == "POST":
-        pw1 = request.POST.get("password1")
-        pw2 = request.POST.get("password2")
-
-        if pw1 != pw2:
-            messages.error(request, "Пароли не совпадают.")
-        else:
-            user.set_password(pw1)
-            user.save()
+        pw1 = request.POST.get("password1", "")
+        pw2 = request.POST.get("password2", "")
+        ok, error = get_user_service().change_password_with_code(user, pw1, pw2)
+        if ok:
             return redirect("login")
+        messages.error(request, error or "Ошибка")
 
     return render(request, "accounts/password_change_final.html", {"form": form})
 
 
 @login_required
 def custom_logout_view(request):
-    form = ForgetPasswordForm()
-    logout(request)
+    get_user_service().logout_user(request)
+    return redirect("/login/")
 
-    return redirect('/login/')
-
+# @receiver(user_logged_in)
+# def show_log_in_notification(sender, request, user = CustomUser, **kwargs):
+#     message = str(user.role)
