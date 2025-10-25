@@ -17,3 +17,6 @@ exec gunicorn core.wsgi:application \
   --timeout ${GUNICORN_TIMEOUT:-30} \
   --access-logfile '-' \
   --error-logfile '-'
+  --capture-output \
+  --log-level debug
+
