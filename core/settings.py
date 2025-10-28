@@ -18,12 +18,13 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-    ALLOWED_HOSTS = ['dashboard.qadam.edu.kz']
-    CORS_ALLOWED_ORIGINS = ['https://dashboard.qadam.edu.kz']
+    ALLOWED_HOSTS = ['dashboard.qadam.edu.kz', 'qadam.edu.kz', 'www.qadam.edu.kz']
+    CORS_ALLOWED_ORIGINS = ['https://dashboard.qadam.edu.kz', 'https://qadam.edu.kz', 'https://www.qadam.edu.kz']
 
-
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "Lax"  # default is fine
 
 # Application definition
 
