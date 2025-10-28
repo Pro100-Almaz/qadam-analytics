@@ -18,7 +18,11 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    ALLOWED_HOSTS = ['dashboard.qadam.edu.kz', 'dashboard.qadam.edu.kz']
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    ALLOWED_HOSTS = ['dashboard.qadam.edu.kz']
+    CORS_ALLOWED_ORIGINS = ['https://dashboard.qadam.edu.kz']
+
 
 
 # Application definition
