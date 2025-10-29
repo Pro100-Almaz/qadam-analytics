@@ -1,9 +1,11 @@
 import os
 import django
 import pandas as pd
+import asyncio
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
+
 
 from django.db.models import signals
 from apps.authentication import models as auth_models
@@ -15,11 +17,24 @@ from apps.home.models import Subject, ClassRoom, AcademicYear
 #fignya does not run correctly, because the paths become dependent on each other???
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 file_path = os.path.join(BASE_DIR, '/home/yersultan/Downloads/Students info Platform (1).xlsx')
-
 dfs = pd.read_excel(file_path, sheet_name=None)
 # print(df.columns()) #first 5 rows. df.head(10) --> 10 rows
 
+from prefill_tables import prefill_school_groups
+from get_admin import get_admin_id
+
+admin_id = 0
+async def main():
+    await prefill_school_groups()
+    global admin_id
+    admin_id = await get_admin_id()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
 signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
+
 for sheet_name, df in dfs.items():
     for _, row in df.iterrows():
         date_of_birth = row['Date of Birth']
@@ -37,9 +52,6 @@ for sheet_name, df in dfs.items():
                 date_of_birth = None
             else:
                 date_of_birth = date_of_birth.date()
-
-
-
 
 
         user= CustomUser.objects.update_or_create(
@@ -65,9 +77,9 @@ for sheet_name, df in dfs.items():
         )[0]
 
         school_group_id = (
-            1 if row['School Group (Orda)'] == 'Ак'
-            else 2 if row['School Group (Orda)'] == 'Улы'
-            else 3 if row['School Group (Orda)'] == 'Кок'
+            1 if row['School Group (Orda)'] == 'Ақ'
+            else 2 if row['School Group (Orda)'] == 'Ұлы'
+            else 3 if row['School Group (Orda)'] == 'Көк'
             else 4
         )
 
@@ -90,7 +102,7 @@ for sheet_name, df in dfs.items():
                 "progress": 0,
                 "average_points": 0,
                 "maximum_points": 100,
-                "added_by_id": 8, #id of the admin user
+                "added_by_id": admin_id,
             }
         )[0]
         student.subjects.add(subject)
