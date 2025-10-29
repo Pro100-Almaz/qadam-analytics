@@ -1,12 +1,10 @@
-import asyncio
-from contextlib import asynccontextmanager
-
-import asyncpg
+from contextlib import contextmanager
 from decouple import config
+import psycopg2
 
-@asynccontextmanager
-async def get_connection():
-    conn = await asyncpg.connect(
+@contextmanager
+def get_connection():
+    conn = psycopg2.connect(
         user=config('DB_USER'),
         password = config('DB_PASSWORD'),
         host=config('DB_HOST'),
@@ -17,4 +15,4 @@ async def get_connection():
         yield conn
 
     finally:
-        await conn.close()
+        conn.close()

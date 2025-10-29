@@ -1,9 +1,11 @@
 from db_default_settings import get_connection
 
-async def get_admin_id() -> int:
-    async with get_connection() as conn:
-        admin_id = await conn.fetchval("""
-            SELECT id FROM authentication_customuser 
-            WHERE username = 'admin';
-        """)
-        return admin_id
+def get_admin_id() -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id FROM authentication_customuser 
+                WHERE username = 'admin';
+            """)
+            admin_id = cursor.fetchone()[0]
+            return admin_id if admin_id else None
