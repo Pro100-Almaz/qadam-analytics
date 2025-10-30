@@ -16,20 +16,24 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 file_path = os.path.join(BASE_DIR, '/home/yersultan/Downloads/Students info Platform (1).xlsx')
 dfs = pd.read_excel(file_path, sheet_name=None)
 
+
 from prefill_tables import prefill_school_groups
 from get_admin import get_admin_id
 
 admin_id = 0
-
 
 def main():
     prefill_school_groups()
     global admin_id
     admin_id = get_admin_id()
 
-
 if __name__ == "__main__":
     main()
+
+import logging
+logging.basicConfig(level=logging.DEBUG, filename="student_logging.log", filemode="w",
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
 
@@ -54,6 +58,7 @@ for sheet_name, df in dfs.items():
                         else:
                             date_of_birth = date_of_birth.date()
                 except ValueError as e:
+                    logging.error(f"Date of Birth is invalid. {date_of_birth} in sheet {sheet_name} at row {_ + 2}")
                     print(e)
 
                 try:
@@ -77,7 +82,8 @@ for sheet_name, df in dfs.items():
                     user.set_password(str(row['Password']))
                     user.save()
                 except (IntegrityError, ValueError, ValidationError) as e:
-                    print(f" User creation error in (sheet: {sheet_name}, row {_ + 2})")
+                    logging.error(e)
+                    print(e)
                     continue
 
                 try:
@@ -85,8 +91,10 @@ for sheet_name, df in dfs.items():
                     if (len(year) == 9) and ('/' in year):
                         academic_year = AcademicYear.objects.update_or_create(year=row['Academic Year'])[0]
                     else:
-                        raise ValueError(f"Academic Year is not provided in expected format for {row['Academic Year']}")
+                        raise ValueError(f"Academic Year is not provided in expected format for '{row['Academic Year']}'")
                 except ValueError as e:
+                    logging.error(f"Academic Year is not provided in expected format for '{row['Academic Year']}'. "
+                                  f"expected format: yyyy/yyyy")
                     print(e)
 
 
@@ -139,6 +147,8 @@ for sheet_name, df in dfs.items():
                 student.subjects.add(subject)
                 student.save()
         except Exception as e:
-            print(f" ----- Transaction error: sheet {sheet_name}, row {_ + 2} — {e}")
+            msg = f" ----- Transaction error: sheet {sheet_name}, row {_ + 2} — {e}"
+            print(msg)
+            logging.error(msg)
             continue
 
