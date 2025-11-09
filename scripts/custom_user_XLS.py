@@ -16,8 +16,6 @@ from scripts.student_XLS import process_student
 from scripts.supervisor_XLS import process_supervisor
 from scripts.teacher_XLS import process_teacher
 
-
-
 from django.db.models import signals
 from get_admin import get_admin_id
 from prefill_tables import prefill_school_groups
@@ -98,7 +96,6 @@ for sheet_name, rows in dfs.items():
 
                 try:
                     if not date_of_birth or str(date_of_birth) in ['nan', 'NaT']:  # is not available
-                        # raise ValueError(f"Date of Birth is invalid. {date_of_birth} in sheet {sheet_name} at row {idx + 2}")
                         date_of_birth = None
                     else:
                         if isinstance(date_of_birth, str):

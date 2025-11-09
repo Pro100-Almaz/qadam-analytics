@@ -1,11 +1,7 @@
-
 from django.db import transaction
 from apps.authentication.models import Student
 from apps.home.models import Subject, ClassRoom, AcademicYear
 from utils.logging_config import logger
-
-
-
 
 def process_student(sheet_name, row, idx, admin_id, user):
     try:
@@ -31,7 +27,6 @@ def process_student(sheet_name, row, idx, admin_id, user):
             )[0]
 
 
-
             school_group_map = {
                 'ақ': 1,
                 'ұлы': 2,
@@ -54,7 +49,6 @@ def process_student(sheet_name, row, idx, admin_id, user):
             school_group_id = school_group_map[school_group_value]
 
 
-
             student = Student.objects.update_or_create(
                 user=user,
                 defaults=dict(
@@ -65,7 +59,6 @@ def process_student(sheet_name, row, idx, admin_id, user):
             )[0]
 
             #I will open parsers folder in utils later
-
             subject = Subject.objects.update_or_create(
                 name=row['Subjects'],
                 academic_year=academic_year,
@@ -79,7 +72,6 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 }
             )[0]
             student.subjects.add(subject)
-
 
             student.save()
 
