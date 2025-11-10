@@ -2,6 +2,10 @@ import os
 import sys
 import django
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
@@ -27,11 +31,8 @@ from dateutil import parser
 
 from utils.logging_config import logger
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
 
-SERVICE_ACCOUNT_FILE = config('SERVICE_ACCOUNT_FILE')
-CREDENTIALS_PATH = os.path.join(BASE_DIR, SERVICE_ACCOUNT_FILE)
+CREDENTIALS_PATH = os.environ['SERVICE_ACCOUNT_FILE_INTERNAL']
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets.readonly',

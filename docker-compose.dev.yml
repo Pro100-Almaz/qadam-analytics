@@ -15,6 +15,8 @@ x-django-env: &django-env
 
 services:
   appseed-app:
+    environment:
+      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_service_account.json
     container_name: appseed_app_dev
     restart: unless-stopped
     build: .
@@ -23,6 +25,7 @@ services:
     depends_on: [db]
     volumes:
       - .:/app
+      - ${SERVICE_ACCOUNT_FILE}:/app/core/credentials/qadam_service_account.json:ro
     ports:
       - "8000:8000"
     networks: [db_network]
