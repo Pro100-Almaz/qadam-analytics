@@ -2,9 +2,7 @@ from django.db import transaction
 from apps.authentication.models import Teacher
 from apps.home.models import Subject, ClassRoom, AcademicYear
 
-
-from utils.logging_config import logger
-
+from scripts.utils.logging_config import logger
 
 def process_teacher(sheet_name, row, idx, admin_id, user):
     '''
