@@ -16,6 +16,8 @@ from scripts.users.get_admin import get_admin_id
 
 from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
+from scripts.writing_data import get_writable_sheet
+from scripts.utils.logging_config import logger
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -26,8 +28,6 @@ from apps.authentication.models import CustomUser
 
 from datetime import datetime, date
 from dateutil import parser
-
-from scripts.utils.logging_config import logger
 
 dfs = get_sheets_data()
 
@@ -46,6 +46,7 @@ signals.post_save.disconnect(auth_models.registration_email_post_send, sender=Cu
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check):
+        worksheet = get_writable_sheet(sheet_name)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -97,17 +98,28 @@ for sheet_name, rows in dfs.items():
                         print(e)
                         continue
 
-                    role = row['Role']
-                    if role == 'student':
-                        process_student(sheet_name, row, idx, admin_id, user)
-                    elif role =='teacher':
-                        process_teacher(sheet_name, row, idx, admin_id, user)
-                    elif role == 'supervisor':
-                        process_supervisor(sheet_name, row, idx, admin_id, user)
-                    elif role == 'parent':
-                        process_parent(sheet_name, row, idx, admin_id, user)
+                    try:
+                        role = row['Role']
+                        if role == 'student':
+                            process_student(sheet_name, row, idx, admin_id, user)
+                        elif role =='teacher':
+                            process_teacher(sheet_name, row, idx, admin_id, user)
+                        elif role == 'supervisor':
+                            process_supervisor(sheet_name, row, idx, admin_id, user)
+                        elif role == 'parent':
+                            process_parent(sheet_name, row, idx, admin_id, user)
+
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+
+                    except Exception as e:
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        continue
 
             except Exception as e:
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 msg = f" ----- Transaction error: sheet {sheet_name}, row {idx + 2} — {e}"
                 print(msg)
                 logger.error(msg)

@@ -9,6 +9,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 django.setup()
 
 from scripts.reading_data import get_sheets_data
+from scripts.writing_data import get_writable_sheet
 from scripts.utils.logging_config import logger
 
 from django.core.exceptions import ValidationError
@@ -22,6 +23,7 @@ dfs = get_sheets_data()
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if "topic" in check:
+        worksheet = get_writable_sheet(sheet_name)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -66,25 +68,38 @@ for sheet_name, rows in dfs.items():
 
                     comment_template = str(row.get("CommentTemplate", "")).strip()
 
-                    topic = Topic.objects.update_or_create(
-                        lesson=lesson,
-                        title=topic_title,
-                        defaults=dict(
-                            weight=weight,
-                            parent=parent_topic,
-                            comment_template=comment_template,
-                        )
-                    )[0]
+                    try:
+                        topic = Topic.objects.update_or_create(
+                            lesson=lesson,
+                            title=topic_title,
+                            defaults=dict(
+                                weight=weight,
+                                parent=parent_topic,
+                                comment_template=comment_template,
+                            )
+                        )[0]
 
-                    logger.info(f"(Lesson={lesson.title}, row {idx + 2})")
+                        logger.info(f"(Lesson={lesson.title}, row {idx + 2})")
+
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+
+                    except Exception as e:
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(f"Error processing topic row {idx + 2}: {e}")
                 print(e)
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue
 
             except Exception as e:
                 msg = f"Unexpected topic import error (sheet {sheet_name}, row {idx + 2}): {e}"
                 print(msg)
                 logger.error(msg)
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue

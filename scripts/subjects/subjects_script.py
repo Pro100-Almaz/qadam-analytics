@@ -9,6 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
 from scripts.reading_data import get_sheets_data
+from scripts.writing_data import get_writable_sheet
 from scripts.users.get_admin import get_admin_id
 from scripts.utils.logging_config import logger
 
@@ -32,6 +33,7 @@ if __name__ == "__main__":
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if 'subject' in check:
+        worksheet = get_writable_sheet(sheet_name)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -108,21 +110,29 @@ for sheet_name, rows in dfs.items():
                         print(e)
                         continue
 
-                    subject = Subject.objects.update_or_create(
-                        name=name,
-                        academic_year=academic_year,
-                        defaults=dict(
-                            status=status,
-                            language_group = language.upper(),
-                            maximum_points = maximum_points,
-                            teacher = teacher,
-                            added_by = added_by
-                        )
-                    )[0]
+                    try:
+                        subject = Subject.objects.update_or_create(
+                            name=name,
+                            academic_year=academic_year,
+                            defaults=dict(
+                                status=status,
+                                language_group = language.upper(),
+                                maximum_points = maximum_points,
+                                teacher = teacher,
+                                added_by = added_by
+                            )
+                        )[0]
 
-                    logger.info(
-                        f"(Subject '{subject.name}', sheet: {sheet_name}, row {idx + 2})"
-                    )
+                        logger.info(
+                            f"(Subject '{subject.name}', sheet: {sheet_name}, row {idx + 2})"
+                        )
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+
+                    except Exception as e:
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(f"Error processing subject in sheet {sheet_name}, row {idx + 2}: {e}")
@@ -130,6 +140,9 @@ for sheet_name, rows in dfs.items():
                 continue
 
             except Exception as e:
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
+
                 msg = f" ----- Transaction error: sheet {sheet_name}, row {idx + 2} — {e}"
                 print(msg)
                 logger.error(msg)

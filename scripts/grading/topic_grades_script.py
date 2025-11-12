@@ -9,6 +9,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 django.setup()
 
 from scripts.reading_data import get_sheets_data
+from scripts.writing_data import get_writable_sheet
 from scripts.utils.logging_config import logger
 
 from django.db import transaction, IntegrityError
@@ -24,6 +25,7 @@ dfs = get_sheets_data()
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if "grade" in check or "topicgrade" in check or "grades" in check:
+        worksheet = get_writable_sheet(sheet_name)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -87,26 +89,39 @@ for sheet_name, rows in dfs.items():
                     raw_flag = str(row.get("CommentSelected", "")).strip().lower()
                     comment_selected = raw_flag in ["1", "true", "yes"]
 
-                    topic_grade = TopicGrade.objects.update_or_create(
-                        topic=topic,
-                        student=student,
-                        defaults=dict(
-                            grade=grade,
-                            comment=comment,
-                            comment_selected=comment_selected,
-                        )
-                    )[0]
+                    try:
+                        topic_grade = TopicGrade.objects.update_or_create(
+                            topic=topic,
+                            student=student,
+                            defaults=dict(
+                                grade=grade,
+                                comment=comment,
+                                comment_selected=comment_selected,
+                            )
+                        )[0]
 
-                    logger.info(
-                        f"(Topic={topic.title}, Student={student.user.username}, row={idx + 2})"
-                    )
+                        logger.info(
+                            f"(Topic={topic.title}, Student={student.user.username}, row={idx + 2})"
+                        )
+
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+
+                    except Exception as e:
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(f"Error processing TopicGrade row {idx + 2}: {e}")
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 print(e)
                 continue
 
             except Exception as e:
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 msg = f"Unexpected topic grade import error (sheet {sheet_name}, row {idx + 2}): {e}"
                 print(msg)
                 logger.error(msg)

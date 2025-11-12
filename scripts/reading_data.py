@@ -26,45 +26,45 @@ def get_sheets_data():
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",
                 "Address", "Phone (parent)", "Date of Birth", "Password",
                 "Academic Year", "Gender", "EmploymentType", "Subjects",
-                "WorkingHours"
+                "WorkingHours", "ImportStatus"
             ])
         elif 'supervisor' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",
-                "Address", "Phone (parent)", "Date of Birth", "Password",
+                "Address", "Phone (parent)", "Date of Birth", "Password", "ImportStatus"
             ])
         elif 'parent' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",
-                "Address", "Phone (parent)", "Date of Birth", "Password", "Students"
+                "Address", "Phone (parent)", "Date of Birth", "Password", "Students", "ImportStatus"
             ])
         elif 'subject' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
                 "Name", "Status", "LanguageGroup", "MaximumPoints", "Teacher",
-                "AddedBy", "AcademicYear"
+                "AddedBy", "AcademicYear", "ImportStatus"
             ])
         elif 'lesson' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
-                "Title", "Description", "Subject", "MaxPoints", "Quarter", "Unit", "Status", "Group"
+                "Title", "Description", "Subject", "MaxPoints", "Quarter", "Unit", "Status", "Group", "ImportStatus"
             ])
         elif 'topic' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
-                'LessonTitle', 'TopicTitle', 'Weight', 'ParentTopic', 'CommentTemplate'
+                'LessonTitle', 'TopicTitle', 'Weight', 'ParentTopic', 'CommentTemplate', "ImportStatus"
             ])
         elif 'grad' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
-                'LessonTitle', 'TopicTitle', 'StudentNickname', 'Grade', 'Comment', 'CommentSelected'
+                'LessonTitle', 'TopicTitle', 'StudentNickname', 'Grade', 'Comment', 'CommentSelected', "ImportStatus"
             ])
         elif 'state' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
-                'Name', 'Comment', 'Score', 'StudentNickname', 'AddedBy'
+                'Name', 'Comment', 'Score', 'StudentNickname', 'AddedBy', "ImportStatus"
             ])
 
         else: #studentter
             records = worksheet.get_all_records(expected_headers=[
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",
                 "Address", "Phone (parent)", "Date of Birth", "Password",
-                "Academic Year", "Class", "School Group (Orda)", "Subjects"
+                "Academic Year", "Class", "School Group (Orda)", "Subjects", "ImportStatus"
             ])
         all_sheets[worksheet.title] = records
     return all_sheets

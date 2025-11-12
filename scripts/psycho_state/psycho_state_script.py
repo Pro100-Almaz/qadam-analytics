@@ -9,6 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
 from scripts.reading_data import get_sheets_data
+from scripts.writing_data import get_writable_sheet
 from scripts.utils.logging_config import logger
 
 from django.core.exceptions import ValidationError
@@ -23,7 +24,7 @@ for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
 
     if "psych" in check or "state" in check or "mental" in check:
-
+        worksheet = get_writable_sheet(sheet_name)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -69,28 +70,40 @@ for sheet_name, rows in dfs.items():
                             )
                             added_by = None
 
-                    state = PsychologicalState.objects.create(
-                        name=name,
-                        comment=comment,
-                        student=student,
-                        score=score,
-                        added_by=added_by
-                    )
+                    try:
+                        state = PsychologicalState.objects.create(
+                            name=name,
+                            comment=comment,
+                            student=student,
+                            score=score,
+                            added_by=added_by
+                        )
 
-                    logger.info(
-                        f"Created PsychologicalState '{state.name}' "
-                        f"(sheet: {sheet_name}, row {idx + 2})"
-                    )
+                        logger.info(
+                            f"Created PsychologicalState '{state.name}' "
+                            f"(sheet: {sheet_name}, row {idx + 2})"
+                        )
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+
+                    except Exception as e:
+                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(
                     f"Error processing PsychologicalState (sheet: {sheet_name}, row {idx + 2}): {e}"
                 )
                 print(e)
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue
 
             except Exception as e:
                 msg = f"Unexpected error in PsychologicalState import (sheet: {sheet_name}, row {idx + 2}): {e}"
                 print(msg)
                 logger.error(msg)
+                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue
