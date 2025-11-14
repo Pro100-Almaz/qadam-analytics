@@ -413,7 +413,6 @@
         <div class="modal-dialog" role="document">
             <form method="post" action="{% url 'lesson:create_subtopic' lesson.id %}">
                 {% csrf_token %}
-                <input type="hidden" name="parent" id="modalTopicId">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Add Subtopic</h5>
@@ -438,10 +437,6 @@
                         <div class="form-group">
                             <label for="title">Шаблон комментария</label>
                             <input type="text" class="form-control" id="comment_template" name="comment_template" required>
-                        </div>
-                        <div class="form-group" hidden>
-                            <label for="weight">Вес (%):</label>
-                            <input type="number" name="weight" class="form-control" min="0" max="100" value="100">
                         </div>
                         <div class="text-warning">
                             <small>After adding a new subtopic, the total weight proportions for all other subtopics
@@ -680,9 +675,7 @@
                         row.classList.toggle('d-none', row.dataset.parent !== selectedId);
                     }
                 });
-                // If you also want to set createSubtopicModal's hidden parent:
-                const hidden = document.getElementById('modalTopicId');
-                if (hidden) hidden.value = selectedId || '';
+                // Note: Parent is set via the select field in the form
             }
 
             select.addEventListener('change', apply);
