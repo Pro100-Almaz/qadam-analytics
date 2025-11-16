@@ -24,6 +24,7 @@ for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if "topic" in check:
         worksheet = get_writable_sheet(sheet_name)
+        header = worksheet.row_values(1)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -81,18 +82,18 @@ for sheet_name, rows in dfs.items():
 
                         logger.info(f"(Lesson={lesson.title}, row {idx + 2})")
 
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "✅")
 
                     except Exception as e:
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "❌")
                         continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(f"Error processing topic row {idx + 2}: {e}")
                 print(e)
-                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                import_status_col = header.index("ImportStatus") + 1
                 worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue
 
@@ -100,6 +101,6 @@ for sheet_name, rows in dfs.items():
                 msg = f"Unexpected topic import error (sheet {sheet_name}, row {idx + 2}): {e}"
                 print(msg)
                 logger.error(msg)
-                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                import_status_col = header.index("ImportStatus") + 1
                 worksheet.update_cell(idx + 2, import_status_col, "❌")
                 continue

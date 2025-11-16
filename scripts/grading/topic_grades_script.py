@@ -26,6 +26,7 @@ for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if "grade" in check or "topicgrade" in check or "grades" in check:
         worksheet = get_writable_sheet(sheet_name)
+        header = worksheet.row_values(1)
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -104,23 +105,23 @@ for sheet_name, rows in dfs.items():
                             f"(Topic={topic.title}, Student={student.user.username}, row={idx + 2})"
                         )
 
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "✅")
 
                     except Exception as e:
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                        import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "❌")
                         continue
 
             except (IntegrityError, ValidationError, ValueError) as e:
                 logger.error(f"Error processing TopicGrade row {idx + 2}: {e}")
-                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                import_status_col = header.index("ImportStatus") + 1
                 worksheet.update_cell(idx + 2, import_status_col, "❌")
                 print(e)
                 continue
 
             except Exception as e:
-                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
+                import_status_col = header.index("ImportStatus") + 1
                 worksheet.update_cell(idx + 2, import_status_col, "❌")
                 msg = f"Unexpected topic grade import error (sheet {sheet_name}, row {idx + 2}): {e}"
                 print(msg)

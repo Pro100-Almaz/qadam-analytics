@@ -13,6 +13,7 @@ from scripts.users.student_XLS import process_student
 from scripts.users.supervisor_XLS import process_supervisor
 from scripts.users.teacher_XLS import process_teacher
 from scripts.users.get_admin import get_admin_id
+from scripts.users.generate_password import generate_password
 
 from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
@@ -28,6 +29,7 @@ from apps.authentication.models import CustomUser
 
 from datetime import datetime, date
 from dateutil import parser
+import random
 
 dfs = get_sheets_data()
 
@@ -41,12 +43,29 @@ def main():
 if __name__ == "__main__":
     main()
 
+def col_to_letter(col):
+    result = ""
+    while col > 0:
+        col, remainder = divmod(col - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
 signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
 
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check):
         worksheet = get_writable_sheet(sheet_name)
+        header = worksheet.row_values(1)
+
+        password_updates = []
+        status_updates = []
+
+        password_col = header.index("Password") + 1
+        status_col = header.index("ImportStatus") + 1
+
+
+
         for idx, row in enumerate(rows):
             try:
                 with transaction.atomic():
@@ -87,12 +106,20 @@ for sheet_name, rows in dfs.items():
                                 date_of_birth=date_of_birth,
                             )
                         )[0]
-                        password = str(row.get('Password', '')).strip()
-                        if not password:
-                            raise ValueError(f"Password is not provided for {row['Nickname']} (sheet: {sheet_name}, row {idx + 2})")
 
-                        user.set_password(str(row['Password']))
+                        raw_password = str(row.get("Password", "")).strip()
+                        if raw_password == "" or raw_password.lower() in ("nan", "none"):
+                            raw_password = generate_password()
+                            col_letter = col_to_letter(password_col)
+                            password_updates.append({
+                                "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                                "values": [[raw_password]]
+                            })
+
+                        user.set_password(raw_password)
                         user.save()
+
+
                     except (IntegrityError, ValueError, ValidationError) as e:
                         logger.error(e)
                         print(e)
@@ -109,19 +136,40 @@ for sheet_name, rows in dfs.items():
                         elif role == 'parent':
                             process_parent(sheet_name, row, idx, admin_id, user)
 
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
-                        worksheet.update_cell(idx + 2, import_status_col, "✅")
+                        col_letter = col_to_letter(status_col)
+                        status_updates.append({
+                            "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                            "values": [["✅"]]
+                        })
 
                     except Exception as e:
-                        import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
-                        worksheet.update_cell(idx + 2, import_status_col, "❌")
+                        col_letter = col_to_letter(status_col)
+                        status_updates.append({
+                            "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                            "values": [["❌"]]
+                        })
                         continue
 
             except Exception as e:
-                import_status_col = worksheet.row_values(1).index("ImportStatus") + 1
-                worksheet.update_cell(idx + 2, import_status_col, "❌")
+                col_letter = col_to_letter(status_col)
+                status_updates.append({
+                    "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                    "values": [["❌"]]
+                })
                 msg = f" ----- Transaction error: sheet {sheet_name}, row {idx + 2} — {e}"
                 print(msg)
                 logger.error(msg)
                 continue
+
+        if password_updates:
+            worksheet.spreadsheet.values_batch_update({
+                "valueInputOption": "USER_ENTERED",
+                "data": password_updates
+            })
+
+        if status_updates:
+            worksheet.spreadsheet.values_batch_update({
+                "valueInputOption": "USER_ENTERED",
+                "data": status_updates
+            })
 
