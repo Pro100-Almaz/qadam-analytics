@@ -1,7 +1,7 @@
 from django.db import transaction
 from apps.authentication.models import Student
 from apps.home.models import Subject, ClassRoom, AcademicYear
-from utils.logging_config import logger
+from scripts.utils.logging_config import logger
 
 def process_student(sheet_name, row, idx, admin_id, user):
     try:
@@ -58,7 +58,6 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 )
             )[0]
 
-            #I will open parsers folder in utils later
             subject = Subject.objects.update_or_create(
                 name=row['Subjects'],
                 academic_year=academic_year,

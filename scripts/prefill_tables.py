@@ -1,4 +1,4 @@
-from db_default_settings import get_connection
+from scripts.db_default_settings import get_connection
 
 def prefill_school_groups():
     with get_connection() as conn:
@@ -14,6 +14,3 @@ def prefill_school_groups():
                                """)
         conn.commit()
         print("school groups inserted")
-
-
-

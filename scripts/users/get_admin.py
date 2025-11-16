@@ -1,4 +1,4 @@
-from db_default_settings import get_connection
+from scripts.db_default_settings import get_connection
 
 def get_admin_id() -> int:
     with get_connection() as conn:

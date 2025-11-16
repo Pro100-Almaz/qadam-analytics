@@ -1,7 +1,7 @@
 
 from django.db import transaction
 from apps.authentication.models import Parent, CustomUser, Student
-from utils.logging_config import logger
+from scripts.utils.logging_config import logger
 
 
 def process_parent(sheet_name, row, idx, admin_id, user):

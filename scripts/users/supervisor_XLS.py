@@ -4,7 +4,7 @@ from apps.authentication.models import Supervisor
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG, filename="student_logging.log", filemode="w",
+logging.basicConfig(level=logging.DEBUG, filename="../script_logging.log", filemode="w",
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
