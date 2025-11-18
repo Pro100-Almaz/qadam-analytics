@@ -54,7 +54,7 @@ signals.post_save.disconnect(auth_models.registration_email_post_send, sender=Cu
 
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
-    if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check):
+    if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check or 'topic' in check):
         worksheet = get_writable_sheet(sheet_name)
         header = worksheet.row_values(1)
 
@@ -93,6 +93,18 @@ for sheet_name, rows in dfs.items():
                         print(e)
 
                     try:
+                        school_name = row['School'].lower().strip()
+                        if 'alim' in school_name:
+                            school_name = 'muzafar_alimbayev'
+                        else:
+                            school_name = 'bukhar_zhyrau'
+
+                    except ValueError as e:
+                        school_name = 'muzafar_alimbayev'
+                        logger.error(f"School name was not provided correctly in sheet {sheet_name} at row {idx + 2}")
+                        print(e)
+
+                    try:
                         user = CustomUser.objects.update_or_create(
                             username=row['Nickname'],
                             defaults=dict(
@@ -100,7 +112,7 @@ for sheet_name, rows in dfs.items():
                                 last_name=row['Last Name'],
                                 email=row['Email'],
                                 role=row['Role'],
-                                school=row['School'],
+                                school=school_name,
                                 address=row['Address'],
                                 phone_number=row['Phone (parent)'],
                                 date_of_birth=date_of_birth,
