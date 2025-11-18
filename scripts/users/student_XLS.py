@@ -38,7 +38,7 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 'altyn': 4,
 
             }
-            school_group_value = row['School Group (Orda)'].lower()
+            school_group_value = row['School Group (Orda)'].lower().strip()
 
 
             if school_group_value not in school_group_map:

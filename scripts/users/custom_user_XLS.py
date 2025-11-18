@@ -54,7 +54,7 @@ signals.post_save.disconnect(auth_models.registration_email_post_send, sender=Cu
 
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
-    if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check):
+    if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check or 'topic' in check):
         worksheet = get_writable_sheet(sheet_name)
         header = worksheet.row_values(1)
 
