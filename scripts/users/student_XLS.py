@@ -6,7 +6,6 @@ from scripts.utils.logging_config import logger
 def process_student(sheet_name, row, idx, admin_id, user):
     try:
         with transaction.atomic():
-
             try:
                 year = str(row['Academic Year']).strip()
                 if (len(year) == 9) and ('/' in year):
@@ -16,16 +15,14 @@ def process_student(sheet_name, row, idx, admin_id, user):
 
             except ValueError as e:
                 logger.error(f"Academic Year is not provided in expected format for '{row['Academic Year']}'. "
-                              f"expected format: yyyy/yyyy")
+                             f"expected format: yyyy/yyyy")
                 print(e)
-
 
             class_room = ClassRoom.objects.update_or_create(
                 name=row['Class'],
                 capacity=26,
                 academic_year=academic_year
             )[0]
-
 
             school_group_map = {
                 'ақ': 1,
@@ -40,14 +37,12 @@ def process_student(sheet_name, row, idx, admin_id, user):
             }
             school_group_value = row['School Group (Orda)'].lower().strip()
 
-
             if school_group_value not in school_group_map:
                 print(
                     f"Invalid school group '{school_group_value}' in sheet {sheet_name}, row {idx + 2}. "
                     f"Expected one of: {list(school_group_map.keys())}"
                 )
             school_group_id = school_group_map[school_group_value]
-
 
             student = Student.objects.update_or_create(
                 user=user,
@@ -58,20 +53,26 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 )
             )[0]
 
-            subject = Subject.objects.update_or_create(
-                name=row['Subjects'],
-                academic_year=academic_year,
-                defaults={
-                    "language_group": "KAZ",
-                    "status": "active",
-                    "progress": 0,
-                    "average_points": 0,
-                    "maximum_points": 100,
-                    "added_by_id": admin_id,
-                }
-            )[0]
-            student.subjects.add(subject)
+            rs = row['Subjects']
+            raw_subjects = [s.strip() for s in rs.split('/') if s.strip()]
+            subjects_to_add = set()
 
+            for sub in raw_subjects:
+                subject = Subject.objects.update_or_create(
+                    name=sub,
+                    academic_year=academic_year,
+                    defaults={
+                        "language_group": "KAZ",
+                        "status": "active",
+                        "progress": 0,
+                        "average_points": 0,
+                        "maximum_points": 100,
+                        "added_by_id": admin_id,
+                    }
+                )[0]
+                subjects_to_add.add(subject.id)
+
+            student.subjects.add(*subjects_to_add)
             student.save()
 
     except Exception as e:

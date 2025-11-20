@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin import ModelAdmin
 from django.contrib.auth.admin import UserAdmin
 from apps.authentication.models import CustomUser, SchoolGroup, PsychologicalState, Supervisor, Teacher, Parent, Student
 
@@ -15,7 +16,22 @@ class CustomUserAdmin(UserAdmin):
         ("Important dates", {"fields": ("date_of_birth", "last_login")}),
     )
 
-admin.site.register(Student)
+@admin.register(Student)
+class StudentAdmin(ModelAdmin):
+    model = Student
+    list_display = ("full_name", "classroom_name")
+    search_fields = ("user__first_name", "user__last_name", "classroom__name")
+
+    def full_name(self, obj):
+        return obj.user.get_full_name()
+    full_name.short_description = "Full Name"
+
+    def classroom_name(self, obj):
+        return obj.classroom.name if obj.classroom else ""
+    classroom_name.short_description = "Classroom"
+
+
+# admin.site.register(Student)
 admin.site.register(Parent)
 admin.site.register(Teacher)
 admin.site.register(Supervisor)
