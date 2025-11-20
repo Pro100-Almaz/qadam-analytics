@@ -110,3 +110,8 @@ class SubtopicForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if lesson:
             self.fields['parent'].queryset = lesson.topics.filter(parent__isnull=True)
+
+        if not self.instance or not self.instance.pk:
+            if 'weight' in self.fields:
+                del self.fields['weight']
+            self.fields['parent'].required = True

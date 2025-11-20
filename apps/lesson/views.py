@@ -222,9 +222,8 @@ def delete_topic(request, pk):
 
 def recalculate_topic_weights(lesson):
     topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
-    total_weight = sum(t.weight for t in topics)
 
-    equal_share = round(100 / len(topics), 1) if topics else 0
+    equal_share = round(100 / len(topics), 2)
     for t in topics:
         t.weight = equal_share
         t.save()
@@ -243,20 +242,25 @@ def distribute_topic_weights_equally(request, pk):
     return redirect('lesson:lesson_details', pk=lesson.id)
 
 
-
 @login_required(login_url="/login/")
 def create_subtopic(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     if request.method == "POST":
         form = SubtopicForm(request.POST, lesson=lesson)
+        
         if form.is_valid():
             subtopic = form.save(commit=False)
             subtopic.lesson = lesson
 
+            subtopic.weight = 0
             subtopic.save()
 
             subtopic_weight_distribution(lesson)
-
+        else:
+            from django.contrib import messages
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"Error in {field}: {error}")
 
     return redirect('lesson:lesson_details', pk=pk)
 
@@ -281,8 +285,8 @@ def update_subtopic(request, pk):
         total_subtopic_weights += subtopic.weight
 
     if total_subtopic_weights != 100:
+        from django.contrib import messages
         messages.warning(request, f"The total topic weight after editing is equal to {total_subtopic_weights}, but should be equal to 100.")
-
 
     return redirect('lesson:lesson_details')
 
@@ -291,40 +295,37 @@ def subtopic_weight_distribution(lesson):
     topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
 
     for topic in topics:
-        subtopics = Topic.objects.filter(parent=topic)
-        if not subtopics.exists():
+        subtopics = list(Topic.objects.filter(parent=topic, lesson=lesson))
+        
+        if not subtopics:
             continue
 
-        equal_share = round(100 / len(subtopics), 1)
-        for s in subtopics:
-            s.weight = equal_share
-            s.save()
+        subtopic_count = len(subtopics)
+        equal_share = round(100 / subtopic_count, 2)
+
+        if subtopic_count > 1:
+            calculated_sum = equal_share * subtopic_count
+            if abs(calculated_sum - 100) > 0.01:
+                for s in subtopics[:-1]:
+                    s.weight = equal_share
+                    s.save(update_fields=['weight'])
+                last_subtopic = subtopics[-1]
+                last_subtopic.weight = round(100 - (equal_share * (subtopic_count - 1)), 2)
+                last_subtopic.save(update_fields=['weight'])
+            else:
+                for s in subtopics:
+                    s.weight = equal_share
+                    s.save(update_fields=['weight'])
+        else:
+            subtopics[0].weight = 100.0
+            subtopics[0].save(update_fields=['weight'])
 
 
 @login_required(login_url="/login/")
 def distribute_subtopic_weights_equally(request, lesson_id):
     lesson = get_object_or_404(Lesson, pk=lesson_id)
-    topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
-
-    for topic in topics:
-        subtopics = Topic.objects.filter(parent=topic)
-        if not subtopics.exists():
-            continue
-
-        total_weight = sum(s.weight for s in subtopics)
-
-        if total_weight == 0:
-            equal_share = round(100 / len(subtopics), 1)
-            for s in subtopics:
-                s.weight = equal_share
-                s.save()
-        else:
-            scale_factor = 100 / len(topics)
-            for s in subtopics:
-                s.weight = scale_factor
-                s.save()
+    subtopic_weight_distribution(lesson)
     return redirect('lesson:lesson_details', pk=lesson.id)
-
 
 
 @login_required(login_url="/login/")
