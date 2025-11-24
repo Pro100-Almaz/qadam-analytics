@@ -2,6 +2,7 @@ import os
 import sys
 import django
 
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
@@ -14,6 +15,8 @@ from scripts.users.supervisor_XLS import process_supervisor
 from scripts.users.teacher_XLS import process_teacher
 from scripts.users.get_admin import get_admin_id
 from scripts.users.generate_password import generate_password
+from scripts.users.generate_username import generate_username
+
 
 from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
@@ -52,18 +55,22 @@ def col_to_letter(col):
 
 signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
 
+user_dict = {} # first_name + . + last_name : how many times it appeared
+
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
     if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check or 'topic' in check):
         worksheet = get_writable_sheet(sheet_name)
+        sheet_title = worksheet.title
         header = worksheet.row_values(1)
 
+        username_updates = []
         password_updates = []
         status_updates = []
 
+        username_col = header.index("Nickname") + 1
         password_col = header.index("Password") + 1
         status_col = header.index("ImportStatus") + 1
-
 
 
         for idx, row in enumerate(rows):
@@ -105,13 +112,20 @@ for sheet_name, rows in dfs.items():
                         print(e)
 
                     try:
+                        first_name = row['First Name']
+                        last_name = row['Last Name']
+                        full_name = first_name.strip().lower() +"."+ last_name.strip().lower()
+                        role = row['Role']
+                        username = generate_username(user_dict, full_name)
+
+
                         user = CustomUser.objects.update_or_create(
-                            username=row['Nickname'],
+                            username= username,
                             defaults=dict(
-                                first_name=row['First Name'],
-                                last_name=row['Last Name'],
+                                first_name=first_name,
+                                last_name=last_name,
                                 email=row['Email'],
-                                role=row['Role'],
+                                role=role,
                                 school=school_name,
                                 address=row['Address'],
                                 phone_number=row['Phone (parent)'],
@@ -119,12 +133,21 @@ for sheet_name, rows in dfs.items():
                             )
                         )[0]
 
+                        if row['Nickname'] != username:
+                            col_letter = col_to_letter(username_col)
+                            username_updates.append({
+                                "range": f"{sheet_title}!{col_letter}{idx + 2}",
+                                "values": [[username]]
+                            })
+
+
+
                         raw_password = str(row.get("Password", "")).strip()
                         if raw_password == "" or raw_password.lower() in ("nan", "none"):
                             raw_password = generate_password()
                             col_letter = col_to_letter(password_col)
                             password_updates.append({
-                                "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                                "range": f"{sheet_title}!{col_letter}{idx + 2}",
                                 "values": [[raw_password]]
                             })
 
@@ -150,14 +173,14 @@ for sheet_name, rows in dfs.items():
 
                         col_letter = col_to_letter(status_col)
                         status_updates.append({
-                            "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                            "range": f"{sheet_title}!{col_letter}{idx + 2}",
                             "values": [["✅"]]
                         })
 
                     except Exception as e:
                         col_letter = col_to_letter(status_col)
                         status_updates.append({
-                            "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                            "range": f"{sheet_title}!{col_letter}{idx + 2}",
                             "values": [["❌"]]
                         })
                         continue
@@ -165,13 +188,19 @@ for sheet_name, rows in dfs.items():
             except Exception as e:
                 col_letter = col_to_letter(status_col)
                 status_updates.append({
-                    "range": f"{worksheet.title}!{col_letter}{idx + 2}",
+                    "range": f"{sheet_title}!{col_letter}{idx + 2}",
                     "values": [["❌"]]
                 })
                 msg = f" ----- Transaction error: sheet {sheet_name}, row {idx + 2} — {e}"
                 print(msg)
                 logger.error(msg)
                 continue
+
+        if username_updates:
+            worksheet.spreadsheet.values_batch_update({
+                "valueInputOption": "USER_ENTERED",
+                "data": username_updates
+            })
 
         if password_updates:
             worksheet.spreadsheet.values_batch_update({
