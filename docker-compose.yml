@@ -1,6 +1,4 @@
-version: '3.8'
-
-x-django-env: &django-env
+x-django-env:
   env_file: .env
   environment:
     DEBUG: ${DEBUG:-False}
@@ -17,7 +15,9 @@ x-django-env: &django-env
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
 
 services:
+  # export TAG=sha-$(git rev-parse --short=7 HEAD)
   appseed-app:
+#    image: ghcr.io/pro100-almaz/qadam-analytics:${TAG}
     container_name: appseed_app
     restart: unless-stopped
     build: .
@@ -29,6 +29,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-qadam}
       DB_HOST: db
       DB_PORT: 5432
+      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
     depends_on: [db]
     # Expose ONLY to the host, not the internet:
     ports:
