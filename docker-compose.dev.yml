@@ -15,12 +15,21 @@ x-django-env: &django-env
 
 services:
   appseed-app:
-    environment:
-      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
     container_name: appseed_app_dev
     restart: unless-stopped
     build: .
     <<: *django-env
+    environment:
+      DEBUG: ${DEBUG:-True}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-core.settings}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      DB_NAME: ${DB_NAME:-qadam}
+      DB_USER: ${DB_USER:-qadam}
+      DB_PASSWORD: ${DB_PASSWORD:-qadam}
+      DB_HOST: db
+      DB_PORT: 5432
+      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
     command: python manage.py runserver 0.0.0.0:8000
     depends_on: [db]
     volumes:
