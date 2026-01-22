@@ -14,6 +14,11 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from pycodestyle import continued_indentation
 
+from core.decorators import role_required
+from core.permissions import (
+    can_modify_lesson, can_access_lesson, can_grade_student,
+    permission_denied_response, is_admin_role
+)
 from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
 from .models import Lesson, Topic, TopicGrade, MergedLessonComment, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
@@ -81,7 +86,7 @@ def lessons_list(request):
     return render(request, 'lesson/lessons.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def lesson_create(request, subject_id=None):
     if request.method == "POST":
         form = LessonForm(request.POST)
@@ -102,7 +107,7 @@ def lesson_create(request, subject_id=None):
 
     return render(request, "lesson/new_lesson.html", {"form": form})
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor')
 def lesson_delete(request, lesson_id):
     if request.method == "POST":
         lesson = Lesson.objects.get(pk=lesson_id)
@@ -111,7 +116,7 @@ def lesson_delete(request, lesson_id):
     return redirect("lesson:lessons")
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def lesson_group_create(request):
     if request.method == 'POST':
         form = LessonGroupForm(request.POST)
@@ -159,9 +164,14 @@ def lesson_details(request, pk):
     return render(request, 'lesson/lesson_details.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def create_topic(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only create topics for your own lessons.")
+
     if request.method == "POST":
         form = TopicForm(request.POST)
         if form.is_valid():
@@ -174,10 +184,14 @@ def create_topic(request, pk):
     return redirect('lesson:lesson_details', pk=pk)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def update_topic(request, pk):
     topic = get_object_or_404(Topic, pk = pk)
     lesson = topic.lesson
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only update topics for your own lessons.")
 
     if request.method == "POST":
         form = TopicForm(request.POST, instance=topic)
@@ -204,10 +218,16 @@ def update_topic(request, pk):
     })
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor')
 def delete_topic(request, pk):
     topic = get_object_or_404(Topic, pk = pk)
-    lesson_id = topic.lesson.id
+    lesson = topic.lesson
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only delete topics for your own lessons.")
+
+    lesson_id = lesson.id
     topic.delete()
 
     lesson = get_object_or_404(Lesson, pk=lesson_id)
@@ -230,9 +250,14 @@ def recalculate_topic_weights(lesson):
     return
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def distribute_topic_weights_equally(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only modify topics for your own lessons.")
+
     topics = Topic.objects.filter(lesson=lesson, parent__isnull=True)
 
     calculated_weight = 100 / len(topics)
@@ -242,12 +267,17 @@ def distribute_topic_weights_equally(request, pk):
     return redirect('lesson:lesson_details', pk=lesson.id)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def create_subtopic(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only create subtopics for your own lessons.")
+
     if request.method == "POST":
         form = SubtopicForm(request.POST, lesson=lesson)
-        
+
         if form.is_valid():
             subtopic = form.save(commit=False)
             subtopic.lesson = lesson
@@ -265,10 +295,14 @@ def create_subtopic(request, pk):
     return redirect('lesson:lesson_details', pk=pk)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def update_subtopic(request, pk):
     subtopic = get_object_or_404(Topic, pk=pk)
     lesson = subtopic.lesson
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only update subtopics for your own lessons.")
 
     if request.method == "POST":
         form = SubtopicForm(request.POST, instance=subtopic, lesson=lesson)
@@ -321,16 +355,26 @@ def subtopic_weight_distribution(lesson):
             subtopics[0].save(update_fields=['weight'])
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def distribute_subtopic_weights_equally(request, lesson_id):
     lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only modify subtopics for your own lessons.")
+
     subtopic_weight_distribution(lesson)
     return redirect('lesson:lesson_details', pk=lesson.id)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def grading(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
+
+    # Object-level permission: verify teacher owns this lesson's subject
+    if not can_modify_lesson(request.user, lesson):
+        return permission_denied_response("You can only grade lessons for your own subjects.")
+
     students = Student.objects.filter(subjects=lesson.subject)
     topics = Topic.objects.filter(lesson=lesson)
     topic_grade_rows = (
@@ -412,7 +456,7 @@ def grading(request, pk):
     return render(request, "lesson/grading.html", context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def submit_all_topic_grades(request):
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
@@ -427,6 +471,11 @@ def submit_all_topic_grades(request):
 
         student = get_object_or_404(Student, user__id=student_id)
         lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+        # Object-level permission: verify teacher can grade this student for this lesson
+        if not can_grade_student(request.user, lesson, student):
+            return permission_denied_response("You can only grade students in your own subjects.")
+
         toMerge = ""
 
         for topic in lesson.topics.filter(parent__isnull=True):
@@ -511,7 +560,7 @@ def display_grade(request, student_id, lesson_id):
     return render(request,'lesson:lesson_details', pk=lesson.id)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def update_grade(request, pk=None):
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
@@ -519,6 +568,10 @@ def update_grade(request, pk=None):
 
         student = get_object_or_404(Student, user__id=student_id)
         lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+        # Object-level permission: verify teacher can grade this student for this lesson
+        if not can_grade_student(request.user, lesson, student):
+            return permission_denied_response("You can only update grades for students in your own subjects.")
 
         for topic in lesson.topics.filter(parent__isnull=True):
             subtopics = list(topic.subtopics.all())
@@ -548,11 +601,17 @@ def update_grade(request, pk=None):
     return redirect('lesson:lesson_details', pk=request.POST.get('lesson_id'))
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor')
 def delete_grade(request, student_id, lesson_id):
     if request.method == 'POST':
         lesson = get_object_or_404(Lesson, pk=lesson_id)
-        topic_grades = TopicGrade.objects.filter(student_id=student_id, topic__lesson = lesson)
+        student = get_object_or_404(Student, user__id=student_id)
+
+        # Object-level permission: verify teacher can modify grades for this lesson
+        if not can_grade_student(request.user, lesson, student):
+            return permission_denied_response("You can only delete grades for students in your own subjects.")
+
+        topic_grades = TopicGrade.objects.filter(student_id=student_id, topic__lesson=lesson)
         topic_grades.delete()
         return redirect('lesson:grading', pk=lesson_id)
     return redirect('lesson:grading', pk=lesson_id)

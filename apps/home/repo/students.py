@@ -3,18 +3,20 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
+from core.decorators import role_required
+from core.permissions import can_access_student, permission_denied_response
 from apps.authentication.forms import UserUpdateForm
 from apps.home.models import ClassRoom, Subject, AcademicYear
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, Student
 from apps.lesson.models import Lesson
 
 
-@login_required(login_url='/login/')
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def classes(request):
     return render(request, 'home/classes.html')
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def students_list(request):
     selected_class = request.GET.get('class', 'all')
     selected_year = request.GET.get('year')
@@ -73,9 +75,18 @@ def grade_identifier(percent):
 
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'parent', 'student')
 def student_details(request, pk):
     student = get_object_or_404(Student, user_id=pk)
+
+    # Object-level permission: verify user can access this student
+    # - Admins/supervisors/principals can access all students
+    # - Teachers can access students in their subjects
+    # - Parents can only access their own children
+    # - Students can only access their own profile
+    if not can_access_student(request.user, student):
+        return permission_denied_response("You do not have permission to view this student's details.")
+
     subjects = student.subjects.all()
     lessons = Lesson.objects.filter(subject__in=subjects)
     templates = PsychologicalStateTemplates.objects.all()
@@ -134,7 +145,7 @@ def student_details(request, pk):
     return render(request, 'home/student_details.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('admin', 'supervisor')
 def student_profile_update(request, pk):
     if request.method == "POST":
         student = get_object_or_404(Student, id = pk)
@@ -171,7 +182,7 @@ def student_profile_update(request, pk):
     return redirect('student_details', pk=student.user.id)
 
 
-@login_required(login_url="/login/")
+@role_required('admin', 'supervisor')
 def student_profile_update(request, pk):
     if request.method == "POST":
         student = get_object_or_404(Student, id = pk)

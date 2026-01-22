@@ -2,13 +2,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, render, redirect
 
+from core.decorators import role_required
 from apps.authentication.forms import UserUpdateForm
 from apps.authentication.models import Teacher
 from apps.home.models import Subject, ClassRoom
 from apps.lesson.models import Lesson
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def teacher_details(request, pk):
     teacher = get_object_or_404(Teacher, user_id = pk)
     subjects = Subject.objects.filter(teacher = teacher)
@@ -22,7 +23,7 @@ def teacher_details(request, pk):
     return render(request, 'home/teacher_details.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('admin', 'supervisor')
 def teacher_profile_update(request, pk):
     if request.method == "POST":
         teacher = get_object_or_404(Teacher, id = pk)

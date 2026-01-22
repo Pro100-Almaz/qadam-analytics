@@ -186,51 +186,58 @@
         {% if user.role == 'parent' %}
         	<hr class="my-4" />
 
-        <h6 class="heading-small text-muted mb-4">Персональные данные ученика</h6>
+        <h6 class="heading-small text-muted mb-4">Персональные данные учеников</h6>
           <div class="pl-lg-4">
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Username</label>
-                  <p class="form-control-static">{{ student.user.username }}</p>
+            {% for s in students %}
+            <div class="card mb-3 p-3">
+              <h6 class="text-primary mb-3">{{ s.user.get_full_name|default:s.user.username }}</h6>
+              <div class="row">
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Username</label>
+                    <p class="form-control-static">{{ s.user.username }}</p>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Email </label>
+                    <p class="form-control-static">{{ s.user.email|default:"Not provided" }}</p>
+                  </div>
                 </div>
               </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Email </label>
-                  <p class="form-control-static">{{ student.user.email }}</p>
+              <div class="row">
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Имя</label>
+                    <p class="form-control-static">{{ s.user.first_name|default:"Not provided" }}</p>
+                  </div>
+                </div>
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Фамилия</label>
+                    <p class="form-control-static">{{ s.user.last_name|default:"Not provided" }}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Имя</label>
-                  <p class="form-control-static">{{ student.user.first_name|default:"Not provided" }}</p>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Фамилия</label>
-                  <p class="form-control-static">{{ student.user.last_name|default:"Not provided" }}</p>
-                </div>
-              </div>
-            </div>
 
-            <div class="row">
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Дата рождения</label>
-                  <p class="form-control-static">{{ student.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+              <div class="row">
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Дата рождения</label>
+                    <p class="form-control-static">{{ s.user.date_of_birth|date:"F d, Y"|default:"Not provided" }}</p>
+                  </div>
                 </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="form-group">
-                  <label class="form-control-label">Телефонный номер</label>
-                  <p class="form-control-static">{{ student.user.phone_number|default:"Not provided" }}</p>
+                <div class="col-lg-6">
+                  <div class="form-group">
+                    <label class="form-control-label">Телефонный номер</label>
+                    <p class="form-control-static">{{ s.user.phone_number|default:"Not provided" }}</p>
+                  </div>
                 </div>
               </div>
             </div>
+            {% empty %}
+            <p class="text-muted">Ученики не назначены</p>
+            {% endfor %}
           </div>
         {% endif %}
 

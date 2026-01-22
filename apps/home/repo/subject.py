@@ -3,6 +3,8 @@ from django.contrib import messages
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
 
+from core.decorators import role_required
+from core.permissions import can_modify_subject, can_access_subject, permission_denied_response
 from apps.home.forms import SubjectForm
 from apps.lesson.models import Lesson
 from apps.home.models import Subject
@@ -21,7 +23,7 @@ def get_students_count(subject_id: int) -> int:
     return Student.objects.filter(subjects__id=subject_id).count()
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def subject_create(request):
     if request.method == "POST":
         form = SubjectForm(request.POST)
@@ -31,7 +33,7 @@ def subject_create(request):
             if not form.instance.teacher:
                 form.instance.teacher = user
             form.save()
-            messages.success(request, "✅ Subject created successfully!")
+            messages.success(request, "Subject created successfully!")
             return redirect("subjects")
     else:
         form = SubjectForm()
@@ -39,7 +41,7 @@ def subject_create(request):
     return render(request, "home/new_subject.html", {"form": form})
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def subjects_list(request, status=None):
     # Default to active subjects only unless overridden by URLconf
     if status is None:
@@ -103,7 +105,7 @@ def subjects_list(request, status=None):
     return render(request, "home/subjects.html", context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'homeroom_teacher')
 def my_subjects_list(request, status=None):
     user = CustomUser.objects.get(id=request.user.id)
     if status is None:
@@ -132,34 +134,49 @@ def my_subjects_list(request, status=None):
                'is_my_subjects': True,}
     return render(request, "home/subjects.html", context)
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def archive_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
+
+        # Object-level permission: verify teacher owns this subject
+        if not can_modify_subject(request.user, subject):
+            return permission_denied_response("You can only archive your own subjects.")
+
         subject.status = "archived"
         subject.save()
         return redirect("subjects")
     return (JsonResponse({"error": "Invalid request"}, status=400))
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def extract_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
+
+        # Object-level permission: verify teacher owns this subject
+        if not can_modify_subject(request.user, subject):
+            return permission_denied_response("You can only activate your own subjects.")
+
         subject.status = "active"
         subject.save()
         return redirect("subjects")
     return (JsonResponse({"error": "Invalid request"}, status=400))
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def process_status_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
+
+        # Object-level permission: verify teacher owns this subject
+        if not can_modify_subject(request.user, subject):
+            return permission_denied_response("You can only modify status of your own subjects.")
+
         subject.status = "planned"
         subject.save()
         return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 
-@login_required(login_url="/login/")
+@role_required('admin', 'supervisor')
 def delete_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
@@ -167,10 +184,17 @@ def delete_subject(request, pk):
         return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'student')
 def subject_details(request, pk):
     quarter = int(request.GET.get('quarter', '1'))
     subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
+
+    # Object-level permission: verify user can access this subject
+    # - Admins/supervisors/principals can access all subjects
+    # - Teachers can access their own subjects
+    # - Students can only access subjects they're enrolled in
+    if not can_access_subject(request.user, subject):
+        return permission_denied_response("You do not have permission to view this subject.")
 
     # Students enrolled in this subject
     students = Student.objects.filter(subjects=subject).select_related('user')

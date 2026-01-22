@@ -12,6 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.html import strip_tags
 
+from core.decorators import role_required
+from core.permissions import can_access_student, permission_denied_response
 from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
     Teacher, Student, Supervisor, Parent
 from apps.home.models import ClassRoom
@@ -46,11 +48,11 @@ def main_page(request):
 
 def profile(request):
     user = request.user
-    student = None
+    students = None
     if user.is_parent():
         try:
             parent = Parent.objects.prefetch_related('students').get(user=user)
-            student = parent.students.all()
+            students = parent.students.all()
         except Parent.DoesNotExist:
             pass
     teacher = Teacher.objects.filter(user=user).first() if user.is_teacher() else None
@@ -59,7 +61,7 @@ def profile(request):
 
     context = {
         'user': user,
-        'student': student,
+        'students': students,
         'teacher': teacher,
         'classrooms': classrooms,
     }
@@ -167,7 +169,7 @@ def pages(request):
         return render(request, 'home/page-500.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def teachers_list(request):
     teachers = Teacher.objects.all()
 
@@ -179,31 +181,35 @@ def teachers_list(request):
     return render(request, 'home/teachers.html', context)
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def create_psychological_state(request, pk):
+    # Get the student first for permission check
+    try:
+        student = Student.objects.get(pk=pk)
+    except Student.DoesNotExist:
+        messages.error(request, f"Student with id {pk} does not exist.")
+        return redirect("students")
+
+    # Object-level permission: verify user can access this student
+    if not can_access_student(request.user, student):
+        return permission_denied_response("You can only manage psychological states for students you have access to.")
+
     if request.method == "POST":
         if request.POST.get("_method") == "DELETE":
             state_id = request.POST.get("state_id")
             try:
-                student = Student.objects.get(pk=pk)
                 state = PsychologicalState.objects.get(pk=state_id, student_id=pk)
                 state.delete()
-                messages.success(request, "Психологическое состояние было удалено!")
+                messages.success(request, "Psychological state was deleted!")
                 return redirect("student_details", pk=student.user.id)
 
             except PsychologicalState.DoesNotExist:
-                messages.error(request, f"Психологическое состояние с данным id не существует: {state_id}")
+                messages.error(request, f"Psychological state with id {state_id} does not exist.")
                 return redirect("student_details", pk=pk)
 
         name = request.POST.get("state_name")
         comment = request.POST.get("comment")
         score = request.POST.get("star_rating")
-
-        try:
-            student = Student.objects.get(pk=pk)
-        except Student.DoesNotExist:
-            messages.error(request, f"Студент с данным id не существует: {pk}")
-            return redirect("students")
 
         if not PsychologicalStateTemplates.objects.filter(name=name).exists():
             PsychologicalStateTemplates.objects.create(name=name, comment=comment)
@@ -279,7 +285,7 @@ def create_psychological_state(request, pk):
 
 
 
-@login_required(login_url="/login/")
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
 def create_psychological_state_template(request, pk):
     if request.method == "POST":
         name = request.POST.get('template_name')
