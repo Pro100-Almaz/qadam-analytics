@@ -103,12 +103,23 @@
                             </a>
                         </li>
                     {% endif %}
-                    {% if user.is_parent and user.get_student_id%}
+                    {% if user.is_parent and user.get_students %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'student_details' user.get_student_id %}">
+                            <a class="nav-link" href="#navbar-children" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="navbar-children">
                                 <i class="ni ni-circle-08 text-pink"></i>
-                                <span class="nav-link-text">Мой ребенок</span>
+                                <span class="nav-link-text">Мои дети</span>
                             </a>
+                            <div class="collapse" id="navbar-children">
+                                <ul class="nav nav-sm flex-column">
+                                    {% for student in user.get_students %}
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{% url 'student_details' student.user.id %}">
+                                            {{ student.user.get_full_name|default:student.user.username }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         </li>
                     {% endif %}
                 </ul>
