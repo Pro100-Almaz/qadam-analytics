@@ -73,11 +73,9 @@ class Lesson(models.Model):
 
             # If topic has subtopics, sum them by weight; else, use own grade
             # children = list(topic.subtopics.all()) # children = subtopics of the topic
-            # print(children)
             # if children:
             #     total = 0
             #     for sub in children:
-            #         print(sub)
             #         total += sum_topic(sub) * (sub.weight / 100)
             #     return total
             # else:

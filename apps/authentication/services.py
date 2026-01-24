@@ -65,10 +65,14 @@ class AccountService:
 
         user.save()
 
+        # Assign user to the appropriate Django Group
+        self._assign_user_group(user, user.role)
+
         if "avatar" in request.FILES:
             user.avatar = request.FILES["avatar"]
             user.save(update_fields=["avatar"])
 
+        # Create role-specific profile based on user's role
         if user.is_teacher():
             Teacher.objects.create(
                 user=user,
@@ -78,21 +82,52 @@ class AccountService:
                 occupation=form.cleaned_data.get("occupation"),
                 classroom=form.cleaned_data.get("classroom"),
             )
-
         elif user.is_student():
             Student.objects.create(
                 user=user,
                 school_group=form.cleaned_data.get("school_group"),
                 classroom=form.cleaned_data.get("classroom"),
             )
-        elif user.is_manager():
+        elif user.is_parent():
+            from .models import Parent
+            parent = Parent.objects.create(user=user)
+            # Link to student if student_id provided
+            student_id = form.cleaned_data.get("student_id")
+            if student_id:
+                try:
+                    student = Student.objects.get(pk=student_id)
+                    parent.students.add(student)
+                except Student.DoesNotExist:
+                    pass
+        elif user.is_manager() or user.is_principal():
+            # Both supervisor and principal use Supervisor profile
             Supervisor.objects.create(user=user)
+        # admin role doesn't need a profile model (superuser)
 
-        self.send_reset_password_link(request, user)
+        # self.send_reset_password_link(request, user)
 
         login(request, user)
         redirect_url = "/pages/teachers" if user.is_parent() else "/"
         return user, None, redirect_url
+
+    def _assign_user_group(self, user, role: str) -> None:
+        """Assign the user to the appropriate Django Group based on their role."""
+        from django.contrib.auth.models import Group
+
+        ROLE_TO_GROUP = {
+            'admin': 'Admin',
+            'teacher': 'Teacher',
+            'homeroom_teacher': 'HomeroomTeacher',
+            'student': 'Student',
+            'supervisor': 'Supervisor',
+            'principal': 'Principal',
+            'parent': 'Parent',
+        }
+
+        group_name = ROLE_TO_GROUP.get(role)
+        if group_name:
+            group, _ = Group.objects.get_or_create(name=group_name)
+            user.groups.add(group)
 
     def send_reset_password_link(self, request, user: CustomUser) -> None:
         uid = urlsafe_base64_encode(force_bytes(user.pk))

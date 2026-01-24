@@ -1,5 +1,5 @@
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -11,8 +11,24 @@ from django.utils.html import strip_tags
 from core import settings
 
 
-def user_avatar_upload_path():
-    pass
+MAX_AVATAR_SIZE_MB = 5
+MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024
+
+
+def validate_avatar_size(file):
+    """Validate that avatar file size doesn't exceed the maximum allowed size."""
+    if file.size > MAX_AVATAR_SIZE_BYTES:
+        raise ValidationError(
+            f'Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. '
+            f'Current size: {file.size / (1024 * 1024):.2f}MB'
+        )
+
+
+def user_avatar_upload_path(instance, filename):
+    """Legacy upload path function - kept for migration compatibility.
+    Current avatar field uses 'avatars/%Y/%m/%d/' string path instead.
+    """
+    return f'avatars/{filename}'
 
 
 class SchoolGroup(models.Model):
@@ -54,30 +70,49 @@ class CustomUser(AbstractUser):
     address = models.TextField(blank=True, null=True)
     avatar = models.FileField(
         upload_to='avatars/%Y/%m/%d/',
-        default='avatars/default/default-user.jpeg'
+        default='avatars/default/default-user.jpeg',
+        validators=[validate_avatar_size]
     )
     school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
 
     def __str__(self):
         return self.first_name + " " + self.last_name
 
+    def _has_group(self, group_name):
+        """Check if user belongs to a specific group."""
+        return self.groups.filter(name=group_name).exists()
+
     def is_teacher(self):
-        return self.role == CustomUser.ROLE_TEACHER
+        """Check if user is a teacher (includes homeroom teachers)."""
+        if self._has_group('Teacher') or self._has_group('HomeroomTeacher'):
+            return True
+        return self.role in (self.ROLE_TEACHER, self.HOMEROOM_TEACHER)
+
+    def is_homeroom_teacher(self):
+        """Check if user is specifically a homeroom teacher."""
+        if self._has_group('HomeroomTeacher'):
+            return True
+        return self.role == self.HOMEROOM_TEACHER
 
     def is_admin(self):
-        return self.role == CustomUser.ROLE_ADMIN
+        """Check if user is an admin."""
+        return self._has_group('Admin') or self.role == self.ROLE_ADMIN
 
     def is_manager(self):
-        return self.role == CustomUser.ROLE_SUPERVISOR
+        """Check if user is a supervisor/manager."""
+        return self._has_group('Supervisor') or self.role == self.ROLE_SUPERVISOR
 
     def is_principal(self):
-        return self.role == CustomUser.ROLE_PRINCIPAL
+        """Check if user is a principal."""
+        return self._has_group('Principal') or self.role == self.ROLE_PRINCIPAL
 
     def is_parent(self):
-        return self.role == CustomUser.ROLE_PARENT
+        """Check if user is a parent."""
+        return self._has_group('Parent') or self.role == self.ROLE_PARENT
 
     def is_student(self):
-        return self.role == CustomUser.ROLE_STUDENT
+        """Check if user is a student."""
+        return self._has_group('Student') or self.role == self.ROLE_STUDENT
 
     def get_students(self):
         """Get all students linked to this parent user."""
@@ -159,13 +194,13 @@ class Parent(models.Model):
 class Teacher(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
-#identification
+    #identification
     GENDER_CHOICES = [
         ('male', 'Male'),
         ('female', 'Female'),
     ]
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
-#professional
+    #professional
     academic_degree = models.CharField(max_length=50, blank=True, null=True)
 
     EMPLOYMENT_TYPE_CHOICES = [
@@ -230,8 +265,33 @@ class PsychologicalStateTemplates(models.Model):
         return self.name
 
 
+@receiver(pre_save, sender=CustomUser)
+def delete_old_avatar_on_change(sender, instance, **kwargs):
+    """Delete old avatar file when user uploads a new one to prevent orphaned files."""
+    if not instance.pk:
+        return  # New user, no old avatar to delete
+
+    try:
+        old_instance = CustomUser.objects.get(pk=instance.pk)
+    except CustomUser.DoesNotExist:
+        return
+
+    old_avatar = old_instance.avatar
+    new_avatar = instance.avatar
+
+    # Check if avatar has changed and old one isn't the default
+    if old_avatar and old_avatar != new_avatar:
+        default_avatar = 'avatars/default/default-user.jpeg'
+        if old_avatar.name != default_avatar:
+            # Delete the old file from storage
+            old_avatar.delete(save=False)
+
+
 @receiver(post_save, sender=CustomUser)
 def registration_email_post_send(sender, instance, created, *args, **kwargs):
+    if settings.DEBUG:
+        return
+
     if created:
         raw_password = getattr(instance, '_raw_password', None)
 

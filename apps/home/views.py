@@ -14,8 +14,10 @@ from django.utils.html import strip_tags
 
 from core.decorators import role_required
 from core.permissions import can_access_student, permission_denied_response
-from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, \
-    Teacher, Student, Supervisor, Parent
+from apps.authentication.models import (
+    CustomUser, PsychologicalStateTemplates, PsychologicalState,
+    Teacher, Student, Supervisor, Parent, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
+)
 from apps.home.models import ClassRoom
 from apps.notification.models import PsychologicalNotify
 
@@ -67,27 +69,35 @@ def profile(request):
     }
     return render(request, 'home/profile.html', context)
 
-
-
 @login_required(login_url="/login/")
 def profile_update(request):
     if request.method == "POST":
         user = request.user
-        
+
         # Update basic user information
         user.username = request.POST.get('username')
         user.email = request.POST.get('email')
         user.first_name = request.POST.get('first_name')
         user.last_name = request.POST.get('last_name')
-        user.phone_number = request.POST.get('phone_number')
-        user.date_of_birth = request.POST.get('date_of_birth')
-        user.occupation = request.POST.get('occupation')
-        user.address = request.POST.get('address')
+        user.phone_number = request.POST.get('phone_number') or None
+        user.address = request.POST.get('address') or None
+
+        # Handle date_of_birth - convert empty string to None
+        date_of_birth = request.POST.get('date_of_birth')
+        user.date_of_birth = date_of_birth if date_of_birth else None
         
-        # Handle avatar upload
+        # Handle avatar upload with size validation
         if 'avatar' in request.FILES:
-            user.avatar = request.FILES['avatar']
-        
+            avatar_file = request.FILES['avatar']
+            if avatar_file.size > MAX_AVATAR_SIZE_BYTES:
+                messages.error(
+                    request,
+                    f"Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. "
+                    f"Your file: {avatar_file.size / (1024 * 1024):.2f}MB"
+                )
+                return redirect('profile')
+            user.avatar = avatar_file
+
         try:
             user.save()
             messages.success(request, "Profile updated successfully!")
@@ -118,6 +128,18 @@ def profile_edit_request(request):
     working_hours = request.POST.get('working_hours')
     avatar = request.FILES.get('avatar')
 
+    # Avatar can be updated directly without approval (with size validation)
+    if avatar:
+        if avatar.size > MAX_AVATAR_SIZE_BYTES:
+            messages.error(
+                request,
+                f"Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. "
+                f"Your file: {avatar.size / (1024 * 1024):.2f}MB"
+            )
+        else:
+            user.avatar = avatar
+            user.save(update_fields=['avatar'])
+            messages.success(request, "Profile picture updated successfully!")
 
     subject = "Запрос от пользователя на изменения персональных данных"
     html_message = render_to_string("email/profile_edit_request.html",
@@ -144,12 +166,8 @@ def profile_edit_request(request):
 
     email_msg = EmailMultiAlternatives(subject, plain_message, from_mail, to_mail)
     email_msg.attach_alternative(html_message, "text/html")
-    if avatar:
-        email_msg.attach(avatar.name, avatar.read(), avatar.content_type)
 
     email_msg.send()
-    print("Supervisor:", supervisor)
-    print("Supervisor Email:", supervisor.user.email)
     messages.success(request, "Your profile change request has been sent to the principal.")
     return redirect("profile")
 
@@ -221,7 +239,7 @@ def create_psychological_state(request, pk):
             student=student,
             added_by=request.user,
         )
-        messages.success(request, "Психологическое состояние успешно добавлено!")
+        messages.success(request, "Эмоциональный благосостояние успешно добавлено!")
         return redirect("student_details", pk=student.user.id)
 
     return redirect("students")

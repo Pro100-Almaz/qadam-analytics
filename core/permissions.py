@@ -8,13 +8,33 @@ Use these in views after the role_required decorator has verified the user's rol
 from django.http import HttpResponseForbidden
 
 
-# Roles that bypass object-level checks (admins can access everything)
+# Group names for admin-level roles (bypass object-level checks)
+ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
+# Legacy role names for admin-level roles
 ADMIN_ROLES = ('admin', 'supervisor', 'principal')
+
+# Group names for teacher roles
+TEACHER_GROUPS = ('Teacher', 'HomeroomTeacher')
+# Legacy role names for teacher roles
+TEACHER_ROLES = ('teacher', 'homeroom_teacher')
 
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
+    # Check Groups first
+    if user.groups.filter(name__in=ADMIN_GROUPS).exists():
+        return True
+    # Fallback to legacy role field
     return hasattr(user, 'role') and user.role in ADMIN_ROLES
+
+
+def is_teacher_role(user):
+    """Check if user has a teacher role (teacher or homeroom_teacher)."""
+    # Check Groups first
+    if user.groups.filter(name__in=TEACHER_GROUPS).exists():
+        return True
+    # Fallback to legacy role field
+    return hasattr(user, 'role') and user.role in TEACHER_ROLES
 
 
 def can_access_subject(user, subject):
@@ -30,7 +50,7 @@ def can_access_subject(user, subject):
         return True
 
     # Teacher check
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
@@ -39,7 +59,7 @@ def can_access_subject(user, subject):
             return False
 
     # Student check
-    if user.role == 'student':
+    if user.is_student():
         from apps.authentication.models import Student
         try:
             student = Student.objects.get(user=user)
@@ -73,7 +93,7 @@ def can_modify_lesson(user, lesson):
     if is_admin_role(user):
         return True
 
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
@@ -102,7 +122,7 @@ def can_access_student(user, student):
         return True
 
     # Teacher check - can see students in their subjects
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
@@ -114,7 +134,7 @@ def can_access_student(user, student):
             return False
 
     # Parent check
-    if user.role == 'parent':
+    if user.is_parent():
         from apps.authentication.models import Parent
         try:
             parent = Parent.objects.get(user=user)
@@ -152,7 +172,7 @@ def can_access_teacher(user, teacher):
         return True
 
     # Teachers can view other teachers
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         return True
 
     return False
@@ -169,7 +189,7 @@ def can_modify_subject(user, subject):
     if is_admin_role(user):
         return True
 
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
@@ -191,7 +211,7 @@ def can_grade_student(user, lesson, student):
     if is_admin_role(user):
         return True
 
-    if user.role in ('teacher', 'homeroom_teacher'):
+    if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)

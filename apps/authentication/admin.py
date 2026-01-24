@@ -6,15 +6,23 @@ from apps.authentication.models import CustomUser, SchoolGroup, PsychologicalSta
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_display = ("username", "email", "role", "is_staff")
+    list_display = ("username", "email", "get_groups", "role", "is_staff")
     search_fields = ("username", "email", "first_name", "last_name")
+    filter_horizontal = ("groups", "user_permissions")
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Personal info",
-         {"fields": ("first_name", "last_name", "email", "phone_number", "address", "school", "role")}),
-        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+         {"fields": ("first_name", "last_name", "email", "phone_number", "address", "school")}),
+        ("Role Assignment", {"fields": ("groups",)}),
+        ("Legacy Role (Deprecated)", {"fields": ("role",), "classes": ("collapse",)}),
+        ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "user_permissions")}),
         ("Important dates", {"fields": ("date_of_birth", "last_login")}),
     )
+
+    def get_groups(self, obj):
+        """Display user's groups as a comma-separated list."""
+        return ", ".join([g.name for g in obj.groups.all()])
+    get_groups.short_description = "Groups"
 
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):

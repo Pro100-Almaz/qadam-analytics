@@ -54,7 +54,6 @@ def subjects_list(request, status=None):
         pass
     elif status == 'archived' or status == 'disabled':
         subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
-        print("archived", subjects)
     elif status == 'planned':
         subjects = Subject.objects.filter(status__in=['planned'])
     elif status == 'active':
@@ -67,7 +66,6 @@ def subjects_list(request, status=None):
 
     if year_id:
         subjects = subjects.filter(academic_year_id=year_id)
-    print("year", subjects)
 
     langs = ['kaz', 'rus', 'eng']
     if lang_filter != 'all':

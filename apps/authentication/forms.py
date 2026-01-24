@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import CustomUser, SchoolGroup, Teacher
+from .models import CustomUser, SchoolGroup, Teacher, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
 from ..home.models import ClassRoom
 
 
@@ -245,23 +245,82 @@ class SignUpForm(UserCreationForm):
         model = CustomUser
         fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
 
+    def clean_avatar(self):
+        """Validate avatar file size."""
+        avatar = self.cleaned_data.get('avatar')
+        if avatar and hasattr(avatar, 'size'):
+            if avatar.size > MAX_AVATAR_SIZE_BYTES:
+                raise forms.ValidationError(
+                    f'Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. '
+                    f'Current size: {avatar.size / (1024 * 1024):.2f}MB'
+                )
+        return avatar
+
     def save(self, commit=True):
         user = super().save(commit=False)
         role = self.cleaned_data['role']
         if commit:
             user.save()
+            self._assign_group(user, role)
 
-            if role == 'teacher':
+            # Handle avatar upload explicitly
+            avatar = self.cleaned_data.get('avatar')
+            if avatar:
+                user.avatar = avatar
+                user.save(update_fields=['avatar'])
+
+            if role in ('teacher', 'homeroom_teacher'):
                 from .models import Teacher
-                Teacher.objects.create(user=user, occupation=self.cleaned_data.get('occupation'))
+                Teacher.objects.create(
+                    user=user,
+                    occupation=self.cleaned_data.get('occupation'),
+                    gender=self.cleaned_data.get('gender'),
+                    academic_degree=self.cleaned_data.get('academic_degree'),
+                    employment_type=self.cleaned_data.get('employment_type'),
+                    classroom=self.cleaned_data.get('classroom'),
+                )
             elif role == 'student':
                 from .models import Student
-                Student.objects.create(user=user, classroom=self.cleaned_data.get('classroom'), school_group=self.cleaned_data.get('school_group'))
+                Student.objects.create(
+                    user=user,
+                    classroom=self.cleaned_data.get('classroom'),
+                    school_group=self.cleaned_data.get('school_group'),
+                )
             elif role == 'parent':
-                from .models import Parent
+                from .models import Parent, Student
+                parent = Parent.objects.create(user=user)
+                # Link to student if student_id provided (ManyToMany relationship)
                 student_id = self.cleaned_data.get('student_id')
-                Parent.objects.create(user=user, student_id=student_id)
+                if student_id:
+                    try:
+                        student = Student.objects.get(pk=student_id)
+                        parent.students.add(student)
+                    except Student.DoesNotExist:
+                        pass
+            elif role in ('supervisor', 'principal'):
+                from .models import Supervisor
+                Supervisor.objects.create(user=user)
+            # admin role doesn't need a profile model
         return user
+
+    def _assign_group(self, user, role):
+        """Assign the user to the appropriate Django Group based on their role."""
+        from django.contrib.auth.models import Group
+
+        ROLE_TO_GROUP = {
+            'admin': 'Admin',
+            'teacher': 'Teacher',
+            'homeroom_teacher': 'HomeroomTeacher',
+            'student': 'Student',
+            'supervisor': 'Supervisor',
+            'principal': 'Principal',
+            'parent': 'Parent',
+        }
+
+        group_name = ROLE_TO_GROUP.get(role)
+        if group_name:
+            group, _ = Group.objects.get_or_create(name=group_name)
+            user.groups.add(group)
 
 class ForgetPasswordForm(forms.Form):
     username = forms.CharField(

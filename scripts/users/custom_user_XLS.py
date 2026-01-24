@@ -29,10 +29,30 @@ from django.db.models import signals
 
 from apps.authentication import models as auth_models
 from apps.authentication.models import CustomUser
+from django.contrib.auth.models import Group
 
 from datetime import datetime, date
 from dateutil import parser
 import random
+
+# Mapping from legacy role names to Django Group names
+ROLE_TO_GROUP = {
+    'admin': 'Admin',
+    'teacher': 'Teacher',
+    'homeroom_teacher': 'HomeroomTeacher',
+    'student': 'Student',
+    'supervisor': 'Supervisor',
+    'principal': 'Principal',
+    'parent': 'Parent',
+}
+
+
+def assign_user_group(user, role):
+    """Assign the user to the appropriate Django Group based on their role."""
+    group_name = ROLE_TO_GROUP.get(role)
+    if group_name:
+        group, _ = Group.objects.get_or_create(name=group_name)
+        user.groups.add(group)
 
 dfs = get_sheets_data()
 
@@ -154,6 +174,8 @@ for sheet_name, rows in dfs.items():
                         user.set_password(raw_password)
                         user.save()
 
+                        # Assign user to the appropriate Django Group
+                        assign_user_group(user, role)
 
                     except (IntegrityError, ValueError, ValidationError) as e:
                         logger.error(e)
@@ -164,12 +186,13 @@ for sheet_name, rows in dfs.items():
                         role = row['Role']
                         if role == 'student':
                             process_student(sheet_name, row, idx, admin_id, user)
-                        elif role =='teacher':
+                        elif role in ('teacher', 'homeroom_teacher'):
                             process_teacher(sheet_name, row, idx, admin_id, user)
-                        elif role == 'supervisor':
+                        elif role in ('supervisor', 'principal'):
                             process_supervisor(sheet_name, row, idx, admin_id, user)
                         elif role == 'parent':
                             process_parent(sheet_name, row, idx, admin_id, user)
+                        # admin role doesn't need a profile
 
                         col_letter = col_to_letter(status_col)
                         status_updates.append({

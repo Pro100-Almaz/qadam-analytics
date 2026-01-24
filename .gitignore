@@ -25,7 +25,11 @@ venv
 package-lock.json
 
 staticfiles/*
-!staticfiles/.gitkeep 
+!staticfiles/.gitkeep
+
+# media files (user uploads)
+media/*
+!media/avatars/default/ 
 .vscode/symbols.json
 
 apps/static/assets/node_modules
