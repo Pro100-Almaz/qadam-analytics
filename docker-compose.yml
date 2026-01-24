@@ -36,7 +36,7 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./staticfiles:/vol/static    # <-- host path for static
-      - ./media:/app/media
+      - /var/www/school/media:/app/media
     networks: [db_network]
 
   db:
