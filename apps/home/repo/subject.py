@@ -46,6 +46,7 @@ def subjects_list(request, status=None):
     # Default to active subjects only unless overridden by URLconf
     if status is None:
         status = request.GET.get('status', 'active')
+
     year_id = request.GET.get('year')
     lang_filter = request.GET.get('lang', 'all')
 
