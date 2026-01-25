@@ -1,5 +1,5 @@
 from django import forms
-from .models import Lesson, LessonGroup, Topic
+from .models import Lesson, Topic
 
 
 class DateInput(forms.DateInput):
@@ -10,16 +10,17 @@ class LessonForm(forms.ModelForm):
     class Meta:
         model = Lesson
         fields = [
+            "offering",
             "title",
             "description",
-            "subject",
-            "maximum_points",
+            "date",
             "status",
             "quarter",
-            "group",
-            "unit"
+            "unit",
+            "order",
         ]
         widgets = {
+            "offering": forms.Select(attrs={"class": "form-control"}),
             "title": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "Введите тему урока",
@@ -29,39 +30,26 @@ class LessonForm(forms.ModelForm):
                 "rows": 4,
                 "placeholder": "Введите подробное описание",
             }),
-            "subject": forms.Select(attrs={"class": "form-control"}),
-            "maximum_points": forms.NumberInput(attrs={
-                "class": "form-control",
-                "min": 0,
-            }),
+            "date": DateInput(attrs={"class": "form-control"}),
             "status": forms.Select(attrs={"class": "form-control"}),
             "quarter": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 1, "max": 4,
             }),
-            "group": forms.Select(attrs={"class": "form-control"}),
             "unit": forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": 1, "max": 15,
             }),
+            "order": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": 0,
+            }),
         }
 
 
-class LessonGroupForm(forms.ModelForm):
-    name = forms.CharField(
-        label="Group Name",
-        max_length=100,
-        widget=forms.TextInput(
-            attrs={
-                'class': 'form-control',
-                'placeholder': 'Enter new group name'
-            }
-        )
-    )
-
-    class Meta:
-        model = LessonGroup
-        fields = ['name']
+class LessonGroupForm(forms.Form):
+    """Placeholder form for lesson grouping functionality."""
+    pass
 
 class TopicForm(forms.ModelForm):
     class Meta:

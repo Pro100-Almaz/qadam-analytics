@@ -1,13 +1,12 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
 from core.decorators import role_required
 from core.permissions import can_access_student, permission_denied_response
 from apps.authentication.forms import UserUpdateForm
-from apps.home.models import ClassRoom, Subject, AcademicYear
-from apps.authentication.models import CustomUser, PsychologicalStateTemplates, PsychologicalState, Student
+from apps.home.models import AcademicYear
+from apps.authentication.models import PsychologicalStateTemplates, PsychologicalState, Student
 from apps.lesson.models import Lesson
 
 
@@ -28,7 +27,6 @@ def students_list(request):
     if selected_year:
         students = students.filter(academic_year_id=selected_year)
 
-    classrooms = ClassRoom.objects.all()
     from apps.home.models import AcademicYear
     years = AcademicYear.objects.order_by('-year')
     if not selected_year and years.exists():
@@ -41,7 +39,6 @@ def students_list(request):
 
     context = {
         'students': students,
-        'classrooms': classrooms,
         'page_obj': page_obj,
         'selected_class': selected_class,
         'years': years,

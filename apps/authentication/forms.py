@@ -2,7 +2,6 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
 from .models import CustomUser, SchoolGroup, Teacher, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
-from ..home.models import ClassRoom
 
 
 class LoginForm(forms.Form):
@@ -191,14 +190,6 @@ class SignUpForm(UserCreationForm):
             "id": "id_occupation"
         })
     )
-    classroom = forms.ModelChoiceField(
-        queryset=ClassRoom.objects.all(),
-        required=False,
-        widget=forms.Select(attrs={
-            "class": "form-control",
-            "id": "id_classroom"
-        })
-    )
     employment_type = forms.ChoiceField(
         choices = Teacher.EMPLOYMENT_TYPE_CHOICES,
         widget=forms.Select(
@@ -278,13 +269,11 @@ class SignUpForm(UserCreationForm):
                     gender=self.cleaned_data.get('gender'),
                     academic_degree=self.cleaned_data.get('academic_degree'),
                     employment_type=self.cleaned_data.get('employment_type'),
-                    classroom=self.cleaned_data.get('classroom'),
                 )
             elif group_name == CustomUser.GROUP_STUDENT:
                 from .models import Student
                 Student.objects.create(
                     user=user,
-                    classroom=self.cleaned_data.get('classroom'),
                     school_group=self.cleaned_data.get('school_group'),
                 )
             elif group_name == CustomUser.GROUP_PARENT:

@@ -7,7 +7,7 @@ from core.decorators import role_required
 from core.permissions import can_modify_subject, can_access_subject, permission_denied_response
 from apps.home.forms import SubjectForm
 from apps.lesson.models import Lesson
-from apps.home.models import Subject
+from apps.home.models import SubjectOffering, TeachingAssignment
 from apps.authentication.models import CustomUser, Student
 from django.shortcuts import render, redirect, get_object_or_404
 
@@ -110,16 +110,16 @@ def my_subjects_list(request, status=None):
     if status is None:
         status = request.GET.get('status', 'active')
 
-    subjects = Subject.objects.filter(teacher__user=user)
+    subjects = TeachingAssignment.get_subjects(user)
 
-    if status == 'all':
-        subjects = Subject.objects.filter(teacher__user = user)
-    elif status == 'archived' or status== 'disabled':
-        subjects = Subject.objects.filter(status__in=['archived', 'disabled'], teacher__user = user)
-    elif status == 'planned':
-        subjects = Subject.objects.filter(status__in=['planned'], teacher__user = user)
-    else:
-        subjects = Subject.objects.filter(status=status, teacher__user = user)
+    # if status == 'all':
+    #     subjects = Subject.objects.filter(teacher__user = user)
+    # elif status == 'archived' or status== 'disabled':
+    #     subjects = Subject.objects.filter(status__in=['archived', 'disabled'], teacher__user = user)
+    # elif status == 'planned':
+    #     subjects = Subject.objects.filter(status__in=['planned'], teacher__user = user)
+    # else:
+    #     subjects = Subject.objects.filter(status=status, teacher__user = user)
 
     page = request.GET.get('page')
     paginator = Paginator(subjects, 5)

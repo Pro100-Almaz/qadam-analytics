@@ -169,18 +169,12 @@ class CustomUser(AbstractUser):
 class Student(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
-    classroom = models.ForeignKey(
-        'home.ClassRoom',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
     subjects = models.ManyToManyField(
         'home.Subject',
         blank=True,
         related_name="students"
     )
-    school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True)
+    school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True, blank=True)
     academic_year = models.ForeignKey(
         'home.AcademicYear',
         related_name='students',
@@ -190,31 +184,48 @@ class Student(models.Model):
         help_text='Enrollment year for this student'
     )
 
+    def __str__(self):
+        return self.user.get_full_name() or self.user.username
+
+    def get_current_enrollment(self):
+        """Get current active enrollment."""
+        from apps.home.models import Enrollment
+        return Enrollment.get_current_enrollment(self)
+
+    def get_current_class_group(self):
+        """Get the class group from current enrollment."""
+        enrollment = self.get_current_enrollment()
+        return enrollment.class_group if enrollment else None
+
+    def get_enrollment_history(self):
+        """Get all enrollments ordered by year."""
+        return self.enrollments.select_related(
+            'class_group', 'class_group__grade_level', 'academic_year'
+        ).order_by('-academic_year__year')
+
+    def enroll_in_class(self, class_group, academic_year, start_date=None):
+        """Enroll student in a class group."""
+        from apps.home.models import Enrollment
+        return Enrollment.enroll_student(self, class_group, academic_year, start_date)
+
 
 @receiver(pre_save, sender=Student)
 def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign student's academic year before save.
-
-    Priority:
-    1) If student has a classroom with an academic_year, use it
-    2) Otherwise, default to the latest AcademicYear (by year desc) if available
-    """
+    """Auto-assign student's academic year before save if not set."""
     if instance.academic_year_id:
         return
 
     try:
-        classroom = instance.classroom
-        if classroom and getattr(classroom, 'academic_year_id', None):
-            instance.academic_year_id = classroom.academic_year_id
-            return
-
-        # Fallback: latest academic year
-        from apps.home.models import AcademicYear  # local import to avoid circular deps
-        latest_year = AcademicYear.objects.order_by('-year').first()
-        if latest_year:
-            instance.academic_year = latest_year
+        from apps.home.models import AcademicYear
+        # Use the active academic year, or fallback to latest
+        active_year = AcademicYear.objects.filter(is_active=True).first()
+        if active_year:
+            instance.academic_year = active_year
+        else:
+            latest_year = AcademicYear.objects.order_by('-year').first()
+            if latest_year:
+                instance.academic_year = latest_year
     except Exception:
-        # Do not block save on any failure here
         pass
 
 
@@ -247,12 +258,6 @@ class Teacher(models.Model):
     #working place
     occupation = models.CharField(max_length=50, blank=True, null=True)
     working_hours = models.PositiveIntegerField(blank=True, null=True)
-    classroom = models.ForeignKey(
-        'home.ClassRoom',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
 
     def __str__(self):
         full_name = self.user.get_full_name()

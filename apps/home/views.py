@@ -18,7 +18,7 @@ from apps.authentication.models import (
     CustomUser, PsychologicalStateTemplates, PsychologicalState,
     Teacher, Student, Supervisor, Parent, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
 )
-from apps.home.models import ClassRoom
+from apps.home.models import ClassGroup
 from apps.notification.models import PsychologicalNotify
 
 
@@ -31,7 +31,7 @@ def index(request):
 def main_page(request):
     total_students = Student.objects.all().count()
     total_teachers = Teacher.objects.all().count()
-    total_classes = ClassRoom.objects.all().count()
+    total_classes = ClassGroup.objects.all().count()
 
     if Teacher.objects.filter(user=request.user).exists():
         template_name = 'teacher.html'
@@ -59,13 +59,13 @@ def profile(request):
             pass
     teacher = Teacher.objects.filter(user=user).first() if user.is_teacher() else None
 
-    classrooms = ClassRoom.objects.all()
+    class_groups = ClassGroup.objects.all()
 
     context = {
         'user': user,
         'students': students,
         'teacher': teacher,
-        'classrooms': classrooms,
+        'class_groups': class_groups,
     }
     return render(request, 'home/profile.html', context)
 

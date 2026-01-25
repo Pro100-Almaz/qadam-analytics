@@ -3,13 +3,6 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
-class LessonGroup(models.Model):
-    name = models.CharField(max_length=100, help_text="Group of the lessons", default="", null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.name}"
-
-
 class Lesson(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -18,21 +11,21 @@ class Lesson(models.Model):
         ('on schedule', 'On Schedule'),
     )
 
-    title = models.CharField(max_length=255, help_text="Title of the lesson")
-    description = models.TextField(blank=True, help_text="Detailed description of the lesson")
-
-    subject = models.ForeignKey(
-        'home.Subject',
-        related_name='lesson_subject',
-        help_text="Subject of the lesson",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+    offering = models.ForeignKey(
+        'home.SubjectOffering',
+        on_delete=models.CASCADE,
+        related_name='lessons',
     )
 
-    average_points = models.PositiveIntegerField(default=1, help_text="Grade of the lesson")
-    maximum_points = models.PositiveIntegerField(default=100, help_text="Maximum points of the lesson")
+    title = models.CharField(max_length=255, help_text="Title of the lesson")
+    description = models.TextField(
+        blank=True,
+        help_text="Detailed description of the lesson"
+    )
+    date = models.DateField(null=True, blank=True)
+    order = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
     quarter = models.PositiveIntegerField(
         default=1,
         validators=[
@@ -41,6 +34,7 @@ class Lesson(models.Model):
         ],
         help_text="Quarter of the lesson"
     )
+
     unit = models.PositiveIntegerField(
         default=1,
         validators=[
@@ -50,18 +44,16 @@ class Lesson(models.Model):
         help_text="Unit of the lesson"
     )
 
-    group = models.ForeignKey(LessonGroup, related_name='lesson_group', on_delete=models.SET_NULL, null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['created_at', 'updated_at']
+        ordering = ['date', 'order']
         verbose_name = "Lesson"
         verbose_name_plural = "Lessons"
 
     def __str__(self):
-        return f"{self.title}"
+        return f"{self.title} ({self.offering})"
 
     def calculate_student_grade(self, student):
         """Calculate weighted grade for a student for this lesson."""
@@ -87,9 +79,104 @@ class Lesson(models.Model):
         return total_grade
 
 
+class AssessmentItem(models.Model):
+    """
+    A gradable item within a SubjectOffering.
+    Examples: Homework 1, Quiz 2, Midterm Exam, Class Participation
+    """
+    TYPE_CHOICES = [
+        ('homework', 'Homework'),
+        ('quiz', 'Quiz'),
+        ('test', 'Test'),
+        ('exam', 'Exam'),
+        ('project', 'Project'),
+        ('participation', 'Participation'),
+        ('other', 'Other'),
+    ]
+
+    offering = models.ForeignKey(
+        'home.SubjectOffering',
+        on_delete=models.CASCADE,
+        related_name='assessment_items'
+    )
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assessment_items',
+        help_text="Optional: link to specific lesson"
+    )
+
+    name = models.CharField(max_length=200)
+    assessment_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='homework')
+    max_points = models.PositiveIntegerField(default=10)
+    weight = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.0,
+        help_text="Weight for weighted grading strategy"
+    )
+    quarter = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        default=1
+    )
+    date = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['quarter', 'date', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.offering})"
+
+
+class StudentScore(models.Model):
+    """Individual student score for an AssessmentItem."""
+    student = models.ForeignKey(
+        'authentication.Student',
+        on_delete=models.CASCADE,
+        related_name='scores'
+    )
+    assessment_item = models.ForeignKey(
+        AssessmentItem,
+        on_delete=models.CASCADE,
+        related_name='scores'
+    )
+    points_earned = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
+    comment = models.TextField(blank=True)
+
+    graded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='graded_scores'
+    )
+    graded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('student', 'assessment_item')
+
+    def __str__(self):
+        return f"{self.student}: {self.points_earned}/{self.assessment_item.max_points}"
+
+    @property
+    def percentage(self):
+        if self.assessment_item.max_points > 0:
+            return (self.points_earned / self.assessment_item.max_points) * 100
+        return 0
+
+
 class Topic(models.Model):
     lesson = models.ForeignKey(
-        'Lesson',
+        Lesson,
         related_name='topics',
         on_delete=models.CASCADE
     )
@@ -112,10 +199,13 @@ class Topic(models.Model):
         default='',
     )
 
+    class Meta:
+        unique_together = ('lesson', 'title')
+
+    def __str__(self):
+        return f"{self.title} ({self.weight}%)"
 
     def calculate_subtopics_grade(self, student):
-        # Compute a weighted grade (0-100) across immediate subtopics for the given student
-        # If there are no subtopics, return 0 – caller may set topic-level grade explicitly
         subtopics_qs = self.subtopics.all()
         if not subtopics_qs.exists():
             return 0
@@ -140,12 +230,6 @@ class Topic(models.Model):
             total_weight += weight_float
 
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
-
-    def __str__(self):
-        return f"{self.title} ({self.weight}%)"
-    class Meta:
-        unique_together = ('lesson', 'title')
-
 
 
 class TopicGrade(models.Model):

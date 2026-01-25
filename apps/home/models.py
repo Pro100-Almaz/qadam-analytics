@@ -1,29 +1,44 @@
 from django.db import models
 from django.conf import settings
-from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.authentication.models import Teacher
-
-class ClassRoom(models.Model):
-    name = models.CharField(max_length=100, help_text="Optional classroom or location info")
-    capacity = models.PositiveIntegerField(default=1)
-    academic_year = models.ForeignKey(
-        'home.AcademicYear',
-        related_name='classrooms',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        help_text="School year this classroom assignment applies to"
-    )
-
-    def __str__(self):
-        return f"{self.name}"
 
 
 class AcademicYear(models.Model):
     year = models.CharField(max_length=40) # 2024/2025
+    is_active = models.BooleanField(default=False)
+    archived = models.BooleanField(default=True)
 
     def __str__(self):
         return self.year
+
+
+class GradeLevel(models.Model):
+    number = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.title + str(self.number)
+
+
+class ClassGroup(models.Model):
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        related_name='class_groups',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    grade_level = models.ForeignKey(
+        GradeLevel,
+        related_name='class_groups',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    letter = models.CharField(default="A", max_length=10)
+
+    def __str__(self):
+        return f"{self.grade_level}{self.letter} ({self.academic_year})"
 
 
 class Subject(models.Model):
@@ -43,31 +58,6 @@ class Subject(models.Model):
     name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
 
-    progress = models.PositiveIntegerField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="Progress percentage (0–100)"
-    )
-    average_points = models.PositiveIntegerField(
-        default=0,
-        validators=[MinValueValidator(0)],
-        help_text="Current points earned (≤ maximum_points)"
-    )
-    maximum_points = models.PositiveIntegerField(
-        default=100,
-        validators=[MinValueValidator(1)],
-        help_text="Total possible points"
-    )
-
-    teacher = models.ForeignKey(
-        'authentication.Teacher',
-        related_name='taught_subjects',
-        help_text="Teacher responsible for this lesson",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name='subjects_adder',
@@ -77,54 +67,204 @@ class Subject(models.Model):
         help_text="User who added this subject"
     )
 
-    academic_year = models.ForeignKey(
-        AcademicYear,
-        related_name="subjects",
-        on_delete=models.PROTECT,
-        help_text="School year for this subject"
-    )
-
     def __str__(self):
         return f"{self.name}"
 
-    def update_progress(self, completed_units: int, total_units: int) -> None:
-        """
-        Given how many units (e.g., lessons, assignments) are done vs. total,
-        recompute and save the `progress` percentage.
-        """
-        if total_units <= 0:
-            self.progress = 0
-        else:
-            self.progress = min(
-                100,
-                max(0, int((completed_units / total_units) * 100))
-            )
-        self.save(update_fields=['progress'])
 
-    def record_score(self, points_earned: int) -> None:
-        """
-        Set average_points (e.g. after an exam), validating against bounds.
-        """
-        if points_earned < 0:
-            raise ValueError("Points must be non-negative")
-        if points_earned > self.maximum_points:
-            raise ValueError(f"Cannot exceed maximum points ({self.maximum_points})")
-        self.average_points = points_earned
-        self.save(update_fields=['average_points'])
+class SubjectOffering(models.Model):
+    """
+    The central entity: "Math for 7A in 2025/2026"
+
+    Ties together: Subject, ClassGroup, AcademicYear, teachers, lessons, grades.
+    Everything on a subject page filters by this offering.
+    """
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='offerings'
+    )
+    class_group = models.ForeignKey(
+        ClassGroup,
+        on_delete=models.CASCADE,
+        related_name='subject_offerings'
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='subject_offerings'
+    )
+
+    # Grading configuration for this offering
+    max_points = models.PositiveIntegerField(default=100)
+    GRADING_STRATEGY_CHOICES = [
+        ('average', 'Average of all scores'),
+        ('weighted', 'Weighted by assessment type'),
+        ('cumulative', 'Cumulative points'),
+    ]
+    grading_strategy = models.CharField(
+        max_length=20,
+        choices=GRADING_STRATEGY_CHOICES,
+        default='average'
+    )
+
+    class Meta:
+        unique_together = ('subject', 'class_group', 'academic_year')
+
+    def __str__(self):
+        return f"{self.subject} - {self.class_group} ({self.academic_year})"
+
+    def get_students(self):
+        """Get all active students enrolled in this offering's class group."""
+        return Enrollment.get_students_in_class(
+            self.class_group,
+            self.academic_year,
+            status='active'
+        )
+
+    def get_subjects(self):
+        """Get all subjects related to the teacher"""
+        return self.subject.all().order_by('teacher__name')
+
+    def get_teachers(self):
+        """Get all teachers assigned to this offering."""
+        return self.teaching_assignments.select_related('teacher', 'teacher__user')
+
+    def get_primary_teacher(self):
+        """Get the primary teacher for this offering."""
+        assignment = self.teaching_assignments.filter(role='primary').first()
+        return assignment.teacher if assignment else None
+
+
+class TeachingAssignment(models.Model):
+    """Assigns teachers to a SubjectOffering with specific roles."""
+    ROLE_CHOICES = [
+        ('primary', 'Primary Teacher'),
+        ('assistant', 'Assistant Teacher'),
+        ('substitute', 'Substitute'),
+    ]
+
+    offering = models.ForeignKey(
+        SubjectOffering,
+        on_delete=models.CASCADE,
+        related_name='teaching_assignments'
+    )
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='teaching_assignments'
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
+
+    class Meta:
+        unique_together = ('offering', 'teacher')
+
+    def __str__(self):
+        return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
+
+    def get_subjects(self, teacher):
+        """Get all subjects related to the teacher"""
+        offers = self.offering.objects.filter(teacher=self.teacher)
+        return offers.subjects
+
+
+class Enrollment(models.Model):
+    """Tracks which class a student belongs to in a given academic year."""
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('transferred', 'Transferred'),
+        ('graduated', 'Graduated'),
+        ('withdrawn', 'Withdrawn'),
+        ('on_leave', 'On Leave'),
+    ]
+
+    student = models.ForeignKey(
+        'authentication.Student',
+        on_delete=models.CASCADE,
+        related_name='enrollments'
+    )
+    class_group = models.ForeignKey(
+        ClassGroup,
+        on_delete=models.CASCADE,
+        related_name='enrollments'
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='enrollments'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
+    )
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'academic_year'],
+                condition=models.Q(status='active'),
+                name='unique_active_enrollment_per_year'
+            )
+        ]
+        ordering = ['-academic_year__year', 'class_group']
+
+    def __str__(self):
+        return f"{self.student} - {self.class_group} ({self.status})"
+
+    @classmethod
+    def get_current_enrollment(cls, student):
+        """Get the student's current active enrollment."""
+        return cls.objects.filter(
+            student=student,
+            status='active',
+            academic_year__is_active=True
+        ).select_related('class_group', 'academic_year').first()
+
+    @classmethod
+    def get_students_in_class(cls, class_group, academic_year=None, status='active'):
+        """Get all students enrolled in a class group."""
+        qs = cls.objects.filter(class_group=class_group, status=status)
+        if academic_year:
+            qs = qs.filter(academic_year=academic_year)
+        return qs.select_related('student', 'student__user')
+
+    @classmethod
+    def enroll_student(cls, student, class_group, academic_year, start_date=None):
+        """Enroll a student in a class group, deactivating any existing active enrollment."""
+        from django.utils import timezone
+
+        # Deactivate existing active enrollment for the same year
+        cls.objects.filter(
+            student=student,
+            academic_year=academic_year,
+            status='active'
+        ).update(status='transferred', end_date=timezone.now().date())
+
+        # Create new enrollment
+        return cls.objects.create(
+            student=student,
+            class_group=class_group,
+            academic_year=academic_year,
+            status='active',
+            start_date=start_date or timezone.now().date()
+        )
 
 
 class QuarterGrader(models.Model):
-    subject            = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
-    quarter            = models.PositiveSmallIntegerField()
-    average_points     = models.PositiveIntegerField(default=0)
-    cumulative_points  = models.PositiveIntegerField(default=0)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
+    quarter = models.PositiveSmallIntegerField()
+    average_points = models.PositiveIntegerField(default=0)
+    cumulative_points = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('subject', 'quarter')
         ordering = ['quarter']
 
     def __str__(self):
-        return f"Q{self.quarter}: {self.average_points}/{self.subject.maximum_points}"
+        return f"Q{self.quarter}: avg={self.average_points}"
 
 
 

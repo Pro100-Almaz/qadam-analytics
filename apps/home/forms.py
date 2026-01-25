@@ -9,28 +9,18 @@ class SubjectForm(forms.ModelForm):
         model = Subject
         fields = [
             "name",
+            "language_group",
             "status",
-            "maximum_points",
-            "teacher",
-            "academic_year",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
                 "class": "form-control",
                 "placeholder": "Напишите назание предмета",
             }),
+            "language_group": forms.Select(attrs={
+                "class": "form-control",
+            }),
             "status": forms.Select(attrs={
-                "class": "form-control",
-            }),
-
-            "maximum_points": forms.NumberInput(attrs={
-                "class": "form-control",
-                "min": 0,
-            }),
-            "teacher": forms.Select(attrs={
-                "class": "form-control",
-            }),
-            "academic_year": forms.Select(attrs={
                 "class": "form-control",
             }),
         }

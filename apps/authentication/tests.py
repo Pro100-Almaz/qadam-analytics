@@ -11,7 +11,6 @@ from django.contrib.auth.models import Group
 import os
 
 from .models import CustomUser
-from apps.home.models import ClassRoom
 
 
 class CustomUserAvatarTests(TestCase):

@@ -22,43 +22,47 @@ from core.permissions import (
 from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
 from .models import Lesson, Topic, TopicGrade, MergedLessonComment, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
-from apps.home.models import Subject, ClassRoom, QuarterGrader
+from apps.home.models import Subject, ClassGroup, QuarterGrader
 from ..notification.models import Notification, GradingNotify
 
 
 @login_required(login_url="/login/")
 def lessons_list(request):
     user = request.user
-    classroom_filter = request.GET.get('classroom', 'all')
+    class_group_filter = request.GET.get('class_group', 'all')
     subject_filter = request.GET.get('subject', 'all')
     quarter_filter = request.GET.get('quarter', 'all')
 
-    lessons = Lesson.objects.all()
-    classrooms = ClassRoom.objects.all()
+    lessons = Lesson.objects.select_related('offering', 'offering__subject', 'offering__class_group').all()
+    class_groups = ClassGroup.objects.all()
     quarters = [1, 2, 3, 4]
 
-    if classroom_filter != 'all':
-        subjects = Subject.objects.filter(teacher__classroom__name=classroom_filter)
-        lessons = lessons.filter(subject__teacher__classroom__name=classroom_filter)
+    if class_group_filter != 'all':
+        lessons = lessons.filter(offering__class_group_id=class_group_filter)
+        subjects = Subject.objects.filter(offerings__class_group_id=class_group_filter).distinct()
     else:
-        subjects = []
+        subjects = Subject.objects.all()
 
     if subject_filter != "all":
-        lessons = lessons.filter(subject__name=subject_filter)
+        lessons = lessons.filter(offering__subject__name=subject_filter)
     if quarter_filter != "all":
-        lessons = lessons.filter(subject__name=subject_filter, quarter=quarter_filter)
+        lessons = lessons.filter(quarter=quarter_filter)
 
     number_of_students = {}
     graded_percent_by_lesson = {}
     for lesson in lessons:
-        # Total students for this subject
-        total_students = Student.objects.filter(subjects=lesson.subject).count()
+        # Total students enrolled in this offering's class group
+        from apps.home.models import Enrollment
+        total_students = Enrollment.objects.filter(
+            class_group=lesson.offering.class_group,
+            status='active'
+        ).count() if lesson.offering else 0
         number_of_students[lesson.title] = total_students
 
         # Students who have any TopicGrade for this lesson
         graded_count = (
             Student.objects
-            .filter(subjects=lesson.subject, topicgrade__topic__lesson=lesson)
+            .filter(topicgrade__topic__lesson=lesson)
             .distinct()
             .count()
         )
@@ -73,8 +77,8 @@ def lessons_list(request):
     context = {'lessons': lessons,
                "number_of_students": number_of_students,
                "graded_percent_by_lesson": graded_percent_by_lesson,
-               "classrooms": classrooms,
-               "classroom_filter": classroom_filter,
+               "class_groups": class_groups,
+               "class_group_filter": class_group_filter,
                "subject_filter": subject_filter,
                "subjects": subjects,
                "quarter_filter": quarter_filter,

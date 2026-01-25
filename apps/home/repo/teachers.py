@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from core.decorators import role_required
 from apps.authentication.forms import UserUpdateForm
 from apps.authentication.models import Teacher
-from apps.home.models import Subject, ClassRoom
+from apps.home.models import Subject
 from apps.lesson.models import Lesson
 
 
@@ -13,12 +13,10 @@ from apps.lesson.models import Lesson
 def teacher_details(request, pk):
     teacher = get_object_or_404(Teacher, user_id = pk)
     subjects = Subject.objects.filter(teacher = teacher)
-    classrooms = ClassRoom.objects.filter(teacher = teacher)
 
     context = {
         'teacher': teacher,
         'subjects': subjects,
-        'classrooms': classrooms,
     }
     return render(request, 'home/teacher_details.html', context)
 

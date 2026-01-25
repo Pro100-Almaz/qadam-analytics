@@ -59,16 +59,18 @@ class CustomUserAdmin(UserAdmin):
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     model = Student
-    list_display = ("full_name", "classroom_name")
-    search_fields = ("user__first_name", "user__last_name", "classroom__name")
+    list_display = ("full_name", "current_class_group", "academic_year")
+    search_fields = ("user__first_name", "user__last_name", "user__username")
+    list_filter = ("academic_year", "school_group")
 
     def full_name(self, obj):
         return obj.user.get_full_name()
     full_name.short_description = "Full Name"
 
-    def classroom_name(self, obj):
-        return obj.classroom.name if obj.classroom else ""
-    classroom_name.short_description = "Classroom"
+    def current_class_group(self, obj):
+        class_group = obj.get_current_class_group()
+        return str(class_group) if class_group else "-"
+    current_class_group.short_description = "Class Group"
 
 
 # admin.site.register(Student)

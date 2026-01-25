@@ -82,13 +82,11 @@ class AccountService:
                 academic_degree=form.cleaned_data.get("academic_degree"),
                 employment_type=form.cleaned_data.get("employment_type"),
                 occupation=form.cleaned_data.get("occupation"),
-                classroom=form.cleaned_data.get("classroom"),
             )
         elif group_name == CustomUser.GROUP_STUDENT:
             Student.objects.create(
                 user=user,
                 school_group=form.cleaned_data.get("school_group"),
-                classroom=form.cleaned_data.get("classroom"),
             )
         elif group_name == CustomUser.GROUP_PARENT:
             from .models import Parent
