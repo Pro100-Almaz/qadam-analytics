@@ -7,10 +7,12 @@ from django.test import TestCase, Client
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.conf import settings
+from django.contrib.auth.models import Group
 import os
 
 from .models import CustomUser
 from apps.home.models import ClassRoom
+
 
 class CustomUserAvatarTests(TestCase):
     def setUp(self):
@@ -20,7 +22,7 @@ class CustomUserAvatarTests(TestCase):
             content=b'',  # Empty file content
             content_type='image/jpeg'
         )
-        
+
         # Create a test user
         self.user_data = {
             'username': 'testuser',
@@ -28,11 +30,14 @@ class CustomUserAvatarTests(TestCase):
             'password': 'testpass123',
             'first_name': 'Test',
             'last_name': 'User',
-            'role': CustomUser.ROLE_STUDENT,
         }
-        
+
         self.user = CustomUser.objects.create_user(**self.user_data)
-        
+
+        # Assign user to Student group
+        student_group, _ = Group.objects.get_or_create(name=CustomUser.GROUP_STUDENT)
+        self.user.groups.add(student_group)
+
         # Create a test client
         self.client = Client()
 
@@ -63,7 +68,7 @@ class CustomUserAvatarTests(TestCase):
             'password2': 'newpass123',
             'first_name': 'New',
             'last_name': 'User',
-            'role': CustomUser.ROLE_STUDENT,
+            'role': CustomUser.GROUP_STUDENT,  # Now uses Group name
         }
         
         # Create a test image for registration

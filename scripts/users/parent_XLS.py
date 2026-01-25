@@ -1,4 +1,3 @@
-
 from django.db import transaction
 from apps.authentication.models import Parent, CustomUser, Student
 from scripts.utils.logging_config import logger
@@ -18,7 +17,11 @@ def process_parent(sheet_name, row, idx, admin_id, user):
 
             for nickname in raw_names:
                 try:
-                    student_user = CustomUser.objects.get(username=nickname, role=CustomUser.ROLE_STUDENT)
+                    # Find student user by username and Student group membership
+                    student_user = CustomUser.objects.get(
+                        username=nickname,
+                        groups__name=CustomUser.GROUP_STUDENT
+                    )
                     student = Student.objects.get(user=student_user)
                     linked_students.append(student)
                 except CustomUser.DoesNotExist:

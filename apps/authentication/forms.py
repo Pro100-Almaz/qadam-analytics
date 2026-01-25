@@ -146,7 +146,7 @@ class SignUpForm(UserCreationForm):
         )
     )
     role = forms.ChoiceField(
-        choices = CustomUser.ROLE_CHOICES,
+        choices=CustomUser.GROUP_CHOICES,
         widget=forms.Select(
             attrs={
                 "class": "form-control"
@@ -243,7 +243,7 @@ class SignUpForm(UserCreationForm):
 
     class Meta:
         model = CustomUser
-        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
+        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'phone_number', 'date_of_birth', 'avatar')
 
     def clean_avatar(self):
         """Validate avatar file size."""
@@ -258,10 +258,10 @@ class SignUpForm(UserCreationForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        role = self.cleaned_data['role']
+        group_name = self.cleaned_data['role']  # This now contains Group name directly
         if commit:
             user.save()
-            self._assign_group(user, role)
+            self._assign_group(user, group_name)
 
             # Handle avatar upload explicitly
             avatar = self.cleaned_data.get('avatar')
@@ -269,7 +269,8 @@ class SignUpForm(UserCreationForm):
                 user.avatar = avatar
                 user.save(update_fields=['avatar'])
 
-            if role in ('teacher', 'homeroom_teacher'):
+            # Create role-specific profile based on selected group
+            if group_name in (CustomUser.GROUP_TEACHER, CustomUser.GROUP_HOMEROOM_TEACHER):
                 from .models import Teacher
                 Teacher.objects.create(
                     user=user,
@@ -279,14 +280,14 @@ class SignUpForm(UserCreationForm):
                     employment_type=self.cleaned_data.get('employment_type'),
                     classroom=self.cleaned_data.get('classroom'),
                 )
-            elif role == 'student':
+            elif group_name == CustomUser.GROUP_STUDENT:
                 from .models import Student
                 Student.objects.create(
                     user=user,
                     classroom=self.cleaned_data.get('classroom'),
                     school_group=self.cleaned_data.get('school_group'),
                 )
-            elif role == 'parent':
+            elif group_name == CustomUser.GROUP_PARENT:
                 from .models import Parent, Student
                 parent = Parent.objects.create(user=user)
                 # Link to student if student_id provided (ManyToMany relationship)
@@ -297,30 +298,17 @@ class SignUpForm(UserCreationForm):
                         parent.students.add(student)
                     except Student.DoesNotExist:
                         pass
-            elif role in ('supervisor', 'principal'):
+            elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
                 from .models import Supervisor
                 Supervisor.objects.create(user=user)
-            # admin role doesn't need a profile model
+            # Admin group doesn't need a profile model
         return user
 
-    def _assign_group(self, user, role):
-        """Assign the user to the appropriate Django Group based on their role."""
+    def _assign_group(self, user, group_name):
+        """Assign the user to the specified Django Group."""
         from django.contrib.auth.models import Group
-
-        ROLE_TO_GROUP = {
-            'admin': 'Admin',
-            'teacher': 'Teacher',
-            'homeroom_teacher': 'HomeroomTeacher',
-            'student': 'Student',
-            'supervisor': 'Supervisor',
-            'principal': 'Principal',
-            'parent': 'Parent',
-        }
-
-        group_name = ROLE_TO_GROUP.get(role)
-        if group_name:
-            group, _ = Group.objects.get_or_create(name=group_name)
-            user.groups.add(group)
+        group, _ = Group.objects.get_or_create(name=group_name)
+        user.groups.add(group)
 
 class ForgetPasswordForm(forms.Form):
     username = forms.CharField(
@@ -356,11 +344,6 @@ class VerificationPasswordForm(forms.Form):
         })
     )
     actual_code = forms.CharField(widget=forms.HiddenInput)
-
-
-    class Meta:
-        model = CustomUser
-        fields = ('first_name', 'last_name', 'school', 'email', 'password1', 'password2', 'address', 'role', 'phone_number', 'date_of_birth', 'avatar')
 
 
 class ResetPasswordForm(forms.Form):

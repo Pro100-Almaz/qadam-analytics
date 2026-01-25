@@ -10,31 +10,19 @@ from django.http import HttpResponseForbidden
 
 # Group names for admin-level roles (bypass object-level checks)
 ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
-# Legacy role names for admin-level roles
-ADMIN_ROLES = ('admin', 'supervisor', 'principal')
 
 # Group names for teacher roles
 TEACHER_GROUPS = ('Teacher', 'HomeroomTeacher')
-# Legacy role names for teacher roles
-TEACHER_ROLES = ('teacher', 'homeroom_teacher')
 
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
-    # Check Groups first
-    if user.groups.filter(name__in=ADMIN_GROUPS).exists():
-        return True
-    # Fallback to legacy role field
-    return hasattr(user, 'role') and user.role in ADMIN_ROLES
+    return user.groups.filter(name__in=ADMIN_GROUPS).exists()
 
 
 def is_teacher_role(user):
     """Check if user has a teacher role (teacher or homeroom_teacher)."""
-    # Check Groups first
-    if user.groups.filter(name__in=TEACHER_GROUPS).exists():
-        return True
-    # Fallback to legacy role field
-    return hasattr(user, 'role') and user.role in TEACHER_ROLES
+    return user.groups.filter(name__in=TEACHER_GROUPS).exists()
 
 
 def can_access_subject(user, subject):

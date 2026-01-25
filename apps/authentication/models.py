@@ -40,31 +40,42 @@ class SchoolGroup(models.Model):
 
 
 class CustomUser(AbstractUser):
-    ROLE_PARENT = 'parent'
-    ROLE_TEACHER = 'teacher'
-    HOMEROOM_TEACHER= 'homeroom_teacher'
-    ROLE_STUDENT = 'student'
-    ROLE_SUPERVISOR = 'supervisor'
-    ROLE_CLASS_TEACHER = 'class_teacher'
-    ROLE_PRINCIPAL = 'principal'
-    ROLE_ADMIN = 'admin'
+    # Group name constants (used for consistency across the codebase)
+    GROUP_PARENT = 'Parent'
+    GROUP_TEACHER = 'Teacher'
+    GROUP_HOMEROOM_TEACHER = 'HomeroomTeacher'
+    GROUP_STUDENT = 'Student'
+    GROUP_SUPERVISOR = 'Supervisor'
+    GROUP_PRINCIPAL = 'Principal'
+    GROUP_ADMIN = 'Admin'
 
-    ROLE_CHOICES = [
-        (ROLE_PARENT, 'Parent'),
-        (ROLE_TEACHER, 'Teacher'),
-        (HOMEROOM_TEACHER, 'Homeroom Teacher'),
-        (ROLE_STUDENT, 'Student'),
-        (ROLE_SUPERVISOR, 'Supervisor'),
-        (ROLE_PRINCIPAL, 'Principal'),
-        (ROLE_ADMIN, 'Admin'),
+    # Choices for forms - maps internal group name to display name
+    GROUP_CHOICES = [
+        (GROUP_PARENT, 'Parent'),
+        (GROUP_TEACHER, 'Teacher'),
+        (GROUP_HOMEROOM_TEACHER, 'Homeroom Teacher'),
+        (GROUP_STUDENT, 'Student'),
+        (GROUP_SUPERVISOR, 'Supervisor'),
+        (GROUP_PRINCIPAL, 'Principal'),
+        (GROUP_ADMIN, 'Admin'),
     ]
+
+    # Display names for groups
+    GROUP_DISPLAY_NAMES = {
+        GROUP_PARENT: 'Parent',
+        GROUP_TEACHER: 'Teacher',
+        GROUP_HOMEROOM_TEACHER: 'Homeroom Teacher',
+        GROUP_STUDENT: 'Student',
+        GROUP_SUPERVISOR: 'Supervisor',
+        GROUP_PRINCIPAL: 'Principal',
+        GROUP_ADMIN: 'Admin',
+    }
 
     SCHOOL_CHOICES = [
         ('muzafar_alimbayev', 'Muzafar Alimbayev 21'),
         ('bukhar_zhyrau', 'Bukhar Zhyrau 19/1'),
     ]
 
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_STUDENT)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
@@ -82,37 +93,59 @@ class CustomUser(AbstractUser):
         """Check if user belongs to a specific group."""
         return self.groups.filter(name=group_name).exists()
 
+    @property
+    def primary_group(self):
+        """Get the user's primary group (first group found)."""
+        group = self.groups.first()
+        return group.name if group else None
+
+    @property
+    def role(self):
+        """Backwards-compatible property that returns the primary group name in lowercase."""
+        group = self.primary_group
+        if group:
+            # Convert group name to lowercase role format for backwards compatibility
+            return group.lower().replace('homeroomteacher', 'homeroom_teacher')
+        return None
+
+    def get_role_display(self):
+        """Get human-readable display name for user's primary role/group."""
+        group = self.primary_group
+        if group:
+            return self.GROUP_DISPLAY_NAMES.get(group, group)
+        return 'No Role'
+
+    def get_all_roles_display(self):
+        """Get display names for all user's groups."""
+        return [self.GROUP_DISPLAY_NAMES.get(g.name, g.name) for g in self.groups.all()]
+
     def is_teacher(self):
         """Check if user is a teacher (includes homeroom teachers)."""
-        if self._has_group('Teacher') or self._has_group('HomeroomTeacher'):
-            return True
-        return self.role in (self.ROLE_TEACHER, self.HOMEROOM_TEACHER)
+        return self._has_group(self.GROUP_TEACHER) or self._has_group(self.GROUP_HOMEROOM_TEACHER)
 
     def is_homeroom_teacher(self):
         """Check if user is specifically a homeroom teacher."""
-        if self._has_group('HomeroomTeacher'):
-            return True
-        return self.role == self.HOMEROOM_TEACHER
+        return self._has_group(self.GROUP_HOMEROOM_TEACHER)
 
     def is_admin(self):
         """Check if user is an admin."""
-        return self._has_group('Admin') or self.role == self.ROLE_ADMIN
+        return self._has_group(self.GROUP_ADMIN)
 
     def is_manager(self):
         """Check if user is a supervisor/manager."""
-        return self._has_group('Supervisor') or self.role == self.ROLE_SUPERVISOR
+        return self._has_group(self.GROUP_SUPERVISOR)
 
     def is_principal(self):
         """Check if user is a principal."""
-        return self._has_group('Principal') or self.role == self.ROLE_PRINCIPAL
+        return self._has_group(self.GROUP_PRINCIPAL)
 
     def is_parent(self):
         """Check if user is a parent."""
-        return self._has_group('Parent') or self.role == self.ROLE_PARENT
+        return self._has_group(self.GROUP_PARENT)
 
     def is_student(self):
         """Check if user is a student."""
-        return self._has_group('Student') or self.role == self.ROLE_STUDENT
+        return self._has_group(self.GROUP_STUDENT)
 
     def get_students(self):
         """Get all students linked to this parent user."""
@@ -313,4 +346,3 @@ def registration_email_post_send(sender, instance, created, *args, **kwargs):
         from apps.notification.models import Notification, RegisterNotify
         notification = Notification.objects.create(user=instance, action='register')
         RegisterNotify.objects.create(notification=notification)
-

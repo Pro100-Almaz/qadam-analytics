@@ -140,12 +140,11 @@ for sheet_name, rows in dfs.items():
 
 
                         user = CustomUser.objects.update_or_create(
-                            username= username,
+                            username=username,
                             defaults=dict(
                                 first_name=first_name,
                                 last_name=last_name,
                                 email=row['Email'],
-                                role=role,
                                 school=school_name,
                                 address=row['Address'],
                                 phone_number=row['Phone (parent)'],

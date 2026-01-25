@@ -2,7 +2,8 @@ from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 from functools import wraps
 
-# Mapping from legacy role names to Django Group names
+# Mapping from lowercase role names to Django Group names
+# This allows using either 'teacher' or 'Teacher' in @role_required
 ROLE_TO_GROUP = {
     'admin': 'Admin',
     'teacher': 'Teacher',
@@ -16,8 +17,9 @@ ROLE_TO_GROUP = {
 
 def role_required(*roles):
     """
-    Decorator for views that checks whether a user has a required role.
-    Checks Django Groups first, then falls back to legacy role field.
+    Decorator for views that checks whether a user belongs to required Groups.
+
+    Accepts both lowercase role names ('teacher') and Group names ('Teacher').
 
     Usage:
         @role_required('teacher')
@@ -31,30 +33,13 @@ def role_required(*roles):
         def _wrapped_view(request, *args, **kwargs):
             user = request.user
 
-            # Convert role names to Group names
+            # Convert role names to Group names (handles both formats)
             group_names = [ROLE_TO_GROUP.get(r, r) for r in roles]
 
-            # Check Groups first
+            # Check if user belongs to any of the required Groups
             if user.groups.filter(name__in=group_names).exists():
-                return view_func(request, *args, **kwargs)
-
-            # Fallback to legacy role field
-            if hasattr(user, 'role') and user.role in roles:
                 return view_func(request, *args, **kwargs)
 
             return HttpResponseForbidden("You do not have permission to access this page.")
         return _wrapped_view
     return decorator
-
-
-"""
-from core.decorators import role_required
-
-@role_required('teacher')
-def teacher_only_view(request):
-    # Only teachers allowed
-    ...
-
-@role_required('admin', 'principal')
-def admin_or_principal_view(request):
-"""
