@@ -90,6 +90,12 @@
               <i class="ni ni-support-16"></i>
               <span>Поддержка</span>
             </a>
+            {%  if user.role == 'admin' %}
+              <a href="{% url 'admin:index' %}" class="dropdown-item">
+                <i class="ni ni-settings-gear-65"></i>
+                <span>Admin page</span>
+              </a>
+            {% endif %}
             <div class="dropdown-divider"></div>
             <a href="{% url 'authentication:logout' %}" class="dropdown-item">
               <i class="ni ni-user-run text-red"></i>
