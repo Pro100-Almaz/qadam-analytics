@@ -269,7 +269,7 @@ class SignUpForm(UserCreationForm):
                 user.avatar = avatar
                 user.save(update_fields=['avatar'])
 
-            # Create role-specific profile based on selected group
+            # Create role-specific profile, based on selected group
             if group_name in (CustomUser.GROUP_TEACHER, CustomUser.GROUP_HOMEROOM_TEACHER):
                 from .models import Teacher
                 Teacher.objects.create(
