@@ -2,6 +2,7 @@
 
 {% block title %} Subjects {% endblock title %}
 {% load static %}
+{% load custom_filters %}
 {% block content %}
 
   <div class="header bg-white pb-6">
@@ -97,17 +98,12 @@
                         </div>
                       </div>
                     </th>
-                    {% for title, number in number_of_students.items %}
-                      {% if title == lesson.title %}
-                        <td class="classroom">
-                          {{ lesson.subject.classroom.name }}
-                        </td>
-
-                        <td class="budget">
-                          {{ number }}
-                        </td>
-                      {% endif %}
-                    {% endfor %}
+                    <td class="classroom">
+                      {{ lesson.offering.class_group }}
+                    </td>
+                    <td class="budget">
+                      {{ number_of_students|get_item:lesson.title|default:0 }}
+                    </td>
 
                     <td>
                       <span class="badge badge-dot mr-4">

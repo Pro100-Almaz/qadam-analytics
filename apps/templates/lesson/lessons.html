@@ -127,10 +127,10 @@
               <thead class="thead-light">
                 <tr>
                   <th scope="col" class="sort" data-sort="name">Название</th>
-                    <th scope="col" class="sort" data-sort="classroom">Класс</th>
-                  <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
+                  <th scope="col">Предмет</th>
+                  <th scope="col" class="sort" data-sort="classroom">Класс</th>
+                  <th scope="col" class="sort" data-sort="budget">Учеников</th>
                   <th scope="col" class="sort" data-sort="status">Статус</th>
-                  <th scope="col">Учитель</th>
                   <th scope="col" class="sort" data-sort="completion">Прогресс</th>
                   <th scope="col"></th>
                 </tr>
@@ -148,18 +148,15 @@
                         </div>
                       </div>
                     </th>
-                    {% for title, number in number_of_students.items %}
-                      {% if title == lesson.title %}
-                        <td class="classroom">
-                          {{ lesson.subject.teacher.classroom.name }}
-                        </td>
-
-                        <td class="budget" >
-                          {{ number }}
-                        </td>
-                      {% endif %}
-                    {% endfor %}
-
+                    <td>
+                      {{ lesson.offering.subject.name }}
+                    </td>
+                    <td class="classroom">
+                      {{ lesson.offering.class_group }}
+                    </td>
+                    <td class="budget">
+                      {{ number_of_students|get_item:lesson.title|default:0 }}
+                    </td>
                     <td>
                       <span class="badge badge-dot mr-4">
                           {% if lesson.status == 'delayed' %}
@@ -174,18 +171,8 @@
                           {% else %}
                               <i class="bg-success"></i>
                               <span class="status">{{ lesson.status }}</span>
-                          {% endif %} 
-
+                          {% endif %}
                       </span>
-                    </td>
-                    <td>
-                        <div>
-                            {% if lesson.subject.teacher and lesson.subject.teacher.user %}
-                              {{ lesson.subject.teacher.user.get_full_name }}
-                            {% else %}
-                              -
-                            {% endif %}
-                        </div>
                     </td>
                     <td>
                       <div class="d-flex align-items-center">

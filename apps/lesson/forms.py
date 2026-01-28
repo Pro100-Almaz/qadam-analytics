@@ -19,6 +19,16 @@ class LessonForm(forms.ModelForm):
             "unit",
             "order",
         ]
+        labels = {
+            "offering": "Предмет — Класс",
+            "title": "Название",
+            "description": "Описание",
+            "date": "Дата",
+            "status": "Статус",
+            "quarter": "Четверть",
+            "unit": "Unit",
+            "order": "Порядок",
+        }
         widgets = {
             "offering": forms.Select(attrs={"class": "form-control"}),
             "title": forms.TextInput(attrs={

@@ -7,6 +7,9 @@ from apps.home.repo.subject import subjects_list, my_subjects_list, subject_crea
     delete_subject, extract_subject, process_status_subject
 
 urlpatterns = [
+    # API endpoints
+    path('api/class-groups/', views.api_class_groups, name='api_class_groups'),
+
     path('main/', views.main_page, name='main'),
     path('profile/', views.profile, name='profile'),
     path('profile/update/', views.profile_update, name='profile_update'),
@@ -22,7 +25,7 @@ urlpatterns = [
     path('teachers', views.teachers_list, name='teachers'),
     path('teachers/<int:pk>', teacher_details, name='teacher_details'),
     path('teacher/<int:pk>/profile_update', teacher_profile_update, name='teacher_profile_update'),
-    path('subjects', subjects_list, name='subjects'),
+    path('subjects', subjects_list, {'status': 'active'} , name='subjects'),
     path('subjects/archive', subjects_list, {'status': 'archived'}, name='subjects_archived'),
     path('subjects/planned', subjects_list, {'status': 'planned'}, name='subjects_planned'),
     path("subjects/<int:pk>/archive/", archive_subject, name="archive_subject"),

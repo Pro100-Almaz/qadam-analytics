@@ -14,10 +14,9 @@ class AcademicYear(models.Model):
 
 class GradeLevel(models.Model):
     number = models.PositiveSmallIntegerField()
-    title = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.title + str(self.number)
+        return str(self.number)
 
 
 class ClassGroup(models.Model):
@@ -121,9 +120,9 @@ class SubjectOffering(models.Model):
             status='active'
         )
 
-    def get_subjects(self):
-        """Get all subjects related to the teacher"""
-        return self.subject.all().order_by('teacher__name')
+    def get_lessons(self):
+        """Get all lessons for this offering ordered by date and order."""
+        return self.lessons.all().order_by('date', 'order')
 
     def get_teachers(self):
         """Get all teachers assigned to this offering."""
@@ -160,11 +159,6 @@ class TeachingAssignment(models.Model):
 
     def __str__(self):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
-
-    def get_subjects(self, teacher):
-        """Get all subjects related to the teacher"""
-        offers = self.offering.objects.filter(teacher=self.teacher)
-        return offers.subjects
 
 
 class Enrollment(models.Model):

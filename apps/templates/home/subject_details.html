@@ -83,7 +83,7 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col">
-                                        <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков</h5>
+                                        <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков (lessons)</h5>
                                         <span class="h2 font-weight-bold mb-0">{{ lessons_count }}</span>
                                     </div>
                                     <div class="col-auto">
@@ -149,17 +149,15 @@
                                 <h3 class="mb-0">Учитель:</h3>
                             </div>
                             <div class="col text-right">
-                                {% if subject.teacher %}
+                                {% if teacher %}
                                     {% if teacher.user.first_name and teacher.user.last_name %}
                                         {{ teacher.user.get_full_name }}
                                     {% else %}
-                                        {{ teacher.username }}
+                                        {{ teacher.user.username }}
                                     {% endif %}
                                 {% else %}
                                     {{ subject_adder.username }}
                                 {% endif %}
-
-
                             </div>
                         </div>
                     </div>
@@ -188,180 +186,144 @@
             </div>
         </div>
 
-        <div class="row align-items-stretch">
-            <div class="col-xl-8 d-flex">
-                <div class="card w-100 h-100">
-                    <div class="card-header border-0">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h3 class="mb-0">Список уроков</h3>
-                            </div>
-                            <div class="col-auto">
-                                <a href="{% url 'lesson:new_lesson' subject.pk %}" class="text-primary">
-                                    <i class="ni ni-fat-add"></i>Добавить урок
-                                </a>
-                            </div>
-                            <div class="col text-right">
-                                <div class="d-inline-block">
-                                    Сортировать по:
-                                    <select id="sortSelect" name="transport_type" class="ml-2">
-                                        <option value="" selected></option>
-                                        <option value="По названию">По названию</option>
-                                        <option value="По среднему баллу">По среднему баллу</option>
-                                        <option value="По статусу">По статусу</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-auto">
-                                <a href="{% url 'subject_details' subject.id %}?quarter=1"
-                                   class="btn btn-sm btn-primary">Q1</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=2"
-                                   class="btn btn-sm btn-primary">Q2</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=3"
-                                   class="btn btn-sm btn-primary">Q3</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=4"
-                                   class="btn btn-sm btn-primary">Q4</a>
-                            </div>
-                        </div>
+        <div class="row">
+          <!-- Lessons -->
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header border-0 pb-0">
+                <div class="d-flex align-items-center justify-content-between flex-wrap">
+                  <h3 class="mb-2 mb-md-0">Список уроков</h3>
+
+                  <div class="d-flex align-items-center flex-wrap">
+                    <div class="form-inline mr-2 mb-2 mb-md-0">
+                      <label for="sortSelect" class="text-muted small mb-0 mr-2">Сортировать:</label>
+                      <select id="sortSelect" name="transport_type" class="form-control form-control-sm">
+                        <option value="" selected>—</option>
+                        <option value="По названию">По названию</option>
+                        <option value="По среднему баллу">По среднему баллу</option>
+                        <option value="По статусу">По статусу</option>
+                      </select>
                     </div>
 
-                    <div class="card-body">
-                        <div id="lessons-table-wrap" class="table-responsive">
-                            <table class="table align-items-center table-flush">
-                                <thead class="thead-light">
-                                <tr>
-                                    <th scope="col">Тема</th>
-                                    <th scope="col">Статус</th>
-                                    <th scope="col">Четверть</th>
-                                    <th scope="col">Unit</th>
-                                    <th scope="col" class="text-right">Действия</th>
-                                </tr>
-                                </thead>
-                                <tbody id="sortingTable">
-                                {% for lesson in all_lessons %}
-                                    <tr>
-                                        <th scope="row" data-type="title">
-                                            <a href="{% url 'lesson:lesson_details' lesson.id %}"
-                                               class="text-primary">{{ lesson.title }}</a>
-                                        </th>
-
-                                        <td data-type="status">
-                                            <span class="badge badge-dot mr-3">
-                                              {% if lesson.status == 'delayed' %}
-                                                  <i class="bg-danger"></i>
-                                              {% elif lesson.status == 'pending' %}
-                                                  <i class="bg-warning"></i>
-                                              {% elif lesson.status == 'on schedule' %}
-                                                  <i class="bg-info"></i>
-                                              {% else %}
-                                                  <i class="bg-success"></i>
-                                              {% endif %}
-                                                <span class="status">{{ lesson.status }}</span>
-                                            </span>
-                                        </td>
-                                        <td data-type="quarter">{{ lesson.quarter }}</td>
-                                        <td>{{ lesson.unit }}</td>
-                                        <td class="text-right">
-                                            <a href="{% url 'lesson:lesson_details' lesson.id %}"
-                                               class="btn btn-sm btn-outline-primary mr-2">Открыть</a>
-                                            <a href="{% url 'lesson:grading' lesson.id %}"
-                                               class="btn btn-sm btn-primary">Оценить</a>
-                                        </td>
-
-
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {% if all_lessons.has_other_pages %}
-                        <div class="card-footer py-4">
-                            <div class="row align-items-center">
-                                <div class="col text-right">
-                                    <nav aria-label="Grades pagination">
-                                        <ul class="pagination justify-content-end mb-0">
-                                            {% if all_lessons.has_previous %}
-                                                <li class="page-item">
-                                                    <a class="page-link"
-                                                       href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}lessons_page={{ all_lessons.previous_page_number }}">
-                                                        &laquo;
-                                                    </a>
-                                                </li>
-                                            {% else %}
-                                                <li class="page-item" hidden>
-                                                    <span class="page-link">&laquo;</span>
-                                                </li>
-                                            {% endif %}
-
-                                            {% for num in all_lessons.paginator.page_range %}
-                                                {% if all_lessons.number == num %}
-                                                    <li class="page-item active">
-                                                        <span class="page-link">{{ num }}</span>
-                                                    </li>
-                                                {% elif num > all_lessons.number|add:'-5' and num < all_lessons.number|add:'5' %}
-                                                    <li class="page-item">
-                                                        <a class="page-link"
-                                                           href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}lessons_page={{ num }}">
-                                                            {{ num }}
-                                                        </a>
-                                                    </li>
-                                                {% endif %}
-                                            {% endfor %}
-
-                                            {% if all_lessons.has_next %}
-                                                <li class="page-item">
-                                                    <a class="page-link"
-                                                       href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}{% if request.GET.top_page %}top_page={{ request.GET.top_page }}&{% endif %}lessons_page={{ all_lessons.next_page_number }}">
-                                                        &raquo;
-                                                    </a>
-                                                </li>
-                                            {% else %}
-                                                <li class="page-item " hidden>
-                                                    <span class="page-link">&raquo;</span>
-                                                </li>
-                                            {% endif %}
-                                        </ul>
-                                    </nav>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
+                    <div class="btn-group btn-group-sm mb-2 mb-md-0" role="group" aria-label="Quarter">
+                      <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn {% if quarter == 1 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q1</a>
+                      <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn {% if quarter == 2 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q2</a>
+                      <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn {% if quarter == 3 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q3</a>
+                      <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn {% if quarter == 4 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q4</a>
                     </div>
+                  </div>
                 </div>
-            </div>
+              </div>
 
+              <div class="card-body pt-3">
+                <div id="lessons-table-wrap" class="table-responsive">
+                  <table class="table align-items-center table-flush">
+                    <thead class="thead-light">
+                      <tr>
+                        <th scope="col">Тема</th>
+                        <th scope="col">Статус</th>
+                        <th scope="col">Четверть</th>
+                        <th scope="col">Unit</th>
+                        <th scope="col" class="text-right">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sortingTable">
+                      {% for lesson in all_lessons %}
+                        <tr>
+                          <th scope="row" data-type="title">
+                            <a href="{% url 'lesson:lesson_details' lesson.id %}" class="text-primary font-weight-600">
+                              {{ lesson.title }}
+                            </a>
+                          </th>
 
-            <div class="col-xl-4 d-flex">
-                <div class="card w-100 h-100 mb-4">
-                    <div class="card-header border-0">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h3 class="mb-0">Список лучших</h3>
+                          <td data-type="status">
+                            <span class="badge badge-dot mr-3">
+                              {% if lesson.status == 'delayed' %}
+                                <i class="bg-danger"></i>
+                              {% elif lesson.status == 'pending' %}
+                                <i class="bg-warning"></i>
+                              {% elif lesson.status == 'on schedule' %}
+                                <i class="bg-info"></i>
+                              {% else %}
+                                <i class="bg-success"></i>
+                              {% endif %}
+                              <span class="status text-capitalize">{{ lesson.status }}</span>
+                            </span>
+                          </td>
+
+                          <td data-type="quarter">{{ lesson.quarter }}</td>
+                          <td>{{ lesson.unit }}</td>
+
+                          <td class="text-right">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                              <a href="{% url 'lesson:lesson_details' lesson.id %}" class="btn btn-outline-primary">Открыть</a>
+                              <a href="{% url 'lesson:grading' lesson.id %}" class="btn btn-primary">Оценить</a>
                             </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <table class="table align-items-center table-flush">
-                            <thead class="thead-light">
-                            <tr>
-                                <th scope="col">Ученик</th>
-                                <th scope="col">Средний балл</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {% for student, info in top_grades|slice:":7" %}
-                                <tr>
-                                    <th scope="row">{{ info|get_item:'student_info' }} </th>
-                                    <td>{{ info|get_item:'grade' }}</td>
-                                </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                          </td>
+                        </tr>
+                      {% empty %}
+                        <tr>
+                          <td colspan="5" class="text-center text-muted py-4">
+                            Нет уроков для выбранной четверти
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
                 </div>
+
+                {% if all_lessons.has_other_pages %}
+                  <div class="pt-3">
+                    <nav aria-label="Lessons pagination">
+                      <ul class="pagination justify-content-end mb-0">
+
+                        {% if all_lessons.has_previous %}
+                          <li class="page-item">
+                            <a class="page-link"
+                               href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}lessons_page={{ all_lessons.previous_page_number }}">
+                              <i class="ni ni-bold-left"></i>
+                            </a>
+                          </li>
+                        {% endif %}
+
+                        {% for num in all_lessons.paginator.page_range %}
+                          {% if all_lessons.number == num %}
+                            <li class="page-item active">
+                              <span class="page-link">{{ num }}</span>
+                            </li>
+                          {% elif num > all_lessons.number|add:'-5' and num < all_lessons.number|add:'5' %}
+                            <li class="page-item">
+                              <a class="page-link"
+                                 href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}lessons_page={{ num }}">
+                                {{ num }}
+                              </a>
+                            </li>
+                          {% endif %}
+                        {% endfor %}
+
+                        {% if all_lessons.has_next %}
+                          <li class="page-item">
+                            <a class="page-link"
+                               href="?{% if request.GET.quarter %}quarter={{ request.GET.quarter }}&{% endif %}lessons_page={{ all_lessons.next_page_number }}">
+                              <i class="ni ni-bold-right"></i>
+                            </a>
+                          </li>
+                        {% endif %}
+                      </ul>
+                    </nav>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="card-footer text-right">
+                <a href="{% url 'lesson:new_lesson_for_subject' subject.pk %}" class="btn btn-primary">
+                  <i class="ni ni-fat-add mr-1"></i> Добавить урок
+                </a>
+              </div>
             </div>
+          </div>
         </div>
+
 
 
         <!-- Grades Table -->
@@ -374,14 +336,12 @@
                                 <h3 class="mb-0">Таблица оценок</h3>
                             </div>
                             <div class="col text-right">
-                                <a href="{% url 'subject_details' subject.id %}?quarter=1"
-                                   class="btn btn-sm btn-primary">Q1</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=2"
-                                   class="btn btn-sm btn-primary">Q2</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=3"
-                                   class="btn btn-sm btn-primary">Q3</a>
-                                <a href="{% url 'subject_details' subject.id %}?quarter=4"
-                                   class="btn btn-sm btn-primary">Q4</a>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Quarter">
+                                    <a href="{% url 'subject_details' subject.id %}?quarter=1" class="btn {% if quarter == 1 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q1</a>
+                                    <a href="{% url 'subject_details' subject.id %}?quarter=2" class="btn {% if quarter == 2 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q2</a>
+                                    <a href="{% url 'subject_details' subject.id %}?quarter=3" class="btn {% if quarter == 3 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q3</a>
+                                    <a href="{% url 'subject_details' subject.id %}?quarter=4" class="btn {% if quarter == 4 %}btn-primary{% else %}btn-outline-primary{% endif %}">Q4</a>
+                                </div>
                             </div>
                         </div>
                     </div>

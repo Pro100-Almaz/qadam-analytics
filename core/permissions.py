@@ -25,33 +25,75 @@ def is_teacher_role(user):
     return user.groups.filter(name__in=TEACHER_GROUPS).exists()
 
 
+def _teacher_teaches_subject(teacher, subject):
+    """Check if teacher is assigned to teach a subject via TeachingAssignment."""
+    from apps.home.models import TeachingAssignment
+    return TeachingAssignment.objects.filter(
+        offering__subject=subject,
+        teacher=teacher
+    ).exists()
+
+
+def _teacher_teaches_offering(teacher, offering):
+    """Check if teacher is assigned to a specific SubjectOffering."""
+    from apps.home.models import TeachingAssignment
+    return TeachingAssignment.objects.filter(
+        offering=offering,
+        teacher=teacher
+    ).exists()
+
+
+def _student_enrolled_in_offering(student, offering):
+    """Check if student is enrolled in the class group for an offering."""
+    from apps.home.models import Enrollment
+    return Enrollment.objects.filter(
+        student=student,
+        class_group=offering.class_group,
+        academic_year=offering.academic_year,
+        status='active'
+    ).exists()
+
+
 def can_access_subject(user, subject):
     """
     Check if user can access a specific subject.
 
     Returns True if:
     - User is admin/supervisor/principal
-    - User is the teacher assigned to the subject
-    - User is a student enrolled in the subject
+    - User is a teacher assigned to teach the subject
+    - User is a student enrolled in a class where this subject is offered
     """
     if is_admin_role(user):
         return True
 
-    # Teacher check
+    # Teacher check - via TeachingAssignment
     if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
-            return subject.teacher == teacher
+            return _teacher_teaches_subject(teacher, subject)
         except Teacher.DoesNotExist:
             return False
 
-    # Student check
+    # Student check - via Enrollment
     if user.is_student():
         from apps.authentication.models import Student
+        from apps.home.models import Enrollment, SubjectOffering
         try:
             student = Student.objects.get(user=user)
-            return student.subjects.filter(pk=subject.pk).exists()
+            # Check if student is enrolled in any class where this subject is offered
+            student_enrollments = Enrollment.objects.filter(
+                student=student, status='active'
+            ).values_list('class_group_id', 'academic_year_id')
+
+            for class_group_id, academic_year_id in student_enrollments:
+                if SubjectOffering.objects.filter(
+                    subject=subject,
+                    class_group_id=class_group_id,
+                    academic_year_id=academic_year_id
+                ).exists():
+                    return True
+            return False
         except Student.DoesNotExist:
             return False
 
@@ -64,10 +106,34 @@ def can_access_lesson(user, lesson):
 
     Returns True if:
     - User is admin/supervisor/principal
-    - User is the teacher of the lesson's subject
-    - User is a student enrolled in the lesson's subject
+    - User is a teacher assigned to the lesson's offering
+    - User is a student enrolled in the lesson's offering's class
     """
-    return can_access_subject(user, lesson.subject)
+    if not lesson.offering:
+        return is_admin_role(user)
+
+    if is_admin_role(user):
+        return True
+
+    # Teacher check
+    if is_teacher_role(user):
+        from apps.authentication.models import Teacher
+        try:
+            teacher = Teacher.objects.get(user=user)
+            return _teacher_teaches_offering(teacher, lesson.offering)
+        except Teacher.DoesNotExist:
+            return False
+
+    # Student check
+    if user.is_student():
+        from apps.authentication.models import Student
+        try:
+            student = Student.objects.get(user=user)
+            return _student_enrolled_in_offering(student, lesson.offering)
+        except Student.DoesNotExist:
+            return False
+
+    return False
 
 
 def can_modify_lesson(user, lesson):
@@ -76,16 +142,19 @@ def can_modify_lesson(user, lesson):
 
     Returns True if:
     - User is admin/supervisor/principal
-    - User is the teacher of the lesson's subject
+    - User is a teacher assigned to the lesson's offering
     """
     if is_admin_role(user):
         return True
+
+    if not lesson.offering:
+        return False
 
     if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
-            return lesson.subject.teacher == teacher
+            return _teacher_teaches_offering(teacher, lesson.offering)
         except Teacher.DoesNotExist:
             return False
 
@@ -98,7 +167,7 @@ def can_access_student(user, student):
 
     Returns True if:
     - User is admin/supervisor/principal
-    - User is a teacher who teaches the student (shares a subject)
+    - User is a teacher who teaches the student (via shared offerings)
     - User is the parent of the student
     - User is the student themselves
     """
@@ -109,15 +178,23 @@ def can_access_student(user, student):
     if user == student.user:
         return True
 
-    # Teacher check - can see students in their subjects
+    # Teacher check - can see students in their classes
     if is_teacher_role(user):
         from apps.authentication.models import Teacher
+        from apps.home.models import TeachingAssignment, Enrollment
         try:
             teacher = Teacher.objects.get(user=user)
-            # Check if teacher teaches any subject the student is enrolled in
-            teacher_subjects = teacher.subjects.all()
-            student_subjects = student.subjects.all()
-            return teacher_subjects.filter(pk__in=student_subjects).exists()
+            # Get class groups where teacher has assignments
+            teacher_class_groups = TeachingAssignment.objects.filter(
+                teacher=teacher
+            ).values_list('offering__class_group_id', flat=True)
+
+            # Check if student is enrolled in any of those class groups
+            return Enrollment.objects.filter(
+                student=student,
+                class_group_id__in=teacher_class_groups,
+                status='active'
+            ).exists()
         except Teacher.DoesNotExist:
             return False
 
@@ -172,7 +249,7 @@ def can_modify_subject(user, subject):
 
     Returns True if:
     - User is admin/supervisor
-    - User is the teacher assigned to the subject
+    - User is a teacher assigned to teach the subject
     """
     if is_admin_role(user):
         return True
@@ -181,7 +258,7 @@ def can_modify_subject(user, subject):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
-            return subject.teacher == teacher
+            return _teacher_teaches_subject(teacher, subject)
         except Teacher.DoesNotExist:
             return False
 
@@ -194,20 +271,23 @@ def can_grade_student(user, lesson, student):
 
     Returns True if:
     - User is admin/supervisor
-    - User is the teacher of the lesson's subject AND student is enrolled
+    - User is a teacher assigned to the lesson's offering AND student is enrolled
     """
     if is_admin_role(user):
         return True
+
+    if not lesson.offering:
+        return False
 
     if is_teacher_role(user):
         from apps.authentication.models import Teacher
         try:
             teacher = Teacher.objects.get(user=user)
-            # Check teacher owns the subject
-            if lesson.subject.teacher != teacher:
+            # Check teacher is assigned to this offering
+            if not _teacher_teaches_offering(teacher, lesson.offering):
                 return False
-            # Check student is enrolled
-            return student.subjects.filter(pk=lesson.subject.pk).exists()
+            # Check student is enrolled in the offering's class
+            return _student_enrolled_in_offering(student, lesson.offering)
         except Teacher.DoesNotExist:
             return False
 

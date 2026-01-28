@@ -315,3 +315,27 @@ def create_psychological_state_template(request, pk):
         PsychologicalState.objects.create(name=name, comment=comment)
 
     return redirect('student_details', pk=pk)
+
+
+@login_required(login_url="/login/")
+def api_class_groups(request):
+    """API endpoint to get class groups for a given academic year."""
+    year_id = request.GET.get('year')
+
+    if not year_id:
+        return JsonResponse({'error': 'Year parameter required'}, status=400)
+
+    try:
+        class_groups = ClassGroup.objects.filter(
+            academic_year_id=year_id
+        ).order_by('grade_level__number', 'letter')
+
+        data = {
+            'class_groups': [
+                {'id': cg.id, 'name': str(cg)}
+                for cg in class_groups
+            ]
+        }
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -1,18 +1,14 @@
 import json
-from pydoc_data.topics import topics
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
-from django.db.models.signals import pre_save
-from django.dispatch import receiver
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-from pycodestyle import continued_indentation
 
 from core.decorators import role_required
 from core.permissions import (
@@ -20,10 +16,10 @@ from core.permissions import (
     permission_denied_response, is_admin_role
 )
 from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
-from .models import Lesson, Topic, TopicGrade, MergedLessonComment, MergedLessonComment
+from .models import Lesson, Topic, TopicGrade, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
-from apps.home.models import Subject, ClassGroup, QuarterGrader
-from ..notification.models import Notification, GradingNotify
+from apps.home.models import Subject, ClassGroup, QuarterGrader, Enrollment
+from apps.notification.models import Notification, GradingNotify
 
 
 @login_required(login_url="/login/")
@@ -92,22 +88,47 @@ def lessons_list(request):
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def lesson_create(request, subject_id=None):
+    from apps.home.models import SubjectOffering, TeachingAssignment
+    from apps.authentication.models import Teacher
+
+    # Determine available offerings for the current user
+    user = request.user
+    if user.is_admin() or user.is_principal() or user.is_manager():
+        available_offerings = SubjectOffering.objects.select_related('subject', 'class_group', 'academic_year')
+    elif user.is_teacher() or user.is_homeroom_teacher():
+        try:
+            teacher = Teacher.objects.get(user=user)
+            offering_ids = TeachingAssignment.objects.filter(
+                teacher=teacher
+            ).values_list('offering_id', flat=True)
+            available_offerings = SubjectOffering.objects.filter(
+                id__in=offering_ids
+            ).select_related('subject', 'class_group', 'academic_year')
+        except Teacher.DoesNotExist:
+            available_offerings = SubjectOffering.objects.none()
+    else:
+        available_offerings = SubjectOffering.objects.none()
+
     if request.method == "POST":
         form = LessonForm(request.POST)
+        form.fields['offering'].queryset = available_offerings
         if form.is_valid():
             form.save()
-            messages.success(request, "👩‍🏫 Lesson created successfully!")
-            return redirect("lesson:lessons")
+            messages.success(request, "Урок успешно создан!")
+            offering = form.cleaned_data['offering']
+            return redirect("subject_details", pk=offering.subject.pk)
     else:
         initial = {}
         if subject_id:
-            try:
-                subject = Subject.objects.get(pk=subject_id)
-                initial['subject'] = subject
-            except Subject.DoesNotExist:
-                messages.error(request, "Subject not found!")
+            # Pre-select the first offering for this subject
+            offering = available_offerings.filter(subject_id=subject_id).first()
+            if offering:
+                initial['offering'] = offering
+            else:
+                messages.error(request, "Предмет не найден или у вас нет доступа!")
                 return redirect("lesson:lessons")
         form = LessonForm(initial=initial)
+        form.fields['offering'].queryset = available_offerings
 
     return render(request, "lesson/new_lesson.html", {"form": form})
 
@@ -140,7 +161,11 @@ def lesson_group_create(request):
 def lesson_details(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
-    students = Student.objects.filter(subjects= lesson.subject, topicgrade__topic__lesson=lesson).distinct()
+    students = Student.objects.filter(
+        enrollment__class_group=lesson.offering.class_group,
+        enrollment__academic_year=lesson.offering.academic_year,
+        enrollment__status='active'
+    ).distinct()
 
     student_grades = {}
 
@@ -379,7 +404,11 @@ def grading(request, pk):
     if not can_modify_lesson(request.user, lesson):
         return permission_denied_response("You can only grade lessons for your own subjects.")
 
-    students = Student.objects.filter(subjects=lesson.subject)
+    students = Student.objects.filter(
+        enrollment__class_group=lesson.offering.class_group,
+        enrollment__academic_year=lesson.offering.academic_year,
+        enrollment__status='active'
+    ).distinct()
     topics = Topic.objects.filter(lesson=lesson)
     topic_grade_rows = (
         TopicGrade.objects

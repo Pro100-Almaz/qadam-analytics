@@ -60,13 +60,16 @@
                         {% endif %}
                       </div>
                       <div class="col-md-6 mb-3">
-                        {{ form.teacher.label_tag}}
-                        {{ form.teacher }}
-                        {% if form.teacher.errors %}
-                          <small class="text-danger">{{ form.teacher.errors.0 }}</small>
+                        {{ form.language_group.label_tag}}
+                        {{ form.language_group }}
+                        {% if form.language_group.errors %}
+                          <small class="text-danger">{{ form.language_group.errors.0 }}</small>
                         {% endif %}
                       </div>
                     </div>
+
+                    <hr class="my-4">
+                    <h5 class="text-muted mb-3">Назначение классам</h5>
 
                     <div class="row">
                       <div class="col-md-6 mb-3">
@@ -75,18 +78,17 @@
                         {% if form.academic_year.errors %}
                           <small class="text-danger">{{ form.academic_year.errors.0 }}</small>
                         {% endif %}
+                        <small class="text-muted">Выберите учебный год для назначения</small>
                       </div>
-                        <div class="col-md-6 mb-3">
-                        {{ form.maximum_points.label_tag }}
-                        {{ form.maximum_points }}
-                        {% if form.maximum_points.errors %}
-                          <small class="text-danger">{{ form.maximum_points.errors.0 }}</small>
+                      <div class="col-md-6 mb-3">
+                        {{ form.class_groups.label_tag }}
+                        {{ form.class_groups }}
+                        {% if form.class_groups.errors %}
+                          <small class="text-danger">{{ form.class_groups.errors.0 }}</small>
                         {% endif %}
+                        <small class="text-muted">Удерживайте Ctrl для выбора нескольких классов</small>
                       </div>
-
-
                     </div>
-
 
                     <div class="d-flex justify-content-end">
                       <a href="{% url 'subjects' %}" class="btn btn-outline-secondary me-2">
@@ -107,5 +109,40 @@
 
 {% endblock content %}
 
-<!-- Specific JS goes HERE --> 
-{% block javascripts %}{% endblock javascripts %}
+<!-- Specific JS goes HERE -->
+{% block javascripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const yearSelect = document.getElementById('id_academic_year');
+    const classGroupSelect = document.getElementById('id_class_groups');
+
+    if (yearSelect && classGroupSelect) {
+        yearSelect.addEventListener('change', function() {
+            const yearId = this.value;
+            if (!yearId) {
+                return;
+            }
+
+            // Fetch class groups for the selected year
+            fetch(`/api/class-groups/?year=${yearId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Clear current options
+                    classGroupSelect.innerHTML = '';
+
+                    // Add new options
+                    data.class_groups.forEach(function(group) {
+                        const option = document.createElement('option');
+                        option.value = group.id;
+                        option.textContent = group.name;
+                        classGroupSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching class groups:', error);
+                });
+        });
+    }
+});
+</script>
+{% endblock javascripts %}

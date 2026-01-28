@@ -117,7 +117,8 @@
                             </div>
                             <div class="col-md-6">
                                 <ul class="list-unstyled">
-                                    <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
+                                    <li><strong>Предмет:</strong> {{ lesson.offering.subject.name }}</li>
+                                    <li><strong>Класс:</strong> {{ lesson.offering.class_group }}</li>
                                     <li>
                                         <strong>Статус:</strong>
                                         <span class="badge badge-dot mr-4">
@@ -126,8 +127,7 @@
                   </span>
                                     </li>
                                     <li><strong>Четверть:</strong> {{ lesson.quarter }}</li>
-                                    <li><strong>Максимальный балл:</strong> {{ lesson.maximum_points }}</li>
-                                    <li><strong>Средний балл:</strong> {{ lesson.average_points }}</li>
+                                    <li><strong>Unit:</strong> {{ lesson.unit }}</li>
                                     {% if lesson.group %}
                                         <li><strong>Тематическая группа:</strong> {{ lesson.group.name }}</li>
                                     {% endif %}

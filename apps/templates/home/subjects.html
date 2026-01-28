@@ -49,7 +49,7 @@
                                 {% for lang in lang_groups %}
                                     <a href="?status={{ status }}&year={{ selected_year }}&lang={{ lang }}"
                                        class="dropdown-item{% if lang_filter == lang %} active{% endif %}">
-                                        {{ lang }} {% if lang_filter == lang %}- Выбрано{% endif %}
+                                        {{ lang|lang_with_emoji }} {% if lang_filter == lang %}- Выбрано{% endif %}
                                     </a>
                                 {% endfor %}
 
@@ -91,12 +91,10 @@
                             <thead class="thead-light">
                             <tr>
                                 <th scope="col" class="sort" data-sort="name">Название</th>
-                                <th scope="col" class="sort" data-sort="budget">Количество учеников</th>
-                                <th scope="col" class="sort" data-sort="budget">Класс(ы)</th>
-                                <th scope="col" class="sort" data-sort="budget">Языковая группа</th>
+                                <th scope="col" class="sort" data-sort="language">Язык</th>
+                                <th scope="col" class="sort" data-sort="offerings">Классы</th>
+                                <th scope="col" class="sort" data-sort="students">Учеников</th>
                                 <th scope="col" class="sort" data-sort="status">Статус</th>
-                                <th scope="col" class="sort" data-sort="teacher">Учитель</th>
-                                <th scope="col" class="sort" data-sort="completion">Прогресс</th>
                                 <th scope="col"></th>
                             </tr>
                             </thead>
@@ -105,82 +103,48 @@
                                 <tr>
                                     <th scope="row">
                                         <div class="media align-items-center">
-                                            <a href="#" class="avatar rounded-circle mr-3">
-                                                <img alt="Image placeholder"
-                                                     src="{% static '/assets/img/theme/bootstrap.jpg' %}">
-                                            </a>
                                             <div class="media-body">
-                                                <a
-                                                        href="{% url 'subject_details' subject.pk %}"
-                                                        class="name mb-0 text-sm"
-                                                >
+                                                <a href="{% url 'subject_details' subject.pk %}" class="name mb-0 text-sm font-weight-bold">
                                                     {{ subject.name }}
                                                 </a>
                                             </div>
                                         </div>
                                     </th>
-                                    {% for id, number in number_of_students.items %}
-                                        {% if id == subject.id %}
-                                            <td class="budget">
-                                                {{ number }}
-                                            </td>
-                                        {% endif %}
-                                    {% endfor %}
                                     <td>
-                                        {% if subjects_classrooms|get_item:subject.id %}
-                                            {% for classroom_name in subjects_classrooms|get_item:subject.id %}
-                                                {{ classroom_name }}
-                                            {% endfor %}
-                                        {% else %}
-                                            No Students
-                                        {% endif %}
-
+                                        <span style="font-size: 1.3em;" title="{{ subject.language_group|lang_name }}">{{ subject.language_group|lang_emoji }}</span>
                                     </td>
                                     <td>
-                                        {{ subject.language_group }}
-
-                                    </td>
-                                    <td>
-                      <span class="badge badge-dot mr-4">
-                        {% if subject.status == 'active' %}
-                            <i class="bg-success"></i>
-                        {% elif subject.status == 'planned' %}
-                            <i class="bg-info"></i>
-                        {% else %}
-                            <i class="bg-danger"></i>
-                        {% endif %}
-
-                          <span class="status">{{ subject.status }}</span>
-                      </span>
-                                    </td>
-                                    <td>
-
-
-                                        <div class="avatar-group">
-                                            {% if subject.teacher %}
-                                                <a href="#" class="avatar avatar-sm rounded-circle"
-                                                   data-toggle="tooltip"
-                                                   data-original-title="{{ subject.teacher.user.first_name }} {{ subject.teacher.user.last_name }}">
-                                                    <img alt="Image placeholder"
-                                                         src="{{subject.teacher.user.avatar.url }}">  ">
-                                                </a>
+                                        {% with class_groups=subjects_class_groups|get_item:subject.id %}
+                                            {% if class_groups %}
+                                                {% for class_group in class_groups %}
+                                                    <span>{{ class_group }}</span>
+                                                {% endfor %}
                                             {% else %}
-                                                <a>No teacher</a>
+                                                <span class="text-muted">-</span>
                                             {% endif %}
-                                        </div>
+                                        {% endwith %}
                                     </td>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <span class="completion mr-2">{{ subject.progress }}%</span>
-                                            <div>
-                                                <div class="progress">
-                                                    <div class="progress-bar bg-warning" role="progressbar"
-                                                         aria-valuenow="{{ subject.progress }}" aria-valuemin="0"
-                                                         aria-valuemax="100"
-                                                         style="width: {{ subject.progress }}%;"></div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <span>
+                                            {{ number_of_students|get_item:subject.id|default:0 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-dot mr-4">
+                                            {% if subject.status == 'active' %}
+                                                <i class="bg-success"></i>
+                                                <span class="status text-success">Активный</span>
+                                            {% elif subject.status == 'planned' %}
+                                                <i class="bg-info"></i>
+                                                <span class="status text-info">Планируется</span>
+                                            {% elif subject.status == 'disabled' %}
+                                                <i class="bg-warning"></i>
+                                                <span class="status text-warning">Отключен</span>
+                                            {% else %}
+                                                <i class="bg-danger"></i>
+                                                <span class="status text-danger">Архив</span>
+                                            {% endif %}
+                                        </span>
                                     </td>
                                     <td class="text-right">
                                         <div class="dropdown">

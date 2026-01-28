@@ -2,25 +2,35 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
 
 from core.decorators import role_required
 from core.permissions import can_modify_subject, can_access_subject, permission_denied_response
 from apps.home.forms import SubjectForm
 from apps.lesson.models import Lesson
-from apps.home.models import SubjectOffering, TeachingAssignment
-from apps.authentication.models import CustomUser, Student
-from django.shortcuts import render, redirect, get_object_or_404
+from apps.home.models import Subject, SubjectOffering, TeachingAssignment, AcademicYear, Enrollment
+from apps.authentication.models import CustomUser, Student, Teacher
 
 
-def get_students(subjects) -> dict:
-    number_of_students = {}
-    for subject in subjects:
-        number_of_students[subject.id] = Student.objects.filter(subjects=subject).count()
-    return number_of_students
+def get_students_for_offering(offering):
+    """Get count of students enrolled in an offering's class group."""
+    return Enrollment.objects.filter(
+        class_group=offering.class_group,
+        academic_year=offering.academic_year,
+        status='active'
+    ).count()
 
-def get_students_count(subject_id: int) -> int:
-    # Return the number of students enrolled in this subject
-    return Student.objects.filter(subjects__id=subject_id).count()
+
+def get_students_count_for_subject(subject, academic_year=None):
+    """Get count of students who can access a subject (via offerings)."""
+    offerings = SubjectOffering.objects.filter(subject=subject)
+    if academic_year:
+        offerings = offerings.filter(academic_year=academic_year)
+
+    total = 0
+    for offering in offerings:
+        total += get_students_for_offering(offering)
+    return total
 
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
@@ -28,71 +38,172 @@ def subject_create(request):
     if request.method == "POST":
         form = SubjectForm(request.POST)
         if form.is_valid():
-            user = request.user
-            form.instance.added_by = user
-            if not form.instance.teacher:
-                form.instance.teacher = user
-            form.save()
-            messages.success(request, "Subject created successfully!")
+            subject = form.save(commit=False)
+            subject.added_by = request.user
+            subject.save()
+
+            # Create SubjectOfferings for selected class groups
+            academic_year = form.cleaned_data.get('academic_year')
+            class_groups = form.cleaned_data.get('class_groups')
+
+            if academic_year and class_groups:
+                offerings_created = 0
+                for class_group in class_groups:
+                    # Create SubjectOffering if it doesn't exist
+                    offering, created = SubjectOffering.objects.get_or_create(
+                        subject=subject,
+                        class_group=class_group,
+                        academic_year=academic_year
+                    )
+                    if created:
+                        offerings_created += 1
+
+                        # If the creator is a teacher, assign them to the offering
+                        if request.user.is_teacher():
+                            try:
+                                teacher = Teacher.objects.get(user=request.user)
+                                TeachingAssignment.objects.get_or_create(
+                                    offering=offering,
+                                    teacher=teacher,
+                                    defaults={'role': 'primary'}
+                                )
+                            except Teacher.DoesNotExist:
+                                pass
+
+                messages.success(
+                    request,
+                    f"Предмет '{subject.name}' создан и добавлен в {offerings_created} класс(ов)!"
+                )
+            else:
+                messages.success(request, f"Предмет '{subject.name}' создан!")
+
             return redirect("subjects")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = SubjectForm()
 
     return render(request, "home/new_subject.html", {"form": form})
 
 
-@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'parent')
 def subjects_list(request, status=None):
-    # Default to active subjects only unless overridden by URLconf
+    user = request.user
     if status is None:
         status = request.GET.get('status', 'active')
 
     year_id = request.GET.get('year')
     lang_filter = request.GET.get('lang', 'all')
 
-    subjects = Subject.objects.all()
-    if status == 'all':
-        pass
-    elif status == 'archived' or status == 'disabled':
-        subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
-    elif status == 'planned':
-        subjects = Subject.objects.filter(status__in=['planned'])
-    elif status == 'active':
-        subjects = Subject.objects.filter(status__in=['active'])
-
-    from apps.home.models import AcademicYear
+    # Get current/selected academic year
     current_year = AcademicYear.objects.order_by('-year').first()
     if not year_id and current_year:
         year_id = str(current_year.id)
 
+    # Role-based filtering
+    # Admin, Principal, Supervisor - see all subjects
+    # Teacher, Homeroom Teacher - see only their assigned subjects
+    # Parent - see only subjects their children are enrolled in
+
+    if user.is_admin() or user.is_principal() or user.is_manager():
+        # Full access - get all subjects based on status
+        if status == 'all':
+            subjects = Subject.objects.all()
+        elif status in ['archived', 'disabled']:
+            subjects = Subject.objects.filter(status__in=['archived', 'disabled'])
+        elif status == 'planned':
+            subjects = Subject.objects.filter(status='planned')
+        else:
+            subjects = Subject.objects.filter(status='active')
+
+    elif user.is_teacher() or user.is_homeroom_teacher():
+        # Teachers see only subjects they're assigned to teach
+        try:
+            teacher = Teacher.objects.get(user=user)
+            assignments = TeachingAssignment.objects.filter(teacher=teacher)
+            if year_id:
+                assignments = assignments.filter(offering__academic_year_id=year_id)
+            subject_ids = set(a.offering.subject_id for a in assignments)
+            subjects = Subject.objects.filter(id__in=subject_ids)
+            if status != 'all':
+                subjects = subjects.filter(status=status)
+        except Teacher.DoesNotExist:
+            subjects = Subject.objects.none()
+
+    elif user.is_parent():
+        # Parents see subjects their children are enrolled in
+        from apps.authentication.models import Parent
+        try:
+            parent = Parent.objects.get(user=user)
+            children = parent.students.all()
+
+            # Get class groups where children are enrolled
+            child_enrollments = Enrollment.objects.filter(
+                student__in=children,
+                status='active'
+            )
+            if year_id:
+                child_enrollments = child_enrollments.filter(academic_year_id=year_id)
+
+            class_group_ids = child_enrollments.values_list('class_group_id', flat=True)
+
+            # Get subjects offered to those class groups
+            offerings = SubjectOffering.objects.filter(class_group_id__in=class_group_ids)
+            if year_id:
+                offerings = offerings.filter(academic_year_id=year_id)
+
+            subject_ids = offerings.values_list('subject_id', flat=True)
+            subjects = Subject.objects.filter(id__in=subject_ids)
+            if status != 'all':
+                subjects = subjects.filter(status=status)
+        except Parent.DoesNotExist:
+            subjects = Subject.objects.none()
+    else:
+        subjects = Subject.objects.none()
+
+    # Filter by language
+    if lang_filter != 'all':
+        subjects = subjects.filter(language_group=lang_filter)
+
+    # Get offerings for these subjects in the selected year
+    offerings_by_subject = {}
     if year_id:
-        subjects = subjects.filter(academic_year_id=year_id)
+        offerings = SubjectOffering.objects.filter(
+            subject__in=subjects,
+            academic_year_id=year_id
+        ).select_related('class_group', 'subject')
+
+        for offering in offerings:
+            if offering.subject_id not in offerings_by_subject:
+                offerings_by_subject[offering.subject_id] = []
+            offerings_by_subject[offering.subject_id].append(offering)
+
+    # Get class groups per subject
+    subjects_class_groups = {}
+    for subject_id, offs in offerings_by_subject.items():
+        subjects_class_groups[subject_id] = [str(o.class_group) for o in offs]
+
+    # Get student counts
+    number_of_students = {}
+    for subject in subjects:
+        count = 0
+        for offering in offerings_by_subject.get(subject.id, []):
+            count += get_students_for_offering(offering)
+        number_of_students[subject.id] = count
 
     langs = ['kaz', 'rus', 'eng']
-    if lang_filter != 'all':
-        subjects = Subject.objects.filter(status=status, academic_year_id=year_id, language_group=lang_filter)
-
-    page = request.GET.get('page')
-    paginator = Paginator(subjects, 5)
-    page_obj = paginator.get_page(page)
-
     years = AcademicYear.objects.order_by('-year')
 
-    subjects_classrooms = {} #key = subject_id : value = {}
-
-    students = Student.objects.all()
-    for student in students:
-        for subject in student.subjects.all():
-            if subject.id not in subjects_classrooms:
-                subjects_classrooms[subject.id] = []
-            if student.classroom and student.classroom.name not in subjects_classrooms[subject.id]:
-                subjects_classrooms[subject.id].append(student.classroom.name)
-
+    page = request.GET.get('page')
+    paginator = Paginator(subjects, 10)
+    page_obj = paginator.get_page(page)
 
     context = {
         'subjects': subjects,
-        'subjects_classrooms': subjects_classrooms,
-        'number_of_students': get_students(subjects),
+        'subjects_class_groups': subjects_class_groups,
+        'number_of_students': number_of_students,
         'page_obj': page_obj,
         'status': status,
         'STATUS_CHOICES': Subject.STATUS_CHOICES,
@@ -100,73 +211,86 @@ def subjects_list(request, status=None):
         'selected_year': int(year_id) if year_id else None,
         'lang_filter': lang_filter,
         'lang_groups': langs
-        }
+    }
     return render(request, "home/subjects.html", context)
 
 
 @role_required('teacher', 'homeroom_teacher')
 def my_subjects_list(request, status=None):
-    user = CustomUser.objects.get(id=request.user.id)
+    user = request.user
+
     if status is None:
         status = request.GET.get('status', 'active')
 
-    subjects = TeachingAssignment.get_subjects(user)
+    # Get teacher's assignments
+    try:
+        teacher = Teacher.objects.get(user=user)
+        assignments = TeachingAssignment.objects.filter(
+            teacher=teacher
+        ).select_related('offering', 'offering__subject')
 
-    # if status == 'all':
-    #     subjects = Subject.objects.filter(teacher__user = user)
-    # elif status == 'archived' or status== 'disabled':
-    #     subjects = Subject.objects.filter(status__in=['archived', 'disabled'], teacher__user = user)
-    # elif status == 'planned':
-    #     subjects = Subject.objects.filter(status__in=['planned'], teacher__user = user)
-    # else:
-    #     subjects = Subject.objects.filter(status=status, teacher__user = user)
+        # Get unique subjects from assignments
+        subject_ids = set(a.offering.subject_id for a in assignments)
+        subjects = Subject.objects.filter(id__in=subject_ids)
+
+        if status != 'all':
+            subjects = subjects.filter(status=status)
+    except Teacher.DoesNotExist:
+        subjects = Subject.objects.none()
+
+    # Get student counts
+    number_of_students = {}
+    for subject in subjects:
+        number_of_students[subject.id] = get_students_count_for_subject(subject)
 
     page = request.GET.get('page')
-    paginator = Paginator(subjects, 5)
+    paginator = Paginator(subjects, 10)
     page_obj = paginator.get_page(page)
 
-    context = {'subjects': subjects,
-               'number_of_students': get_students(subjects),
-               "page_obj": page_obj,
-               'status': status,
-               'STATUS_CHOICES': Subject.STATUS_CHOICES,
-               'is_my_subjects': True,}
+    context = {
+        'subjects': subjects,
+        'number_of_students': number_of_students,
+        'page_obj': page_obj,
+        'status': status,
+        'STATUS_CHOICES': Subject.STATUS_CHOICES,
+        'is_my_subjects': True,
+    }
     return render(request, "home/subjects.html", context)
+
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def archive_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
 
-        # Object-level permission: verify teacher owns this subject
         if not can_modify_subject(request.user, subject):
             return permission_denied_response("You can only archive your own subjects.")
 
         subject.status = "archived"
         subject.save()
         return redirect("subjects")
-    return (JsonResponse({"error": "Invalid request"}, status=400))
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def extract_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
 
-        # Object-level permission: verify teacher owns this subject
         if not can_modify_subject(request.user, subject):
             return permission_denied_response("You can only activate your own subjects.")
 
         subject.status = "active"
         subject.save()
         return redirect("subjects")
-    return (JsonResponse({"error": "Invalid request"}, status=400))
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
 def process_status_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
 
-        # Object-level permission: verify teacher owns this subject
         if not can_modify_subject(request.user, subject):
             return permission_denied_response("You can only modify status of your own subjects.")
 
@@ -174,6 +298,7 @@ def process_status_subject(request, pk):
         subject.save()
         return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
+
 
 @role_required('admin', 'supervisor')
 def delete_subject(request, pk):
@@ -183,25 +308,43 @@ def delete_subject(request, pk):
         return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 
+
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'student')
 def subject_details(request, pk):
     quarter = int(request.GET.get('quarter', '1'))
-    subject = get_object_or_404(Subject.objects.select_related('teacher', 'added_by'), pk=pk)
+    subject = get_object_or_404(Subject.objects.select_related('added_by'), pk=pk)
 
-    # Object-level permission: verify user can access this subject
-    # - Admins/supervisors/principals can access all subjects
-    # - Teachers can access their own subjects
-    # - Students can only access subjects they're enrolled in
     if not can_access_subject(request.user, subject):
         return permission_denied_response("You do not have permission to view this subject.")
 
-    # Students enrolled in this subject
-    students = Student.objects.filter(subjects=subject).select_related('user')
-    total_lessons = Lesson.objects.filter(subject=subject)
+    # Get current academic year
+    current_year = AcademicYear.objects.filter(is_active=True).first()
+    if not current_year:
+        current_year = AcademicYear.objects.order_by('-year').first()
+
+    # Get offerings for this subject
+    offerings = SubjectOffering.objects.filter(
+        subject=subject,
+        academic_year=current_year
+    ).select_related('class_group') if current_year else []
+
+    # Get students enrolled in these offerings
+    students = []
+    for offering in offerings:
+        enrollments = Enrollment.objects.filter(
+            class_group=offering.class_group,
+            academic_year=offering.academic_year,
+            status='active'
+        ).select_related('student', 'student__user')
+        students.extend([e.student for e in enrollments])
+    students = list(set(students))  # Remove duplicates
+
+    # Get lessons for this subject's offerings
+    total_lessons = Lesson.objects.filter(offering__in=offerings)
     lessons = total_lessons.filter(quarter=quarter).order_by('created_at')
 
+    # Calculate grades
     lesson_avgs = {}
-
     for lesson in lessons:
         lesson_avgs[lesson.id] = {}
         for student in students:
@@ -212,36 +355,35 @@ def subject_details(request, pk):
 
     len_lessons = len(lessons)
     len_total_lessons = len(total_lessons)
+
     for student in students:
         total_student_grade = 0
         student_grade = 0
+
         for lesson in total_lessons:
-            total_student_grade += lesson_avgs[lesson.id][student.id]
+            if lesson.id in lesson_avgs and student.id in lesson_avgs[lesson.id]:
+                total_student_grade += lesson_avgs[lesson.id][student.id]
+
         for lesson in lessons:
-            student_grade += lesson_avgs[lesson.id][student.id]
+            if lesson.id in lesson_avgs and student.id in lesson_avgs[lesson.id]:
+                student_grade += lesson_avgs[lesson.id][student.id]
 
-        if len_lessons == 0:
-            student_grade = 0
-        else:
+        if len_lessons > 0:
             student_grade /= len_lessons
-
-        if len_total_lessons == 0:
-            total_student_grade = 0
-        else:
+        if len_total_lessons > 0:
             total_student_grade /= len_total_lessons
 
-        student_grades[student.id] = {}
         student_grades[student.id] = {
             'grade': round(student_grade, 1),
             'student_info': student.user.get_full_name()
         }
-        total_student_grades[student.id] = {}
         total_student_grades[student.id] = {
             'grade': round(total_student_grade, 1)
         }
+
     top_grades = sorted(student_grades.items(), key=lambda x: x[1]['grade'], reverse=True)
 
-    #lessons paginator
+    # Lessons pagination
     lessons_table = request.GET.get('lessons_page', '1')
     lessons_paginator = Paginator(lessons, 7)
     try:
@@ -249,11 +391,9 @@ def subject_details(request, pk):
     except PageNotAnInteger:
         all_lessons = lessons_paginator.page(1)
     except EmptyPage:
-        all_lessons= lessons_paginator.page(lessons_paginator.num_pages)
+        all_lessons = lessons_paginator.page(lessons_paginator.num_pages)
 
-
-
-    #grading table pagination
+    # Grades pagination
     grades_table = request.GET.get('grades_page', 1)
     grades_paginator = Paginator(top_grades, 5)
     try:
@@ -263,21 +403,25 @@ def subject_details(request, pk):
     except EmptyPage:
         all_grades = grades_paginator.page(grades_paginator.num_pages)
 
-
-    # KPI metrics for the header cards
-    students_count = students.count()
-    lessons_count = Lesson.objects.filter(subject=subject).count()
+    # KPI metrics
+    students_count = len(students)
+    lessons_count = total_lessons.count()
 
     if student_grades:
-        average_subject_points = round(sum(info['grade'] for info in student_grades.values()) / len(student_grades), 1)
+        average_subject_points = round(
+            sum(info['grade'] for info in student_grades.values()) / len(student_grades), 1
+        )
     else:
         average_subject_points = 0
 
-    # Completion: ratio of existing grades to expected grades (students × lessons)
     students_with_grades = len([s for s in total_student_grades.values() if s['grade'] > 0])
     completion_percent = round((students_with_grades / students_count) * 100, 1) if students_count > 0 else 0
 
-
+    # Get primary teacher for this subject (from first offering)
+    primary_teacher = None
+    if offerings:
+        first_offering = offerings[0]
+        primary_teacher = first_offering.get_primary_teacher()
 
     context = {
         'top_grades': top_grades,
@@ -292,7 +436,8 @@ def subject_details(request, pk):
         'average_subject_points': average_subject_points,
         'completion_percent': completion_percent,
         'subject_adder': subject.added_by,
-        'teacher': subject.teacher,
+        'teacher': primary_teacher,
+        'offerings': offerings,
     }
 
     return render(request, 'home/subject_details.html', context)

@@ -219,7 +219,8 @@
                             </div>
                             <div class="col-md-6">
                                 <ul class="list-unstyled">
-                                    <li><strong>Subject:</strong> {{ lesson.subject.name }}</li>
+                                    <li><strong>Предмет:</strong> {{ lesson.offering.subject.name }}</li>
+                                    <li><strong>Класс:</strong> {{ lesson.offering.class_group }}</li>
                                     <li><strong>Статус:</strong>
                                         <span class="badge badge-dot mr-4">
                                             <i class="bg-{{ lesson.status|lower }}"></i>
