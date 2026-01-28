@@ -314,7 +314,7 @@
         </div>
     </div>
 
-<div class="row ml-1">
+    <div class="row ml-1">
         <div class="nav-buttons">
             <button
                 type="button"
@@ -323,8 +323,29 @@
                 id="generalInfoBtn"
                 onclick="generalInfoBtn()"
                 style="border-bottom: 4px solid #0d6efd; color:#0d6efd;">
-                <i class="fas fa-chart-bar mr-2"></i> Общая информация
+                <i class="fas fa-book mr-2"></i> Предметы
             </button>
+
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="extraCurrBtn"
+{#                onclick="extraCurrBtn()"#}
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-plus-circle mr-2"></i> Кружки
+            </button>
+
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="studentRatingBtn"
+{#                onclick="studentRatingBtn()"#}
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-chart-bar mr-2"></i> Рейтинг
+            </button>
+
 
             <button
                 type="button"
@@ -347,8 +368,7 @@
             </button>
 
         </div>
-
-</div>
+    </div>
     <!-- Psychological Information Section -->
     <div id="psychologicalInformation" class="content-section" hidden>
         <div class="row">
@@ -416,7 +436,7 @@
                         {% for quarter in "1234" %}
                             <div class="col-md-3">
                                 <div class="quarter-indicator">
-                                    <h6 class="text-center mb-3">{{ quarter|add:" токсан" }}</h6>
+                                    <h6 class="text-center mb-3">{{ quarter|add:" четверть" }}</h6>
                                     <div style="height: 150px; position: relative;">
                                         <canvas id="quarter-{{ quarter }}-chart"></canvas>
                                     </div>
@@ -433,17 +453,17 @@
             <div class="col-12">
                 <div class="card stats-card">
                     <div class="card-header border-0">
-                        <h4 class="mb-0 text-dark">Subjects</h4>
+                        <h4 class="mb-0 text-dark">Предметы</h4>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-flush">
                                 <thead>
                                     <tr>
-                                        <th class="text-dark">Subject</th>
-                                        <th class="text-dark">Score</th>
-                                        <th class="text-dark">Student</th>
-                                        <th class="text-dark">Progress</th>
+                                        <th class="text-dark">Предмет</th>
+                                        <th class="text-dark">Оценка</th>
+                                        <th class="text-dark">Ученик</th>
+                                        <th class="text-dark">Прогресс</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1146,7 +1166,7 @@ $(document).ready(function() {
     new Chart(quarterlyCtx, {
         type: 'line',
         data: {
-            labels: ['I токсан', 'II токсан', 'III токсан', 'IV токсан'],
+            labels: ['I четверть', 'II четверть', 'III четверть', 'IV четверть'],
             datasets: [{
                 label: 'Средняя оценка',
                 data: [
