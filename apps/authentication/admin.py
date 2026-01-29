@@ -14,7 +14,7 @@ class CustomUserAdmin(UserAdmin):
     readonly_fields = ("avatar_preview",)
 
     fieldsets = (
-        (None, {"fields": ("username", "password")}),
+        ('Account Info', {"fields": ("username", "password")}),
         ("Avatar", {"fields": ("avatar_preview", "avatar")}),
         ("Personal info", {
             "fields": ("first_name", "last_name", "email", "phone_number", "date_of_birth", "address", "school")
@@ -56,6 +56,7 @@ class CustomUserAdmin(UserAdmin):
         return "-"
     avatar_preview_small.short_description = "Avatar"
 
+
 @admin.register(Student)
 class StudentAdmin(ModelAdmin):
     model = Student
@@ -71,10 +72,24 @@ class StudentAdmin(ModelAdmin):
     classroom_name.short_description = "Classroom"
 
 
-# admin.site.register(Student)
-admin.site.register(Parent)
+@admin.register(Parent)
+class ParentAdmin(ModelAdmin):
+    model = Parent
+    list_display = ["full_name"]
+    search_fields = ('user__first_name', 'user__last_name')
+    filter_horizontal = ('students',)
+
+    def full_name(self, obj):
+        return obj.user.get_full_name()
+    full_name.short_description = "Full Name"
+
+    fieldsets = (
+        ('User Info', {'fields' : ('user',)}),
+        ('Assigned Students', {"fields": ("students",)}),
+    )
+
+
 admin.site.register(Teacher)
 admin.site.register(Supervisor)
-
 admin.site.register(SchoolGroup)
 admin.site.register(PsychologicalState)

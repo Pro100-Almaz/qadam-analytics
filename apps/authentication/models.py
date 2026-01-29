@@ -189,6 +189,8 @@ class Student(models.Model):
         blank=True,
         help_text='Enrollment year for this student'
     )
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} ({self.classroom if self.classroom else '-'})'
 
 
 @receiver(pre_save, sender=Student)
@@ -222,6 +224,9 @@ class Parent(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     students = models.ManyToManyField(Student, blank=True, related_name="parent")
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name}'
 
 
 class Teacher(models.Model):
@@ -261,6 +266,8 @@ class Teacher(models.Model):
 
 class Supervisor(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name}'
 
 
 class PsychologicalState(models.Model):
