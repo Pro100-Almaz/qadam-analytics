@@ -378,13 +378,21 @@
                             <button type="button" class="close" data-dismiss="modal">&times;</button>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="btn-group btn-group-toggle ml-4" data-toggle="buttons">
+                        <div class="d-flex justify-content-between align-items-center mb-3 px-4">
+                            <div class="btn-group btn-group-toggle" data-toggle="buttons">
                                 <label class="btn btn-outline-primary active" id="selected-mode-btn">
                                     <input type="radio" name="comment_mode" value="selected" checked> Selected Comment
                                 </label>
                                 <label class="btn btn-outline-primary" id="merged-mode-btn">
                                     <input type="radio" name="comment_mode" value="merged"> Merged Comments
+                                </label>
+                            </div>
+                            <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                                <label class="btn btn-outline-success active" id="cascade-mode-btn">
+                                    <input type="radio" name="grading_mode" value="cascade" checked> Накопительный
+                                </label>
+                                <label class="btn btn-outline-success" id="independent-mode-btn">
+                                    <input type="radio" name="grading_mode" value="independent"> Независимый
                                 </label>
                             </div>
                         </div>
@@ -408,6 +416,7 @@
                                         {% if not topic.parent %}
                                             {% with subcount=topic.subtopics.all|length %}
                                                 <tr class="topic-row" data-topic-id="{{ topic.id }}"
+                                                    data-order="{{ topic.order }}"
                                                     data-weight="{{ topic.weight }}">
                                                     <td class="text-box">
                                                         {% if subcount > 0 %}
@@ -495,6 +504,7 @@
                                                                                        id="subtopic_{{ subtopic.id }}_covered"
                                                                                        name="subtopic_{{ subtopic.id }}_covered"
                                                                                        data-weight="{{ subtopic.weight }}"
+                                                                                       data-order="{{ subtopic.order }}"
                                                                                        data-topic-id="{{ topic.id }}"
                                                                                        data-subtopic-id="{{ subtopic.id }}">
                                                                                 <label class="custom-control-label"
@@ -695,15 +705,43 @@
                 row.classList.toggle('d-none', expanded);
             });
 
-            // Enhanced dynamic calculation with comment prefill
+            // Check if cascade mode is enabled
+            function isCascadeModeEnabled() {
+                const cascadeRadio = document.querySelector('input[name="grading_mode"][value="cascade"]');
+                return cascadeRadio && cascadeRadio.checked;
+            }
+
+            // Cascade function: auto-check all previous items (lower order) when a later one is checked
+            function cascadeCheckPrevious(inputs, currentOrder, shouldCheck) {
+                if (!isCascadeModeEnabled()) return; // Skip if cascade mode is off
+
+                inputs.forEach(input => {
+                    const inputOrder = parseInt(input.dataset.order) || 0;
+                    if (inputOrder < currentOrder) {
+                        if (shouldCheck && !input.checked) {
+                            input.checked = true;
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                });
+            }
+
+            // Enhanced dynamic calculation with comment prefill and cascade logic
             document.addEventListener('change', function (e) {
                 const target = e.target;
 
                 if (target.classList.contains('subtopic-covered-input')) {
                     const topicId = target.dataset.topicId;
                     const subtopicId = target.dataset.subtopicId;
+                    const currentOrder = parseInt(target.dataset.order) || 0;
 
                     if (!topicId) return;
+
+                    // CASCADE: Auto-check all previous subtopics within the same topic
+                    if (target.checked && isCascadeModeEnabled()) {
+                        const siblingInputs = document.querySelectorAll(`.subtopic-covered-input[data-topic-id="${topicId}"]`);
+                        cascadeCheckPrevious(siblingInputs, currentOrder, true);
+                    }
 
                     // Handle comment prefill for subtopics
                     const subtopicCommentInput = document.querySelector(`#subtopic_${subtopicId}_comment`);
@@ -738,7 +776,32 @@
                     calculateTotalGrade();
                 } else if (target.classList.contains('topic-covered-input')) {
                     const topicId = target.dataset.topicId;
+                    const topicRow = target.closest('.topic-row');
+                    const currentOrder = parseInt(topicRow?.dataset.order) || 0;
                     const gradeValue = target.checked ? 100 : 0;
+
+                    // CASCADE: Auto-check all previous topics (without subtopics)
+                    if (target.checked && isCascadeModeEnabled()) {
+                        const allTopicInputs = document.querySelectorAll('.topic-covered-input');
+                        allTopicInputs.forEach(input => {
+                            const row = input.closest('.topic-row');
+                            const inputOrder = parseInt(row?.dataset.order) || 0;
+                            if (inputOrder < currentOrder && !input.checked) {
+                                input.checked = true;
+                                // Update hidden grade field
+                                const inputTopicId = input.dataset.topicId;
+                                const hiddenInput = document.getElementById('topic_grade_' + inputTopicId);
+                                if (hiddenInput) {
+                                    hiddenInput.value = 100;
+                                }
+                                // Prefill comment
+                                const commentInput = document.querySelector(`#topic_${inputTopicId}_comment`);
+                                if (commentInput) {
+                                    prefillComment(commentInput, inputTopicId);
+                                }
+                            }
+                        });
+                    }
 
                     // Handle comment prefill for topics
                     const topicCommentInput = document.querySelector(`#topic_${topicId}_comment`);

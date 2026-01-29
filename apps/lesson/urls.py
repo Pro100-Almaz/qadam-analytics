@@ -22,7 +22,6 @@ urlpatterns = [
     path('subtopic/update/<int:pk>', views.update_subtopic, name='update_subtopic'),
     path('subtopic/distribute_equally/<int:lesson_id>', views.distribute_subtopic_weights_equally, name='distribute_subtopic_weights_equally'),
 
-
     path('<int:pk>/', views.lesson_details, name='lesson_details'),
     # path('list/<int:pk>/', views.lesson_details_json, name='lesson_details_json'),
     # path('comment-template/create/', views.comment_template_create, name='comment_template_create'),

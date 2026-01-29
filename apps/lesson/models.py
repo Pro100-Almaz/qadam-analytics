@@ -79,101 +79,6 @@ class Lesson(models.Model):
         return total_grade
 
 
-class AssessmentItem(models.Model):
-    """
-    A gradable item within a SubjectOffering.
-    Examples: Homework 1, Quiz 2, Midterm Exam, Class Participation
-    """
-    TYPE_CHOICES = [
-        ('homework', 'Homework'),
-        ('quiz', 'Quiz'),
-        ('test', 'Test'),
-        ('exam', 'Exam'),
-        ('project', 'Project'),
-        ('participation', 'Participation'),
-        ('other', 'Other'),
-    ]
-
-    offering = models.ForeignKey(
-        'home.SubjectOffering',
-        on_delete=models.CASCADE,
-        related_name='assessment_items'
-    )
-    lesson = models.ForeignKey(
-        Lesson,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='assessment_items',
-        help_text="Optional: link to specific lesson"
-    )
-
-    name = models.CharField(max_length=200)
-    assessment_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='homework')
-    max_points = models.PositiveIntegerField(default=10)
-    weight = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=1.0,
-        help_text="Weight for weighted grading strategy"
-    )
-    quarter = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(4)],
-        default=1
-    )
-    date = models.DateField(null=True, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['quarter', 'date', 'name']
-
-    def __str__(self):
-        return f"{self.name} ({self.offering})"
-
-
-class StudentScore(models.Model):
-    """Individual student score for an AssessmentItem."""
-    student = models.ForeignKey(
-        'authentication.Student',
-        on_delete=models.CASCADE,
-        related_name='scores'
-    )
-    assessment_item = models.ForeignKey(
-        AssessmentItem,
-        on_delete=models.CASCADE,
-        related_name='scores'
-    )
-    points_earned = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
-        validators=[MinValueValidator(0)]
-    )
-    comment = models.TextField(blank=True)
-
-    graded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='graded_scores'
-    )
-    graded_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('student', 'assessment_item')
-
-    def __str__(self):
-        return f"{self.student}: {self.points_earned}/{self.assessment_item.max_points}"
-
-    @property
-    def percentage(self):
-        if self.assessment_item.max_points > 0:
-            return (self.points_earned / self.assessment_item.max_points) * 100
-        return 0
-
-
 class Topic(models.Model):
     lesson = models.ForeignKey(
         Lesson,
@@ -188,6 +93,10 @@ class Topic(models.Model):
         on_delete=models.CASCADE
     )
     title = models.CharField(max_length=255)
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Sequence order for accumulation logic (lower = earlier)"
+    )
     weight = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -201,6 +110,7 @@ class Topic(models.Model):
 
     class Meta:
         unique_together = ('lesson', 'title')
+        ordering = ['order', 'id']
 
     def __str__(self):
         return f"{self.title} ({self.weight}%)"

@@ -4,10 +4,12 @@ from django.http import HttpResponse
 from django.urls import path, include  # add this
 from django.conf.urls.static import static
 from apps.home.views import main_page
+from apps.home.admin_views import bulk_enroll_view
 
 
 urlpatterns = [
     path("", main_page),
+    path('admin/bulk-enroll/', bulk_enroll_view, name='admin_bulk_enroll_form'),
     path('admin/', admin.site.urls),  # Django admin route
     path("", include("apps.authentication.urls")),  # Auth routes - login / register
     path("pages/", include("apps.home.urls")),      # UI Kits Html files

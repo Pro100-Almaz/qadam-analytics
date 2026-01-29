@@ -3,6 +3,7 @@ import json
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import models
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
@@ -162,9 +163,9 @@ def lesson_details(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
     students = Student.objects.filter(
-        enrollment__class_group=lesson.offering.class_group,
-        enrollment__academic_year=lesson.offering.academic_year,
-        enrollment__status='active'
+        enrollments__class_group=lesson.offering.class_group,
+        enrollments__academic_year=lesson.offering.academic_year,
+        enrollments__status='active'
     ).distinct()
 
     student_grades = {}
@@ -207,6 +208,11 @@ def create_topic(request, pk):
             topic = form.save(commit=False)
             topic.lesson = lesson
             topic.parent = None
+            # Auto-assign order: next available order number
+            max_order = Topic.objects.filter(lesson=lesson, parent__isnull=True).aggregate(
+                max_order=models.Max('order')
+            )['max_order'] or 0
+            topic.order = max_order + 1
             topic.save()
 
             recalculate_topic_weights(lesson)
@@ -310,7 +316,13 @@ def create_subtopic(request, pk):
         if form.is_valid():
             subtopic = form.save(commit=False)
             subtopic.lesson = lesson
+            parent = form.cleaned_data.get('parent')
 
+            # Auto-assign order: next available order number within parent topic
+            max_order = Topic.objects.filter(lesson=lesson, parent=parent).aggregate(
+                max_order=models.Max('order')
+            )['max_order'] or 0
+            subtopic.order = max_order + 1
             subtopic.weight = 0
             subtopic.save()
 
@@ -405,9 +417,9 @@ def grading(request, pk):
         return permission_denied_response("You can only grade lessons for your own subjects.")
 
     students = Student.objects.filter(
-        enrollment__class_group=lesson.offering.class_group,
-        enrollment__academic_year=lesson.offering.academic_year,
-        enrollment__status='active'
+        enrollments__class_group=lesson.offering.class_group,
+        enrollments__academic_year=lesson.offering.academic_year,
+        enrollments__status='active'
     ).distinct()
     topics = Topic.objects.filter(lesson=lesson)
     topic_grade_rows = (

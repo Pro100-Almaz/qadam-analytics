@@ -14,30 +14,30 @@ x-django-env: &django-env
     DB_PORT: 5432
 
 services:
-  appseed-app:
-    container_name: appseed_app_dev
-    restart: unless-stopped
-    build: .
-    <<: *django-env
-    environment:
-      DEBUG: ${DEBUG:-True}
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-core.settings}
-      SECRET_KEY: ${SECRET_KEY}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
-      DB_NAME: ${DB_NAME:-qadam}
-      DB_USER: ${DB_USER:-qadam}
-      DB_PASSWORD: ${DB_PASSWORD:-qadam}
-      DB_HOST: db
-      DB_PORT: 5432
-      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
-    command: python manage.py runserver 0.0.0.0:8000
-    depends_on: [db]
-    volumes:
-      - .:/app
-      - ${SERVICE_ACCOUNT_FILE}:/app/core/credentials/qadam_sheet_access.json:ro
-    ports:
-      - "8000:8000"
-    networks: [db_network]
+#  appseed-app:
+#    container_name: appseed_app_dev
+#    restart: unless-stopped
+#    build: .
+#    <<: *django-env
+#    environment:
+#      DEBUG: ${DEBUG:-True}
+#      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-core.settings}
+#      SECRET_KEY: ${SECRET_KEY}
+#      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+#      DB_NAME: ${DB_NAME:-qadam}
+#      DB_USER: ${DB_USER:-qadam}
+#      DB_PASSWORD: ${DB_PASSWORD:-qadam}
+#      DB_HOST: db
+#      DB_PORT: 5432
+#      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
+#    command: python manage.py runserver 0.0.0.0:8000
+#    depends_on: [db]
+#    volumes:
+#      - .:/app
+#      - ${SERVICE_ACCOUNT_FILE}:/app/core/credentials/qadam_sheet_access.json:ro
+#    ports:
+#      - "8000:8000"
+#    networks: [db_network]
 
   db:
     container_name: postgres_dev

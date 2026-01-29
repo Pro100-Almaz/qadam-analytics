@@ -57,83 +57,6 @@
                         </nav>
                     </div>
                 </div>
-                <!-- Card stats -->
-                <div class="row">
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card card-stats">
-                            <!-- Card body -->
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col">
-                                        <h5 class="card-title text-uppercase text-muted mb-0">Количество учеников</h5>
-                                        <span class="h2 font-weight-bold mb-0">{{ students_count }}</span>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="icon icon-shape bg-gradient-red text-white rounded-circle shadow">
-                                            <i class="ni ni-active-40"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card card-stats">
-                            <!-- Card body -->
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col">
-                                        <h5 class="card-title text-uppercase text-muted mb-0">Количество уроков (lessons)</h5>
-                                        <span class="h2 font-weight-bold mb-0">{{ lessons_count }}</span>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="icon icon-shape bg-gradient-orange text-white rounded-circle shadow">
-                                            <i class="ni ni-chart-pie-35"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card card-stats">
-                            <!-- Card body -->
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col">
-                                        <h5 class="card-title text-uppercase text-muted mb-0">Средняя оценка
-                                            предмета</h5>
-                                        <span class="h2 font-weight-bold mb-0">{{ average_subject_points }}</span>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="icon icon-shape bg-gradient-green text-white rounded-circle shadow">
-                                            <i class="ni ni-money-coins"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-md-6">
-                        <div class="card card-stats">
-                            <!-- Card body -->
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col">
-                                        <h5 class="card-title text-uppercase text-muted mb-0">Завершенность
-                                            предмета</h5>
-                                        <span class="h2 font-weight-bold mb-0">{{ completion_percent }}%</span>
-                                    </div>
-                                    <div class="col-auto">
-                                        <div class="icon icon-shape bg-gradient-info text-white rounded-circle shadow">
-                                            <i class="ni ni-chart-bar-32"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -141,50 +64,107 @@
     <!-- Page content -->
     <div class="container-fluid mt--6">
         <div class="row">
-            <div class="col-6">
-                <div class="card">
-                    <div class="card-header border-0">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h3 class="mb-0">Учитель:</h3>
-                            </div>
-                            <div class="col text-right">
-                                {% if teacher %}
-                                    {% if teacher.user.first_name and teacher.user.last_name %}
-                                        {{ teacher.user.get_full_name }}
-                                    {% else %}
-                                        {{ teacher.user.username }}
-                                    {% endif %}
-                                {% else %}
-                                    {{ subject_adder.username }}
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header border-0">
+                <div class="d-flex align-items-center justify-content-between flex-wrap">
+                  <div>
+                    <h3 class="mb-0">Детали предмета</h3>
+                    <p class="text-muted mb-0 small">
+                      {{ subject.name }}
+                    </p>
+                  </div>
                 </div>
-            </div>
+              </div>
 
-            <div class="col-6">
-                <div class="card">
-                    <div class="card-header border-0">
-                        <div class="row align-items-center">
-                            <div class="col">
-                                <h3 class="mb-0">Данный урок добавил: </h3>
-                            </div>
-                            <div class="col text-right">
-                                {% if subject_adder.first_name and subject_adder.last_name %}
-                                    {{ subject_adder.first_name }}
-                                    {{ subject_adder.last_name }}
-                                {% else %}
-                                    {{ subject_adder.username }}
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-lg-7 mb-4 mb-lg-0">
+                    <h6 class="text-uppercase text-muted mb-2">Описание</h6>
+                    <p class="mb-0">
+                      {{ subject.description|default:"Описание не указано." }}
+                    </p>
+                  </div>
 
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+                  <div class="col-lg-5">
+                    <ul class="list-group list-group-flush">
+                      <li class="list-group-item px-0 py-2 d-flex align-items-center justify-content-between">
+                        <span class="text-muted">Учитель</span>
+                        <span class="font-weight-600">
+                          {% if teacher %}
+                            {{ teacher.user.get_full_name|default:teacher.user.username }}
+                          {% else %}
+                            {{ subject_adder.get_full_name|default:subject_adder.username }}
+                          {% endif %}
+                        </span>
+                      </li>
+
+                      <li class="list-group-item px-0 py-2 d-flex align-items-center justify-content-between">
+                        <span class="text-muted">Создал</span>
+                        <span class="font-weight-600">
+                          {{ subject_adder.get_full_name|default:subject_adder.username }}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
+
+                <hr class="my-4">
+
+                <div class="row">
+                  <div class="col-md-6 col-xl-3 mb-3 mb-xl-0">
+                    <div class="media align-items-center">
+                      <span class="avatar avatar-sm rounded-circle bg-gradient-red mr-3">
+                        <i class="ni ni-active-40"></i>
+                      </span>
+                      <div class="media-body">
+                        <span class="text-muted text-uppercase small d-block">Ученики</span>
+                        <span class="h4 mb-0">{{ students_count }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6 col-xl-3 mb-3 mb-xl-0">
+                    <div class="media align-items-center">
+                      <span class="avatar avatar-sm rounded-circle bg-gradient-orange mr-3">
+                        <i class="ni ni-chart-pie-35"></i>
+                      </span>
+                      <div class="media-body">
+                        <span class="text-muted text-uppercase small d-block">Уроки</span>
+                        <span class="h4 mb-0">{{ lessons_count }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6 col-xl-3 mb-3 mb-xl-0">
+                    <div class="media align-items-center">
+                      <span class="avatar avatar-sm rounded-circle bg-gradient-green mr-3">
+                        <i class="ni ni-money-coins"></i>
+                      </span>
+                      <div class="media-body">
+                        <span class="text-muted text-uppercase small d-block">Средний балл</span>
+                        <span class="h4 mb-0">{{ average_subject_points|floatformat:1 }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6 col-xl-3">
+                    <div class="media align-items-center">
+                      <span class="avatar avatar-sm rounded-circle bg-gradient-info mr-3">
+                        <i class="ni ni-chart-bar-32"></i>
+                      </span>
+                      <div class="media-body">
+                        <span class="text-muted text-uppercase small d-block">Завершенность</span>
+                        <span class="h4 mb-0">{{ completion_percent }}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
+
 
         <div class="row">
           <!-- Lessons -->
