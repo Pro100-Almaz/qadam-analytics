@@ -65,7 +65,7 @@ def bulk_enroll_view(request):
     class_groups = (
         ClassGroup.objects.filter(academic_year=active_year)
         .select_related('grade_level')
-        .order_by('grade_level__level', 'letter')
+        .order_by('grade_level__number', 'letter')
         if active_year
         else []
     )

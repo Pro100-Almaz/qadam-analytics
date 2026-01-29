@@ -91,7 +91,7 @@ class StudentAdminForm(forms.ModelForm):
         if active_year:
             self.fields['class_group'].queryset = ClassGroup.objects.filter(
                 academic_year=active_year
-            ).select_related('grade_level').order_by('grade_level__level', 'letter')
+            ).select_related('grade_level').order_by('grade_level__number', 'letter')
             self.fields['class_group'].label = f"Класс ({active_year.year})"
 
         # Pre-fill class_group if editing existing student

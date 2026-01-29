@@ -9,7 +9,7 @@ x-django-env:
     DB_USER: ${DB_USER:-qadam}
     DB_PASSWORD: ${DB_PASSWORD:-qadam}
     DB_HOST: db
-    DB_PORT: 5432
+    DB_PORT: 5433
     # AWS_... vars needed by boto3 at runtime:
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -47,6 +47,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-qadam}
       POSTGRES_USER: ${DB_USER:-qadam}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-qadam}
+    ports:
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks: [db_network]
