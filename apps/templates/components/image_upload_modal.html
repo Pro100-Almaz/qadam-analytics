@@ -1,0 +1,128 @@
+<style>
+    .imgUploadModal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+
+    #drop-area {
+        width: 550px;
+        height: 400px;
+        padding: 20px;
+        background: #fff;
+        text-align: center;
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+    #img-view {
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        border: 2px dashed #bbb5ff;
+        background: #f7f8ff;
+        background-position: center;
+        background-size: cover;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #img-view img { width: 100px; margin-bottom: 20px; }
+</style>
+
+<div class="imgUploadModal" id="upload-modal-container">
+    <label for="input-file" id="drop-area">
+        <input type="file" accept="image/*" id="input-file" hidden data-student-id="{{ student.id }}">
+        <div id="img-view">
+            <img src="/media/icon.png">
+            <p>Drag and drop or click here <br>to upload image</p>
+        </div>
+    </label>
+
+    <button id="save-image-btn" style="margin-top: 20px; padding: 10px 20px; border-radius: 5px; cursor: pointer; display: none;">
+        Save Changes
+    </button>
+</div>
+
+<script>
+    const dropArea = document.getElementById('drop-area');
+    const inputFile = document.getElementById('input-file');
+    const imageView = document.getElementById('img-view');
+    const saveBtn = document.getElementById('save-image-btn');
+
+    function handleFileChange() {
+        const file = inputFile.files[0];
+        if (!file) return;
+
+        // Reset preview
+        imageView.innerHTML = '';
+        imageView.style.border = 'none';
+
+        const imgURL = URL.createObjectURL(file);
+        imageView.style.backgroundImage = `url(${imgURL})`;
+        imageView.style.backgroundSize = 'cover';
+        imageView.style.backgroundPosition = 'center';
+
+        saveBtn.style.display = 'block';
+    }
+
+    // File picker
+    inputFile.addEventListener('change', handleFileChange);
+
+    // Drag & drop
+    dropArea.addEventListener('dragover', e => e.preventDefault());
+
+    dropArea.addEventListener('drop', e => {
+        e.preventDefault();
+        inputFile.files = e.dataTransfer.files;
+        handleFileChange();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        const studentId = inputFile.dataset.studentId;
+        const file = inputFile.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const response = await fetch(
+                `/pages/students/${studentId}/upload_student_avatar/`,
+                {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    }
+                }
+            );
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert(data.message || 'Upload failed');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    function getCookie(name) {
+        return document.cookie
+            .split('; ')
+            .find(row => row.startsWith(name + '='))
+            ?.split('=')[1];
+    }
+</script>

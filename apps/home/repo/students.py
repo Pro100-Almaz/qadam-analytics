@@ -212,3 +212,12 @@ def student_profile_update(request, pk):
             messages.error(request, f"Error updating profile: {str(e)}")
 
     return redirect('student_details', pk=student.user.id)
+
+def get_student(pk):
+    return Student.objects.get(pk=pk)
+
+def update_student_avatar(student_id, avatar_file):
+    student = get_student(student_id)
+    student.user.avatar = avatar_file
+    student.user.save()
+    return student.user.avatar.url

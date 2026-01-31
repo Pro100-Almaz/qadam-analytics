@@ -261,8 +261,20 @@
                 {% endif %}>
                 <div class="row align-items-stretch">
                     <div class="col-md-3 d-flex align-items-center justify-content-center">
-                        <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}" alt="Photo" class="profile-avatar">
+                        <div style="position: relative; display: inline-block;">
+                            <img src="{{ student.user.avatar.url|default:'/static/assets/img/theme/team-4.jpg'}}"
+                            alt="Photo"
+                            class="profile-avatar"
+                            style="display: block;">
+                            {% if request.user.is_admin or request.user.is_manager or request.user.is_principle %}
+                                {% include "components/edit_button.html" %}
+                            {% endif %}
+                        </div>
+                        {% if request.user.is_admin or request.user.is_manager or request.user.is_principle %}
+                            {% include "components/image_upload_modal.html" %}
+                        {% endif %}
                     </div>
+
                     <div class="col-md-2 d-flex align-items-center justify-content-center">
                         <div class="text-center" style="color: white">
                             <img src="{{ student.school_group.avatar.url|default:'/static/assets/img/theme/school-group.png'}}"
@@ -1416,5 +1428,17 @@ function psychoInfoBtn() {
     document.getElementById('psychoInfoBtn').style.color = '#0d6efd';
 }
 
+const uploadModal = document.querySelector('.imgUploadModal');
+const openBtn = document.getElementById('open-upload-modal');
+
+openBtn.addEventListener('click', () => {
+    uploadModal.style.display = 'flex';
+});
+
+uploadModal.addEventListener('click', (e) => {
+    if (e.target === uploadModal) {
+        uploadModal.style.display = 'none';
+    }
+});
 </script>
 {% endblock javascripts %}

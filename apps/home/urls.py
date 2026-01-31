@@ -5,6 +5,7 @@ from apps.home.repo.students import students_list, student_details, classes, stu
 from apps.home.repo.teachers import teacher_details, teacher_profile_update
 from apps.home.repo.subject import subjects_list, my_subjects_list, subject_create, subject_details, archive_subject, \
     delete_subject, extract_subject, process_status_subject
+from apps.home.api.students import api_upload_student_avatar
 
 urlpatterns = [
     # API endpoints
@@ -19,6 +20,7 @@ urlpatterns = [
     path('students/<int:pk>', student_details, name='student_details'),
     path('students/<int:pk>/psychological_state_create', views.create_psychological_state, name='psychological_state_create'),
     path('students/<int:pk>/student_profile_update', student_profile_update, name='student_profile_update'),
+    path('students/<int:pk>/upload_student_avatar/', api_upload_student_avatar, name='upload_student_avatar'),
     path('students/<int:pk>/psychological_state_create/template', views.create_psychological_state_template, name='psychological_state_create_template'),
 
 
