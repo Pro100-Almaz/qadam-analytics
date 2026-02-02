@@ -212,3 +212,10 @@ def student_profile_update(request, pk):
             messages.error(request, f"Error updating profile: {str(e)}")
 
     return redirect('student_details', pk=student.user.id)
+
+
+def get_student(student_id : int):
+    return Student.objects.get(id=student_id)
+
+def get_all_students():
+    return Student.objects.all()
