@@ -162,27 +162,38 @@ def lesson_group_create(request):
 def lesson_details(request, pk):
     lesson = get_object_or_404(Lesson, pk=pk)
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
-    students = Student.objects.filter(
+    students = list(Student.objects.filter(
         enrollments__class_group=lesson.offering.class_group,
         enrollments__academic_year=lesson.offering.academic_year,
         enrollments__status='active'
-    ).distinct()
+    ).distinct())
+
+    # Fetch all topic grades for all students in one query
+    all_topic_grades = TopicGrade.objects.filter(
+        topic__lesson=lesson,
+        student__in=students
+    ).values("student_id", "topic_id", "grade", "comment")
+
+    # Build grades map for bulk calculation
+    grades_map = {}
+    topic_grades_by_student = {}
+    for tg in all_topic_grades:
+        grades_map[(tg['topic_id'], tg['student_id'])] = tg['grade']
+        if tg['student_id'] not in topic_grades_by_student:
+            topic_grades_by_student[tg['student_id']] = {}
+        topic_grades_by_student[tg['student_id']][tg['topic_id']] = {
+            "grade": tg["grade"],
+            "comment": tg["comment"] or "",
+        }
 
     student_grades = {}
-
     for student in students:
         s_key = student.user.id
-        student_grades[s_key] = {"grade_total": (round(lesson.calculate_student_grade(student), 1))}
-
-        topic_grades = TopicGrade.objects.filter(
-            student=student, topic__lesson=lesson
-        ).values("topic_id", "grade", "comment")
-
-        for grade in topic_grades:
-            student_grades[s_key][grade["topic_id"]] = {
-                "grade": grade["grade"],
-                "comment": grade["comment"] or "",
-            }
+        student_grades[s_key] = {
+            "grade_total": round(lesson.calculate_student_grade(student, grades_map), 1)
+        }
+        # Add individual topic grades
+        student_grades[s_key].update(topic_grades_by_student.get(student.id, {}))
 
     context = {
         'lesson': lesson,
@@ -416,21 +427,22 @@ def grading(request, pk):
     if not can_modify_lesson(request.user, lesson):
         return permission_denied_response("You can only grade lessons for your own subjects.")
 
-    students = Student.objects.filter(
+    students = list(Student.objects.filter(
         enrollments__class_group=lesson.offering.class_group,
         enrollments__academic_year=lesson.offering.academic_year,
         enrollments__status='active'
-    ).distinct()
+    ).distinct())
     topics = Topic.objects.filter(lesson=lesson)
     topic_grade_rows = (
         TopicGrade.objects
         .filter(topic__lesson=lesson, student__in=students)
-        .select_related("student__user")
-        .values("student__user_id", "topic_id", "grade", "comment")
+        .select_related("student__user", "student")
+        .values("student__user_id", "student_id", "topic_id", "grade", "comment")
     )
 
     topic_grade_map = {}
     has_grades = {}
+    grades_map = {}  # For bulk grade calculation
 
     for grade in topic_grade_rows:
         student_id = grade["student__user_id"]
@@ -440,6 +452,8 @@ def grading(request, pk):
             "comment": grade["comment"] or ""
         }
         has_grades[student_id] = True
+        # Build grades_map for calculate_student_grade
+        grades_map[(grade["topic_id"], grade["student_id"])] = grade["grade"]
 
 
     # Comments merged/selecteed
@@ -477,9 +491,10 @@ def grading(request, pk):
     for topic in topics:
         comment_templates[topic.id] = topic.comment_template
 
+    # Calculate student grades using prefetched data (no additional queries)
     student_grades = {}
     for student in students:
-        student_grades[student.user.id] = round(lesson.calculate_student_grade(student), 1)
+        student_grades[student.user.id] = round(lesson.calculate_student_grade(student, grades_map), 1)
 
 
 

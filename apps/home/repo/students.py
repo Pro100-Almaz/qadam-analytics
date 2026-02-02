@@ -57,12 +57,57 @@ def students_list(request):
     return render(request, 'home/students.html', context)
 
 
-def calculate_quarter_grade(quarter, offering, student):
-    """Calculate student's grade for a specific quarter in an offering."""
+def calculate_quarter_grade(quarter, offering, student, grades_map=None):
+    """
+    Calculate student's grade for a specific quarter in an offering.
+
+    Args:
+        quarter: Quarter number (1-4)
+        offering: SubjectOffering instance
+        student: Student instance
+        grades_map: Optional dict mapping (lesson_id, student_id) -> grade.
+                   If provided, uses this instead of querying the database.
+    """
     lessons = Lesson.objects.filter(offering=offering, quarter=quarter)
     lesson_quarter_grades = []
-    for lesson in lessons:
-        lesson_quarter_grades.append(round(lesson.calculate_student_grade(student), 1))
+
+    if grades_map is not None:
+        # Use pre-fetched grades
+        for lesson in lessons:
+            grade = grades_map.get((lesson.id, student.id), 0)
+            lesson_quarter_grades.append(round(grade, 1))
+    else:
+        # Fallback: fetch grades for this student and these lessons in one query
+        from apps.lesson.models import TopicGrade, Topic
+        lesson_ids = list(lessons.values_list('id', flat=True))
+        topic_grades = TopicGrade.objects.filter(
+            topic__lesson_id__in=lesson_ids,
+            student=student
+        ).values('topic_id', 'topic__lesson_id', 'grade')
+
+        local_grades_map = {}
+        for tg in topic_grades:
+            local_grades_map[(tg['topic_id'], student.id)] = tg['grade']
+
+        # Get parent topics with weights
+        parent_topics = Topic.objects.filter(
+            lesson_id__in=lesson_ids,
+            parent__isnull=True
+        ).values('id', 'lesson_id', 'weight')
+
+        topics_by_lesson = {}
+        for t in parent_topics:
+            if t['lesson_id'] not in topics_by_lesson:
+                topics_by_lesson[t['lesson_id']] = []
+            topics_by_lesson[t['lesson_id']].append(t)
+
+        for lesson in lessons:
+            total_grade = 0
+            for topic in topics_by_lesson.get(lesson.id, []):
+                grade = local_grades_map.get((topic['id'], student.id), 0)
+                total_grade += grade * (float(topic['weight']) / 100)
+            lesson_quarter_grades.append(round(total_grade, 1))
+
     try:
         subject_quarter_grade = sum(lesson_quarter_grades) / len(lesson_quarter_grades)
         return subject_quarter_grade
@@ -96,27 +141,36 @@ def student_details(request, pk):
 
     # Get offerings for the student's class
     from apps.home.models import SubjectOffering
+    from apps.lesson.models import TopicGrade, Topic
     offerings = []
     if current_enrollment:
-        offerings = SubjectOffering.objects.filter(
+        offerings = list(SubjectOffering.objects.filter(
             class_group=current_class_group,
             academic_year=current_enrollment.academic_year
-        ).select_related('subject')
+        ).select_related('subject'))
 
     # Get lessons for these offerings
-    lessons = Lesson.objects.filter(offering__in=offerings)
+    lessons = list(Lesson.objects.filter(offering__in=offerings))
 
     templates = PsychologicalStateTemplates.objects.all()
     psychological_states = PsychologicalState.objects.filter(student_id=student.id)
     last_state = psychological_states.last()
     last_updated = last_state.time_added if last_state else None
 
-    # Calculate grades per quarter per subject
+    # Bulk fetch all grades for this student across all lessons (single query)
+    grades_map = Lesson.calculate_grades_bulk(lessons, [student]) if lessons else {}
+
+    # Calculate grades per quarter per subject using bulk-fetched data
     subject_quarter_grades = {}
     for quarter in [1, 2, 3, 4]:
         subject_quarter_grades[quarter] = {}
         for offering in offerings:
-            grade = calculate_quarter_grade(quarter, offering, student)
+            quarter_lessons = [l for l in lessons if l.offering_id == offering.id and l.quarter == quarter]
+            if quarter_lessons:
+                lesson_grades = [grades_map.get((l.id, student.id), 0) for l in quarter_lessons]
+                grade = sum(lesson_grades) / len(lesson_grades)
+            else:
+                grade = 0
             subject_quarter_grades[quarter][offering.subject.name] = grade if grade is not None else 0
 
     # Calculate total quarter grades
