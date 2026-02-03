@@ -437,7 +437,7 @@ def grading(request, pk):
         TopicGrade.objects
         .filter(topic__lesson=lesson, student__in=students)
         .select_related("student__user", "student")
-        .values("student__user_id", "student_id", "topic_id", "grade", "comment")
+        .values("student__user_id", "student_id", "topic_id", "grade", "comment", "comment_selected")
     )
 
     topic_grade_map = {}
@@ -449,7 +449,8 @@ def grading(request, pk):
         key = f"{student_id}-{grade['topic_id']}"
         topic_grade_map[key] = {
             "grade": round(grade["grade"], 1),
-            "comment": grade["comment"] or ""
+            "comment": grade["comment"] or "",
+            "comment_selected": grade["comment_selected"]
         }
         has_grades[student_id] = True
         # Build grades_map for calculate_student_grade
@@ -555,7 +556,7 @@ def submit_all_topic_grades(request):
 
                 sub_defaults = {'grade': grade_value,
                             'comment': request.POST.get(f'subtopic_{sub.id}_comment', '').strip(),
-                            'comment_selected': False}
+                            'comment_selected': bool(request.POST.get(f'subtopic_{sub.id}_comment_selected', ''))}
 
                 if comment_mode == "merged":
                     toMerge += f"{topic.title} -- {sub.title}: " + sub_defaults['comment'] + '\n'
@@ -671,8 +672,12 @@ def delete_grade(request, student_id, lesson_id):
         if not can_grade_student(request.user, lesson, student):
             return permission_denied_response("You can only delete grades for students in your own subjects.")
 
-        topic_grades = TopicGrade.objects.filter(student_id=student_id, topic__lesson=lesson)
+        topic_grades = TopicGrade.objects.filter(student=student, topic__lesson=lesson)
         topic_grades.delete()
+
+        # Also delete merged comment if exists
+        MergedLessonComment.objects.filter(lesson=lesson, student=student).delete()
+
         return redirect('lesson:grading', pk=lesson_id)
     return redirect('lesson:grading', pk=lesson_id)
 
