@@ -329,6 +329,7 @@ def subject_details(request, pk):
     ).select_related('class_group') if current_year else []
 
     # Get students enrolled in these offerings
+    student_ids_seen = set()
     students = []
     for offering in offerings:
         enrollments = Enrollment.objects.filter(
@@ -336,19 +337,27 @@ def subject_details(request, pk):
             academic_year=offering.academic_year,
             status='active'
         ).select_related('student', 'student__user')
-        students.extend([e.student for e in enrollments])
-    students = list(set(students))  # Remove duplicates
+        for e in enrollments:
+            if e.student.id not in student_ids_seen:
+                student_ids_seen.add(e.student.id)
+                students.append(e.student)
 
     # Get lessons for this subject's offerings
-    total_lessons = Lesson.objects.filter(offering__in=offerings)
-    lessons = total_lessons.filter(quarter=quarter).order_by('created_at')
+    total_lessons = list(Lesson.objects.filter(offering__in=offerings))
+    lessons = [l for l in total_lessons if l.quarter == quarter]
+    lessons.sort(key=lambda x: x.created_at)
 
-    # Calculate grades
+    # Calculate all grades in bulk (single query instead of L*S queries)
+    all_grades_map = Lesson.calculate_grades_bulk(total_lessons, students)
+
+    # Build lesson_avgs from bulk results
     lesson_avgs = {}
     for lesson in lessons:
         lesson_avgs[lesson.id] = {}
         for student in students:
-            lesson_avgs[lesson.id][student.id] = round(lesson.calculate_student_grade(student), 1)
+            lesson_avgs[lesson.id][student.id] = round(
+                all_grades_map.get((lesson.id, student.id), 0), 1
+            )
 
     student_grades = {}
     total_student_grades = {}
@@ -360,13 +369,13 @@ def subject_details(request, pk):
         total_student_grade = 0
         student_grade = 0
 
+        # Sum grades for all lessons (using bulk results)
         for lesson in total_lessons:
-            if lesson.id in lesson_avgs and student.id in lesson_avgs[lesson.id]:
-                total_student_grade += lesson_avgs[lesson.id][student.id]
+            total_student_grade += all_grades_map.get((lesson.id, student.id), 0)
 
+        # Sum grades for quarter lessons
         for lesson in lessons:
-            if lesson.id in lesson_avgs and student.id in lesson_avgs[lesson.id]:
-                student_grade += lesson_avgs[lesson.id][student.id]
+            student_grade += all_grades_map.get((lesson.id, student.id), 0)
 
         if len_lessons > 0:
             student_grade /= len_lessons
@@ -405,7 +414,7 @@ def subject_details(request, pk):
 
     # KPI metrics
     students_count = len(students)
-    lessons_count = total_lessons.count()
+    lessons_count = len(total_lessons)
 
     if student_grades:
         average_subject_points = round(

@@ -17,7 +17,7 @@ class CustomUserAdmin(UserAdmin):
     readonly_fields = ("avatar_preview",)
 
     fieldsets = (
-        (None, {"fields": ("username", "password")}),
+        ('Account Info', {"fields": ("username", "password")}),
         ("Avatar", {"fields": ("avatar_preview", "avatar")}),
         ("Personal info", {
             "fields": ("first_name", "last_name", "email", "phone_number", "date_of_birth", "address", "school")
@@ -245,8 +245,44 @@ class StudentAdmin(ModelAdmin):
         self.message_user(request, f"Отчислено {count} студентов.", messages.SUCCESS)
 
 
-# admin.site.register(Student)
-admin.site.register(Parent)
+class ParentAdminForm(forms.ModelForm):
+    students = forms.ModelMultipleChoiceField(
+        queryset=Student.objects.all(),
+        widget=admin.widgets.FilteredSelectMultiple('Students', is_stacked=False),
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['students'].label_from_instance = lambda obj : obj.get_admin_label()
+
+    class Meta:
+        model = Parent
+        fields = '__all__'
+
+
+@admin.register(Parent)
+class ParentAdmin(ModelAdmin):
+    form = ParentAdminForm
+    list_display = ["full_name"]
+    search_fields = ('user__first_name', 'user__last_name')
+
+    def full_name(self, obj):
+        return obj.user.get_full_name()
+
+    fieldsets = (
+        ('User Info', {'fields' : ('user',)}),
+        ('Assigned Students', {"fields": ("students",)}),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related(
+            'students__user',
+            'students__enrollments__class_group',
+        )
+
+
+
 admin.site.register(Teacher)
 admin.site.register(Supervisor)
 

@@ -187,6 +187,13 @@ class Student(models.Model):
     def __str__(self):
         return self.user.get_full_name() or self.user.username
 
+    def get_admin_label(self):
+        name = str(self)
+        enrollment = self.enrollments.filter(status='active').first()
+        if enrollment and enrollment.class_group:
+            return f'{name} ({enrollment.class_group.grade_level}{enrollment.class_group.letter})'
+        return name
+
     def get_current_enrollment(self):
         """Get current active enrollment."""
         from apps.home.models import Enrollment

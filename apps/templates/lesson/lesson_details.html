@@ -165,8 +165,9 @@
                             <table class="table mb-0" style="table-layout: fixed; width: 100%">
                                 <thead>
                                 <tr>
-                                    <th style="width: 50%;">Topics</th>
-                                    <th style="width: 15%;">Weight</th>
+                                    <th style="width: 10%;">#</th>
+                                    <th style="width: 45%;">Topics</th>
+                                    <th style="width: 10%;">Weight</th>
                                     <th class="text-center" style="width: 35%;">Action</th>
                                 </tr>
                                 </thead>
@@ -174,6 +175,7 @@
                                 {% for topic in topics %}
                                     {% if not topic.parent %}
                                         <tr>
+                                            <td>{{ forloop.counter }}</td>
                                             <td class="text-wrap-column">{{ topic.title }}</td>
                                             <td>{{ topic.weight }}</td>
                                             <td class="text-center">
@@ -226,8 +228,9 @@
                         <table class="table">
                             <thead>
                             <tr>
-                                <th style="width: 50%;">Title</th>
-                                <th style="width: 15%;">Weight</th>
+                                <th style="width: 10%;">#</th>
+                                <th style="width: 45%;">Title</th>
+                                <th style="width: 10%;">Weight</th>
                                 <th class="text-center" style="width: 35%;">Action</th>
                             </tr>
                             </thead>
@@ -235,6 +238,7 @@
                             {% for topic in topics %}
                                 {% for subtopic in topic.subtopics.all %}
                                     <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
+                                        <td>{{ forloop.counter }}</td>
                                         <td class="text-wrap-column">{{ subtopic.title }}</td>
                                         <td>{{ subtopic.weight }}</td>
                                         <td class="text-center">
@@ -352,7 +356,7 @@
                         </div>
                         <div class="form-group">
                             <label for="title">Шаблон для комментария</label>
-                            <input type="text" class="form-control" id="comment_template" name="comment_template" required>
+                            <textarea class="form-control" id="comment_template" name="comment_template" rows="4" required></textarea>
                         </div>
                         <div class="form-group" hidden>
                             <label for="weight">Вес</label>
@@ -392,22 +396,19 @@
                         </div>
                         <div class="form-group">
                             <label>Шаблон комментария будет изменен на:</label>
-                            <input type="text" class="form-control" name="comment_template" value="" placeholder="" required>
+                            <textarea class="form-control" name="comment_template" rows="4" required></textarea>
                         </div>
                         <div class="text-warning">
                             <small>
-                                After changing this topic's weight, the total weight proportions for all other grades
-                                will NOT be distributed automatically
-                                Please, make sure to manually distribute weights, or auto equalize them!
+                                После изменения веса этой темы, общее распределение веса для всех остальных оценок
+                                НЕ будет производиться автоматически. Пожалуйста, убедитесь, что вы распределяете
+                                веса вручную или автоматически выравниваете их!
                             </small>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary"
-                                onclick="setTimeout(() => window.location.reload(), 2000);">
-                            Сохранить
-                        </button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
                     </div>
                 </div>
             </form>
@@ -442,11 +443,13 @@
                         </div>
                         <div class="form-group">
                             <label for="title">Шаблон комментария</label>
-                            <input type="text" class="form-control" id="comment_template" name="comment_template" required>
+                            <textarea class="form-control" id="comment_template" name="comment_template" rows="4" required></textarea>
                         </div>
                         <div class="text-warning">
-                            <small>After adding a new subtopic, the total weight proportions for all other subtopics
-                                (even from other topics) will be distributed automatically</small>
+                            <small>
+                                После добавления новой подтемы общий вес всех остальных подтем (даже из других тем)
+                                будет распределен автоматически.
+                            </small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -480,14 +483,12 @@
                         </div>
                         <div class="form-group">
                             <label>Шаблон комментария будет изменен на:</label>
-                            <input type="text" class="form-control" name="comment_template" value="" placeholder="" required>
+                            <textarea class="form-control" name="comment_template" rows="4" required></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-neutral" data-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary"
-                                onclick="setTimeout(() => window.location.reload(), 2000);">Сохранить
-                        </button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
                     </div>
                 </div>
             </form>
@@ -504,7 +505,7 @@
                 <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
                 <div class="modal-content" style="width: 1200px">
                     <div class="modal-header">
-                        <h5 class="modal-title">Оценка ученика</h5>
+                        <h5 class="modal-title">Сохранить</h5>
                         <button type="button" class="close" data-dismiss="modal">×</button>
                     </div>
                     <div class="modal-body" >
@@ -699,7 +700,7 @@
             const modal = $(this);
             modal.find('input[name="title"]').val(title);
             modal.find('input[name="weight"]').val(weight);
-            modal.find('input[name="comment_template"]').val(comment_template);
+            modal.find('textarea[name="comment_template"]').val(comment_template);
             modal.find('form').attr('action', `/lessons/topic/update/${id}`);
         });
 
@@ -713,8 +714,90 @@
             const modal = $(this);
             modal.find('input[name="title"]').val(title);
             modal.find('input[name="weight"]').val(weight);
-            modal.find('input[name="comment_template"]').val(comment_template);
+            modal.find('textarea[name="comment_template"]').val(comment_template);
             modal.find('form').attr('action', `/lessons/topic/update/${id}`);
+        });
+
+        // ============ AJAX Form Submissions ============
+
+        // Helper: Save current selections to sessionStorage
+        function saveSelections() {
+            const topicSelect = document.getElementById('topicSelect');
+            if (topicSelect && topicSelect.value) {
+                sessionStorage.setItem('selectedTopicId', topicSelect.value);
+            }
+        }
+
+        // Helper: Restore selections from sessionStorage
+        function restoreSelections() {
+            const savedTopicId = sessionStorage.getItem('selectedTopicId');
+            if (savedTopicId) {
+                const topicSelect = document.getElementById('topicSelect');
+                if (topicSelect) {
+                    topicSelect.value = savedTopicId;
+                    topicSelect.dispatchEvent(new Event('change'));
+                }
+                sessionStorage.removeItem('selectedTopicId');
+            }
+        }
+
+        // Restore selections on page load
+        restoreSelections();
+
+        // Helper: Submit form via AJAX and reload page preserving selections
+        function submitFormAjax(form, modal) {
+            const formData = new FormData(form);
+            const url = form.getAttribute('action');
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok || response.redirected) {
+                    saveSelections();
+                    $(modal).modal('hide');
+                    window.location.reload();
+                } else {
+                    alert('Ошибка при сохранении. Попробуйте еще раз.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при сохранении. Попробуйте еще раз.');
+            });
+        }
+
+        // Create Topic form AJAX submission
+        $('#createTopicModal form').on('submit', function(e) {
+            e.preventDefault();
+            submitFormAjax(this, '#createTopicModal');
+        });
+
+        // Create Subtopic form AJAX submission
+        $('#createSubtopicModal form').on('submit', function(e) {
+            e.preventDefault();
+            // Save the parent topic selection from the subtopic modal
+            const parentSelect = this.querySelector('select[name="parent"]');
+            if (parentSelect && parentSelect.value) {
+                sessionStorage.setItem('selectedTopicId', parentSelect.value);
+            }
+            submitFormAjax(this, '#createSubtopicModal');
+        });
+
+        // Edit Topic form AJAX submission
+        $('#editTopicModal form').on('submit', function(e) {
+            e.preventDefault();
+            submitFormAjax(this, '#editTopicModal');
+        });
+
+        // Edit Subtopic form AJAX submission
+        $('#editSubtopicModal form').on('submit', function(e) {
+            e.preventDefault();
+            submitFormAjax(this, '#editSubtopicModal');
         });
     </script>
 {% endblock javascripts %}
