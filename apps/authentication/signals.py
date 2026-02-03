@@ -7,7 +7,7 @@ from django.dispatch import receiver
 
 @receiver(user_logged_in)
 def show_role_message(sender, user, request, **kwargs):
-    message = "You logged in as a " + getattr(user, 'role', None)
+    message = "You logged in as a " #+ getattr(user, 'role', None)
     messages.success(request, message)
 
     from apps.notification.models import Notification, LoginNotify
