@@ -362,30 +362,11 @@
         </div>
 
 {#    Display comment modal#}
-        <div id="commentModal" class="modal" style="display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center;">
-            <div class="modal-content" style="background-color: #fff; border-radius: 8px; width: 70%; max-height: 85vh; display: flex; flex-direction: column; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-
-                <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 class="mb-0" style="font-size: 1.25rem;">Детали комментария</h3>
-                    <span id="closeModal" style="font-size: 28px; cursor: pointer; line-height: 1;">&times;</span>
-                </div>
-
-                <div class="modal-body" style="padding: 20px; overflow-y: auto; flex-grow: 1;">
-                    <table class="table table-hover border">
-                        <thead class="thead-light" style="position: sticky; top: -20px; z-index: 1; background: #f8f9fa;">
-                            <tr>
-                                <th style="width: 30%;">Тема / Подтема</th>
-                                <th style="width: 70%;">Комментарий</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modalTableBody">
-                            </tbody>
-                    </table>
-                </div>
-
-                <div class="modal-footer" style="padding: 10px 20px; border-top: 1px solid #dee2e6; text-align: right;">
-                    <button class="btn btn-secondary" onclick="document.getElementById('commentModal').style.display='none'">Закрыть</button>
-                </div>
+        <div id="commentModal" class="custom-modal">
+            <div class="modal-content">
+                <span class="close-btn" id="closeModal">&times;</span>
+                <h2 class="modal-title">Полный комментарий</h2>
+                <div id="modalComment" class="modal-body"></div>
             </div>
         </div>
 
@@ -495,7 +476,7 @@
                                                     </td>
                                                 </tr>
 
-                                                    {% if subcount > 0 %}
+                                                {% if subcount > 0 %}
                                                     <tr class="subtopics-row d-none" data-topic-id="{{ topic.id }}">
                                                         <td colspan="5">
                                                             <table class="table mb-0">
@@ -512,7 +493,7 @@
                                                                 <tbody>
                                                                 {% for subtopic in topic.subtopics.all %}
                                                                     <tr>
-                                                                        <td class="text-box">{{ subtopic.title }}</td>
+                                                                        <td class="text-wrap-column">{{ subtopic.title }}</td>
                                                                         <td>{{ subtopic.weight }}</td>
                                                                         <td class="subtopic-overall-weight"
                                                                             data-topic-weight="{{ topic.weight }}"
@@ -900,8 +881,6 @@
             setTimeout(calculateTotalGrade, 200);
         });
 
-
-
         const checkboxes = document.querySelectorAll('input[type="checkbox"]');
         const detectToggleOnce = (e) => {
             e.target.classList.add('toggled-once');
@@ -927,9 +906,6 @@
                 });
             }
         }
-
-
-
 
         const selectedModeBtn = document.getElementById("selected-mode-btn");
         const mergedModeBtn = document.getElementById("merged-mode-btn");
@@ -962,49 +938,14 @@
             });
 
             // Comment Preview
-            // Comment Preview Logic
-        document.querySelectorAll(".comment-preview").forEach(span => {
-            span.addEventListener("click", function() {
-                const modal = document.getElementById("commentModal");
-                const tableBody = document.getElementById("modalTableBody");
-                const rawText = this.dataset.full;
-
-                if (!rawText) return;
-
-                // Clear previous content
-                tableBody.innerHTML = "";
-
-                // Split by newline
-                const lines = rawText.split(/\r?\n/);
-
-                lines.forEach(line => {
-                    if (line.trim() === "") return;
-
-                    let topic = "Общий";
-                    let comment = line;
-
-                    // Robust split: find the first colon
-                    const colonIndex = line.indexOf(':');
-                    if (colonIndex !== -1) {
-                        topic = line.substring(0, colonIndex).trim();
-                        comment = line.substring(colonIndex + 1).trim();
-                    }
-                    // Create table row
-                    const row = `
-                        <tr>
-                            <td class="font-weight-bold text-primary text-wrap-column" style="word-wrap: break-word; background: #fcfcfc;">
-                                ${topic}
-                            </td>
-                            <td style="white-space: pre-wrap; word-wrap: break-word;">
-                                ${comment || '<em class="text-muted">Нет комментария</em>'}
-                            </td>
-                        </tr>
-                    `;
-                    tableBody.insertAdjacentHTML('beforeend', row);
+            document.querySelectorAll(".comment-preview").forEach(span => {
+                span.addEventListener("click", function() {
+                    const modal = document.getElementById("commentModal");
+                    const modalComment = document.getElementById("modalComment");
+                    modalComment.textContent = this.dataset.full;
+                    modal.style.display = "flex";
                 });
-                modal.style.display = "flex";
             });
-        });
 
             document.getElementById("closeModal").addEventListener("click", function() {
                 document.getElementById("commentModal").style.display = "none";

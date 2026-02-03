@@ -8,6 +8,7 @@ urlpatterns = [
     path('grading/<int:pk>', views.grading, name='grading'),
     path('grading/submit', views.submit_all_topic_grades, name='submit_all_topic_grades'),
     path('grading/update/<int:pk>', views.update_grade, name='update_grade'),
+    path('grading/update_merged_comment', views.update_merged_comment, name='update_merged_comment'),
     path('grading/display/<int:student_id>/<int:lesson_id>', views.display_grade, name='display_grade'),
     path('grading/delete/<int:student_id>/<int:lesson_id>', views.delete_grade, name='delete_grade'),
     path('create/', views.lesson_create, name='new_lesson'),

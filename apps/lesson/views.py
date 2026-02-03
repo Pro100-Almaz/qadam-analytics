@@ -683,6 +683,22 @@ def delete_grade(request, student_id, lesson_id):
     return redirect('lesson:grading', pk=lesson_id)
 
 
+@role_required('teacher', 'admin')
+def update_merged_comment(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        student_id = data.get('student_id')
+        lesson_id = data.get('lesson_id')
+        new_text = data.get('comment_text')
+
+        MergedLessonComment.objects.update_or_create(
+            lesson_id=lesson_id,
+            student__user_id=student_id,
+            defaults={'comment_text': new_text}
+        )
+        return JsonResponse({"status": "success"})
+    return JsonResponse({"status": "error"}, status=400)
+
 
 
 
