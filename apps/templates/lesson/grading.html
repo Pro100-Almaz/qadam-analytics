@@ -116,8 +116,10 @@
             display: none;
             position: fixed;
             z-index: 9999;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: rgba(0, 0, 0, 0.6);
             justify-content: center;
             align-items: center;
@@ -128,9 +130,12 @@
             background: #fff;
             padding: 20px 25px;
             border-radius: 12px;
-            width: 500px;
+            width: 600px;
             max-width: 90%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             animation: fadeIn 0.3s ease;
         }
 
@@ -151,6 +156,7 @@
             cursor: pointer;
             transition: color 0.2s;
         }
+
         .custom-modal .close-btn:hover {
             color: #333;
         }
@@ -158,14 +164,30 @@
         .custom-modal .modal-body {
             margin-top: 10px;
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.6;
             white-space: pre-line;
             color: #444;
+            overflow-y: auto;
+            padding-right:10px;
+            flex-grow: 1;
+        }
+        .custom-modal .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-modal .modal-body::-webkit-scrollbar-thumb {
+            background-color: #ddd;
+            border-radius: 10px;
         }
 
         @keyframes fadeIn {
-            from {opacity: 0; transform: scale(0.95);}
-            to {opacity: 1; transform: scale(1);}
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         /* Comment prefill animation */
@@ -176,6 +198,13 @@
 
         .comment-prefill-animation:focus {
             background-color: #bbdefb !important;
+        }
+
+        .text-wrap-column {
+            max-width: 150px;
+            white-space: normal !important;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
     </style>
     <link rel="stylesheet" href="{% static 'assets/css/grading_style.css' %}">
@@ -298,16 +327,17 @@
                                                     <span class="comment-preview"
                                                           style="cursor: pointer; color: blue; text-decoration: underline;"
                                                           data-full="{{ full_comment }}">
-                                                        {{ full_comment|slice:":20" }}{% if full_comment|length > 20 %}...{% endif %}
+                                                        {{ full_comment|slice:":20" }}{% if full_comment|length > 20 %}
+                                                            ...{% endif %}
                                                     </span>
                                                 {% elif selected_comments_map|get_item:student.user.id %}
                                                     <span class="comment-preview"
                                                           style="cursor: pointer; color: blue; text-decoration: underline;"
-                                                          data-full="{{ selected_comments_map|get_item:student.user.id  }}">
+                                                          data-full="{{ selected_comments_map|get_item:student.user.id }}">
                                                     {{ selected_comments_map|get_item:student.user.id|slice:":20" }}
-                                                    {% if selected_comments_map|get_item:student.user.id|length > 20 %}
-                                                        ...
-                                                    {% endif %}
+                                                        {% if selected_comments_map|get_item:student.user.id|length > 20 %}
+                                                            ...
+                                                        {% endif %}
                                                     </span>
 
                                                 {% else %}
@@ -322,13 +352,13 @@
                                                         data-lesson-id="{{ lesson.id }}"
                                                         data-target="#postGradeModal"
                                                         data-toggle="modal">
-                                                    Edit Grade
+                                                    Изменить
                                                 </button>
                                                 <form method="post"
                                                       action="{% url 'lesson:delete_grade' student.user.id lesson.id %}"
                                                       class="d-inline">
                                                     {% csrf_token %}
-                                                    <button type="submit" class="btn btn-sm btn-danger">Delete Grade
+                                                    <button type="submit" class="btn btn-sm btn-danger">Удалить
                                                     </button>
                                                 </form>
                                             {% else %}
@@ -355,12 +385,18 @@
             </div>
         </div>
 
-{#    Display comment modal#}
+        {#    Display comment modal#}
         <div id="commentModal" class="custom-modal">
             <div class="modal-content">
-                <span class="close-btn" id="closeModal">&times;</span>
-                <h2 class="modal-title">Полный комментарий</h2>
-                <div id="modalComment" class="modal-body"></div>
+                <div class="modal-header" style="border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 class="modal-title" style="margin: 0; border: none;">Полный комментарий</h2>
+                    <span class="close-btn" id="closeModal" style="float: none; line-height: 1;">&times;</span>
+                </div>
+                <div id="modalComment" class="modal-body">
+                    </div>
+                <div class="modal-footer" style="margin-top: 15px; text-align: right;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('commentModal').style.display='none'">Закрыть</button>
+                </div>
             </div>
         </div>
 
@@ -487,7 +523,7 @@
                                                                 <tbody>
                                                                 {% for subtopic in topic.subtopics.all %}
                                                                     <tr>
-                                                                        <td>{{ subtopic.title }}</td>
+                                                                        <td class="text-wrap-column">{{ subtopic.title }}</td>
                                                                         <td>{{ subtopic.weight }}</td>
                                                                         <td class="subtopic-overall-weight"
                                                                             data-topic-weight="{{ topic.weight }}"
@@ -590,6 +626,7 @@
                 }, 1000);
             }
         }
+
         function clearComment(textarea) {
             textarea.value = "";
             textarea.classList.remove('comment-prefill-animation');
@@ -739,7 +776,8 @@
                     if (inputOrder < currentOrder) {
                         if (shouldCheck && !input.checked) {
                             input.checked = true;
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                            dataset
+                            input.dispatchEvent(new Event('change', {bubbles: true}));
                         }
                     }
                 });
@@ -933,7 +971,7 @@
 
             // Comment Preview
             document.querySelectorAll(".comment-preview").forEach(span => {
-                span.addEventListener("click", function() {
+                span.addEventListener("click", function () {
                     const modal = document.getElementById("commentModal");
                     const modalComment = document.getElementById("modalComment");
                     modalComment.textContent = this.dataset.full;
@@ -941,11 +979,11 @@
                 });
             });
 
-            document.getElementById("closeModal").addEventListener("click", function() {
+            document.getElementById("closeModal").addEventListener("click", function () {
                 document.getElementById("commentModal").style.display = "none";
             });
 
-            window.addEventListener("click", function(e) {
+            window.addEventListener("click", function (e) {
                 const modal = document.getElementById("commentModal");
                 if (e.target === modal) {
                     modal.style.display = "none";

@@ -457,7 +457,7 @@ def grading(request, pk):
         grades_map[(grade["topic_id"], grade["student_id"])] = grade["grade"]
 
 
-    # Comments merged/selecteed
+    # Comments merged/selected
     merged_comments = (
         MergedLessonComment.objects
         .filter(lesson=lesson, student__in=students)
@@ -471,11 +471,11 @@ def grading(request, pk):
     selected_comments = (
         TopicGrade.objects
         .filter(topic__lesson=lesson, comment_selected=True)
-        .select_related("student__user")
-        .values("student__user_id", "comment").exclude(comment__isnull=True).exclude(comment="")
+        .select_related("student__user", 'topic')
+        .values("student__user_id","topic__title", "comment").exclude(comment__isnull=True).exclude(comment="")
     )
     selected_comments_map = {
-        selected_comment["student__user_id"]: selected_comment["comment"] for selected_comment in selected_comments
+        selected_comment["student__user_id"]: selected_comment['comment'] for selected_comment in selected_comments
     }
 
     comment_modes = {}
@@ -546,8 +546,9 @@ def submit_all_topic_grades(request):
                 'comment_selected': bool(request.POST.get(f'topic_{topic.id}_comment_selected', ''))
             }
 
+            top_comment = request.POST.get(f'topic_{topic.id}_comment', '').strip()
             if comment_mode == "merged":
-                toMerge += f"{topic.title}:"+ top_defaults['comment'] + '\n'
+                toMerge += f"{top_comment} \n\n"
 
 
             for sub in subtopics:
@@ -559,7 +560,7 @@ def submit_all_topic_grades(request):
                             'comment_selected': bool(request.POST.get(f'subtopic_{sub.id}_comment_selected', ''))}
 
                 if comment_mode == "merged":
-                    toMerge += f"{topic.title} -- {sub.title}: " + sub_defaults['comment'] + '\n'
+                    toMerge += sub_defaults['comment'] + '\n\n'
 
                 TopicGrade.objects.update_or_create(
                     student=student,

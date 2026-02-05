@@ -73,6 +73,12 @@
             background: #fff;
             z-index: 1;
         }
+        .text-wrap-column{
+            max-width: 250px;
+            white-space: normal !important;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
     </style>
 
     <div class="header bg-white">
@@ -146,23 +152,23 @@
                         <div>
                             <button class="btn btn-outline-primary btn-sm" type="button" data-toggle="modal"
                                     data-target="#createTopicModal">
-                                <i class="ni ni-fat-add"></i> Add
+                                <i class="ni ni-fat-add"></i> Добавить
                             </button>
                             <a href="{% url 'lesson:distribute_topic_weights_equally' lesson.id %}"
                                class="btn btn-outline-primary btn-sm">
-                                <i class="ni ni-fat-add"></i> Distribute weights equally
+                                <i class="ni ni-fat-add"></i> Расспределить значимость поровну
                             </a>
                         </div>
                     </div>
                     <div class="card-body">
                         <div id="topics-scroll" class="table-responsive">
-                            <table class="table mb-0">
+                            <table class="table mb-0" style="table-layout: fixed; width: 100%">
                                 <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Topics</th>
-                                    <th>Weight</th>
-                                    <th class="text-center">Action</th>
+                                    <th style="width: 10%;">#</th>
+                                    <th style="width: 45%;">Topics</th>
+                                    <th style="width: 10%;">Weight</th>
+                                    <th class="text-center" style="width: 35%;">Action</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -170,7 +176,7 @@
                                     {% if not topic.parent %}
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
-                                            <td>{{ topic.title }}</td>
+                                            <td class="text-wrap-column">{{ topic.title }}</td>
                                             <td>{{ topic.weight }}</td>
                                             <td class="text-center">
                                                 <a class="btn btn-primary px-4 text-white"
@@ -216,16 +222,16 @@
                         <select id="topicSelect" class="form-control mb-3" required>
                             <option value="">-- Select a Topic --</option>
                             {% for topic in topics %}
-                                <option value="{{ topic.id }}">{{ topic.title }}</option>
+                                <option value="{{ topic.id }}">{{ topic.title | truncatechars:100 }}</option>
                             {% endfor %}
                         </select>
                         <table class="table">
                             <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Title</th>
-                                <th>Weight</th>
-                                <th class="text-center">Action</th>
+                                <th style="width: 10%;">#</th>
+                                <th style="width: 45%;">Title</th>
+                                <th style="width: 10%;">Weight</th>
+                                <th class="text-center" style="width: 35%;">Action</th>
                             </tr>
                             </thead>
                             <tbody id="subtopics-container">
@@ -233,7 +239,7 @@
                                 {% for subtopic in topic.subtopics.all %}
                                     <tr data-parent="{{ topic.id }}" class="subtopic-row d-none">
                                         <td>{{ forloop.counter }}</td>
-                                        <td>{{ subtopic.title }}</td>
+                                        <td class="text-wrap-column">{{ subtopic.title }}</td>
                                         <td>{{ subtopic.weight }}</td>
                                         <td class="text-center">
                                             <a class="btn btn-primary px-4 text-white"
@@ -426,7 +432,7 @@
                                 <option value="">-- Select a Topic --</option>
                                 {% for topic in topics %}
                                     {% if not topic.parent %}
-                                        <option value="{{ topic.id }}">{{ topic.title }}</option>
+                                        <option value="{{ topic.id  }}">{{ topic.title | truncatechars:60 }}</option>
                                     {% endif %}
                                 {% endfor %}
                             </select>
@@ -497,35 +503,35 @@
                 <input type="hidden" name="parent" id="modalTopicId">
                 <input type="hidden" name="student_id" id="modalStudentId">
                 <input type="hidden" name="lesson_id" value="{{ lesson.id }}">
-                <div class="modal-content">
+                <div class="modal-content" style="width: 1200px">
                     <div class="modal-header">
                         <h5 class="modal-title">Сохранить</h5>
                         <button type="button" class="close" data-dismiss="modal">×</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body" >
                         <div class="split-container">
                             {#             left: topic  -------------------------------#}
                             <div class="split left">
                                 <div class="centered">
                                     <div id="topic-info-panel">
-                                        <table class="table">
+                                        <table class="table" style="width: 125%">
                                             <thead>
                                             <tr>
-                                                <th>Topics</th>
-                                                <th>Weight</th>
-                                                <th>Grade</th>
-                                                <th>Comment</th>
+                                                <th style="width:40%;">Topics</th>
+                                                <th style="width:10%;">Weight</th>
+                                                <th style="width:10%;">Grade</th>
+                                                <th style="width:40%;">Comment</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             {% for topic in topics %}
                                                 {% if not topic.parent %}
                                                     <tr>
-                                                        <td>{{ topic.title }}</td>
+                                                        <td class="text-wrap-column">{{ topic.title }}</td>
                                                         <td>{{ topic.weight }}</td>
                                                         <td class="displayTopicGrade"
                                                             data-topic-id="{{ topic.id }}"></td>
-                                                        <td class="displayTopicComment"
+                                                        <td class="displayTopicComment text-wrap-column"
                                                             data-topic-id="{{ topic.id }}"></td>
                                                     </tr>
                                                 {% endif %}
@@ -544,8 +550,8 @@
                                         <option value="">-- Select a Topic --</option>
                                         {% for topic in topics %}
                                             {% if not topic.parent %}
-                                                <option value="{{ topic.id }}" data-title="{{ topic.title }}"
-                                                        data-weight="{{ topic.weight }}">{{ topic.title }}</option>
+                                                <option value="{{ topic.id }}" data-title="{{ topic.title|truncatechars:60 }}"
+                                                        data-weight="{{ topic.weight }}" >{{ topic.title| truncatechars:60 }}</option>
                                             {% endif %}
                                         {% endfor %}
                                     </select>
@@ -557,20 +563,20 @@
                                             <table class="table">
                                                 <thead>
                                                 <tr>
-                                                    <th>Subtopic</th>
-                                                    <th>Weight</th>
-                                                    <th>Grade</th>
-                                                    <th>Comment</th>
+                                                    <th style="width:40%;">Subtopic</th>
+                                                    <th style="width:10%;">Weight</th>
+                                                    <th style="width:10%;">Grade</th>
+                                                    <th style="width:40%;">Comment</th>
                                                 </tr>
                                                 </thead>
                                                 <tbody>
                                                 {% for subtopic in topic.subtopics.all %}
                                                     <tr>
-                                                        <td>{{ subtopic.title }}</td>
+                                                        <td class="text-wrap-column">{{ subtopic.title }}</td>
                                                         <td>{{ subtopic.weight }}</td>
                                                         <td class="displaySubtopicGrade"
                                                             data-subtopic-id="{{ subtopic.id }}"></td>
-                                                        <td class="displaySubtopicComment"
+                                                        <td class="displaySubtopicComment text-wrap-column"
                                                             data-subtopic-id="{{ subtopic.id }}"></td>
                                                     </tr>
                                                 {% endfor %}
