@@ -239,7 +239,7 @@ def create_psychological_state(request, pk):
             student=student,
             added_by=request.user,
         )
-        messages.success(request, "Эмоциональный благосостояние успешно добавлено!")
+        messages.success(request, "Эмоциональное благосостояние успешно добавлено!")
         return redirect("student_details", pk=student.user.id)
 
     return redirect("students")

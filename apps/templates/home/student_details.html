@@ -330,26 +330,6 @@
                 type="button"
                 class="btn"
                 data-toggle="modal"
-                id="personalInfoBtn"
-                onclick="personalInfoBtn()"
-                style="border-bottom: 4px solid #ddd; color:black">
-                <i class="fas fa-user mr-2"></i> Персональная информация
-            </button>
-
-            <button
-                type="button"
-                class="btn"
-                data-toggle="modal"
-                id="psychoInfoBtn"
-                onclick="psychoInfoBtn()"
-                style="border-bottom: 4px solid #ddd; color:black">
-                <i class="fas fa-brain mr-2"></i> Эмоциональный благосостояние
-            </button>
-
-            <button
-                type="button"
-                class="btn"
-                data-toggle="modal"
                 id="extraCurrBtn"
 {#                onclick="extraCurrBtn()"#}
                 style="border-bottom: 4px solid #ddd; color:black">
@@ -360,10 +340,30 @@
                 type="button"
                 class="btn"
                 data-toggle="modal"
+                id="psychoInfoBtn"
+                onclick="psychoInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-brain mr-2"></i> Эмоциональное благосостояние
+            </button>
+
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
                 id="studentRatingBtn"
 {#                onclick="studentRatingBtn()"#}
                 style="border-bottom: 4px solid #ddd; color:black">
                 <i class="fas fa-chart-bar mr-2"></i> Рейтинг
+            </button>
+
+            <button
+                type="button"
+                class="btn"
+                data-toggle="modal"
+                id="personalInfoBtn"
+                onclick="personalInfoBtn()"
+                style="border-bottom: 4px solid #ddd; color:black">
+                <i class="fas fa-user mr-2"></i> Персональная информация
             </button>
 
         </div>
@@ -691,7 +691,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить эмоциональный благосостояние</h5>
+                <h5 class="modal-title" id="addPsychologicalStateModalLabel">Добавить эмоциональное благосостояние</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -792,7 +792,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deletePsychologicalStateModalLabel">Убрать эмоциональный благосостояние?</h5>
+                <h5 class="modal-title" id="deletePsychologicalStateModalLabel">Убрать эмоциональное благосостояние?</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -1002,7 +1002,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                Вы уверены, что хотите удалить это эмоциональный благосостояние?
+                Вы уверены, что хотите удалить это эмоциональное благосостояние?
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
