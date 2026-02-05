@@ -162,7 +162,7 @@ class Topic(models.Model):
     )
 
     class Meta:
-        unique_together = ('lesson', 'title')
+        unique_together = ('lesson', 'parent', 'title')
         ordering = ['order', 'id']
 
     def __str__(self):
