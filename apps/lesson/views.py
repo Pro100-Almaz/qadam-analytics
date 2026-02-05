@@ -374,7 +374,7 @@ def update_subtopic(request, pk):
         from django.contrib import messages
         messages.warning(request, f"The total topic weight after editing is equal to {total_subtopic_weights}, but should be equal to 100.")
 
-    return redirect('lesson:lesson_details')
+    return redirect('lesson:lesson_details', pk=lesson.id)
 
 
 def subtopic_weight_distribution(lesson):
