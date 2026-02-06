@@ -3,36 +3,47 @@
 <html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="csrf-token" content="{{ csrf_token }}">
-  <link rel="canonical" href="https://appseed.us/admin-dashboards/django-dashboard-argon">
-  
-  <title>
-    Django Argon Dashboard - {% block title %} Open-Source Admin Panel {% endblock %} | AppSeed
-  </title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <link rel="canonical" href="https://appseed.us/admin-dashboards/django-dashboard-argon">
 
-  <link rel="icon" href="/static/assets/img/brand/favicon.png" type="image/png">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700">
-  <link rel="stylesheet" href="/static/assets/vendor/nucleo/css/nucleo.css" type="text/css">
-  <link rel="stylesheet" href="/static/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" type="text/css">
-  <link rel="stylesheet" href="/static/assets/css/argon.css?v=1.2.0" type="text/css">
+    <title>
+        Django Argon Dashboard - {% block title %} Open-Source Admin Panel {% endblock %} | AppSeed
+    </title>
 
-  {% block stylesheets %}{% endblock stylesheets %}
+    <link rel="icon" href="/static/assets/img/brand/favicon.png" type="image/png">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700">
+    <link rel="stylesheet" href="/static/assets/vendor/nucleo/css/nucleo.css" type="text/css">
+    <link rel="stylesheet" href="/static/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" type="text/css">
+    <link rel="stylesheet" href="/static/assets/css/argon.css?v=1.2.0" type="text/css">
+
+    {% block stylesheets %}{% endblock stylesheets %}
 
 </head>
 
 <body>
 
-  {% include "includes/sidenav.html" %}
+{% include "includes/sidenav.html" %}
 
-  <div class="main-content" id="panel">
+<div class="main-content" id="panel">
     {% include "includes/navigation.html" %}
 
     {% if messages %}
-      <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050;">
-        {% for message in messages %}
-          <div class="toast-message" style="
+        <style>
+            @keyframes shrink {
+                from {
+                    width: 100%;
+                }
+                to {
+                    width: 0%;
+                }
+            }
+        </style>
+
+        <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1050;">
+            {% for message in messages %}
+                <div class="toast-message" style="
             background-color: #fff;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -50,12 +61,19 @@
             transition: opacity 0.5s ease-in-out;
             overflow: hidden;
           ">
-            <div style="color: #2ecc71; font-size: 20px; margin-top: 2px;">✔️</div>
-            <div style="flex: 1;">
-              <p style="margin: 0; color: #333; font-size: 15px;">{{ message }}</p>
-              <small style="color: #aaa;">Сейчас</small>
-            </div>
-            <button onclick="this.parentElement.remove()" style="
+                    <div style="
+                            {% if message.tags != 'error' %}color: #2ecc71;
+                            {% else %} color:red;
+                            {% endif %}
+                            font-size: 20px;
+                            margin-top: 2px;">
+                        {% if message.tags != 'error' %}✔ {% else %}x{% endif %}️
+                    </div>
+                    <div style="flex: 1;">
+                        <p style="margin: 0; color: #333; font-size: 15px;">{{ message }}</p>
+                        <small style="color: #aaa;">Сейчас</small>
+                    </div>
+                    <button onclick="this.parentElement.remove()" style="
               background: transparent;
               border: none;
               font-size: 20px;
@@ -65,10 +83,11 @@
               position: absolute;
               top: 8px;
               right: 12px;
-            ">&times;</button>
+            ">&times;
+                    </button>
 
-{#            Progress Bar#}
-            <div class="progress-bar" style="
+                    {#            Progress Bar#}
+                    <div class="progress-bar" style="
               position: absolute;
               bottom: 0;
               left: 0;
@@ -78,39 +97,29 @@
               transform-origin: left;
               animation: shrink 5s linear forwards;
             "></div>
-          </div>
-        {% endfor %}
-      </div>
+                </div>
+            {% endfor %}
+        </div>
 
-      <style>
-        @keyframes shrink {
-          from {
-            width: 100%;
-          }
-          to {
-            width: 0%;
-          }
-        }
-      </style>
-
-      <script>
-        setTimeout(() => {
-          document.querySelectorAll('.toast-message').forEach((el) => {
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 500);
-          });
-        }, 5000);
-      </script>
+        <script>
+            setTimeout(() => {
+                document.querySelectorAll('.toast-message').forEach((el) => {
+                    el.style.opacity = '0';
+                    setTimeout(() => el.remove(), 500);
+                });
+            }, 5000);
+        </script>
     {% endif %}
 
     {% block content %}{% endblock content %}
-  </div>
+</div>
 
-  {% include "includes/scripts.html" %}
 
-  {% block javascripts %}{% endblock javascripts %}
-
-  <script src="{% static 'assets/js/argon.js?v=1.2.0' %}"></script>
+{% block javascripts %}
+    {% include "includes/scripts.html" %}
+    <script src="{% static 'assets/js/argon.js?v=1.2.0' %}"></script>
+    <script src="{% static 'js/alert_modal/modalFetchHandler.js' %}"></script>
+{% endblock javascripts %}
 </body>
 
 </html>

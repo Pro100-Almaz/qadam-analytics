@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
+from apps.home.component_functions.show_alert_modal import show_alert_modal
 from core.decorators import role_required
 from core.permissions import can_access_student, permission_denied_response
 from apps.authentication.forms import UserUpdateForm
@@ -133,7 +134,10 @@ def student_details(request, pk):
 
     # Object-level permission check
     if not can_access_student(request.user, student):
-        return permission_denied_response("You do not have permission to view this student's details.")
+        message = "Вы не можете просмотреть профиль данного ученика! Он(а) не является участником вашего класса."
+        if request.headers.get('x-requested-with') == "XMLHttpRequest":
+            return show_alert_modal(request, message)
+        return redirect('home/students.html')
 
     # Get student's current enrollment and class group
     current_enrollment = student.get_current_enrollment()
