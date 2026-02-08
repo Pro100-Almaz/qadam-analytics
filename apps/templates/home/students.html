@@ -78,8 +78,13 @@
                                                      alt="Photo" class="profile-avatar">
                                             </a>
                                             <div class="media-body">
-                                                <a href="{% url 'student_details' student.user.id %}"
-                                                   class="name mb-0 text-sm">{{ student.user.first_name }} {{ student.user.last_name }}</a>
+                                                <span
+                                                        class="name mb-0 text-sm student-link"
+                                                        data-url="{% url 'student_details' student.user.id %}"
+                                                        style="cursor: pointer;"
+                                                >
+                                                    {{ student.user.first_name }} {{ student.user.last_name }}
+                                                </span>
                                             </div>
                                         </div>
                                     </th>
@@ -133,8 +138,8 @@
 
 <!-- Specific JS goes HERE -->
 {% block javascripts %}
+    {{ block.super }}
     <script>
-
         document.getElementById('sortSelect').addEventListener('change', function () {
             const selectedClass = this.value;
             const selectedYear = document.getElementById('yearSelect').value;
@@ -189,5 +194,7 @@
             li.appendChild(a);
             container.appendChild(li);
         }
+
+        registerModalFetchHandler("student-link");
     </script>
 {% endblock javascripts %}
