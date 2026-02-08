@@ -291,7 +291,7 @@
                                         <th scope="row">
                                             <div class="media align-items-center">
                                                 <a href="#" class="avatar rounded-circle mr-3">
-                                                    <img src="{{ student.avatar.url|default:'/static/assets/img/theme/team-4.jpg' }}"
+                                                    <img src="{{ student.user.avatar.url|default:'/static/assets/img/theme/team-4.jpg' }}"
                                                          alt="Photo" class="profile-avatar">
                                                 </a>
                                                 <div class="media-body">
@@ -568,6 +568,7 @@
                                                                 {% endfor %}
                                                                 </tbody>
                                                             </table>
+                                                        </td>
                                                     </tr>
                                                 {% endif %}
                                             {% endwith %}
@@ -776,7 +777,6 @@
                     if (inputOrder < currentOrder) {
                         if (shouldCheck && !input.checked) {
                             input.checked = true;
-                            dataset
                             input.dispatchEvent(new Event('change', {bubbles: true}));
                         }
                     }

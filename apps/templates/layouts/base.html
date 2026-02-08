@@ -114,9 +114,9 @@
     {% block content %}{% endblock content %}
 </div>
 
+{% include "includes/scripts.html" %}
 {% block javascripts %}
 {% endblock javascripts %}
-{% include "includes/scripts.html" %}
 <script src="{% static 'assets/js/argon.js?v=1.2.0' %}"></script>
 <script src="{% static 'js/alert_modal/modalFetchHandler.js' %}"></script>
 </body>
