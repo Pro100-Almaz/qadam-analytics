@@ -29,6 +29,14 @@ class TopicAdmin(admin.ModelAdmin):
         }),
     )
 
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for instance in instances:
+            if not instance.lesson_id:
+                instance.lesson = form.instance.lesson
+            instance.save()
+        formset.save_m2m()
+
 
 @admin.register(TopicGrade)
 class TopicGradeAdmin(admin.ModelAdmin):
