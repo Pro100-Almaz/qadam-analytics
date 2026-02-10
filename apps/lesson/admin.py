@@ -13,8 +13,8 @@ class SubtopicInline(admin.TabularInline):
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    list_display = ('title', 'lesson', 'parent', 'order', 'weight')
-    list_filter = ('lesson', 'parent')
+    list_display = ('title', 'lesson', 'order', 'weight')
+    list_filter = ('lesson',)
     search_fields = ('title', 'lesson__title')
     ordering = ('lesson', 'order')
     list_editable = ('order', 'weight')
@@ -22,12 +22,15 @@ class TopicAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('lesson', 'parent', 'title')
+            'fields': ('lesson', 'title')
         }),
         ('Settings', {
             'fields': ('order', 'weight', 'comment_template')
         }),
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(parent__isnull=True)
 
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
