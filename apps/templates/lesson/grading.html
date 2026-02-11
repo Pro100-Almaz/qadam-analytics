@@ -955,16 +955,24 @@
         });
 
         document.addEventListener("DOMContentLoaded", function () {
-            // One selected comment at a time
+            // One selected comment per topic (allow multiple across different topics)
             document.getElementById("postGradeModal").addEventListener("change", function (e) {
                 if (e.target.classList.contains("toggle-checkbox")) {
                     if (e.target.checked) {
-                        document.querySelectorAll('#postGradeModal .toggle-checkbox').forEach(cb => {
-                            if (cb !== e.target) {
-                                cb.checked = false;
-                                cb.classList.remove('toggled-once');
-                            }
-                        });
+                        // Find the topic group this toggle belongs to
+                        const subtopicsRow = e.target.closest('.subtopics-row');
+                        const topicRow = e.target.closest('.topic-row');
+                        const container = subtopicsRow || topicRow;
+
+                        if (container) {
+                            // Only uncheck other toggles within the same topic group
+                            container.querySelectorAll('.toggle-checkbox').forEach(cb => {
+                                if (cb !== e.target) {
+                                    cb.checked = false;
+                                    cb.classList.remove('toggled-once');
+                                }
+                            });
+                        }
                     }
                 }
             });

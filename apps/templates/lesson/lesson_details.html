@@ -74,6 +74,12 @@
             overflow-wrap: break-word;
         }
 
+        .comment-selected {
+            background-color: #e8f5e9;
+            border-left: 3px solid #4caf50;
+            font-weight: 600;
+        }
+
     </style>
 
     <div class="header bg-white">
@@ -619,6 +625,12 @@
                 const topicId = el.dataset.topicId;
                 const entry = studentMap[topicId];
                 el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
+                // Highlight the selected comment
+                if (entry && entry.comment_selected && entry.comment) {
+                    el.classList.add('comment-selected');
+                } else {
+                    el.classList.remove('comment-selected');
+                }
             });
 
             // Right side: per-subtopic grade/comment
@@ -631,6 +643,12 @@
                 const subId = el.dataset.subtopicId;
                 const entry = studentMap[subId];
                 el.textContent = entry && typeof entry.comment === 'string' ? entry.comment : '';
+                // Highlight the selected comment
+                if (entry && entry.comment_selected && entry.comment) {
+                    el.classList.add('comment-selected');
+                } else {
+                    el.classList.remove('comment-selected');
+                }
             });
         }
 

@@ -172,7 +172,7 @@ def lesson_details(request, pk):
     all_topic_grades = TopicGrade.objects.filter(
         topic__lesson=lesson,
         student__in=students
-    ).values("student_id", "topic_id", "grade", "comment")
+    ).values("student_id", "topic_id", "grade", "comment", "comment_selected")
 
     # Build grades map for bulk calculation
     grades_map = {}
@@ -184,6 +184,7 @@ def lesson_details(request, pk):
         topic_grades_by_student[tg['student_id']][tg['topic_id']] = {
             "grade": tg["grade"],
             "comment": tg["comment"] or "",
+            "comment_selected": tg["comment_selected"],
         }
 
     # Build topic-to-subtopics mapping for comment aggregation
@@ -200,12 +201,29 @@ def lesson_details(request, pk):
         # Add individual topic grades
         student_grades[s_key].update(topic_grades_by_student.get(student.id, {}))
 
-        # For parent topics with empty comments, aggregate subtopic comments
+        # For parent topics with subtopics, use the selected subtopic comment
+        # or aggregate subtopic comments if parent's own comment is empty
         student_topic_data = topic_grades_by_student.get(student.id, {})
         for topic_id, subtopic_ids in topic_subtopic_ids.items():
             if topic_id in student_grades[s_key] and subtopic_ids:
                 entry = student_grades[s_key][topic_id]
-                if isinstance(entry, dict) and not entry.get("comment"):
+                if not isinstance(entry, dict):
+                    continue
+
+                # Check if any subtopic has comment_selected=True
+                selected_sub_comment = None
+                for sub_id in subtopic_ids:
+                    sub_entry = student_topic_data.get(sub_id, {})
+                    if sub_entry.get("comment_selected") and sub_entry.get("comment"):
+                        selected_sub_comment = sub_entry["comment"]
+                        break
+
+                if selected_sub_comment:
+                    # Use the selected subtopic's comment for the parent topic
+                    entry["comment"] = selected_sub_comment
+                    entry["comment_selected"] = True
+                elif not entry.get("comment"):
+                    # Fallback: aggregate all subtopic comments
                     sub_comments = []
                     for sub_id in subtopic_ids:
                         sub_entry = student_topic_data.get(sub_id, {})
@@ -491,11 +509,16 @@ def grading(request, pk):
         TopicGrade.objects
         .filter(topic__lesson=lesson, comment_selected=True)
         .select_related("student__user", 'topic')
-        .values("student__user_id","topic__title", "comment").exclude(comment__isnull=True).exclude(comment="")
+        .values("student__user_id", "topic__title", "comment")
+        .exclude(comment__isnull=True).exclude(comment="")
     )
-    selected_comments_map = {
-        selected_comment["student__user_id"]: selected_comment['comment'] for selected_comment in selected_comments
-    }
+    selected_comments_map = {}
+    for sc in selected_comments:
+        uid = sc["student__user_id"]
+        if uid in selected_comments_map:
+            selected_comments_map[uid] += "\n\n" + sc["comment"]
+        else:
+            selected_comments_map[uid] = sc["comment"]
 
     comment_modes = {}
     for student in students:
