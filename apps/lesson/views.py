@@ -186,6 +186,11 @@ def lesson_details(request, pk):
             "comment": tg["comment"] or "",
         }
 
+    # Build topic-to-subtopics mapping for comment aggregation
+    topic_subtopic_ids = {}
+    for topic in topics:
+        topic_subtopic_ids[topic.id] = [sub.id for sub in topic.subtopics.all()]
+
     student_grades = {}
     for student in students:
         s_key = student.user.id
@@ -194,6 +199,20 @@ def lesson_details(request, pk):
         }
         # Add individual topic grades
         student_grades[s_key].update(topic_grades_by_student.get(student.id, {}))
+
+        # For parent topics with empty comments, aggregate subtopic comments
+        student_topic_data = topic_grades_by_student.get(student.id, {})
+        for topic_id, subtopic_ids in topic_subtopic_ids.items():
+            if topic_id in student_grades[s_key] and subtopic_ids:
+                entry = student_grades[s_key][topic_id]
+                if isinstance(entry, dict) and not entry.get("comment"):
+                    sub_comments = []
+                    for sub_id in subtopic_ids:
+                        sub_entry = student_topic_data.get(sub_id, {})
+                        if sub_entry.get("comment"):
+                            sub_comments.append(sub_entry["comment"])
+                    if sub_comments:
+                        entry["comment"] = " | ".join(sub_comments)
 
     context = {
         'lesson': lesson,
