@@ -89,7 +89,9 @@
                                         </div>
                                     </th>
                                     <td class="budget">
-                                        {{ student.classroom.name }}
+                                        {% for enrollment in student.enrollments.all %}
+                                            {{ enrollment.class_group }}
+                                        {% endfor %}
                                     </td>
                                 </tr>
                             {% endfor %}

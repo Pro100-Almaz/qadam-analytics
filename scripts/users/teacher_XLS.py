@@ -1,6 +1,6 @@
 from django.db import transaction
 from apps.authentication.models import Teacher
-from apps.home.models import Subject, ClassRoom, AcademicYear
+from apps.home.models import Subject, AcademicYear
 
 from scripts.utils.logging_config import logger
 

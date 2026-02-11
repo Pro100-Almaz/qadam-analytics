@@ -17,7 +17,6 @@ from scripts.users.get_admin import get_admin_id
 from scripts.users.generate_password import generate_password
 from scripts.users.generate_username import generate_username
 
-
 from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
 from scripts.writing_data import get_writable_sheet
@@ -185,8 +184,8 @@ for sheet_name, rows in dfs.items():
                         role = row['Role']
                         if role == 'student':
                             process_student(sheet_name, row, idx, admin_id, user)
-                        elif role in ('teacher', 'homeroom_teacher'):
-                            process_teacher(sheet_name, row, idx, admin_id, user)
+                        # elif role in ('teacher', 'homeroom_teacher'):
+                        #     process_teacher(sheet_name, row, idx, admin_id, user)
                         elif role in ('supervisor', 'principal'):
                             process_supervisor(sheet_name, row, idx, admin_id, user)
                         elif role == 'parent':
