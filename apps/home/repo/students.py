@@ -34,9 +34,12 @@ def students_list(request):
         ).select_related('student', 'student__user', 'class_group')
 
         if selected_class != 'all':
-            enrollments = enrollments.filter(class_group__id=selected_class)
+            enrollments = enrollments.filter(class_group__name=selected_class)
 
-        students = [e.student for e in enrollments]
+        students = []
+        for e in enrollments:
+            e.student.classroom = e.class_group
+            students.append(e.student)
     else:
         students = list(Student.objects.all())
 
@@ -51,7 +54,7 @@ def students_list(request):
         'students': students,
         'page_obj': page_obj,
         'selected_class': selected_class,
-        'class_groups': class_groups,
+        'classrooms': class_groups,
         'years': years,
         'selected_year': int(selected_year) if selected_year else None,
     }

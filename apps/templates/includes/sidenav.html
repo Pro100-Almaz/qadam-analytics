@@ -1,5 +1,10 @@
 {% load nav %}
 
+{% can_manage as show_manage %}
+{% can_see_students as show_students %}
+{% can_add_user as show_add_user %}
+{% parent_students as children %}
+
 <nav class="sidenav navbar navbar-vertical fixed-left navbar-expand-xs navbar-light bg-white" id="sidenav-main">
     <div class="scrollbar-inner">
         <!-- Brand -->
@@ -13,7 +18,7 @@
             <div class="collapse navbar-collapse" id="sidenav-collapse-main">
                 <!-- Nav items -->
                 <ul class="navbar-nav">
-                    {% if user.is_manager or user.is_superuser or user.is_admin %}
+                    {% if show_manage %}
                         <li class="nav-item">
                             <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-orange"></i>
@@ -25,7 +30,6 @@
                                         <a class="nav-link {% if request.path == '/subjects' %} active {% endif %}" href="{% url 'subjects' %}">Активные предметы</a>
                                     </li>
                                     <li class="nav-item">
-                                    <li class="nav-item">
                                         <a class="nav-link {% if request.path == '/subjects/planned' %} active {% endif %}" href="{% url 'subjects_planned' %}">Предметы в обработке</a>
                                     </li>
                                     <li class="nav-item">
@@ -36,12 +40,6 @@
                         </li>
                     {% endif %}
                     {% if user.is_teacher %}
-{#                        <li class="nav-item">#}
-{#                            <a class="nav-link {% if 'subjects' in segment %} active {% endif %}" href="{% url 'my_subjects' %}">#}
-{#                                <i class="ni ni-books text-orange"></i>#}
-{#                                <span class="nav-link-text">Subject</span>#}
-{#                            </a>#}
-{#                        </li>#}
                         <li class="nav-item">
                             <a class="nav-link" href="#navbar-subjects" data-toggle="collapse" role="button" aria-expanded="{% if request.path|slice:":10" == '/subjects' %}true{% else %}false{% endif %}" aria-controls="navbar-subjects">
                                 <i class="ni ni-books text-orange"></i>
@@ -53,7 +51,6 @@
                                         <a class="nav-link {% if request.path == '/my_subjects/' %} active {% endif %}" href="{% url 'my_subjects' %}">Активные предметы</a>
                                     </li>
                                     <li class="nav-item">
-                                    <li class="nav-item">
                                         <a class="nav-link {% if request.path == '/my_subjects/planned' %} active {% endif %}" href="{% url 'my_subjects_status' 'planned'%}">Предметы в обработке</a>
                                     </li>
                                     <li class="nav-item">
@@ -63,7 +60,7 @@
                             </div>
                         </li>
                     {% endif %}
-                    {% if user.is_manager or user.is_superuser or user.is_admin %}
+                    {% if show_manage %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'lessons' in segment %} active {% endif %}" href="{% url 'lesson:lessons' %}">
                             <i class="ni ni-collection text-orange"></i>
@@ -86,7 +83,7 @@
                             <span class="nav-link-text">Список учителей</span>
                         </a>
                     </li>
-                    {% if user.is_manager or user.is_superuser or user.is_teacher or user.is_admin %}
+                    {% if show_students %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'students' in segment %} active {% endif %}" href="{% url 'students' %}">
                             <i class="ni ni-single-02 text-orange"></i>
@@ -94,7 +91,7 @@
                         </a>
                     </li>
                     {% endif %}
-                    {% if user.is_manager or user.is_superuser or user.is_admin %}
+                    {% if show_add_user %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'authentication:register' %}">
                                 <i class="ni ni-circle-08 text-pink"></i>
@@ -102,7 +99,7 @@
                             </a>
                         </li>
                     {% endif %}
-                    {% if user.is_parent and user.get_students %}
+                    {% if children %}
                         <li class="nav-item">
                             <a class="nav-link" href="#navbar-children" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="navbar-children">
                                 <i class="ni ni-circle-08 text-pink"></i>
@@ -110,7 +107,7 @@
                             </a>
                             <div class="collapse" id="navbar-children">
                                 <ul class="nav nav-sm flex-column">
-                                    {% for student in user.get_students %}
+                                    {% for student in children %}
                                     <li class="nav-item">
                                         <a class="nav-link" href="{% url 'student_details' student.user.id %}">
                                             {{ student.user.get_full_name|default:student.user.username }}
