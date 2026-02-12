@@ -1,11 +1,41 @@
+print('xxxxxx')
+import os
+import sys
+
+import django
+
+if __name__ == '__main__':
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(BASE_DIR)
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    django.setup()
+
 from django.db import transaction
 from apps.authentication.models import Student
-from apps.home.models import Subject, ClassRoom, AcademicYear
+from apps.home.models import Subject, AcademicYear
+from scripts.class_group.class_group_script import add_class_group
+from scripts.subjects.enrollment_script import add_enrollment
+from scripts.subjects.subject_offering_script import add_subject_offering
 from scripts.utils.logging_config import logger
+
+'''
+current student model:
+Subjects already done
+SchoolGroup(Orda) already done
+AcademicYear already done
+
+for the full implementation of the script need extra validations:
+1) ClassRoom == ClassGroup --> run class_group_script --> uses classroom value and AcademicYear
+2) SubjectOffering == subject_offering_script --> uses subject, ClassGroup, AcademicYear
+3) Finally Enrollment == uses Status(needs to be added to the excell fields), student, classGroup, AcademicYear, start_date+end_date(add to excell)
+4) extra --> TeachingAssignment --> uses Role Choices, SubjectOffering, Teacher
+'''
 
 def process_student(sheet_name, row, idx, admin_id, user):
     try:
         with transaction.atomic():
+            #1) AcademicYear
             try:
                 year = str(row['Academic Year']).strip()
                 if (len(year) == 9) and ('/' in year):
@@ -18,11 +48,8 @@ def process_student(sheet_name, row, idx, admin_id, user):
                              f"expected format: yyyy/yyyy")
                 print(e)
 
-            class_room = ClassRoom.objects.update_or_create(
-                name=row['Class'],
-                capacity=26,
-                academic_year=academic_year
-            )[0]
+            #2) ClassGroup
+            class_group = add_class_group(academic_year, row['Class']) # --> may through an exception
 
             school_group_map = {
                 'ақ': 1,
@@ -44,11 +71,11 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 )
             school_group_id = school_group_map[school_group_value]
 
+            # 3) creating the student
             student = Student.objects.update_or_create(
                 user=user,
                 defaults=dict(
                     academic_year=academic_year,
-                    classroom=class_room,
                     school_group_id=school_group_id
                 )
             )[0]
@@ -56,24 +83,25 @@ def process_student(sheet_name, row, idx, admin_id, user):
             rs = row['Subjects']
             raw_subjects = [s.strip() for s in rs.split('/') if s.strip()]
             subjects_to_add = set()
+            print(raw_subjects)
 
             for sub in raw_subjects:
                 subject = Subject.objects.update_or_create(
                     name=sub,
-                    academic_year=academic_year,
                     defaults={
                         "language_group": "KAZ",
                         "status": "active",
-                        "progress": 0,
-                        "average_points": 0,
-                        "maximum_points": 100,
                         "added_by_id": admin_id,
                     }
                 )[0]
                 subjects_to_add.add(subject.id)
+                add_subject_offering(subject, academic_year, class_group)
 
             student.subjects.add(*subjects_to_add)
             student.save()
+
+            #Handling Enrollments
+            add_enrollment(student, class_group, academic_year)
 
     except Exception as e:
         msg = f" ----- Transaction error: sheet {sheet_name}, row {idx + 2} — {e}"

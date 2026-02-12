@@ -282,7 +282,11 @@
                                 </div>
                                 <div class="mb-3" >
                                     <div class="student-info-label" style="color: white">Класс:</div>
-                                    <div class="student-info-value" style="color: white">{{ student.classroom.name }}</div>
+                                    <div class="student-info-value" style="color: white">
+                                        {% for enrollment in student.enrollments.all %}
+                                            {{ enrollment.class_group }}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">

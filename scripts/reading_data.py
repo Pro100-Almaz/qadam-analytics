@@ -4,8 +4,10 @@ from decouple import config
 from google.oauth2.service_account import Credentials
 import gspread
 
-CREDENTIALS_PATH = os.environ['SERVICE_ACCOUNT_FILE_INTERNAL']
-
+CREDENTIALS_PATH = os.environ.get(
+    "SERVICE_ACCOUNT_FILE_INTERNAL",
+    config("SERVICE_ACCOUNT_FILE", default=None)
+)
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets.readonly',
     'https://www.googleapis.com/auth/drive.readonly'
@@ -21,7 +23,7 @@ def get_sheets_data():
     all_sheets = {}
     for worksheet in sheet.worksheets():
         title = worksheet.title.lower()
-        if 'teacher' in title:
+        if 'teacher' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",
                 "Address", "Phone (parent)", "Date of Birth", "Password",
