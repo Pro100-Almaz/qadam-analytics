@@ -230,7 +230,7 @@
                             <thead>
                             <tr>
                                 <th style="width: 10%;">#</th>
-                                <th style="width: 45%;">Title</th>
+                                <th style="width: 45%;">Level of Achievements</th>
                                 <th style="width: 10%;">Weight</th>
                                 <th class="text-center" style="width: 35%;">Action</th>
                             </tr>
@@ -510,6 +510,7 @@
                         <button type="button" class="close" data-dismiss="modal">×</button>
                     </div>
                     <div class="modal-body" >
+                        <span>Student's Performance</span>
                         <div class="split-container">
                             {#             left: topic  -------------------------------#}
                             <div class="split left">
@@ -546,7 +547,7 @@
                             {#             right: Subtopics  -------------#}
                             <div class="split right">
                                 <div class="form-group">
-                                    <label for="parent">Choose Topic</label>
+                                    <label for="parent">List of Criteria</label>
                                     <select id="gradeModalParent" name="parent" class="form-control mb-3">
                                         <option value="">-- Select a Topic --</option>
                                         {% for topic in topics %}
@@ -564,7 +565,7 @@
                                             <table class="table">
                                                 <thead>
                                                 <tr>
-                                                    <th style="width:40%;">Subtopic</th>
+                                                    <th style="width:40%;">Level of Achievements</th>
                                                     <th style="width:10%;">Weight</th>
                                                     <th style="width:10%;">Grade</th>
                                                     <th style="width:40%;">Comment</th>

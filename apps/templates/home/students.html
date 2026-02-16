@@ -3,7 +3,6 @@
 {% block title %} Ученики {% endblock title %}
 
 {% block content %}
-
     <div class="header bg-white pb-6">
         <div class="container-fluid">
             <div class="header-body">
@@ -73,9 +72,9 @@
                                 <tr>
                                     <th scope="row">
                                         <div class="media align-items-center">
-                                            <a href="#" class="avatar rounded-circle mr-3">
+                                            <a href="#" class="avatar rounded-circle mr-3" style="overflow: hidden">
                                                 <img src="{{ student.user.avatar.url|default:'/static/assets/img/theme/team-4.jpg' }}"
-                                                     alt="Photo" class="profile-avatar">
+                                                     alt="Photo" class="avatar " style="object-fit: cover">
                                             </a>
                                             <div class="media-body">
                                                 <span
