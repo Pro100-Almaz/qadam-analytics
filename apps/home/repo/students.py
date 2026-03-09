@@ -148,7 +148,6 @@ def student_details(request, pk):
 
     # Get offerings for the student's class
     from apps.home.models import SubjectOffering
-    from apps.lesson.models import TopicGrade, Topic
     offerings = []
     if current_enrollment:
         offerings = list(SubjectOffering.objects.filter(

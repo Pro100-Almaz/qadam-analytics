@@ -18,7 +18,7 @@ from apps.authentication.models import (
     CustomUser, PsychologicalStateTemplates, PsychologicalState,
     Teacher, Student, Supervisor, Parent, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
 )
-from apps.home.models import ClassGroup
+from apps.home.models import ClassGroup, Enrollment, TeachingAssignment
 from apps.notification.models import PsychologicalNotify
 
 
@@ -196,6 +196,50 @@ def teachers_list(request):
     page_obj = paginator.get_page(page)
 
     context = {'teachers': teachers, "page_obj": page_obj}
+    return render(request, 'home/teachers.html', context)
+
+
+@role_required('parent')
+def parent_teachers_list(request):
+    parent = get_object_or_404(Parent, user=request.user)
+    students = parent.students.all()
+
+    # Get class groups from active enrollments
+    enrollments = Enrollment.objects.filter(
+        student__in=students,
+        status='active',
+        academic_year__is_active=True,
+    ).select_related('class_group')
+    class_groups = [e.class_group for e in enrollments]
+
+    # Get teachers assigned to those class groups' subject offerings
+    assignments = TeachingAssignment.objects.filter(
+        offering__class_group__in=class_groups,
+        offering__academic_year__is_active=True,
+    ).select_related(
+        'teacher', 'teacher__user',
+        'offering__subject',
+    )
+
+    # Build unique teachers with their subjects
+    teacher_map = {}
+    for a in assignments:
+        t = a.teacher
+        if t.pk not in teacher_map:
+            teacher_map[t.pk] = {'teacher': t, 'subjects': set()}
+        teacher_map[t.pk]['subjects'].add(a.offering.subject.name)
+
+    teachers = []
+    for data in teacher_map.values():
+        t = data['teacher']
+        t.subject_names = ', '.join(sorted(data['subjects']))
+        teachers.append(t)
+
+    page = request.GET.get('page')
+    paginator = Paginator(teachers, 5)
+    page_obj = paginator.get_page(page)
+
+    context = {'teachers': teachers, 'page_obj': page_obj, 'is_parent_view': True}
     return render(request, 'home/teachers.html', context)
 
 

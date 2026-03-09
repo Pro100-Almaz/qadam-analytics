@@ -23,6 +23,7 @@ urlpatterns = [
 
 
     path('teachers', views.teachers_list, name='teachers'),
+    path('parent/teachers/', views.parent_teachers_list, name='parent_teachers'),
     path('teachers/<int:pk>', teacher_details, name='teacher_details'),
     path('teacher/<int:pk>/profile_update', teacher_profile_update, name='teacher_profile_update'),
     path('subjects', subjects_list, {'status': 'active'} , name='subjects'),

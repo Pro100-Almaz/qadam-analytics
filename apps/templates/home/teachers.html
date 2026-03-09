@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Учителя {% endblock title %}
+{% block title %} {% if is_parent_view %}Учителя моих детей{% else %}Учителя{% endif %} {% endblock title %}
 
 {% block content %}
 
@@ -9,7 +9,7 @@
       <div class="header-body">
         <div class="row align-items-center py-4">
           <div class="col-lg-6 col-7">
-            <h6 class="h2 d-inline-block mb-0">Учителя</h6>
+            <h6 class="h2 d-inline-block mb-0">{% if is_parent_view %}Учителя моих детей{% else %}Учителя{% endif %}</h6>
             <nav aria-label="breadcrumb" class="d-none d-md-inline-block ml-md-4">
               <ol class="breadcrumb breadcrumb-links breadcrumb-dark">
                 <li class="breadcrumb-item"><a href="#"><i class="fas fa-home"></i></a></li>
@@ -28,7 +28,7 @@
         <div class="col">
           <div class="card">
             <div class="card-header border-0">
-              <h3 class="mb-0">Список учителей</h3>
+              <h3 class="mb-0">{% if is_parent_view %}Учителя моих детей{% else %}Список учителей{% endif %}</h3>
             </div>
             <div class="table-responsive">
               <table class="table align-items-center table-flush">
@@ -36,7 +36,11 @@
                   <tr>
                     <th scope="col" class="sort" data-sort="name">Имя</th>
                     <th scope="col" class="sort" data-sort="job">Должность</th>
+                    {% if is_parent_view %}
+                    <th scope="col" class="sort" data-sort="subjects">Предметы</th>
+                    {% else %}
                     <th scope="col" class="sort" data-sort="classroom">Классы</th>
+                    {% endif %}
                     <th scope="col"></th>
                   </tr>
                 </thead>
@@ -59,7 +63,11 @@
                       </span>
                     </td>
                     <td class="budget">
-                      {{ teacher.classroom.name}}
+                      {% if is_parent_view %}
+                        {{ teacher.subject_names }}
+                      {% else %}
+                        {{ teacher.classroom.name }}
+                      {% endif %}
                     </td>
                     </tr>
                   {% endfor %}

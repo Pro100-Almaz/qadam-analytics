@@ -9,7 +9,7 @@ from apps.home.models import Subject, TeachingAssignment, SubjectOffering
 from apps.lesson.models import Lesson
 
 
-@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal')
+@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'parent')
 def teacher_details(request, pk):
     teacher = get_object_or_404(Teacher, user_id=pk)
 

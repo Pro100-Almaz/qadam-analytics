@@ -77,12 +77,14 @@
                     </li>
                     {% endif %}
 
+                    {% if not children %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'teachers' in segment %} active {% endif %}" href="{% url 'teachers' %}">
                             <i class="ni ni-hat-3 text-orange"></i>
                             <span class="nav-link-text">Список учителей</span>
                         </a>
                     </li>
+                    {% endif %}
                     {% if show_students %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'students' in segment %} active {% endif %}" href="{% url 'students' %}">
@@ -116,6 +118,12 @@
                                     {% endfor %}
                                 </ul>
                             </div>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'teachers' in segment %} active {% endif %}" href="{% url 'parent_teachers' %}">
+                                <i class="ni ni-hat-3 text-orange"></i>
+                                <span class="nav-link-text">Учителя моих детей</span>
+                            </a>
                         </li>
                     {% endif %}
                 </ul>
