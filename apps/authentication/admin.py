@@ -135,10 +135,10 @@ class StudentAdmin(ModelAdmin):
 
     fieldsets = (
         ("Основная информация", {
-            "fields": ("user", "school_group", "academic_year")
+            "fields": ("user", "class_group")
         }),
         ("Дополнительно", {
-            "fields": ("subjects",),
+            "fields": ("school_group", "academic_year", "subjects"),
             "classes": ("collapse",)
         }),
     )
