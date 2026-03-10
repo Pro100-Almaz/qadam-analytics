@@ -265,7 +265,7 @@
                     </div>
                     <div class="col-md-2 d-flex align-items-center justify-content-center">
                         <div class="text-center" style="color: white">
-                            <img src="{% if student.school_group.avatar %}/{{ student.school_group.avatar.url }}{% elif student.school_group_id %}/static/assets/img/school-groups/{{ student.school_group_id }}.png{% else %}/static/assets/img/theme/school-group.png{% endif %}"
+                            <img src="{% if student.school_group.avatar %}{{ student.school_group.avatar.url }}{% elif student.school_group_id %}/static/assets/img/school-groups/{{ student.school_group_id }}.png{% else %}/static/assets/img/theme/school-group.png{% endif %}"
                                  alt="School Group"
                                  class="school-group-image mb-2"
                                 style="width: 90px; height: 90px">
