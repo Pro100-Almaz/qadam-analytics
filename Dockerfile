@@ -16,7 +16,7 @@ WORKDIR /app
 
 # deps first for caching
 COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip setuptools && pip install -r requirements.txt
 
 # app source
 COPY . /app
