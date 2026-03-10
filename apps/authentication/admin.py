@@ -123,7 +123,7 @@ class StudentAdmin(ModelAdmin):
     model = Student
     list_display = (
         "avatar_thumbnail", "full_name", "email", "phone",
-        "current_class_group", "enrollment_status", "academic_year"
+        "current_class_group", "enrollment_status", "academic_year", "school_group"
     )
     list_display_links = ("full_name",)
     search_fields = ("user__first_name", "user__last_name", "user__username", "user__email")
