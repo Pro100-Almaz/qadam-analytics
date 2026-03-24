@@ -98,53 +98,115 @@
     margin-bottom: 2rem;
 }
 
-.indicator-item {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
+/* Psychological State Cards */
+.psych-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 1.25rem;
 }
 
-.indicator-label {
+.psych-card {
+    background: white;
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    border-left: 4px solid #007bff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.psych-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.psych-card-excellent { border-left-color: #28a745; }
+.psych-card-good      { border-left-color: #17a2b8; }
+.psych-card-average   { border-left-color: #ffc107; }
+.psych-card-poor      { border-left-color: #dc3545; }
+
+.psych-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.psych-card-name {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #2d3748;
+    line-height: 1.3;
+}
+
+.psych-card-delete {
+    background: none;
+    border: none;
+    color: #ced4da;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+
+.psych-card-delete:hover { color: #dc3545; }
+
+.psych-card-stars {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.psych-star {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.psych-star-filled { color: #ffc107; }
+.psych-star-empty  { color: #dee2e6; }
+
+.psych-score-label {
+    font-size: 0.72rem;
+    color: #9ca3af;
     font-weight: 600;
-    color: #333;
-    margin-bottom: 0.5rem;
+    margin-left: 6px;
+}
+
+.psych-card-comment {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #e9ecef;
+}
+
+.psych-card-comment p {
+    margin: 0;
+    font-size: 0.855rem;
+    color: #495057;
+    line-height: 1.55;
+}
+
+.psych-quote-icon {
+    color: #ced4da;
+    font-size: 0.65rem;
+    margin-right: 4px;
+    vertical-align: top;
+    margin-top: 3px;
+}
+
+.psych-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.indicator-value {
-    font-size: 0.9rem;
-    color: #6c757d;
-    margin-left: auto;
-}
-
-.horizontal-progress {
-    height: 12px;
-    background: #e9ecef;
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-bar-horizontal {
-    height: 100%;
-    border-radius: 6px;
-    transition: width 0.8s ease-in-out;
-    position: relative;
-}
-
-.progress-excellent { background: linear-gradient(90deg, #28a745, #20c997); }
-.progress-good { background: linear-gradient(90deg, #17a2b8, #6f42c1); }
-.progress-average { background: linear-gradient(90deg, #ffc107, #fd7e14); }
-.progress-poor { background: linear-gradient(90deg, #dc3545, #e83e8c); }
-
-.indicator-description {
-    font-size: 0.8rem;
-    color: #6c757d;
-    margin-top: 0.5rem;
+    font-size: 0.73rem;
+    color: #adb5bd;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 0.6rem;
+    margin-top: auto;
 }
 
 /* Navigation buttons styling */
@@ -167,6 +229,103 @@
     background-color: #007bff;
     color: white;
     border-bottom: 4px solid #0056b3;
+}
+
+/* Psychological history button on card */
+.psych-history-btn {
+    background: none;
+    border: none;
+    padding: 0.5rem 0 0;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    cursor: pointer;
+    border-top: 1px solid #f0f0f0;
+    width: 100%;
+    text-align: left;
+    transition: color 0.18s;
+    margin-top: auto;
+}
+.psych-history-btn:hover { color: #007bff; }
+
+/* History modal */
+#psychHistoryModal .modal-header {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+#psychHistoryModal .modal-dialog { max-width: 600px; }
+
+.psych-modal-chart-wrap {
+    position: relative;
+    height: 180px;
+    margin-bottom: 1.25rem;
+}
+
+.psych-modal-timeline { list-style: none; padding: 0; margin: 0; }
+
+.psych-timeline-item {
+    display: flex;
+    gap: 0.85rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.psych-timeline-item:last-child { border-bottom: none; }
+
+.psych-timeline-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.dot-5 { background: #28a745; }
+.dot-4 { background: #17a2b8; }
+.dot-3 { background: #ffc107; color: #333; }
+.dot-2, .dot-1 { background: #dc3545; }
+
+.psych-timeline-body { flex: 1; min-width: 0; }
+
+.psych-timeline-stars { display: flex; align-items: center; gap: 2px; margin-bottom: 0.2rem; }
+
+.psych-timeline-date {
+    font-size: 0.72rem;
+    color: #9ca3af;
+    margin-left: 6px;
+}
+
+.psych-timeline-comment {
+    font-size: 0.855rem;
+    color: #495057;
+    line-height: 1.5;
+    margin: 0.25rem 0 0;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid #e9ecef;
+}
+
+.psych-timeline-added-by {
+    font-size: 0.72rem;
+    color: #adb5bd;
+    margin-top: 0.3rem;
+}
+
+.psych-modal-latest-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #e8f5e9;
+    color: #28a745;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
 }
 
 /* Content sections */
@@ -391,35 +550,58 @@
                     </div>
 
                     {% if psychological_states %}
+                        <div class="psych-cards-grid">
                         {% for state in psychological_states %}
-                        <div class="indicator-item">
-                            <div class="indicator-label">
-                                <span>{{ state.name }}</span>
-                                <span class="indicator-value">{{ state.score }}</span>
+                        <div class="psych-card {% if state.score == 5 %}psych-card-excellent{% elif state.score == 4 %}psych-card-good{% elif state.score >= 3 %}psych-card-average{% else %}psych-card-poor{% endif %}">
+                            <div class="psych-card-header">
+                                <span class="psych-card-name">{{ state.name }}</span>
+                                <button type="button" class="psych-card-delete" data-toggle="modal"
+                                    data-target="#deletePsychologicalStateModal"
+                                    data-state-id="{{ state.id }}"
+                                    data-delete-url="{% url 'psychological_state_create' student.id %}"
+                                    title="Убрать">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
-                            <div class="horizontal-progress">
-                                <div class="progress-bar-horizontal
-                                    {% if state.score == 5 %}progress-excellent
-                                    {% elif state.score == 4 %}progress-good
-                                    {% elif state.score >= 3 %}progress-average
-                                    {% else %}progress-poor
-                                    {% endif %}"
-                                    style="width: {{ state.score|add:"0" }}0%"
-                                    data-value="{% widthratio state.score 1 20 %}">
-                                </div>
+                            <div class="psych-card-stars">
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= state.score %}
+                                        <span class="psych-star psych-star-filled">★</span>
+                                    {% else %}
+                                        <span class="psych-star psych-star-empty">★</span>
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="psych-score-label">{{ state.score }}/5</span>
                             </div>
-                            <button type="button" class="btn btn-danger mt-2" data-toggle="modal"
-                                data-target="#deletePsychologicalStateModal"
-                                data-state-id="{{ state.id }}"
-                                data-delete-url="{% url 'psychological_state_create' student.id %}">
-                                <i class="fas fa-minus mr-2"></i>Убрать
+                            {% if state.comment %}
+                            <div class="psych-card-comment">
+                                <i class="fas fa-quote-left psych-quote-icon"></i><p>{{ state.comment }}</p>
+                            </div>
+                            {% endif %}
+                            <div class="psych-card-footer">
+                                <span>
+                                    {% if state.added_by %}
+                                    <i class="fas fa-user-circle mr-1"></i>{{ state.added_by.get_full_name|default:state.added_by.username }}
+                                    {% endif %}
+                                </span>
+                                <span>
+                                    {% if state.time_added %}
+                                    <i class="fas fa-clock mr-1"></i>{{ state.time_added|date:"d.m.Y" }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% with history=psychological_states_history|get_item:state.name %}
+                            <button class="psych-history-btn" onclick="openPsychHistory('{{ state.name|escapejs }}')">
+                                <i class="fas fa-chart-line mr-1"></i>
+                                {% if history %}История ({{ history|length|add:1 }} записей){% else %}История{% endif %}
                             </button>
+                            {% endwith %}
                         </div>
-
                         {% endfor %}
+                        </div>
                     {% else %}
                         <div class="text-center py-4">
-                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <i class="fas fa-heart fa-3x text-muted mb-3"></i>
                             <p class="text-muted">Психологические показатели пока не добавлены</p>
                         </div>
                     {% endif %}
@@ -783,6 +965,34 @@
         </div>
     </div>
 </div>
+<!-- Psychological State History Data -->
+<script id="psych-history-data" type="application/json">{{ psych_history_json|safe }}</script>
+
+<!-- Psychological State History Modal -->
+<div class="modal fade" id="psychHistoryModal" tabindex="-1" role="dialog" aria-labelledby="psychHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header align-items-start">
+                <div>
+                    <h5 class="modal-title mb-0" id="psychHistoryModalLabel">—</h5>
+                    <small class="text-muted" id="psychHistorySubtitle"></small>
+                </div>
+                <button type="button" class="close ml-auto" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body pt-2">
+                <!-- Chart -->
+                <div class="psych-modal-chart-wrap">
+                    <canvas id="psychHistoryChart"></canvas>
+                </div>
+                <!-- Timeline -->
+                <ul class="psych-modal-timeline" id="psychHistoryTimeline"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Psychological State Modal -->
 <div
     class="modal fade"
@@ -1250,22 +1460,6 @@ $(document).ready(function() {
         }
     });
 
-    // Animate horizontal progress bars on load
-    function animateProgressBars() {
-        const progressBars = document.querySelectorAll('.progress-bar-horizontal');
-        progressBars.forEach((bar, index) => {
-            const value = bar.getAttribute('data-value');
-            bar.style.width = '0%';
-
-            setTimeout(() => {
-                bar.style.width = value + '%';
-            }, 200 + (index * 100));
-        });
-    }
-
-    // Call animation function
-    animateProgressBars();
-
     // Star rating functionality for psychological state modal
     $(".star").on("click", function () {
         const rating = $(this).data("value");
@@ -1396,6 +1590,87 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', () => {
         }
     });
 });
+
+// Psychological state history modal
+const psychData = JSON.parse(document.getElementById('psych-history-data').textContent);
+let psychChart = null;
+
+const scoreColor = {5: '#28a745', 4: '#17a2b8', 3: '#ffc107', 2: '#dc3545', 1: '#dc3545'};
+
+function starsHtml(score, size) {
+    let s = '';
+    for (let i = 1; i <= 5; i++) {
+        s += `<span class="psych-star ${i <= score ? 'psych-star-filled' : 'psych-star-empty'}" style="font-size:${size || '1rem'}">\u2605</span>`;
+    }
+    return s;
+}
+
+function openPsychHistory(name) {
+    const records = psychData[name];
+    if (!records) return;
+
+    document.getElementById('psychHistoryModalLabel').textContent = name;
+    document.getElementById('psychHistorySubtitle').textContent =
+        records.length === 1 ? '1 запись' : records.length + ' записей';
+
+    // Build chart
+    const labels = records.map(r => r.date);
+    const scores = records.map(r => r.score);
+    const pointColors = scores.map(s => scoreColor[s] || '#007bff');
+
+    if (psychChart) { psychChart.destroy(); }
+    psychChart = new Chart(document.getElementById('psychHistoryChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: scores,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0,123,255,0.08)',
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                borderWidth: 2,
+                tension: 0.35,
+                fill: true,
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false }, tooltip: {
+                callbacks: { label: ctx => ctx.parsed.y + '/5 ★' }
+            }},
+            scales: {
+                y: { min: 0, max: 5, ticks: { stepSize: 1 }, grid: { color: '#f0f0f0' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Build timeline (newest first)
+    const tl = document.getElementById('psychHistoryTimeline');
+    tl.innerHTML = '';
+    const reversed = [...records].reverse();
+    reversed.forEach((r, idx) => {
+        const isLatest = idx === 0;
+        const li = document.createElement('li');
+        li.className = 'psych-timeline-item';
+        li.innerHTML = `
+            <div class="psych-timeline-dot dot-${r.score}">${r.score}</div>
+            <div class="psych-timeline-body">
+                <div class="psych-timeline-stars">
+                    ${starsHtml(r.score, '1rem')}
+                    <span class="psych-timeline-date">${r.date}</span>
+                    ${isLatest ? '<span class="psych-modal-latest-badge">Актуально</span>' : ''}
+                </div>
+                ${r.comment ? `<div class="psych-timeline-comment">${r.comment}</div>` : ''}
+                ${r.added_by ? `<div class="psych-timeline-added-by"><i class="fas fa-user-circle mr-1"></i>${r.added_by}</div>` : ''}
+            </div>`;
+        tl.appendChild(li);
+    });
+
+    $('#psychHistoryModal').modal('show');
+}
 
 function generalInfoBtn() {
     document.getElementById('generalInformation').hidden = false;

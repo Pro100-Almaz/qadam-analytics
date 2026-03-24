@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
@@ -159,9 +161,40 @@ def student_details(request, pk):
     lessons = list(Lesson.objects.filter(offering__in=offerings))
 
     templates = PsychologicalStateTemplates.objects.all()
-    psychological_states = PsychologicalState.objects.filter(student_id=student.id)
-    last_state = psychological_states.last()
+    all_psych_states = list(
+        PsychologicalState.objects
+        .filter(student_id=student.id)
+        .select_related('added_by')
+        .order_by('name', '-time_added')
+    )
+    # Latest record per name (shown in main cards) + history of older records
+    seen_names = set()
+    psychological_states = []
+    psychological_states_history = {}
+    for state in all_psych_states:
+        if state.name not in seen_names:
+            seen_names.add(state.name)
+            psychological_states.append(state)
+            psychological_states_history[state.name] = []
+        else:
+            psychological_states_history[state.name].append(state)
+    last_state = max(all_psych_states, key=lambda s: s.time_added or 0, default=None)
     last_updated = last_state.time_added if last_state else None
+
+    # Build JSON for the history modal (chronological order per state name)
+    def _record(r):
+        return {
+            'score': r.score,
+            'date': r.time_added.strftime('%d.%m.%Y') if r.time_added else '',
+            'comment': r.comment or '',
+            'added_by': (r.added_by.get_full_name() or r.added_by.username) if r.added_by else '',
+        }
+    psych_history_json = json.dumps({
+        state.name: list(reversed(
+            [_record(state)] + [_record(h) for h in psychological_states_history[state.name]]
+        ))
+        for state in psychological_states
+    }, ensure_ascii=False)
 
     # Bulk fetch all grades for this student across all lessons (single query)
     grades_map = Lesson.calculate_grades_bulk(lessons, [student]) if lessons else {}
@@ -212,6 +245,8 @@ def student_details(request, pk):
         'lessons': lessons,
         'templates': templates,
         'psychological_states': psychological_states,
+        'psychological_states_history': psychological_states_history,
+        'psych_history_json': psych_history_json,
         'last_updated': last_updated,
     }
     return render(request, 'home/student_details.html', context)
