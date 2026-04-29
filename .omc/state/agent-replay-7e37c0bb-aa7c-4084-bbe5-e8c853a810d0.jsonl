@@ -1,0 +1,13 @@
+{"t":0,"agent":"ab979e9","agent_type":"voltagent-lang:django-developer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ab979e9","agent_type":"voltagent-lang:django-developer","event":"agent_stop","success":true,"duration_ms":75136}
+{"t":0,"agent":"a0fbe55","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a9b9fb9","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"abd5965","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a343e4c","agent_type":"voltagent-lang:django-developer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a9f5178","agent_type":"voltagent-lang:django-developer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a9f5178","agent_type":"voltagent-lang:django-developer","event":"agent_stop","success":true,"duration_ms":189450}
+{"t":0,"agent":"a343e4c","agent_type":"voltagent-lang:django-developer","event":"agent_stop","success":true,"duration_ms":288537}
+{"t":0,"agent":"a752fc1","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"af30be1","agent_type":"voltagent-lang:django-developer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"af30be1","agent_type":"voltagent-lang:django-developer","event":"agent_stop","success":true,"duration_ms":190450}
+{"t":0,"agent":"aec6439","agent_type":"unknown","event":"agent_stop","success":true}

@@ -1,6 +1,4 @@
 import os
-from http.cookiejar import debug
-
 from decouple import config
 from unipath import Path
 
@@ -19,12 +17,11 @@ if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
     ALLOWED_HOSTS = ['dashboard.qadam.edu.kz', 'qadam.edu.kz', 'www.qadam.edu.kz']
-    CORS_ALLOWED_ORIGINS = ['https://dashboard.qadam.edu.kz', 'https://qadam.edu.kz', 'https://www.qadam.edu.kz']
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = "Lax"  # default is fine
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = "Lax"
 
 # Application definition
 
@@ -35,17 +32,24 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'apps.home',  # Enable the inner home (home)
+    'apps.home',
     'apps.authentication',
-    'apps.lesson',  # Enable the lesson app
+    'apps.lesson',
     'widget_tweaks',
     'storages',
-    'apps.notification'
+    'apps.notification',
+    'apps.achievement',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -178,3 +182,46 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 #############################################################
 #############################################################
+
+# CORS
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'https://dashboard.qadam.edu.kz',
+        'https://qadam.edu.kz',
+        'https://www.qadam.edu.kz',
+    ]
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Simple JWT
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# DRF Spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Qadam Analytics API',
+    'DESCRIPTION': 'School management and grading platform API',
+    'VERSION': '2.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
