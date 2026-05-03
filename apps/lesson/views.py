@@ -20,7 +20,7 @@ from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
 from .models import Lesson, Topic, TopicGrade, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassGroup, QuarterGrader, Enrollment
-from apps.notification.models import Notification, GradingNotify
+from apps.notification.models import Notification
 
 
 @login_required(login_url="/login/")

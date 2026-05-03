@@ -12,6 +12,11 @@ urlpatterns = [
     path('academic-years/', views.AcademicYearListAPIView.as_view(), name='academic-years'),
     path('class-groups/', views.ClassGroupListAPIView.as_view(), name='class-groups'),
 
+    # Students — self-service (must be before <int:pk> routes)
+    path('students/me/subjects/', views.StudentMySubjectsAPIView.as_view(), name='student-my-subjects'),
+    path('students/me/teachers/', views.StudentMyTeachersAPIView.as_view(), name='student-my-teachers'),
+    path('students/me/classmates/', views.StudentClassmatesAPIView.as_view(), name='student-classmates'),
+
     # Students
     path('students/', views.StudentListAPIView.as_view(), name='student-list'),
     path('students/<int:pk>/', views.StudentDetailAPIView.as_view(), name='student-detail'),
@@ -49,4 +54,9 @@ urlpatterns = [
 
     # Enrollments
     path('enrollments/', views.EnrollmentListAPIView.as_view(), name='enrollment-list'),
+
+    # Parent self-service
+    path('parents/me/children/', views.ParentChildrenListAPIView.as_view(), name='parent-children'),
+    path('parents/me/children/<int:student_pk>/', views.ParentChildDetailAPIView.as_view(), name='parent-child-detail'),
+    path('parents/me/teachers/', views.ParentTeachersAPIView.as_view(), name='parent-my-teachers'),
 ]

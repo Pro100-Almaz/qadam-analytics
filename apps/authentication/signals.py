@@ -10,6 +10,10 @@ def show_role_message(sender, user, request, **kwargs):
     message = "You logged in as a " #+ getattr(user, 'role', None)
     messages.success(request, message)
 
-    from apps.notification.models import Notification, LoginNotify
-    notification = Notification.objects.create(user=user, action='login')
-    LoginNotify.objects.create(notification=notification)
+    from apps.notification.models import Notification
+    Notification.objects.create(
+        user=user,
+        type=Notification.NotificationType.LOGIN,
+        title='Login',
+        message='User logged in successfully',
+    )

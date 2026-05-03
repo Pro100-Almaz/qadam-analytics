@@ -1,9 +1,9 @@
 import os
-from decouple import config
-from unipath import Path
+from pathlib import Path
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = Path(__file__).parent
+from decouple import config
+
+BASE_DIR = Path(__file__).resolve().parent
 CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -14,9 +14,13 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 # load production server from .env
 if DEBUG:
-    ALLOWED_HOSTS = ['*']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 else:
-    ALLOWED_HOSTS = ['dashboard.qadam.edu.kz', 'qadam.edu.kz', 'www.qadam.edu.kz']
+    ALLOWED_HOSTS = config(
+        'ALLOWED_HOSTS',
+        default='dashboard.qadam.edu.kz,qadam.edu.kz,www.qadam.edu.kz',
+        cast=lambda v: [h.strip() for h in v.split(',')],
+    )
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_COOKIE_SECURE = not DEBUG
@@ -51,6 +55,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -110,6 +115,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+# Cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'TIMEOUT': 300,
+    }
+}
+
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
@@ -154,7 +171,13 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
+
+LANGUAGES = [
+    ('en', 'English'),
+    ('ru', 'Russian'),
+    ('kk', 'Kazakh'),
+]
 
 TIME_ZONE = 'Asia/Almaty'
 
@@ -163,6 +186,8 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+LOCALE_PATHS = [os.path.join(CORE_DIR, 'locale')]
 
 #############################################################
 # SRC: https://devcenter.heroku.com/articles/django-assets
@@ -185,13 +210,18 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # CORS
 if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
     CORS_ALLOWED_ORIGINS = [
-        'https://dashboard.qadam.edu.kz',
-        'https://qadam.edu.kz',
-        'https://www.qadam.edu.kz',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
     ]
+else:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default='https://dashboard.qadam.edu.kz,https://qadam.edu.kz,https://www.qadam.edu.kz',
+        cast=lambda v: [o.strip() for o in v.split(',')],
+    )
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -202,8 +232,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '5/minute',
+        'password_reset': '3/minute',
+        'verify_code': '5/minute',
+    },
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 50,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 

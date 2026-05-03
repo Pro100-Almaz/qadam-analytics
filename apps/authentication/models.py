@@ -34,6 +34,7 @@ def user_avatar_upload_path(instance, filename):
 class SchoolGroup(models.Model):
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
+    color = models.CharField(max_length=7, blank=True, default='')
 
     def __str__(self):
         return self.name
@@ -355,6 +356,10 @@ def registration_email_post_send(sender, instance, created, *args, **kwargs):
             html_message=html_message
         )
 
-        from apps.notification.models import Notification, RegisterNotify
-        notification = Notification.objects.create(user=instance, action='register')
-        RegisterNotify.objects.create(notification=notification)
+        from apps.notification.models import Notification
+        Notification.objects.create(
+            user=instance,
+            type=Notification.NotificationType.REGISTER,
+            title='Registration',
+            message='User registered successfully',
+        )

@@ -5,6 +5,32 @@ from apps.home.models import SubjectOffering, Enrollment
 from apps.authentication.models import Student
 
 
+# ── Calendar serializer ──
+
+class CalendarLessonSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='offering.subject.name', read_only=True)
+    subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
+    class_group_name = serializers.CharField(source='offering.class_group.__str__', read_only=True)
+    class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
+    teacher = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Lesson
+        fields = [
+            'id', 'title', 'date', 'status', 'quarter', 'unit', 'order',
+            'subject_name', 'subject_id', 'class_group_name', 'class_group_id',
+            'teacher',
+        ]
+
+    def get_teacher(self, obj):
+        cache = self.context.get('teacher_cache')
+        if cache is not None:
+            t = cache.get(obj.offering_id)
+            if t:
+                return {'id': t.user_id, 'full_name': t.user.get_full_name()}
+        return None
+
+
 # ── Shared nested serializers ──
 
 class SubtopicSerializer(serializers.ModelSerializer):

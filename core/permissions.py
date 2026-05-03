@@ -297,3 +297,69 @@ def can_grade_student(user, lesson, student):
 def permission_denied_response(message="You do not have permission to access this resource."):
     """Return a standard 403 Forbidden response."""
     return HttpResponseForbidden(message)
+
+
+# ---------------------------------------------------------------------------
+# DRF Permission Classes (shared across apps)
+# ---------------------------------------------------------------------------
+from rest_framework.permissions import BasePermission  # noqa: E402
+
+
+class IsTeacherAdminOrSupervisor(BasePermission):
+    def has_permission(self, request, view):
+        return is_admin_role(request.user) or is_teacher_role(request.user)
+
+
+class IsAdminOrSupervisor(BasePermission):
+    def has_permission(self, request, view):
+        return is_admin_role(request.user)
+
+
+class IsAdminRole(BasePermission):
+    def has_permission(self, request, view):
+        return is_admin_role(request.user)
+
+
+class IsTeacherRole(BasePermission):
+    def has_permission(self, request, view):
+        return is_teacher_role(request.user)
+
+
+class IsAdminOrTeacherRole(BasePermission):
+    def has_permission(self, request, view):
+        return is_admin_role(request.user) or is_teacher_role(request.user)
+
+
+class IsParent(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_parent()
+
+
+class IsStudent(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_student()
+
+
+class CanAccessStudent(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return can_access_student(request.user, obj)
+
+
+class CanModifyStudent(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return can_modify_student(request.user, obj)
+
+
+class CanAccessTeacher(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return can_access_teacher(request.user, obj)
+
+
+class CanAccessSubject(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return can_access_subject(request.user, obj)
+
+
+class CanModifySubject(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return can_modify_subject(request.user, obj)

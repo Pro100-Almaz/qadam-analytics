@@ -67,4 +67,12 @@ urlpatterns = [
         views.GradingDeleteAPIView.as_view(),
         name='grading-delete',
     ),
+
+    # ── Calendar ──
+    # GET /api/v1/calendar/lessons/  role-based calendar view
+    path(
+        'calendar/lessons/',
+        views.CalendarLessonListAPIView.as_view(),
+        name='calendar-lessons',
+    ),
 ]

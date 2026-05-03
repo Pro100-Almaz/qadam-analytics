@@ -12,19 +12,7 @@ class NotificationListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return (
-            Notification.objects
-            .filter(user=self.request.user)
-            .select_related(
-                'registernotify',
-                'loginnotify',
-                'gradingnotify',
-                'gradingnotify__lesson',
-                'psychologicalnotify',
-                'psychologicalnotify__psychologist',
-            )
-            .order_by('-send_time')
-        )
+        return Notification.objects.filter(user=self.request.user)
 
 
 class NotificationDetailAPIView(RetrieveAPIView):
@@ -32,25 +20,16 @@ class NotificationDetailAPIView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return (
-            Notification.objects
-            .filter(user=self.request.user)
-            .select_related(
-                'registernotify',
-                'loginnotify',
-                'gradingnotify',
-                'gradingnotify__lesson',
-                'psychologicalnotify',
-                'psychologicalnotify__psychologist',
-            )
-        )
+        return Notification.objects.filter(user=self.request.user)
 
 
 class NotificationCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        count = Notification.objects.filter(user=request.user).count()
+        count = Notification.objects.filter(
+            user=request.user, is_read=False,
+        ).count()
         return Response({'count': count})
 
 

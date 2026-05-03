@@ -204,6 +204,10 @@ class Enrollment(models.Model):
             )
         ]
         ordering = ['-academic_year__year', 'class_group']
+        indexes = [
+            models.Index(fields=['academic_year', 'status'], name='idx_enrollment_year_status'),
+            models.Index(fields=['student', 'status'], name='idx_enrollment_student_status'),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.class_group} ({self.status})"

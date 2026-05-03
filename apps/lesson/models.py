@@ -51,6 +51,11 @@ class Lesson(models.Model):
         ordering = ['date', 'order']
         verbose_name = "Lesson"
         verbose_name_plural = "Lessons"
+        indexes = [
+            models.Index(fields=['offering', 'quarter'], name='idx_lesson_offering_qtr'),
+            models.Index(fields=['date'], name='idx_lesson_date'),
+            models.Index(fields=['offering', 'date'], name='idx_lesson_offering_date'),
+        ]
 
     def __str__(self):
         return f"{self.title} ({self.offering})"
@@ -204,6 +209,9 @@ class TopicGrade(models.Model):
 
     class Meta:
         unique_together = ('topic', 'student')
+        indexes = [
+            models.Index(fields=['student', 'topic'], name='idx_topicgrade_student_topic'),
+        ]
 
 
 class MergedLessonComment(models.Model):

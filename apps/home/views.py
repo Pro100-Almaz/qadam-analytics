@@ -19,7 +19,7 @@ from apps.authentication.models import (
     Teacher, Student, Supervisor, Parent, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
 )
 from apps.home.models import ClassGroup, Enrollment, TeachingAssignment
-from apps.notification.models import PsychologicalNotify
+from apps.notification.models import Notification
 
 
 @login_required(login_url="/login/")

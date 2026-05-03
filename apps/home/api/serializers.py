@@ -120,6 +120,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
         from apps.home.models import SubjectOffering
         from apps.lesson.models import Lesson
+        from apps.lesson.services import get_cached_grades_bulk
         from apps.home.repo.students import calculate_quarter_grade, grade_identifier
 
         enrollment = student.get_current_enrollment()
@@ -139,7 +140,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ).select_related('subject'))
 
         lessons = list(Lesson.objects.filter(offering__in=offerings))
-        grades_map = Lesson.calculate_grades_bulk(lessons, [student]) if lessons else {}
+        grades_map = get_cached_grades_bulk(lessons, [student])
 
         subject_quarter_grades = {}
         for quarter in [1, 2, 3, 4]:
@@ -472,3 +473,68 @@ class PsychologicalStateTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PsychologicalStateTemplates
         fields = ['id', 'name', 'comment']
+
+
+# ── Student Self-Service ──
+
+class StudentMySubjectSerializer(serializers.Serializer):
+    offering_id = serializers.IntegerField()
+    subject_id = serializers.IntegerField()
+    subject_name = serializers.CharField()
+    language = serializers.CharField()
+    teacher = serializers.DictField(allow_null=True)
+    class_group_name = serializers.CharField()
+    student_grade = serializers.FloatField()
+    quarter_grades = serializers.DictField()
+
+
+class StudentMyTeacherSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_null=True)
+    email = serializers.CharField()
+    subjects = serializers.ListField(child=serializers.CharField())
+
+
+class StudentClassmateSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_null=True)
+    email = serializers.CharField()
+    student_total_grade = serializers.FloatField()
+
+
+# ── Parent Self-Service ──
+
+class ParentChildSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    user_id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_null=True)
+    class_group_name = serializers.CharField(allow_null=True)
+    school_group = serializers.CharField(allow_null=True)
+    student_total_grade = serializers.FloatField()
+    quarter_grades = serializers.DictField()
+
+
+class ParentChildDetailSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    user_id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_null=True)
+    email = serializers.CharField()
+    phone_number = serializers.CharField(allow_null=True)
+    class_group_name = serializers.CharField(allow_null=True)
+    school_group = serializers.CharField(allow_null=True)
+    student_total_grade = serializers.FloatField()
+    quarter_grades = serializers.DictField()
+    subjects = serializers.ListField()
+
+
+class ParentTeacherDetailSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    avatar = serializers.CharField(allow_null=True)
+    email = serializers.CharField()
+    subjects = serializers.ListField(child=serializers.CharField())
+    children = serializers.ListField(child=serializers.CharField())

@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest==8.*
+pytest-django==4.*
+factory-boy==3.*
+faker==37.*
+autopep8
+pycodestyle
+ruff
+django-debug-toolbar

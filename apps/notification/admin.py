@@ -1,9 +1,11 @@
 from django.contrib import admin
 
-from apps.notification.models import Notification, RegisterNotify, LoginNotify, GradingNotify, PsychologicalNotify
+from apps.notification.models import Notification
 
-admin.site.register(Notification)
-admin.site.register(RegisterNotify)
-admin.site.register(LoginNotify)
-admin.site.register(GradingNotify)
-admin.site.register(PsychologicalNotify)
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'type', 'title', 'is_read', 'created_at')
+    list_filter = ('type', 'is_read')
+    search_fields = ('user__username', 'title', 'message')
+    ordering = ('-created_at',)

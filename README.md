@@ -486,6 +486,25 @@ SPREADSHEET_URL=https://docs.google.com/spreadsheets/d/...
 SERVICE_ACCOUNT_FILE=./core/credentials/service_account.json
 ```
 
+### Requirements Files
+
+| File | Purpose | When to use |
+|------|---------|-------------|
+| `requirements.txt` | Production dependencies only (Django, DRF, PostgreSQL driver, Redis, etc.) | Docker builds, production deployments |
+| `requirements-dev.txt` | Extends `requirements.txt` with testing and linting tools (pytest, factory-boy, ruff, django-debug-toolbar) | Local development, CI pipeline |
+| `requirements-scripts.txt` | Extends `requirements.txt` with script-only dependencies (gspread for Google Sheets) | Running bulk import scripts in `scripts/` |
+
+```bash
+# Production
+pip install -r requirements.txt
+
+# Development & testing
+pip install -r requirements-dev.txt
+
+# Running import scripts
+pip install -r requirements-scripts.txt
+```
+
 ### Development Setup
 
 ```bash

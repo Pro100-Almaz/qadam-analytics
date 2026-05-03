@@ -12,6 +12,7 @@ x-django-env: &django-env
     DB_PASSWORD: ${DB_PASSWORD:-qadam}
     DB_HOST: db
     DB_PORT: 5432
+    REDIS_URL: redis://redis:6379/1
 
 services:
 #  appseed-app:
@@ -39,6 +40,16 @@ services:
 #      - "8000:8000"
 #    networks: [db_network]
 
+  redis:
+    container_name: redis_dev
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks: [db_network]
+
   db:
     container_name: postgres_dev
     image: postgres:14-alpine
@@ -58,3 +69,4 @@ networks:
 
 volumes:
   postgres_data_dev:
+  redis_data_dev:

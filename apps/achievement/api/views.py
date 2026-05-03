@@ -12,6 +12,10 @@ from rest_framework.views import APIView
 from apps.achievement.models import Achievement, ClubEntry, ReadingEntry
 from apps.authentication.models import Student
 from core.permissions import can_access_student
+from core.error_messages import (
+    NO_ACCESS_STUDENT, NO_MODIFY_ACHIEVEMENT, NO_MODIFY_READING,
+    NO_MODIFY_CLUB, NO_CERTIFICATE, CERTIFICATE_NOT_FOUND,
+)
 
 from .permissions import IsTeacherAdminOrSupervisor
 from .serializers import (
@@ -41,7 +45,7 @@ class AchievementListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -65,7 +69,7 @@ class AchievementListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -93,7 +97,7 @@ class AchievementDetailAPIView(APIView):
     def _check_access(self, request, achievement):
         if not can_access_student(request.user, achievement.student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -102,7 +106,7 @@ class AchievementDetailAPIView(APIView):
         perm = IsTeacherAdminOrSupervisor()
         if not perm.has_permission(request, self):
             return Response(
-                {'detail': 'You do not have permission to modify achievements.'},
+                {'detail': NO_MODIFY_ACHIEVEMENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -142,20 +146,20 @@ class AchievementDownloadAPIView(APIView):
 
         if not can_access_student(request.user, achievement.student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         if not achievement.certificate:
             return Response(
-                {'detail': 'No certificate file attached to this achievement.'},
+                {'detail': NO_CERTIFICATE},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         file_path = achievement.certificate.path
         if not os.path.exists(file_path):
             return Response(
-                {'detail': 'Certificate file not found on disk.'},
+                {'detail': CERTIFICATE_NOT_FOUND},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -186,7 +190,7 @@ class ReadingEntryListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -210,7 +214,7 @@ class ReadingEntryListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -238,7 +242,7 @@ class ReadingEntryDetailAPIView(APIView):
     def _check_access(self, request, entry):
         if not can_access_student(request.user, entry.student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -247,7 +251,7 @@ class ReadingEntryDetailAPIView(APIView):
         perm = IsTeacherAdminOrSupervisor()
         if not perm.has_permission(request, self):
             return Response(
-                {'detail': 'You do not have permission to modify reading entries.'},
+                {'detail': NO_MODIFY_READING},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -294,7 +298,7 @@ class ClubEntryListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -322,7 +326,7 @@ class ClubEntryListCreateAPIView(APIView):
 
         if not can_access_student(request.user, student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -350,7 +354,7 @@ class ClubEntryDetailAPIView(APIView):
     def _check_access(self, request, entry):
         if not can_access_student(request.user, entry.student):
             return Response(
-                {'detail': 'You do not have access to this student.'},
+                {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None
@@ -359,7 +363,7 @@ class ClubEntryDetailAPIView(APIView):
         perm = IsTeacherAdminOrSupervisor()
         if not perm.has_permission(request, self):
             return Response(
-                {'detail': 'You do not have permission to modify club entries.'},
+                {'detail': NO_MODIFY_CLUB},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return None

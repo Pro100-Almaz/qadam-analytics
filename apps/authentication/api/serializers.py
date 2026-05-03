@@ -10,25 +10,39 @@ from apps.authentication.models import (
 )
 
 
+class PublicSchoolGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchoolGroup
+        fields = ['id', 'name', 'avatar', 'color']
+
+
 class SchoolGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolGroup
-        fields = ['id', 'name', 'avatar']
+        fields = ['id', 'name', 'avatar', 'color']
 
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.CharField(read_only=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     primary_group = serializers.CharField(read_only=True)
+    profile_id = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'phone_number', 'date_of_birth', 'address', 'avatar',
-            'school', 'role', 'role_display', 'primary_group',
+            'school', 'role', 'role_display', 'primary_group', 'profile_id',
         ]
         read_only_fields = ['id', 'username']
+
+    def get_profile_id(self, obj):
+        for attr in ('student', 'teacher', 'parent', 'supervisor'):
+            profile = getattr(obj, attr, None)
+            if profile is not None:
+                return profile.pk
+        return None
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -172,10 +186,12 @@ class ForgetPasswordSerializer(serializers.Serializer):
 
 
 class VerificationCodeSerializer(serializers.Serializer):
+    username = serializers.CharField()
     verification_code = serializers.CharField()
 
 
 class PasswordChangeSerializer(serializers.Serializer):
+    token = serializers.CharField()
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
 
