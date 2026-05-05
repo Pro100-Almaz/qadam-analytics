@@ -1,5 +1,5 @@
-from .dashboard import DashboardStatsAPIView
-from .academic import AcademicYearListAPIView, ClassGroupListAPIView
+from .dashboard import DashboardStatsAPIView, TeacherWorkloadAPIView
+from .academic import AcademicYearListAPIView, ClassGroupListAPIView, RolloverAcademicYearAPIView
 from .students import (
     StudentListAPIView,
     StudentDetailAPIView,
@@ -32,9 +32,18 @@ from .parents import (
     ParentChildDetailAPIView,
     ParentTeachersAPIView,
 )
+from .teacher_dashboard import (
+    TeacherRoleDashboardAPIView,
+    HomeroomClassAPIView,
+    PsychologistDashboardAPIView,
+    PsychologistStudentDetailAPIView,
+    TeacherMyClassesAPIView,
+    TeacherClassStudentsAPIView,
+)
 
 __all__ = [
     'DashboardStatsAPIView',
+    'TeacherWorkloadAPIView',
     'AcademicYearListAPIView',
     'ClassGroupListAPIView',
     'StudentListAPIView',
@@ -57,8 +66,15 @@ __all__ = [
     'SubjectStatusAPIView',
     'SubjectDeleteAPIView',
     'MySubjectsListAPIView',
+    'RolloverAcademicYearAPIView',
     'EnrollmentListAPIView',
     'ParentChildrenListAPIView',
     'ParentChildDetailAPIView',
     'ParentTeachersAPIView',
+    'TeacherRoleDashboardAPIView',
+    'HomeroomClassAPIView',
+    'PsychologistDashboardAPIView',
+    'PsychologistStudentDetailAPIView',
+    'TeacherMyClassesAPIView',
+    'TeacherClassStudentsAPIView',
 ]

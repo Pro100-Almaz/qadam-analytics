@@ -1,8 +1,12 @@
+from datetime import timedelta
+
+from django.utils import timezone
+
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import (
     AcademicYear, SubjectOffering, Enrollment, TeachingAssignment,
 )
-from apps.lesson.models import Lesson
+from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
 from apps.home.repo.students import grade_identifier
 
@@ -244,4 +248,102 @@ def get_subject_grades(subject, user, quarter=1):
             str(lid): {str(sid): g for sid, g in smap.items()}
             for lid, smap in lesson_avgs.items()
         },
+    }
+
+
+def get_teacher_workload(teacher, week_start=None, week_end=None):
+    now = timezone.now().date()
+    if not week_start:
+        week_start = now - timedelta(days=now.weekday())
+    if not week_end:
+        week_end = week_start + timedelta(days=6)
+
+    assignments = TeachingAssignment.objects.filter(
+        teacher=teacher,
+    ).select_related('offering', 'offering__subject', 'offering__class_group',
+                     'offering__class_group__grade_level')
+
+    offering_ids = [a.offering_id for a in assignments]
+
+    all_lessons = list(Lesson.objects.filter(
+        offering_id__in=offering_ids,
+    ).select_related('offering'))
+
+    week_lessons = [l for l in all_lessons if l.date and week_start <= l.date <= week_end]
+    taught = [l for l in week_lessons if l.date <= now]
+    upcoming = [l for l in week_lessons if l.date > now]
+
+    without_topics = sum(
+        1 for l in week_lessons if not l.topics.filter(parent__isnull=True).exists()
+    )
+
+    lesson_ids = [l.id for l in week_lessons]
+    graded_lessons = set(
+        TopicGrade.objects.filter(
+            topic__lesson_id__in=lesson_ids,
+        ).values_list('topic__lesson_id', flat=True).distinct()
+    )
+
+    enrollment_counts = {}
+    for a in assignments:
+        count = Enrollment.objects.filter(
+            class_group=a.offering.class_group,
+            academic_year=a.offering.academic_year,
+            status='active',
+        ).count()
+        enrollment_counts[a.offering_id] = count
+
+    fully_graded = 0
+    partially_graded = 0
+    ungraded = 0
+    for l in week_lessons:
+        if l.id not in graded_lessons:
+            ungraded += 1
+            continue
+        expected = enrollment_counts.get(l.offering_id, 0)
+        if expected == 0:
+            fully_graded += 1
+            continue
+        actual = TopicGrade.objects.filter(
+            topic__lesson_id=l.id,
+        ).values('student_id').distinct().count()
+        if actual >= expected:
+            fully_graded += 1
+        else:
+            partially_graded += 1
+
+    total_to_grade = len(week_lessons)
+    completion_pct = round(
+        (fully_graded / total_to_grade) * 100, 1
+    ) if total_to_grade else 0
+
+    subjects = []
+    for a in assignments:
+        offering = a.offering
+        subj_lessons = [l for l in week_lessons if l.offering_id == offering.id]
+        subj_grading_complete = all(
+            l.id in graded_lessons for l in subj_lessons
+        ) if subj_lessons else True
+        cg = offering.class_group
+        subjects.append({
+            'subject_name': offering.subject.name,
+            'class_group': f'{cg.grade_level}{cg.letter}' if cg and cg.grade_level else str(cg),
+            'lessons_this_week': len(subj_lessons),
+            'grading_complete': subj_grading_complete,
+        })
+
+    return {
+        'teacher_id': teacher.id,
+        'period': f'{week_start} to {week_end}',
+        'lessons_taught': len(taught),
+        'lessons_upcoming': len(upcoming),
+        'lessons_without_topics': without_topics,
+        'grading_completion': {
+            'total_lessons_to_grade': total_to_grade,
+            'fully_graded': fully_graded,
+            'partially_graded': partially_graded,
+            'ungraded': ungraded,
+            'completion_percentage': completion_pct,
+        },
+        'subjects': subjects,
     }

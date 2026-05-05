@@ -1,6 +1,7 @@
 import mimetypes
 import os
 
+from django.contrib.contenttypes.models import ContentType
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -9,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.achievement.models import Achievement, ClubEntry, ReadingEntry
+from apps.achievement.models import Achievement, Attachment, ClubEntry, ReadingEntry
 from apps.authentication.models import Student
 from core.permissions import can_access_student
 from core.error_messages import (
@@ -23,6 +24,7 @@ from .serializers import (
     AchievementDetailSerializer,
     AchievementListSerializer,
     AchievementUpdateSerializer,
+    AttachmentSerializer,
     ClubEntryCreateSerializer,
     ClubEntrySerializer,
     ReadingEntryCreateSerializer,
@@ -136,7 +138,7 @@ class AchievementDetailAPIView(APIView):
         denied = self._check_access(request, achievement) or self._check_modify(request)
         if denied:
             return denied
-        achievement.delete()
+        achievement.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -279,7 +281,7 @@ class ReadingEntryDetailAPIView(APIView):
         denied = self._check_access(request, entry) or self._check_modify(request)
         if denied:
             return denied
-        entry.delete()
+        entry.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -391,5 +393,104 @@ class ClubEntryDetailAPIView(APIView):
         denied = self._check_access(request, entry) or self._check_modify(request)
         if denied:
             return denied
-        entry.delete()
+        entry.soft_delete(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ── Attachments ──
+
+ALLOWED_ENTRY_TYPES = {
+    'achievement': Achievement,
+    'readingentry': ReadingEntry,
+    'clubentry': ClubEntry,
+}
+
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'}
+DOCUMENT_EXTENSIONS = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt'}
+
+
+def _detect_file_type(filename):
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in IMAGE_EXTENSIONS:
+        return 'image'
+    if ext in DOCUMENT_EXTENSIONS:
+        return 'document'
+    return 'other'
+
+
+def _get_entry_and_student(entry_type, entry_id):
+    model = ALLOWED_ENTRY_TYPES.get(entry_type)
+    if not model:
+        return None, None
+    entry = get_object_or_404(model.objects.select_related('student'), pk=entry_id)
+    return entry, entry.student
+
+
+class AttachmentUploadAPIView(APIView):
+    """POST /api/v1/attachments/<entry_type>/<entry_id>/ — upload files to an entry."""
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
+
+    def post(self, request, entry_type, entry_id):
+        entry, student = _get_entry_and_student(entry_type, entry_id)
+        if entry is None:
+            return Response(
+                {'detail': 'Invalid entry type.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not can_access_student(request.user, student):
+            return Response(
+                {'detail': NO_ACCESS_STUDENT},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        files = request.FILES.getlist('files')
+        if not files:
+            files = request.FILES.getlist('file')
+        if not files:
+            return Response(
+                {'detail': 'No files provided. Use "files" or "file" field.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        file_type_override = request.data.get('file_type')
+        ct = ContentType.objects.get_for_model(entry)
+
+        created = []
+        for f in files:
+            ft = file_type_override or _detect_file_type(f.name)
+            attachment = Attachment.objects.create(
+                content_type=ct,
+                object_id=entry.id,
+                file=f,
+                file_type=ft,
+                original_name=f.name,
+                uploaded_by=request.user,
+            )
+            created.append(attachment)
+
+        return Response(
+            AttachmentSerializer(created, many=True).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AttachmentDeleteAPIView(APIView):
+    """DELETE /api/v1/attachments/<pk>/ — delete an attachment."""
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
+
+    def delete(self, request, pk):
+        attachment = get_object_or_404(Attachment, pk=pk)
+
+        entry = attachment.content_object
+        if entry and hasattr(entry, 'student'):
+            if not can_access_student(request.user, entry.student):
+                return Response(
+                    {'detail': NO_ACCESS_STUDENT},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        attachment.file.delete(save=False)
+        attachment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

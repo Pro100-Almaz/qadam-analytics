@@ -1,9 +1,12 @@
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from simple_history.models import HistoricalRecords
+
+from core.models import SoftDeleteMixin
 
 
-class Lesson(models.Model):
+class Lesson(SoftDeleteMixin, models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('completed', 'Completed'),
@@ -46,6 +49,7 @@ class Lesson(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ['date', 'order']
@@ -137,7 +141,7 @@ class Lesson(models.Model):
         return results
 
 
-class Topic(models.Model):
+class Topic(SoftDeleteMixin, models.Model):
     lesson = models.ForeignKey(
         Lesson,
         related_name='topics',
@@ -165,6 +169,7 @@ class Topic(models.Model):
         max_length=255,
         default='',
     )
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('lesson', 'parent', 'title')
@@ -200,12 +205,13 @@ class Topic(models.Model):
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
 
-class TopicGrade(models.Model):
+class TopicGrade(SoftDeleteMixin, models.Model):
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
     grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
     comment = models.TextField(blank=True)
     comment_selected = models.BooleanField(default=False)
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('topic', 'student')
@@ -234,3 +240,45 @@ class MergedLessonComment(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.lesson}: {self.comment_text[:30]}"
+
+
+class QuarterGradeSnapshot(models.Model):
+    student = models.ForeignKey(
+        'authentication.Student', on_delete=models.PROTECT,
+        related_name='grade_snapshots',
+    )
+    offering = models.ForeignKey(
+        'home.SubjectOffering', on_delete=models.PROTECT,
+        related_name='grade_snapshots',
+    )
+    quarter = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+    )
+    academic_year = models.ForeignKey(
+        'home.AcademicYear', on_delete=models.PROTECT,
+    )
+    final_grade = models.DecimalField(max_digits=5, decimal_places=2)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    letter_grade = models.CharField(max_length=2, blank=True)
+    lesson_count = models.PositiveIntegerField()
+    graded_lesson_count = models.PositiveIntegerField()
+    frozen_at = models.DateTimeField(auto_now_add=True)
+    frozen_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='frozen_snapshots',
+    )
+
+    class Meta:
+        unique_together = ['student', 'offering', 'quarter', 'academic_year']
+        indexes = [
+            models.Index(fields=['student', 'academic_year']),
+            models.Index(fields=['offering', 'quarter']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValueError("QuarterGradeSnapshot cannot be updated after creation.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"

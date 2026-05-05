@@ -8,6 +8,7 @@ from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
+from simple_history.models import HistoricalRecords
 from core import settings
 
 
@@ -49,6 +50,7 @@ class CustomUser(AbstractUser):
     GROUP_SUPERVISOR = 'Supervisor'
     GROUP_PRINCIPAL = 'Principal'
     GROUP_ADMIN = 'Admin'
+    GROUP_PSYCHOLOGIST = 'Psychologist'
 
     # Choices for forms - maps internal group name to display name
     GROUP_CHOICES = [
@@ -59,6 +61,7 @@ class CustomUser(AbstractUser):
         (GROUP_SUPERVISOR, 'Supervisor'),
         (GROUP_PRINCIPAL, 'Principal'),
         (GROUP_ADMIN, 'Admin'),
+        (GROUP_PSYCHOLOGIST, 'Psychologist'),
     ]
 
     # Display names for groups
@@ -70,6 +73,7 @@ class CustomUser(AbstractUser):
         GROUP_SUPERVISOR: 'Supervisor',
         GROUP_PRINCIPAL: 'Principal',
         GROUP_ADMIN: 'Admin',
+        GROUP_PSYCHOLOGIST: 'Psychologist',
     }
 
     SCHOOL_CHOICES = [
@@ -144,6 +148,10 @@ class CustomUser(AbstractUser):
         """Check if user is a parent."""
         return self._has_group(self.GROUP_PARENT)
 
+    def is_psychologist(self):
+        """Check if user is a psychologist."""
+        return self._has_group(self.GROUP_PSYCHOLOGIST)
+
     def is_student(self):
         """Check if user is a student."""
         return self._has_group(self.GROUP_STUDENT)
@@ -184,6 +192,7 @@ class Student(models.Model):
         blank=True,
         help_text='Enrollment year for this student'
     )
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username

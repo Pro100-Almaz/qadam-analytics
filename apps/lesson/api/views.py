@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment
+from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
 from core.permissions import (
     can_access_lesson, can_modify_lesson, can_grade_student,
     is_admin_role, is_teacher_role,
@@ -23,6 +23,7 @@ from apps.lesson.services import (
     distribute_subtopic_weights,
     submit_grades,
     delete_student_grades,
+    freeze_quarter_grades,
 )
 
 from .permissions import IsTeacherAdminOrSupervisor
@@ -171,7 +172,7 @@ class LessonDetailDeleteAPIView(APIView):
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        lesson.delete()
+        lesson.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -251,7 +252,7 @@ class TopicUpdateDeleteAPIView(APIView):
             )
 
         lesson_id = lesson.id
-        topic.delete()
+        topic.soft_delete(request.user)
 
         lesson = get_object_or_404(Lesson, pk=lesson_id)
         recalculate_topic_weights(lesson)
@@ -454,7 +455,7 @@ class GradingDeleteAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        delete_student_grades(lesson, student)
+        delete_student_grades(lesson, student, user=request.user)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -596,3 +597,131 @@ class CalendarLessonListAPIView(APIView):
             offering_id__in=offering_ids, role='primary',
         ).select_related('teacher__user')
         return {ta.offering_id: ta.teacher for ta in primary_assignments}
+
+
+class FreezeQuarterAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not is_admin_role(request.user):
+            return Response(
+                {'detail': 'Only admins and supervisors can freeze quarters.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        quarter = request.data.get('quarter')
+        if not quarter or int(quarter) not in (1, 2, 3, 4):
+            return Response(
+                {'detail': 'quarter is required (1-4).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            count = freeze_quarter_grades(pk, int(quarter), request.user)
+        except SubjectOffering.DoesNotExist:
+            return Response(
+                {'detail': 'Offering not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response({
+            'frozen_count': count,
+            'quarter': int(quarter),
+            'offering_id': pk,
+        }, status=status.HTTP_201_CREATED)
+
+
+class StudentGradeHistoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from core.permissions import can_access_student
+
+        try:
+            student = Student.objects.get(user_id=pk)
+        except Student.DoesNotExist:
+            return Response(
+                {'detail': 'Student not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not can_access_student(request.user, student):
+            return Response(
+                {'detail': 'You do not have access to this student.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        year_id = request.query_params.get('year')
+        snapshots = QuarterGradeSnapshot.objects.filter(
+            student=student,
+        ).select_related('offering__subject', 'academic_year').order_by(
+            '-academic_year__year', 'offering__subject__name', 'quarter',
+        )
+        if year_id:
+            snapshots = snapshots.filter(academic_year_id=year_id)
+
+        data = []
+        for s in snapshots:
+            data.append({
+                'id': s.id,
+                'subject_name': s.offering.subject.name,
+                'class_group': str(s.offering.class_group) if s.offering.class_group_id else None,
+                'quarter': s.quarter,
+                'academic_year': str(s.academic_year),
+                'final_grade': float(s.final_grade),
+                'percentage': float(s.percentage),
+                'letter_grade': s.letter_grade,
+                'lesson_count': s.lesson_count,
+                'graded_lesson_count': s.graded_lesson_count,
+                'frozen_at': s.frozen_at.isoformat(),
+            })
+
+        return Response(data)
+
+
+class GradeAuditLogAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_admin_role(request.user):
+            return Response(
+                {'detail': 'Only admins can view audit logs.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        student_id = request.query_params.get('student')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        qs = TopicGrade.history.select_related(
+            'topic', 'student__user',
+        ).order_by('-history_date')
+
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        if date_from:
+            qs = qs.filter(history_date__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(history_date__date__lte=date_to)
+
+        qs = qs[:100]
+
+        data = []
+        for record in qs:
+            data.append({
+                'id': record.history_id,
+                'action': record.get_history_type_display(),
+                'date': record.history_date.isoformat(),
+                'user': str(record.history_user) if record.history_user else None,
+                'topic_id': record.topic_id,
+                'student_id': record.student_id,
+                'grade': record.grade,
+                'comment': record.comment,
+            })
+
+        return Response(data)

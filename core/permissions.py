@@ -14,6 +14,9 @@ ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
 # Group names for teacher roles
 TEACHER_GROUPS = ('Teacher', 'HomeroomTeacher')
 
+# All staff that work with students (teachers + psychologists)
+STAFF_GROUPS = ('Teacher', 'HomeroomTeacher', 'Psychologist')
+
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
@@ -363,3 +366,38 @@ class CanAccessSubject(BasePermission):
 class CanModifySubject(BasePermission):
     def has_object_permission(self, request, view, obj):
         return can_modify_subject(request.user, obj)
+
+
+class IsPsychologist(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='Psychologist').exists()
+
+
+class IsPsychologistOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            is_admin_role(request.user)
+            or request.user.groups.filter(name='Psychologist').exists()
+        )
+
+
+class IsHomeroomTeacher(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name='HomeroomTeacher').exists()
+
+
+class IsHomeroomTeacherOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return (
+            is_admin_role(request.user)
+            or request.user.groups.filter(name='HomeroomTeacher').exists()
+        )
+
+
+class IsStaffOrAdmin(BasePermission):
+    """Any teacher subtype, psychologist, or admin."""
+    def has_permission(self, request, view):
+        return (
+            is_admin_role(request.user)
+            or request.user.groups.filter(name__in=STAFF_GROUPS).exists()
+        )

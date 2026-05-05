@@ -2,7 +2,7 @@ from django.core.cache import cache
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment
+from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
 from core.permissions import is_admin_role, is_teacher_role
 
 GRADE_CACHE_TTL = 300
@@ -193,8 +193,61 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
         ).delete()
 
 
-def delete_student_grades(lesson, student):
-    """Delete all grades and merged comments for a student on a lesson."""
+def delete_student_grades(lesson, student, user=None):
+    """Soft-delete all grades and delete merged comments for a student on a lesson."""
+    from django.utils import timezone
+
     invalidate_lesson_grade_cache(lesson.id)
-    TopicGrade.objects.filter(student=student, topic__lesson=lesson).delete()
+    now = timezone.now()
+    TopicGrade.objects.filter(student=student, topic__lesson=lesson).update(
+        is_deleted=True, deleted_at=now, deleted_by=user,
+    )
     MergedLessonComment.objects.filter(lesson=lesson, student=student).delete()
+
+
+def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
+    """Snapshot current grades for all enrolled students in an offering's quarter."""
+    from apps.home.repo.students import grade_identifier
+
+    offering = SubjectOffering.objects.select_related(
+        'class_group', 'academic_year',
+    ).get(id=offering_id)
+
+    if QuarterGradeSnapshot.objects.filter(
+        offering=offering, quarter=quarter, academic_year=offering.academic_year,
+    ).exists():
+        raise ValueError(f"Quarter {quarter} is already frozen for this offering.")
+
+    enrollments = Enrollment.objects.filter(
+        class_group=offering.class_group,
+        academic_year=offering.academic_year,
+        status='active',
+    ).select_related('student')
+    students = [e.student for e in enrollments]
+
+    lessons = list(Lesson.objects.filter(offering=offering))
+    quarter_lessons = [l for l in lessons if l.quarter == quarter]
+
+    grades_map = Lesson.calculate_grades_bulk(quarter_lessons, students) if quarter_lessons else {}
+
+    snapshots = []
+    for student in students:
+        grade_values = [grades_map.get((l.id, student.id), 0) for l in quarter_lessons]
+        graded_count = sum(1 for g in grade_values if g > 0)
+        avg = sum(grade_values) / len(grade_values) if grade_values else 0
+
+        snapshots.append(QuarterGradeSnapshot(
+            student=student,
+            offering=offering,
+            quarter=quarter,
+            academic_year=offering.academic_year,
+            final_grade=round(avg, 2),
+            percentage=round(avg, 2),
+            letter_grade=grade_identifier(avg) or '',
+            lesson_count=len(quarter_lessons),
+            graded_lesson_count=graded_count,
+            frozen_by=frozen_by_user,
+        ))
+
+    QuarterGradeSnapshot.objects.bulk_create(snapshots)
+    return len(snapshots)

@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher
 
 
@@ -161,6 +162,31 @@ class TeachingAssignment(models.Model):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
 
 
+class HomeroomTeacherAssignment(models.Model):
+    """Links a homeroom teacher to a class group for an academic year."""
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name='homeroom_assignments',
+    )
+    class_group = models.ForeignKey(
+        ClassGroup,
+        on_delete=models.CASCADE,
+        related_name='homeroom_assignments',
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='homeroom_assignments',
+    )
+
+    class Meta:
+        unique_together = ('class_group', 'academic_year')
+
+    def __str__(self):
+        return f"{self.teacher} → {self.class_group} ({self.academic_year})"
+
+
 class Enrollment(models.Model):
     """Tracks which class a student belongs to in a given academic year."""
     STATUS_CHOICES = [
@@ -194,6 +220,7 @@ class Enrollment(models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    history = HistoricalRecords()
 
     class Meta:
         constraints = [

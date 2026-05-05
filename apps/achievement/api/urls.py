@@ -4,6 +4,8 @@ from .views import (
     AchievementDetailAPIView,
     AchievementDownloadAPIView,
     AchievementListCreateAPIView,
+    AttachmentDeleteAPIView,
+    AttachmentUploadAPIView,
     ClubEntryDetailAPIView,
     ClubEntryListCreateAPIView,
     ReadingEntryDetailAPIView,
@@ -52,5 +54,17 @@ urlpatterns = [
         'club-entries/<int:pk>/',
         ClubEntryDetailAPIView.as_view(),
         name='club-entry-detail',
+    ),
+
+    # Attachments (generic for all entry types)
+    path(
+        'attachments/<str:entry_type>/<int:entry_id>/',
+        AttachmentUploadAPIView.as_view(),
+        name='attachment-upload',
+    ),
+    path(
+        'attachments/<int:pk>/',
+        AttachmentDeleteAPIView.as_view(),
+        name='attachment-delete',
     ),
 ]

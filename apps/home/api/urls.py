@@ -7,6 +7,7 @@ app_name = 'home-api'
 urlpatterns = [
     # Dashboard
     path('dashboard/stats/', views.DashboardStatsAPIView.as_view(), name='dashboard-stats'),
+    path('dashboard/teacher-workload/', views.TeacherWorkloadAPIView.as_view(), name='teacher-workload'),
 
     # Academic years & class groups
     path('academic-years/', views.AcademicYearListAPIView.as_view(), name='academic-years'),
@@ -52,6 +53,9 @@ urlpatterns = [
     path('subjects/<int:pk>/delete/', views.SubjectDeleteAPIView.as_view(), name='subject-delete'),
     path('my-subjects/', views.MySubjectsListAPIView.as_view(), name='my-subjects'),
 
+    # Admin
+    path('admin/rollover-year/', views.RolloverAcademicYearAPIView.as_view(), name='rollover-year'),
+
     # Enrollments
     path('enrollments/', views.EnrollmentListAPIView.as_view(), name='enrollment-list'),
 
@@ -59,4 +63,20 @@ urlpatterns = [
     path('parents/me/children/', views.ParentChildrenListAPIView.as_view(), name='parent-children'),
     path('parents/me/children/<int:student_pk>/', views.ParentChildDetailAPIView.as_view(), name='parent-child-detail'),
     path('parents/me/teachers/', views.ParentTeachersAPIView.as_view(), name='parent-my-teachers'),
+
+    # Teacher dashboards (role-specific)
+    path('teacher/dashboard/', views.TeacherRoleDashboardAPIView.as_view(), name='teacher-dashboard'),
+    path('teacher/my-class/', views.HomeroomClassAPIView.as_view(), name='homeroom-class'),
+    path('teacher/psychologist/', views.PsychologistDashboardAPIView.as_view(), name='psychologist-dashboard'),
+    path(
+        'teacher/psychologist/students/<int:pk>/',
+        views.PsychologistStudentDetailAPIView.as_view(),
+        name='psychologist-student-detail',
+    ),
+    path('teacher/my-classes/', views.TeacherMyClassesAPIView.as_view(), name='teacher-my-classes'),
+    path(
+        'teacher/my-classes/<int:class_group_id>/students/',
+        views.TeacherClassStudentsAPIView.as_view(),
+        name='teacher-class-students',
+    ),
 ]

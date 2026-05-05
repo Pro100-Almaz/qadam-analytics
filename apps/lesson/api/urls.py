@@ -75,4 +75,23 @@ urlpatterns = [
         views.CalendarLessonListAPIView.as_view(),
         name='calendar-lessons',
     ),
+
+    # ── Quarter Snapshots ──
+    path(
+        'offerings/<int:pk>/freeze-quarter/',
+        views.FreezeQuarterAPIView.as_view(),
+        name='freeze-quarter',
+    ),
+    path(
+        'students/<int:pk>/grade-history/',
+        views.StudentGradeHistoryAPIView.as_view(),
+        name='student-grade-history',
+    ),
+
+    # ── Audit ──
+    path(
+        'audit/grades/',
+        views.GradeAuditLogAPIView.as_view(),
+        name='grade-audit-log',
+    ),
 ]

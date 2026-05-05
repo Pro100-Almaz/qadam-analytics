@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.achievement.models import Achievement, ClubEntry, ReadingEntry
+from apps.achievement.models import Achievement, Attachment, ClubEntry, ReadingEntry
 from apps.authentication.models import Student
 from apps.home.models import AcademicYear, Subject
 
@@ -15,12 +15,20 @@ class _StudentBriefSerializer(serializers.Serializer):
         return obj.user.get_full_name() or obj.user.username
 
 
+class AttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Attachment
+        fields = ['id', 'file', 'file_type', 'original_name', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
 # ── Achievement serializers ──
 
 class AchievementListSerializer(serializers.ModelSerializer):
     student = _StudentBriefSerializer(read_only=True)
     academic_year = serializers.StringRelatedField(read_only=True)
     subject_name = serializers.SerializerMethodField()
+    attachments = AttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Achievement
@@ -28,7 +36,7 @@ class AchievementListSerializer(serializers.ModelSerializer):
             'id', 'student', 'academic_year', 'category',
             'subject_name', 'award_type', 'place',
             'role', 'duration', 'description',
-            'certificate', 'created_at', 'updated_at',
+            'certificate', 'attachments', 'created_at', 'updated_at',
         ]
 
     def get_subject_name(self, obj):
@@ -100,13 +108,14 @@ class AchievementUpdateSerializer(serializers.Serializer):
 class ReadingEntrySerializer(serializers.ModelSerializer):
     student = _StudentBriefSerializer(read_only=True)
     academic_year = serializers.StringRelatedField(read_only=True)
+    attachments = AttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = ReadingEntry
         fields = [
             'id', 'student', 'academic_year',
             'title', 'cover', 'month', 'pages_read', 'test_score',
-            'created_at',
+            'attachments', 'created_at',
         ]
 
 
@@ -136,6 +145,7 @@ class ReadingEntryCreateSerializer(serializers.Serializer):
 class ClubEntrySerializer(serializers.ModelSerializer):
     student = _StudentBriefSerializer(read_only=True)
     academic_year = serializers.StringRelatedField(read_only=True)
+    attachments = AttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = ClubEntry
@@ -143,7 +153,7 @@ class ClubEntrySerializer(serializers.ModelSerializer):
             'id', 'student', 'academic_year', 'month',
             'club_name', 'plan', 'criteria',
             'total_sessions', 'attended_sessions', 'comments',
-            'created_at',
+            'attachments', 'created_at',
         ]
 
 

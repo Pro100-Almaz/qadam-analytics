@@ -1,8 +1,62 @@
+from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
+from core.models import SoftDeleteMixin
 
-class Achievement(models.Model):
+
+MAX_ATTACHMENT_SIZE_MB = 10
+MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
+
+
+def validate_attachment_size(file):
+    if file.size > MAX_ATTACHMENT_SIZE_BYTES:
+        from django.core.exceptions import ValidationError
+        raise ValidationError(
+            f'File size must be less than {MAX_ATTACHMENT_SIZE_MB}MB. '
+            f'Current size: {file.size / (1024 * 1024):.1f}MB'
+        )
+
+
+class Attachment(models.Model):
+    FILE_TYPE_CHOICES = [
+        ('image', 'Image'),
+        ('document', 'Document'),
+        ('certificate', 'Certificate'),
+        ('other', 'Other'),
+    ]
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    file = models.FileField(
+        upload_to='achievements/attachments/%Y/%m/',
+        validators=[validate_attachment_size],
+    )
+    file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES, default='other')
+    original_name = models.CharField(max_length=255)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='+',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.original_name} ({self.file_type})"
+
+
+class Achievement(SoftDeleteMixin, models.Model):
     CATEGORY_CHOICES = [
         ('olympiad', 'Subject Olympiad'),
         ('additional_education', 'Additional Education'),
@@ -64,6 +118,7 @@ class Achievement(models.Model):
         null=True,
         blank=True,
     )
+    attachments = GenericRelation(Attachment)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -75,7 +130,7 @@ class Achievement(models.Model):
         return f"{self.student} - {self.get_category_display()} ({self.academic_year})"
 
 
-class ReadingEntry(models.Model):
+class ReadingEntry(SoftDeleteMixin, models.Model):
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -101,6 +156,7 @@ class ReadingEntry(models.Model):
         blank=True,
         help_text='Test result for this book (0-100)',
     )
+    attachments = GenericRelation(Attachment)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -111,7 +167,7 @@ class ReadingEntry(models.Model):
         return f"{self.student} - {self.title}"
 
 
-class ClubEntry(models.Model):
+class ClubEntry(SoftDeleteMixin, models.Model):
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -131,6 +187,7 @@ class ClubEntry(models.Model):
     total_sessions = models.PositiveIntegerField(default=0)
     attended_sessions = models.PositiveIntegerField(default=0)
     comments = models.TextField(blank=True)
+    attachments = GenericRelation(Attachment)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
