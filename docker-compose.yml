@@ -55,7 +55,7 @@ services:
       - "8000"
     volumes:
       - static_vol:/vol/static
-      - media_vol:/vol/media
+      - media_vol:/app/media
     networks: [app_network]
 
   celery-worker:
@@ -80,7 +80,7 @@ services:
       redis:
         condition: service_started
     volumes:
-      - media_vol:/vol/media
+      - media_vol:/app/media
     networks: [app_network]
 
   redis:
