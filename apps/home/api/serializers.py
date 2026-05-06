@@ -173,7 +173,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         for quarter in [1, 2, 3, 4]:
             quarter_sum = sum(subject_quarter_grades[quarter].values())
             avg = round(quarter_sum / num_subjects, 1) if num_subjects > 0 else 0
-            student_total_grade += round(avg / 4, 1)
+            student_total_grade += avg / 4
             total_quarter_grades[quarter] = grade_identifier(avg)
 
         cumulative_subject_grades = {}
@@ -189,7 +189,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             'subject_quarter_grades': subject_quarter_grades,
             'total_quarter_grades': total_quarter_grades,
             'cumulative_subject_grades': cumulative_subject_grades,
-            'student_total_grade': student_total_grade,
+            'student_total_grade': round(student_total_grade, 2),
         }
         return self._grade_cache
 
