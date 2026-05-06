@@ -15,7 +15,7 @@ services:
       - certbot_www:/var/www/certbot:ro
       - certbot_conf:/etc/letsencrypt:ro
     environment:
-      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-dashboard.qadam.edu.kz}
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-api.qadam.edu.kz}
     entrypoint: /bin/sh -c "envsubst '$$NGINX_SERVER_NAME' < /etc/nginx/conf.d/templates/django.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
     depends_on: [appseed-app]
     networks: [app_network]

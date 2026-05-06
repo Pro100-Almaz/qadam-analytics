@@ -18,7 +18,7 @@ if DEBUG:
 else:
     ALLOWED_HOSTS = config(
         'ALLOWED_HOSTS',
-        default='dashboard.qadam.edu.kz,qadam.edu.kz,www.qadam.edu.kz',
+        default='api.qadam.edu.kz',
         cast=lambda v: [h.strip() for h in v.split(',')],
     )
 
@@ -52,7 +52,7 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     CSRF_TRUSTED_ORIGINS = config(
         'CSRF_TRUSTED_ORIGINS',
-        default='https://dashboard.qadam.edu.kz,https://qadam.edu.kz,https://www.qadam.edu.kz',
+        default='https://api.qadam.edu.kz',
         cast=lambda v: [o.strip() for o in v.split(',')],
     )
 
@@ -251,7 +251,7 @@ if DEBUG:
 else:
     CORS_ALLOWED_ORIGINS = config(
         'CORS_ALLOWED_ORIGINS',
-        default='https://dashboard.qadam.edu.kz,https://qadam.edu.kz,https://www.qadam.edu.kz',
+        default='https://dashboard.qadam.edu.kz',
         cast=lambda v: [o.strip() for o in v.split(',')],
     )
 
