@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/v1/", include("apps.lesson.api.urls")),
     path("api/v1/notifications/", include("apps.notification.api.urls")),
     path("api/v1/", include("apps.achievement.api.urls")),
+    path("api/v1/", include("apps.student_report.api.urls")),
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

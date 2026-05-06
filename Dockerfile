@@ -9,6 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential gcc libpq-dev curl netcat-openbsd \
+      libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
+      libffi-dev libcairo2 fonts-noto-core \
   && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m appuser

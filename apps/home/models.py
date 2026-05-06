@@ -5,9 +5,42 @@ from apps.authentication.models import Teacher
 
 
 class AcademicYear(models.Model):
-    year = models.CharField(max_length=40) # 2024/2025
+    year = models.CharField(max_length=40)  # 2024/2025
     is_active = models.BooleanField(default=False)
     archived = models.BooleanField(default=True)
+
+    q1_start = models.DateField(null=True, blank=True)
+    q1_end = models.DateField(null=True, blank=True)
+    q2_start = models.DateField(null=True, blank=True)
+    q2_end = models.DateField(null=True, blank=True)
+    q3_start = models.DateField(null=True, blank=True)
+    q3_end = models.DateField(null=True, blank=True)
+    q4_start = models.DateField(null=True, blank=True)
+    q4_end = models.DateField(null=True, blank=True)
+
+    @property
+    def current_quarter(self):
+        from django.utils import timezone
+        today = timezone.localdate()
+        for q in [1, 2, 3, 4]:
+            start = getattr(self, f'q{q}_start')
+            end = getattr(self, f'q{q}_end')
+            if start and end and start <= today <= end:
+                return q
+        return None
+
+    @property
+    def quarters(self):
+        result = []
+        for q in [1, 2, 3, 4]:
+            start = getattr(self, f'q{q}_start')
+            end = getattr(self, f'q{q}_end')
+            result.append({
+                'quarter': q,
+                'start': start.isoformat() if start else None,
+                'end': end.isoformat() if end else None,
+            })
+        return result
 
     def __str__(self):
         return self.year

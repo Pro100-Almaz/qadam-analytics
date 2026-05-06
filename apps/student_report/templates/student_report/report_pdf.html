@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 1.5cm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9px;
+      color: #888;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Noto Sans", "DejaVu Sans", Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #333;
+  }
+
+  .header {
+    text-align: center;
+    border-bottom: 3px solid #1a237e;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 20px;
+    color: #1a237e;
+    margin-bottom: 4px;
+  }
+
+  .header .meta {
+    font-size: 12px;
+    color: #555;
+  }
+
+  h2 {
+    font-size: 14px;
+    color: #1a237e;
+    border-bottom: 1px solid #c5cae9;
+    padding-bottom: 4px;
+    margin: 18px 0 10px 0;
+  }
+
+  h3 {
+    font-size: 12px;
+    color: #37474f;
+    margin: 10px 0 6px 0;
+  }
+
+  .summary-box {
+    background: #e8eaf6;
+    border-left: 4px solid #1a237e;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+
+  .assessment-badge {
+    display: inline-block;
+    background: #1a237e;
+    color: #fff;
+    padding: 3px 12px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 14px 0;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 10px;
+  }
+
+  th {
+    background: #e8eaf6;
+    font-weight: bold;
+    color: #1a237e;
+  }
+
+  .trend-improving { color: #2e7d32; }
+  .trend-declining { color: #c62828; }
+  .trend-stable { color: #f57f17; }
+
+  .trend-arrow-improving::before { content: "↑ "; }
+  .trend-arrow-declining::before { content: "↓ "; }
+  .trend-arrow-stable::before { content: "→ "; }
+
+  .section-card {
+    background: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+
+  .section-card .card-title {
+    font-weight: bold;
+    color: #1a237e;
+    margin-bottom: 4px;
+  }
+
+  .rec-list {
+    margin: 6px 0;
+    padding-left: 18px;
+  }
+
+  .rec-list li {
+    margin-bottom: 4px;
+  }
+
+  .two-col {
+    display: flex;
+    gap: 12px;
+  }
+
+  .two-col > div {
+    flex: 1;
+  }
+
+  .footer {
+    margin-top: 24px;
+    padding-top: 10px;
+    border-top: 1px solid #ccc;
+    font-size: 9px;
+    color: #888;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Student Performance Report</h1>
+  <div class="meta">
+    <strong>{{ student_name }}</strong> &mdash; Class {{ class_group }}<br>
+    {{ academic_year }} &bull; {{ quarter_label }}
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary-box">
+  {{ data.summary }}
+</div>
+
+<!-- Overall Assessment -->
+<h2>Overall Assessment</h2>
+<div class="assessment-badge">{{ data.overall_assessment.score_label }}</div>
+<p>{{ data.overall_assessment.description }}</p>
+
+<!-- Academic Performance -->
+<h2>Academic Performance</h2>
+<p>{{ data.academic_performance.overview }}</p>
+
+{% if data.academic_performance.subject_analyses %}
+<table>
+  <thead>
+    <tr>
+      <th>Subject</th>
+      <th>Grade %</th>
+      <th>Class Avg</th>
+      <th>Trend</th>
+      <th>Analysis</th>
+      <th>Recommendation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in data.academic_performance.subject_analyses %}
+    <tr>
+      <td><strong>{{ s.subject }}</strong></td>
+      <td>{{ s.grade_percentage }}%</td>
+      <td>{{ s.class_average }}%</td>
+      <td>
+        <span class="trend-{{ s.trend }} trend-arrow-{{ s.trend }}">{{ s.trend }}</span>
+      </td>
+      <td>{{ s.analysis }}</td>
+      <td>{{ s.recommendation }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<!-- Strengths & Improvements -->
+<div class="two-col">
+  <div>
+    <h2>Strengths</h2>
+    {% for item in data.strengths %}
+    <div class="section-card">
+      <div class="card-title">{{ item.area }}</div>
+      <div>{{ item.description }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div>
+    <h2>Areas for Improvement</h2>
+    {% for item in data.areas_for_improvement %}
+    <div class="section-card">
+      <div class="card-title">{{ item.area }}</div>
+      <div>{{ item.description }}</div>
+      <div style="margin-top:4px;font-style:italic;color:#555;">→ {{ item.suggested_action }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Psychological Profile -->
+<h2>Psychological Profile</h2>
+<p>{{ data.psychological_profile.summary }}</p>
+{% if data.psychological_profile.observations %}
+<h3>Observations</h3>
+<ul class="rec-list">
+  {% for obs in data.psychological_profile.observations %}
+  <li>{{ obs }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if data.psychological_profile.recommendations %}
+<h3>Recommendations</h3>
+<ul class="rec-list">
+  {% for rec in data.psychological_profile.recommendations %}
+  <li>{{ rec }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<!-- Extracurricular -->
+<h2>Extracurricular Activities</h2>
+<p>{{ data.extracurricular.summary }}</p>
+{% if data.extracurricular.highlights %}
+<ul class="rec-list">
+  {% for h in data.extracurricular.highlights %}
+  <li>{{ h }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<!-- Recommendations -->
+<h2>Recommendations</h2>
+
+<h3>For Teachers</h3>
+<ul class="rec-list">
+  {% for r in data.recommendations.for_teachers %}
+  <li>{{ r }}</li>
+  {% endfor %}
+</ul>
+
+<h3>For Parents</h3>
+<ul class="rec-list">
+  {% for r in data.recommendations.for_parents %}
+  <li>{{ r }}</li>
+  {% endfor %}
+</ul>
+
+<h3>For Student</h3>
+<ul class="rec-list">
+  {% for r in data.recommendations.for_student %}
+  <li>{{ r }}</li>
+  {% endfor %}
+</ul>
+
+<!-- Conclusion -->
+<h2>Conclusion</h2>
+<div class="summary-box">
+  {{ data.conclusion }}
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Generated by Qadam Analytics &bull; {{ report.created_at|date:"Y-m-d H:i" }}
+</div>
+
+</body>
+</html>

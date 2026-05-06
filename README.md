@@ -14,6 +14,7 @@ Educational analytics and grading management platform for private schools in Kaz
 - [Setup & Installation](#setup--installation)
 - [API Endpoints](#api-endpoints)
 - [External Integrations](#external-integrations)
+- [AI Student Reports](#ai-student-reports)
 - [Development](#development)
 
 ---
@@ -50,18 +51,24 @@ Qadam Analytics is a comprehensive school management system that provides:
 +------------------------------------------------------------------------+
 |                       DJANGO APPLICATION                                |
 |                   (Gunicorn - 3 Workers)                                |
-|  +-------------+  +-------------+  +-------------+  +----------------+  |
-|  |    Auth     |  |    Home     |  |   Lesson    |  |  Notification  |  |
-|  |    App      |  |    App      |  |    App      |  |      App       |  |
-|  +-------------+  +-------------+  +-------------+  +----------------+  |
+|  +--------+ +--------+ +--------+ +--------+ +----------+ +---------+  |
+|  |  Auth  | |  Home  | | Lesson | | Notif  | |Achievement| |Student  |  |
+|  |  App   | |  App   | |  App   | |  App   | |   App     | |Report   |  |
+|  +--------+ +--------+ +--------+ +--------+ +----------+ +---------+  |
 +------------------------------------------------------------------------+
-         |                   |                    |
-         v                   v                    v
-+--------------+    +--------------+     +--------------+
-|  PostgreSQL  |    |    AWS S3    |     | Google Sheets|
-|   Database   |    |   (Media)    |     |   (Import)   |
-|  (14-alpine) |    |qadam-avatars |     |              |
-+--------------+    +--------------+     +--------------+
+         |                   |                    |              |
+         v                   v                    v              v
++--------------+    +--------------+     +--------------+ +-----------+
+|  PostgreSQL  |    |    AWS S3    |     | Google Sheets| |  OpenAI   |
+|   Database   |    |   (Media)    |     |   (Import)   | |    API    |
+|  (14-alpine) |    |qadam-avatars |     |              | |(gpt-4o-m) |
++--------------+    +--------------+     +--------------+ +-----------+
+                                                               ^
++--------------+    +--------------+                           |
+|    Redis     |    |   Celery     |---(async report generation)
+|   (Cache +   |<---|   Worker     |
+|    Broker)   |    +--------------+
++--------------+
 ```
 
 ### Application Architecture
@@ -146,6 +153,9 @@ Grade Calculation:
 | **Containerization** | Docker, Docker Compose |
 | **Email** | Gmail SMTP |
 | **External Data** | Google Sheets API (gspread) |
+| **Task Queue** | Celery 5.4 + Redis 7 |
+| **AI** | OpenAI API (gpt-4o-mini) |
+| **PDF** | WeasyPrint 62 |
 | **CSS Framework** | Bootstrap (Argon Dashboard) |
 
 ---
@@ -178,6 +188,26 @@ qadam-analytics/
 |   |-- lesson/                     # Grading system
 |   |   |-- models.py               # Lesson, Topic, TopicGrade
 |   |   +-- views.py                # Grading interface
+|   |
+|   |-- achievement/                # Achievements, reading, clubs
+|   |   |-- models.py               # Achievement, ReadingEntry, ClubEntry, Attachment
+|   |   +-- api/                    # REST API (CRUD + file upload)
+|   |
+|   |-- student_report/             # AI-generated student reports
+|   |   |-- models.py               # StudentReport (status, report_data JSON)
+|   |   |-- tasks.py                # Celery task + email notification
+|   |   |-- services/
+|   |   |   |-- data_collector.py   # Gathers grades, psych, achievements
+|   |   |   |-- prompt_builder.py   # OpenAI prompt construction
+|   |   |   +-- generator.py        # OpenAI API call + JSON parsing
+|   |   |-- api/
+|   |   |   |-- views.py            # Generate, list, detail endpoints
+|   |   |   |-- serializers.py      # Full + list serializers
+|   |   |   |-- pdf_export.py       # WeasyPrint PDF rendering
+|   |   |   +-- urls.py             # URL routing
+|   |   +-- templates/
+|   |       +-- student_report/
+|   |           +-- report_pdf.html # A4 PDF template (Cyrillic)
 |   |
 |   |-- notification/               # Notification system
 |   |   |-- models.py               # Notification types
@@ -481,6 +511,17 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 
+# AI Reports
+OPENAI_API_KEY=sk-...
+AI_REPORT_MODEL=gpt-4o-mini
+
+# Celery
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+# Redis (cache)
+REDIS_URL=redis://redis:6379/1
+
 # Google Sheets
 SPREADSHEET_URL=https://docs.google.com/spreadsheets/d/...
 SERVICE_ACCOUNT_FILE=./core/credentials/service_account.json
@@ -618,6 +659,161 @@ docker-compose exec appseed-app python manage.py migrate
 
 - **Host**: `smtp.gmail.com:587`
 - **Usage**: Registration emails, password reset, notifications
+
+---
+
+## AI Student Reports
+
+AI-powered quarterly performance reports for students, generated via OpenAI API and processed asynchronously with Celery.
+
+### How It Works
+
+```
+Teacher clicks "Generate Report"
+         |
+         v
+POST /api/v1/students/<id>/reports/generate/
+         |
+         +--> Check cache (same params within 1 hour?) --> Return cached (200)
+         |
+         +--> Create StudentReport (status: pending)
+         |
+         +--> Queue Celery task (generate_report_task)
+         |
+         +--> Return 202 Accepted (report ID for polling)
+                    |
+                    v  (async in Celery worker)
+            +------------------+
+            | Data Collector   |  Gathers: grades, psych states,
+            | (data_collector) |  achievements, reading, clubs
+            +--------+---------+
+                     |
+                     v
+            +------------------+
+            | Prompt Builder   |  Builds system + user prompts
+            | (prompt_builder) |  with structured JSON schema
+            +--------+---------+
+                     |
+                     v
+            +------------------+
+            |  OpenAI API      |  gpt-4o-mini (JSON mode)
+            |  (generator)     |  Validates required keys
+            +--------+---------+
+                     |
+                     v
+            Report saved (status: completed)
+                     |
+                     +--> Email notification to teacher
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| POST | `/api/v1/students/<id>/reports/generate/` | Queue report generation | 202 (queued) or 200 (cached) |
+| GET | `/api/v1/students/<id>/reports/` | List past reports for student | Array (excludes `report_data`) |
+| GET | `/api/v1/reports/<id>/` | Get single report with full data | Full report JSON |
+| GET | `/api/v1/reports/<id>/pdf/` | Download report as PDF | Binary PDF |
+
+**Generate Request Body:**
+
+```json
+{
+  "language": "ru",
+  "quarter": 3
+}
+```
+
+- `language`: required — `"ru"` (Russian), `"kk"` (Kazakh), `"en"` (English)
+- `quarter`: required — integer 1-4
+
+**Report Response:**
+
+```json
+{
+  "id": 42,
+  "student": 15,
+  "academic_year": 3,
+  "quarter": 3,
+  "language": "ru",
+  "status": "pending",
+  "report_data": null,
+  "tokens_used": null,
+  "generation_time_ms": null,
+  "generated_by": 7,
+  "generated_by_name": "Aisha Nurlanovna",
+  "created_at": "2026-05-04T14:30:00Z",
+  "error_message": ""
+}
+```
+
+`status` values: `pending` → `generating` → `completed` / `failed`
+
+When `status == "completed"`, `report_data` contains the structured JSON:
+
+```json
+{
+  "summary": "2-3 sentence executive summary",
+  "overall_assessment": { "score_label": "Good", "description": "..." },
+  "academic_performance": {
+    "overview": "...",
+    "subject_analyses": [
+      {
+        "subject": "Mathematics",
+        "grade_percentage": 85.0,
+        "class_average": 72.0,
+        "trend": "improving",
+        "analysis": "...",
+        "recommendation": "..."
+      }
+    ]
+  },
+  "strengths": [{ "area": "...", "description": "..." }],
+  "areas_for_improvement": [{ "area": "...", "description": "...", "suggested_action": "..." }],
+  "psychological_profile": { "summary": "...", "observations": [], "recommendations": [] },
+  "extracurricular": { "summary": "...", "highlights": [] },
+  "recommendations": { "for_teachers": [], "for_parents": [], "for_student": [] },
+  "conclusion": "2-3 sentence closing"
+}
+```
+
+### Rate Limiting
+
+Report generation is throttled at **10 requests per hour per user**. Duplicate requests (same student + quarter + language) within 1 hour return the cached report.
+
+### Running the Celery Worker
+
+```bash
+# Production (via docker-compose, starts automatically)
+docker compose up -d
+
+# Development (if running Django locally)
+celery -A core worker -l info
+```
+
+### PDF Export
+
+Reports can be downloaded as styled A4 PDFs with:
+- School header and metadata
+- Subject grade table with class average comparison
+- Trend indicators (↑ improving, ↓ declining, → stable)
+- Strengths and improvement areas as cards
+- Psychological profile, extracurricular, and recommendations sections
+- Cyrillic/Kazakh font support (Noto Sans)
+
+### Data Sources
+
+The report collects data from across the platform:
+
+| Data | Source Model | What's Included |
+|------|-------------|-----------------|
+| Grades | `Lesson`, `Topic`, `TopicGrade` | Per-subject, per-quarter averages + cumulative |
+| Trends | Computed from grades | Quarter-over-quarter direction (±3% threshold) |
+| Class averages | All students in class group | Per-subject average for comparison |
+| Psych states | `PsychologicalState` | Current states + recent score changes |
+| Achievements | `Achievement` | Category, award type, place, role |
+| Reading | `ReadingEntry` | Title, pages read, test score |
+| Clubs | `ClubEntry` | Club name, attendance %, plan, criteria |
 
 ---
 

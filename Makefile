@@ -6,14 +6,27 @@ SHA := $(shell git rev-parse --short=7 HEAD)
 TAG ?= sha-$(SHA)
 
 login:
-	echo "$$GHCR_TOKEN" | docker login $(REG) -u <your-github-username> --password-stdin
+	echo "$$GHCR_TOKEN" | docker login $(REG) -u $(OWNER) --password-stdin
 
 build:
-	TAG=$(TAG) docker compose -f docker-compose.yml build --pull appseed-app
+	docker compose build --pull appseed-app
 
 push: build
-	TAG=$(TAG) docker compose -f docker-compose.yml push appseed-app
+	docker tag qadam-analytics-appseed-app $(IMAGE):$(TAG)
+	docker tag qadam-analytics-appseed-app $(IMAGE):latest
+	docker push $(IMAGE):$(TAG)
+	docker push $(IMAGE):latest
 
 print:
-	@echo "Pushed: $(IMAGE):$(TAG)"
+	@echo "Image: $(IMAGE):$(TAG)"
 
+# --- SSL (first time only) ---
+cert-init:
+	docker compose run --rm certbot certonly \
+		--webroot -w /var/www/certbot \
+		-d $(NGINX_SERVER_NAME) \
+		--email $(CERT_EMAIL) \
+		--agree-tos --no-eff-email
+
+cert-renew:
+	docker compose run --rm certbot renew --webroot -w /var/www/certbot

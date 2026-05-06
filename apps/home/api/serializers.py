@@ -12,9 +12,17 @@ from apps.home.models import (
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
+    current_quarter = serializers.IntegerField(read_only=True)
+    quarters = serializers.ListField(read_only=True)
+
     class Meta:
         model = AcademicYear
-        fields = ['id', 'year', 'is_active', 'archived']
+        fields = [
+            'id', 'year', 'is_active', 'archived',
+            'q1_start', 'q1_end', 'q2_start', 'q2_end',
+            'q3_start', 'q3_end', 'q4_start', 'q4_end',
+            'current_quarter', 'quarters',
+        ]
 
 
 class GradeLevelSerializer(serializers.ModelSerializer):

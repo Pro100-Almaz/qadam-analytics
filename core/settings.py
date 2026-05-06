@@ -22,10 +22,39 @@ else:
         cast=lambda v: [h.strip() for h in v.split(',')],
     )
 
+# AI Report Configuration
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+AI_REPORT_MODEL = config('AI_REPORT_MODEL', default='gpt-4o-mini')
+AI_REPORT_MAX_TOKENS = 4096
+AI_REPORT_CACHE_TTL = 3600
+
+# Celery Configuration
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Almaty'
+
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_HTTPONLY = True
+
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 63072000  # 2 years
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    CSRF_TRUSTED_ORIGINS = config(
+        'CSRF_TRUSTED_ORIGINS',
+        default='https://dashboard.qadam.edu.kz,https://qadam.edu.kz,https://www.qadam.edu.kz',
+        cast=lambda v: [o.strip() for o in v.split(',')],
+    )
 
 # Application definition
 
@@ -49,6 +78,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'simple_history',
+    'apps.student_report',
 ]
 
 MIDDLEWARE = [
@@ -241,6 +271,7 @@ REST_FRAMEWORK = {
         'login': '5/minute',
         'password_reset': '3/minute',
         'verify_code': '5/minute',
+        'ai_report': '10/hour',
     },
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
