@@ -31,7 +31,9 @@ def generate_report(report_id: int) -> None:
             student_id=report.student_id,
             quarter=report.quarter,
         )
-        report.input_snapshot = student_data
+        report.input_snapshot = json.loads(
+            json.dumps(student_data, default=str)
+        )
         report.save(update_fields=['input_snapshot'])
 
         system_prompt, user_prompt = build_report_prompt(

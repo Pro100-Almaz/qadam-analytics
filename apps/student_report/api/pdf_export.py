@@ -17,12 +17,20 @@ class ReportPDFExportView(APIView):
     def get(self, request, pk):
         try:
             report = StudentReport.objects.select_related(
-                'student__user', 'academic_year'
+                'student__user', 'student__school_group',
+                'academic_year', 'generated_by',
             ).get(pk=pk, status=StudentReport.Status.COMPLETED)
         except StudentReport.DoesNotExist:
             return Response(
                 {'detail': 'Report not found or not completed.'},
                 status=http_status.HTTP_404_NOT_FOUND,
+            )
+
+        generated_by_name = ''
+        if report.generated_by:
+            generated_by_name = (
+                report.generated_by.get_full_name()
+                or report.generated_by.username
             )
 
         context = {
@@ -31,8 +39,10 @@ class ReportPDFExportView(APIView):
             'student_name': report.student.user.get_full_name(),
             'class_group': str(report.student.school_group) if report.student.school_group else '',
             'academic_year': str(report.academic_year),
-            'quarter_label': f'Q{report.quarter}',
+            'quarter_label': f'{report.quarter}-я четверть',
             'language': report.language,
+            'school_name': getattr(report.student.user, 'school', '') or '',
+            'generated_by_name': generated_by_name,
         }
 
         html_string = render_to_string('student_report/report_pdf.html', context)
