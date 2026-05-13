@@ -38,7 +38,8 @@ class StudentReportSerializer(_ReportUserMixin, serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'class_group',
             'academic_year', 'academic_year_label', 'quarter', 'language',
-            'status', 'report_data', 'tokens_used', 'generation_time_ms',
+            'status', 'report_data', 'input_snapshot',
+            'tokens_used', 'generation_time_ms',
             'generated_by', 'generated_by_name', 'created_at', 'error_message',
         ]
 

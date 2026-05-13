@@ -23,330 +23,135 @@
     background: #fff;
   }
 
-  /* ── Header ──────────────────────────────── */
   .report-header {
     background: #152742;
     padding: 28px 32px;
     margin: -1.5cm -1.2cm 24px -1.2cm;
     color: #fff;
   }
-
-  .brand-row {
-    margin-bottom: 16px;
-  }
+  .brand-row { margin-bottom: 16px; }
   .brand-label {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 700;
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 0.12em; font-weight: 700;
     color: rgba(255,255,255,0.5);
   }
-  .brand-school {
-    font-size: 12px;
-    color: rgba(255,255,255,0.85);
-    margin-top: 2px;
-  }
+  .brand-school { font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 2px; }
+  .header-title { font-size: 22px; font-weight: 800; line-height: 1.25; margin-bottom: 14px; }
+  .header-meta { display: flex; gap: 24px; flex-wrap: wrap; }
+  .meta-label { color: rgba(255,255,255,0.4); font-size: 10px; }
+  .meta-value { color: rgba(255,255,255,0.92); font-size: 12px; font-weight: 600; }
 
-  .header-title {
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1.25;
-    margin-bottom: 14px;
-  }
-
-  .header-meta {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-  .meta-label {
-    color: rgba(255,255,255,0.4);
-    font-size: 10px;
-  }
-  .meta-value {
-    color: rgba(255,255,255,0.92);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  /* ── Summary Card ────────────────────────── */
   .summary-card {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 22px;
+    background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: 8px; padding: 16px 20px; margin-bottom: 22px;
   }
   .summary-label {
-    font-size: 9px;
-    font-weight: 700;
-    color: #1d4ed8;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 6px;
+    font-size: 9px; font-weight: 700; color: #1d4ed8;
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px;
   }
-  .summary-text {
-    font-size: 11px;
-    line-height: 1.65;
-  }
+  .summary-text { font-size: 11px; line-height: 1.65; }
 
-  /* ── Section ─────────────────────────────── */
   .section { margin-bottom: 20px; }
   .section-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 6px;
-    margin-bottom: 12px;
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 12px;
   }
 
-  /* ── Assessment Badge ────────────────────── */
   .badge {
-    display: inline-block;
-    padding: 3px 14px;
-    border-radius: 14px;
-    font-size: 11px;
-    font-weight: 700;
-    margin-bottom: 8px;
+    display: inline-block; padding: 3px 14px; border-radius: 14px;
+    font-size: 11px; font-weight: 700; margin-bottom: 8px;
   }
   .badge-excellent { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
   .badge-good { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
   .badge-average { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
   .badge-below-average, .badge-needs-attention { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
-  .assessment-text {
-    font-size: 10.5px;
-    line-height: 1.65;
-    color: #475569;
-  }
+  .assessment-text { font-size: 10.5px; line-height: 1.65; color: #475569; }
 
-  /* ── Subject Table ───────────────────────── */
-  .subject-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 9.5px;
-  }
+  .subject-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5px; }
   .subject-table th {
-    background: #f8fafc;
-    color: #475569;
-    font-weight: 600;
-    font-size: 8.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 8px 10px;
-    border-bottom: 2px solid #e2e8f0;
-    text-align: left;
+    background: #f8fafc; color: #475569; font-weight: 600;
+    font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 10px; border-bottom: 2px solid #e2e8f0; text-align: left;
   }
-  .subject-table td {
-    padding: 10px;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: top;
-  }
+  .subject-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
   .subject-table tr:last-child td { border-bottom: none; }
-
   .subject-name { font-weight: 600; color: #0f172a; }
-
   .grade-high { color: #059669; font-weight: 700; }
   .grade-mid { color: #d97706; font-weight: 700; }
   .grade-low { color: #dc2626; font-weight: 700; }
-
   .trend-improving { color: #059669; font-weight: 600; }
   .trend-declining { color: #dc2626; font-weight: 600; }
   .trend-stable { color: #6b7280; font-weight: 600; }
 
   .bar-container { width: 100%; margin: 4px 0; }
-  .bar-track {
-    width: 100%;
-    height: 6px;
-    background: #f1f5f9;
-    border-radius: 3px;
-    margin-bottom: 3px;
-  }
-  .bar-fill {
-    height: 6px;
-    border-radius: 3px;
-  }
-  .bar-avg {
-    height: 4px;
-    border-radius: 2px;
-  }
+  .bar-track { width: 100%; height: 6px; background: #f1f5f9; border-radius: 3px; margin-bottom: 3px; }
+  .bar-fill { height: 6px; border-radius: 3px; }
+  .bar-avg { height: 4px; border-radius: 2px; }
   .bar-fill-avg { background: #cbd5e1; }
-
   .tip-text {
-    font-size: 9px;
-    color: #92400e;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-radius: 4px;
-    padding: 5px 8px;
-    margin-top: 6px;
+    font-size: 9px; color: #92400e; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: 4px; padding: 5px 8px; margin-top: 6px;
   }
 
-  /* ── Cards ───────────────────────────────── */
   .card {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
-    background: #fff;
+    border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px; background: #fff;
   }
-  .card-title {
-    font-weight: 600;
-    font-size: 11px;
-    color: #0f172a;
-    margin-bottom: 4px;
-  }
-  .card-desc {
-    font-size: 10px;
-    line-height: 1.55;
-    color: #475569;
-  }
-
+  .card-title { font-weight: 600; font-size: 11px; color: #0f172a; margin-bottom: 4px; }
+  .card-desc { font-size: 10px; line-height: 1.55; color: #475569; }
   .strength-icon {
-    display: inline-block;
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    background: #ecfdf5;
-    color: #059669;
-    font-weight: 700;
-    font-size: 10px;
-    text-align: center;
-    line-height: 18px;
-    margin-right: 8px;
-    vertical-align: middle;
+    display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+    background: #ecfdf5; color: #059669; font-weight: 700; font-size: 10px;
+    text-align: center; line-height: 18px; margin-right: 8px; vertical-align: middle;
   }
-
-  .improve-icon {
-    color: #f59e0b;
-    font-size: 12px;
-    margin-right: 6px;
-  }
-
+  .improve-icon { color: #f59e0b; font-size: 12px; margin-right: 6px; }
   .action-box {
-    background: #f5f3ff;
-    border: 1px solid #ddd6fe;
-    border-radius: 4px;
-    padding: 5px 8px;
-    font-size: 9.5px;
-    color: #5b21b6;
-    margin-top: 6px;
+    background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 4px;
+    padding: 5px 8px; font-size: 9.5px; color: #5b21b6; margin-top: 6px;
   }
 
-  /* ── Two Column ──────────────────────────── */
-  .two-col {
-    display: flex;
-    gap: 14px;
-  }
+  .two-col { display: flex; gap: 14px; }
   .two-col > div { flex: 1; }
 
-  /* ── Psych ───────────────────────────────── */
-  .psych-text {
-    font-size: 10.5px;
-    line-height: 1.65;
-    color: #475569;
-    margin-bottom: 10px;
-  }
+  .psych-text { font-size: 10.5px; line-height: 1.65; color: #475569; margin-bottom: 10px; }
   .psych-group-label {
-    font-size: 9px;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 4px;
+    font-size: 9px; font-weight: 600; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
   }
   .psych-list { margin-bottom: 10px; padding-left: 14px; }
-  .psych-list li {
-    font-size: 10px;
-    color: #475569;
-    margin-bottom: 3px;
-  }
+  .psych-list li { font-size: 10px; color: #475569; margin-bottom: 3px; }
 
-  /* ── Extracurricular ─────────────────────── */
-  .extra-text {
-    font-size: 10.5px;
-    line-height: 1.65;
-    color: #475569;
-    margin-bottom: 10px;
-  }
-  .extra-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
+  .extra-text { font-size: 10.5px; line-height: 1.65; color: #475569; margin-bottom: 10px; }
+  .extra-grid { display: flex; flex-wrap: wrap; gap: 8px; }
   .extra-card {
-    flex: 1 1 45%;
-    padding: 8px 12px;
-    border-radius: 6px;
-    background: #fffbeb;
-    border: 1px solid #fef3c7;
-    font-size: 9.5px;
-    color: #475569;
+    flex: 1 1 45%; padding: 8px 12px; border-radius: 6px;
+    background: #fffbeb; border: 1px solid #fef3c7; font-size: 9.5px; color: #475569;
   }
 
-  /* ── Recommendations ─────────────────────── */
-  .rec-grid {
-    display: flex;
-    gap: 10px;
-  }
-  .rec-column {
-    flex: 1;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 14px;
-  }
+  .rec-grid { display: flex; gap: 10px; }
+  .rec-column { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
   .rec-column-teacher { border-top: 3px solid #2563eb; }
   .rec-column-parent { border-top: 3px solid #059669; }
   .rec-column-student { border-top: 3px solid #7c3aed; }
-
-  .rec-col-title {
-    font-weight: 600;
-    font-size: 10.5px;
-    margin-bottom: 8px;
-  }
+  .rec-col-title { font-weight: 600; font-size: 10.5px; margin-bottom: 8px; }
   .rec-list { padding-left: 14px; }
-  .rec-list li {
-    font-size: 9.5px;
-    color: #475569;
-    margin-bottom: 4px;
-    line-height: 1.5;
-  }
+  .rec-list li { font-size: 9.5px; color: #475569; margin-bottom: 4px; line-height: 1.5; }
 
-  /* ── Conclusion ──────────────────────────── */
   .conclusion-card {
-    background: #152742;
-    border-radius: 8px;
-    padding: 20px 24px;
-    margin-top: 4px;
+    background: #152742; border-radius: 8px; padding: 20px 24px; margin-top: 4px;
   }
   .conclusion-label {
-    font-size: 9px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.45);
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    margin-bottom: 8px;
+    font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.45);
+    text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px;
   }
-  .conclusion-text {
-    font-size: 11px;
-    line-height: 1.7;
-    color: rgba(255,255,255,0.88);
-  }
+  .conclusion-text { font-size: 11px; line-height: 1.7; color: rgba(255,255,255,0.88); }
 
-  /* ── Footer ──────────────────────────────── */
   .report-footer {
-    margin-top: 18px;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
-    font-size: 8.5px;
-    color: #94a3b8;
-    display: flex;
-    justify-content: space-between;
+    margin-top: 18px; padding-top: 10px; border-top: 1px solid #e2e8f0;
+    font-size: 8.5px; color: #94a3b8; display: flex; justify-content: space-between;
   }
 
-  /* ── Page break helpers ──────────────────── */
   .no-break { page-break-inside: avoid; }
 </style>
 </head>
@@ -367,69 +172,80 @@
   </div>
 </div>
 
-<!-- ═══ Summary ═══ -->
+<!-- ═══ Summary (AI text) ═══ -->
 <div class="summary-card">
   <div class="summary-label">Краткое описание</div>
-  <p class="summary-text">{{ data.summary }}</p>
+  <p class="summary-text">{{ ai.summary }}</p>
 </div>
 
-<!-- ═══ Overall Assessment ═══ -->
+<!-- ═══ Overall Assessment (AI text) ═══ -->
 <div class="section">
   <div class="section-title">Общая оценка</div>
-  {% with label=data.overall_assessment.score_label %}
+  {% with label=ai.overall_assessment.score_label %}
   <span class="badge {% if label == 'Excellent' or label == 'Отлично' %}badge-excellent{% elif label == 'Good' or label == 'Хорошо' %}badge-good{% elif label == 'Average' or label == 'Удовлетворительно' %}badge-average{% else %}badge-needs-attention{% endif %}">{{ label }}</span>
   {% endwith %}
-  <p class="assessment-text">{{ data.overall_assessment.description }}</p>
+  <p class="assessment-text">{{ ai.overall_assessment.description }}</p>
 </div>
 
-<!-- ═══ Academic Performance ═══ -->
+<!-- ═══ Academic Performance (DB numbers + AI text) ═══ -->
 <div class="section">
   <div class="section-title">Академическая успеваемость</div>
-  <p class="assessment-text" style="margin-bottom: 12px;">{{ data.academic_performance.overview }}</p>
 
-  {% if data.academic_performance.subject_analyses %}
+  {% if subjects %}
   <table class="subject-table">
     <thead>
       <tr>
-        <th style="width:15%;">Предмет</th>
-        <th style="width:8%;">Балл</th>
-        <th style="width:8%;">Ср. класс</th>
-        <th style="width:18%;">Прогресс</th>
-        <th style="width:28%;">Анализ</th>
-        <th style="width:23%;">Рекомендация</th>
+        <th style="width:14%;">Предмет</th>
+        <th style="width:7%;">Q1</th>
+        <th style="width:7%;">Q2</th>
+        <th style="width:7%;">Q3</th>
+        <th style="width:7%;">Q4</th>
+        <th style="width:7%;">Ср.</th>
+        <th style="width:7%;">Класс</th>
+        <th style="width:10%;">Тренд</th>
+        <th style="width:20%;">Анализ</th>
+        <th style="width:14%;">Рекомендация</th>
       </tr>
     </thead>
     <tbody>
-      {% for s in data.academic_performance.subject_analyses %}
+      {% for s in subjects %}
       <tr class="no-break">
-        <td><span class="subject-name">{{ s.subject }}</span></td>
+        <td><span class="subject-name">{{ s.name }}</span></td>
+        <td>{% if s.q1 is not None %}{{ s.q1 }}{% else %}—{% endif %}</td>
+        <td>{% if s.q2 is not None %}{{ s.q2 }}{% else %}—{% endif %}</td>
+        <td>{% if s.q3 is not None %}{{ s.q3 }}{% else %}—{% endif %}</td>
+        <td>{% if s.q4 is not None %}{{ s.q4 }}{% else %}—{% endif %}</td>
         <td>
-          <span class="{% if s.grade_percentage >= 80 %}grade-high{% elif s.grade_percentage >= 60 %}grade-mid{% else %}grade-low{% endif %}">{{ s.grade_percentage }}%</span>
+          {% if s.cumulative is not None %}
+          <span class="{% if s.cumulative >= 80 %}grade-high{% elif s.cumulative >= 60 %}grade-mid{% else %}grade-low{% endif %}">{{ s.cumulative }}</span>
+          {% else %}—{% endif %}
         </td>
-        <td>{{ s.class_average }}%</td>
+        <td>{% if s.class_avg is not None %}{{ s.class_avg }}{% else %}—{% endif %}</td>
         <td>
           <span class="trend-{{ s.trend }}">
-            {% if s.trend == 'improving' %}↑ Рост{% elif s.trend == 'declining' %}↓ Снижение{% else %}→ Стабильно{% endif %}
+            {% if s.trend == 'improving' %}↑ Рост{% elif s.trend == 'declining' %}↓ Снижение{% elif s.trend == 'stable' %}→ Стабильно{% else %}—{% endif %}
           </span>
-          <div class="bar-container">
-            <div class="bar-track"><div class="bar-fill" style="width:{{ s.grade_percentage }}%; background:{% if s.grade_percentage >= 80 %}#059669{% elif s.grade_percentage >= 60 %}#d97706{% else %}#dc2626{% endif %};"></div></div>
-            <div class="bar-track"><div class="bar-fill bar-avg bar-fill-avg" style="width:{{ s.class_average }}%;"></div></div>
-          </div>
         </td>
-        <td>{{ s.analysis }}</td>
+        <td style="font-size:9px;color:#475569;">{{ s.analysis }}</td>
         <td><div class="tip-text">💡 {{ s.recommendation }}</div></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% endif %}
+
+  {% if student_total_grade %}
+  <p class="assessment-text" style="margin-top:8px;">
+    <strong>Общий средний балл: {{ student_total_grade }}</strong>
+  </p>
+  {% endif %}
 </div>
 
-<!-- ═══ Strengths & Improvements ═══ -->
+<!-- ═══ Strengths (AI text) ═══ -->
 <div class="two-col section">
   <div>
     <div class="section-title">Сильные стороны</div>
-    {% for item in data.strengths %}
+    {% for item in ai.strengths %}
     <div class="card no-break">
       <div class="card-title"><span class="strength-icon">✓</span>{{ item.area }}</div>
       <div class="card-desc">{{ item.description }}</div>
@@ -438,7 +254,7 @@
   </div>
   <div>
     <div class="section-title">Области для улучшения</div>
-    {% for item in data.areas_for_improvement %}
+    {% for item in ai.areas_for_improvement %}
     <div class="card no-break">
       <div class="card-title"><span class="improve-icon">△</span>{{ item.area }}</div>
       <div class="card-desc">{{ item.description }}</div>
@@ -448,78 +264,72 @@
   </div>
 </div>
 
-<!-- ═══ Psychological Profile ═══ -->
+<!-- ═══ Psychological Profile (AI text) ═══ -->
 <div class="section">
   <div class="section-title">Психологический профиль</div>
-  <p class="psych-text">{{ data.psychological_profile.summary }}</p>
+  <p class="psych-text">{{ ai.psychological_profile.summary }}</p>
 
-  {% if data.psychological_profile.observations %}
+  {% if ai.psychological_profile.observations %}
   <div class="psych-group-label">Наблюдения</div>
   <ul class="psych-list">
-    {% for obs in data.psychological_profile.observations %}
+    {% for obs in ai.psychological_profile.observations %}
     <li>{{ obs }}</li>
     {% endfor %}
   </ul>
   {% endif %}
 
-  {% if data.psychological_profile.recommendations %}
+  {% if ai.psychological_profile.recommendations %}
   <div class="psych-group-label">Рекомендации</div>
   <ul class="psych-list">
-    {% for rec in data.psychological_profile.recommendations %}
+    {% for rec in ai.psychological_profile.recommendations %}
     <li>{{ rec }}</li>
     {% endfor %}
   </ul>
   {% endif %}
 </div>
 
-<!-- ═══ Extracurricular ═══ -->
+<!-- ═══ Extracurricular (AI text) ═══ -->
 <div class="section">
   <div class="section-title">Внеклассная деятельность</div>
-  <p class="extra-text">{{ data.extracurricular.summary }}</p>
-  {% if data.extracurricular.highlights %}
+  <p class="extra-text">{{ ai.extracurricular.summary }}</p>
+  {% if ai.extracurricular.highlights %}
   <div class="extra-grid">
-    {% for h in data.extracurricular.highlights %}
+    {% for h in ai.extracurricular.highlights %}
     <div class="extra-card no-break">{{ h }}</div>
     {% endfor %}
   </div>
   {% endif %}
 </div>
 
-<!-- ═══ Recommendations ═══ -->
+<!-- ═══ Recommendations (AI text) ═══ -->
 <div class="section no-break">
   <div class="section-title">Рекомендации</div>
   <div class="rec-grid">
     <div class="rec-column rec-column-teacher">
       <div class="rec-col-title">🎓 Для учителей</div>
       <ul class="rec-list">
-        {% for r in data.recommendations.for_teachers %}
-        <li>{{ r }}</li>
-        {% endfor %}
+        {% for r in ai.recommendations.for_teachers %}<li>{{ r }}</li>{% endfor %}
       </ul>
     </div>
     <div class="rec-column rec-column-parent">
       <div class="rec-col-title">👨‍👩‍👦 Для родителей</div>
       <ul class="rec-list">
-        {% for r in data.recommendations.for_parents %}
-        <li>{{ r }}</li>
-        {% endfor %}
+        {% for r in ai.recommendations.for_parents %}<li>{{ r }}</li>{% endfor %}
       </ul>
     </div>
     <div class="rec-column rec-column-student">
       <div class="rec-col-title">📝 Для ученика</div>
       <ul class="rec-list">
-        {% for r in data.recommendations.for_student %}
-        <li>{{ r }}</li>
-        {% endfor %}
+        {% for r in ai.recommendations.for_student %}<li>{{ r }}</li>{% endfor %}
       </ul>
     </div>
   </div>
 </div>
 
-<!-- ═══ Conclusion ═══ -->
+<!-- ═══ Conclusion (AI text) ═══ -->
 <div class="conclusion-card no-break">
   <div class="conclusion-label">Заключение</div>
-  <p class="conclusion-text">{{ data.conclusion }}</p>
+  <p class="conclusion-text">{{ ai.conclusion }}</p>
 </div>
 
 <!-- ═══ Footer ═══ -->

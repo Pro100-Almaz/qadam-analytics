@@ -11,43 +11,43 @@ def build_report_prompt(student_data: dict, language: str, quarter: int) -> tupl
     period = f"Quarter {quarter}"
     personal = student_data['personal']
 
+    subjects_list = list(student_data['grades'].get('subjects', {}).keys())
+    subjects_json = json.dumps(subjects_list, ensure_ascii=False)
+
     system_prompt = f"""You are an experienced educational analyst at a school in Kazakhstan.
 You write detailed, actionable student performance reports for teachers and administrators.
 
 {LANGUAGE_INSTRUCTIONS[language]}
 
+IMPORTANT: All numeric data (grades, percentages, averages, trends) is already provided separately from the database.
+Do NOT include any numbers, grades, or percentages in your response.
+Your job is ONLY to provide qualitative text analysis and recommendations based on the data.
+
 You must respond with ONLY a valid JSON object (no markdown, no preamble, no commentary outside the JSON).
 
 The JSON must have this exact structure:
 {{
-  "summary": "2-3 sentence executive summary of overall performance",
+  "summary": "2-3 sentence executive summary of overall performance (NO numbers)",
   "overall_assessment": {{
     "score_label": "Excellent|Good|Average|Below Average|Needs Attention",
-    "description": "1 paragraph overall assessment"
+    "description": "1 paragraph overall assessment (NO numbers, NO percentages)"
   }},
-  "academic_performance": {{
-    "overview": "General academic narrative",
-    "subject_analyses": [
-      {{
-        "subject": "Subject name",
-        "grade_percentage": 85.0,
-        "class_average": 72.0,
-        "trend": "improving|declining|stable",
-        "analysis": "2-3 sentences about this subject performance",
-        "recommendation": "Specific actionable recommendation"
-      }}
-    ]
+  "subject_analyses": {{
+    "SubjectName": {{
+      "analysis": "2-3 sentences about this subject performance (NO grades, NO percentages)",
+      "recommendation": "Specific actionable recommendation for this subject"
+    }}
   }},
   "strengths": [
     {{
       "area": "Short strength title",
-      "description": "1-2 sentence detail"
+      "description": "1-2 sentence detail (NO numbers)"
     }}
   ],
   "areas_for_improvement": [
     {{
       "area": "Short area title",
-      "description": "1-2 sentence detail",
+      "description": "1-2 sentence detail (NO numbers)",
       "suggested_action": "Concrete step the student/teacher can take"
     }}
   ],
@@ -65,19 +65,23 @@ The JSON must have this exact structure:
     "for_parents": ["actionable recommendation 1", "actionable recommendation 2"],
     "for_student": ["actionable recommendation 1", "actionable recommendation 2"]
   }},
-  "conclusion": "2-3 sentence forward-looking closing statement"
+  "conclusion": "2-3 sentence forward-looking closing statement (NO numbers)"
 }}
 
+The "subject_analyses" keys MUST exactly match these subject names: {subjects_json}
+
 Rules:
-- Base EVERY claim on the provided data. Do not invent grades, scores, or facts.
-- Compare the student to class averages when available.
+- NEVER invent or repeat numbers. The frontend displays grades from the database — your text must NOT include any percentages, scores, or numeric values.
+- Instead of "scored 91%", say "demonstrates excellent results" or "significantly above class average".
+- Instead of "improved by 8%", say "shows notable improvement" or "significant progress this quarter".
+- Base EVERY claim on the provided data. Do not invent facts.
 - Be constructive — frame weaknesses as growth opportunities.
 - Be specific — "improve Math" is bad; "practice algebraic word problems 3x/week" is good.
 - If psychological state data is empty, set psychological_profile.summary to "No data available" and leave observations/recommendations as empty arrays.
 - If achievement/reading/club data is empty, set extracurricular.summary to "No extracurricular data recorded" and highlights as empty array.
 - Keep the tone professional but warm — this may be shared with parents."""
 
-    user_prompt = f"""Generate a detailed student report for:
+    user_prompt = f"""Generate a qualitative analysis report for:
 
 **Student:** {personal['full_name']}
 **Class:** {personal['class_group']}
@@ -119,6 +123,8 @@ Rules:
 ## Club Activity
 ```json
 {json.dumps(student_data['clubs'], ensure_ascii=False, indent=2, default=str)}
-```"""
+```
+
+Remember: output ONLY qualitative text analysis. NO numbers, NO percentages, NO scores in your response."""
 
     return system_prompt, user_prompt

@@ -33,9 +33,36 @@ class ReportPDFExportView(APIView):
                 or report.generated_by.username
             )
 
+        ai = report.report_data or {}
+        snapshot = report.input_snapshot or {}
+        grades_data = snapshot.get('grades', {})
+        subjects_grades = grades_data.get('subjects', {})
+        trends_data = snapshot.get('trends', {})
+        class_context = snapshot.get('class_context', {})
+        ai_subjects = ai.get('subject_analyses', {})
+
+        subjects = []
+        for name, quarters in subjects_grades.items():
+            ai_entry = ai_subjects.get(name, {})
+            trend_info = trends_data.get(name, {})
+            subjects.append({
+                'name': name,
+                'q1': quarters.get('q1'),
+                'q2': quarters.get('q2'),
+                'q3': quarters.get('q3'),
+                'q4': quarters.get('q4'),
+                'cumulative': quarters.get('cumulative'),
+                'class_avg': class_context.get(name),
+                'trend': trend_info.get('direction', 'insufficient_data'),
+                'analysis': ai_entry.get('analysis', ''),
+                'recommendation': ai_entry.get('recommendation', ''),
+            })
+
         context = {
             'report': report,
-            'data': report.report_data,
+            'ai': ai,
+            'subjects': subjects,
+            'student_total_grade': grades_data.get('student_total_grade'),
             'student_name': report.student.user.get_full_name(),
             'class_group': str(report.student.school_group) if report.student.school_group else '',
             'academic_year': str(report.academic_year),

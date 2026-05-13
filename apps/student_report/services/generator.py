@@ -8,7 +8,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 REQUIRED_KEYS = [
-    'summary', 'overall_assessment', 'academic_performance',
+    'summary', 'overall_assessment', 'subject_analyses',
     'strengths', 'areas_for_improvement', 'psychological_profile',
     'extracurricular', 'recommendations', 'conclusion',
 ]
