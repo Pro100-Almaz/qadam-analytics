@@ -108,15 +108,3 @@ def build_report_prompt(student_data: dict, language: str, quarter: int) -> dict
 
     return result
 
-'''
-['subject_analyses', 'strengths, 'areas_for_improvement', 'psychological_profile', 'extracurricular', 'recommendations', 'overall_assessment', '']
-1. subject analyses
-2. strengths
-3. areas for improvement
-4. psychology
-5. extracurricular
-6. recommendations
-7. overall assessment
-8. summary
-9. conclusion
-'''
