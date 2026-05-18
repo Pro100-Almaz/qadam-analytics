@@ -5,6 +5,8 @@ import logging
 import openai
 from django.conf import settings
 
+from apps.student_report.services.prompts.conclusion import generate_conclusion_prompt
+
 logger = logging.getLogger(__name__)
 
 REQUIRED_KEYS = [
@@ -13,6 +15,19 @@ REQUIRED_KEYS = [
     'extracurricular', 'recommendations', 'conclusion',
 ]
 
+
+def _get_ai_response(system_prompt:str, user_prompt:str):
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=settings.AI_REPORT_MODEL,
+        max_tokens=settings.AI_REPORT_MAX_TOKENS,
+        temperature=0.2,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
 
 def generate_report(report_id: int) -> None:
     from apps.student_report.models import StudentReport
@@ -36,40 +51,42 @@ def generate_report(report_id: int) -> None:
         )
         report.save(update_fields=['input_snapshot'])
 
-        system_prompt, user_prompt = build_report_prompt(
+        prompt_categories = build_report_prompt(
             student_data=student_data,
             language=report.language,
             quarter=report.quarter,
         )
 
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        used_tokens = 0
         start_time = time.monotonic()
 
-        response = client.chat.completions.create(
-            model=settings.AI_REPORT_MODEL,
-            max_tokens=settings.AI_REPORT_MAX_TOKENS,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-        )
 
-        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+        for system_prompt, user_prompt in prompt_categories:
+            response = _get_ai_response(system_prompt, user_prompt)
+            raw_text = response.choices[0].message.content
+            report_data = json.loads(raw_text)
+            report.report_data.update(report_data)
+            used_tokens += response.usage.prompt_tokens + response.usage.completion_tokens
 
-        raw_text = response.choices[0].message.content
-        report_data = json.loads(raw_text)
 
-        missing = [k for k in REQUIRED_KEYS if k not in report_data]
+        missing = [k for k in REQUIRED_KEYS if k not in report.report_data]
         if missing:
             raise ValueError(f"AI response missing required keys: {missing}")
 
-        report.report_data = report_data
+
+        conclusion = generate_conclusion_prompt(report.report_data, report.language)
+        response = _get_ai_response(conclusion.first, conclusion.second)
+        raw_text = response.choices[0].message.content
+
+        report_data = json.loads(raw_text)
+        report.report_data.update(report_data)
+        used_tokens += response.usage.prompt_tokens + response.usage.completion_tokens
+
+        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+
         report.status = StudentReport.Status.COMPLETED
         report.model_used = settings.AI_REPORT_MODEL
-        report.tokens_used = (
-            response.usage.prompt_tokens + response.usage.completion_tokens
-        )
+        report.tokens_used = used_tokens
         report.generation_time_ms = elapsed_ms
         report.save(update_fields=[
             'report_data', 'status', 'model_used',

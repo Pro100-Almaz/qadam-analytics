@@ -1,5 +1,13 @@
 import json
 
+from apps.student_report.services.prompts.areas_for_improvement import generate_improvement_prompt
+from apps.student_report.services.prompts.extracurricular import generate_extracurricular_prompt
+from apps.student_report.services.prompts.overall_assessments import generate_assessment_prompt
+from apps.student_report.services.prompts.psychological_profile import generate_psychological_prompt
+from apps.student_report.services.prompts.strengths import generate_strengths_prompt
+from apps.student_report.services.prompts.subject_analysis import generate_subject_prompt
+from apps.student_report.services.prompts.summary import generate_summary_prompt
+
 LANGUAGE_INSTRUCTIONS = {
     'ru': 'Напиши весь отчёт полностью на русском языке.',
     'kk': 'Бүкіл есепті толығымен қазақ тілінде жаз.',
@@ -7,124 +15,96 @@ LANGUAGE_INSTRUCTIONS = {
 }
 
 
-def build_report_prompt(student_data: dict, language: str, quarter: int) -> tuple[str, str]:
+def build_report_prompt(student_data: dict, language: str, quarter: int) -> dict:
     period = f"Quarter {quarter}"
     personal = student_data['personal']
 
     subjects_list = list(student_data['grades'].get('subjects', {}).keys())
     subjects_json = json.dumps(subjects_list, ensure_ascii=False)
 
-    system_prompt = f"""You are an experienced educational analyst at a school in Kazakhstan.
-You write detailed, actionable student performance reports for teachers and administrators.
+    base_system_prompt = """
+        You are an experienced educational analyst at a school in Kazakhstan.
+        You write detailed, actionable student performance reports for teachers and administrators.
+        
+        {language_instructions}
+        
+        IMPORTANT: All numeric data (grades, percentages, averages, trends) is already provided separately from the database.
+        Do NOT include any numbers, grades, or percentages in your response.
+        Your job is ONLY to provide qualitative text analysis and recommendations based on the data.
+        Please avoid using the student's name. For example, if the student's name is Karim, try to replace his name with pronouns
+        like he, she, or "the student".
+        
+        You must respond with ONLY a valid JSON object (no markdown, no preamble, no commentary outside the JSON).
+        
+        {custom_system_prompt}
+        
+        Rules:
+        - NEVER invent or repeat numbers. The frontend displays grades from the database — your text must NOT include any percentages, scores, or numeric values.
+        - Instead of "scored 91%", say "demonstrates excellent results" or "significantly above class average".
+        - Instead of "improved by 8%", say "shows notable improvement" or "significant progress this quarter".
+        - Base EVERY claim on the provided data. Do not invent facts.
+        - Be constructive — frame weaknesses as growth opportunities.
+        - Be specific — "improve Math" is bad; "practice algebraic word problems 3x/week" is good.
+        - If psychological state data is empty, set psychological_profile.summary to "No data available" and leave observations/recommendations as empty arrays.
+        - If achievement/reading/club data is empty, set extracurricular.summary to "No extracurricular data recorded" and highlights as empty array.
+        - Keep the tone professional but warm — this may be shared with parents.
+        
+        Extra: use the following grade scale to make the analysis more qualitative: 
+                grade_scale = [
+                    (85, "Excellent"),
+                    (70, "Good"),
+                    (50, "Satisfactory"),
+                    (35, "Pass"),
+                    (0, "Needs Improvement"),
+                ]
+    """
 
-{LANGUAGE_INSTRUCTIONS[language]}
+    def get_custom_system_prompt(prompt: str) -> str:
+        return base_system_prompt.format(
+            language_instructions=LANGUAGE_INSTRUCTIONS[language],
+            custom_system_prompt=prompt
+        )
 
-IMPORTANT: All numeric data (grades, percentages, averages, trends) is already provided separately from the database.
-Do NOT include any numbers, grades, or percentages in your response.
-Your job is ONLY to provide qualitative text analysis and recommendations based on the data.
+    def get_basic_context_data():
+        return f"""
+               **Student:** {personal['full_name']}
+               **Class:** {personal['class_group']}
+               **Academic Year:** {personal['academic_year']}
+               **Report Period:** {period}
+           """
 
-You must respond with ONLY a valid JSON object (no markdown, no preamble, no commentary outside the JSON).
+    result = {} # category : (custom_system_prompt, custom_user_prompt)
 
-The JSON must have this exact structure:
-{{
-  "summary": "2-3 sentence executive summary of overall performance (NO numbers)",
-  "overall_assessment": {{
-    "score_label": "Excellent|Good|Average|Below Average|Needs Attention",
-    "description": "1 paragraph overall assessment (NO numbers, NO percentages)"
-  }},
-  "subject_analyses": {{
-    "SubjectName": {{
-      "analysis": "2-3 sentences about this subject performance (NO grades, NO percentages)",
-      "recommendation": "Specific actionable recommendation for this subject"
-    }}
-  }},
-  "strengths": [
-    {{
-      "area": "Short strength title",
-      "description": "1-2 sentence detail (NO numbers)"
-    }}
-  ],
-  "areas_for_improvement": [
-    {{
-      "area": "Short area title",
-      "description": "1-2 sentence detail (NO numbers)",
-      "suggested_action": "Concrete step the student/teacher can take"
-    }}
-  ],
-  "psychological_profile": {{
-    "summary": "Brief overview of psychological state",
-    "observations": ["observation 1", "observation 2"],
-    "recommendations": ["recommendation 1"]
-  }},
-  "extracurricular": {{
-    "summary": "Brief overview of non-academic activities",
-    "highlights": ["highlight 1", "highlight 2"]
-  }},
-  "recommendations": {{
-    "for_teachers": ["actionable recommendation 1", "actionable recommendation 2"],
-    "for_parents": ["actionable recommendation 1", "actionable recommendation 2"],
-    "for_student": ["actionable recommendation 1", "actionable recommendation 2"]
-  }},
-  "conclusion": "2-3 sentence forward-looking closing statement (NO numbers)"
-}}
+    categories = ['summary', 'subject_analyses', 'strengths', 'areas_for_improvement', 'psychological_profile', 'extracurricular', 'recommendations']
 
-The "subject_analyses" keys MUST exactly match these subject names: {subjects_json}
+    for category in categories:
 
-Rules:
-- NEVER invent or repeat numbers. The frontend displays grades from the database — your text must NOT include any percentages, scores, or numeric values.
-- Instead of "scored 91%", say "demonstrates excellent results" or "significantly above class average".
-- Instead of "improved by 8%", say "shows notable improvement" or "significant progress this quarter".
-- Base EVERY claim on the provided data. Do not invent facts.
-- Be constructive — frame weaknesses as growth opportunities.
-- Be specific — "improve Math" is bad; "practice algebraic word problems 3x/week" is good.
-- If psychological state data is empty, set psychological_profile.summary to "No data available" and leave observations/recommendations as empty arrays.
-- If achievement/reading/club data is empty, set extracurricular.summary to "No extracurricular data recorded" and highlights as empty array.
-- Keep the tone professional but warm — this may be shared with parents."""
+        if category == 'summary':
+            system_prompt, user_prompt = generate_summary_prompt(student_data, subjects_json, get_basic_context_data())
 
-    user_prompt = f"""Generate a qualitative analysis report for:
+        elif category == 'subject_analyses':
+            system_prompt, user_prompt = generate_subject_prompt(student_data, subjects_json, get_basic_context_data())
 
-**Student:** {personal['full_name']}
-**Class:** {personal['class_group']}
-**Academic Year:** {personal['academic_year']}
-**Report Period:** {period}
+        elif category == 'strengths':
+            system_prompt, user_prompt = generate_strengths_prompt(student_data, get_basic_context_data())
 
-## Academic Data
+        elif category == 'overall_assessment':
+            system_prompt, user_prompt = generate_assessment_prompt(student_data, get_basic_context_data())
 
-### Grades by Subject and Quarter
-```json
-{json.dumps(student_data['grades'], ensure_ascii=False, indent=2, default=str)}
-```
+        elif category == 'areas_for_improvement':
+            system_prompt, user_prompt = generate_improvement_prompt(student_data, get_basic_context_data())
 
-### Quarter-over-Quarter Trends
-```json
-{json.dumps(student_data['trends'], ensure_ascii=False, indent=2, default=str)}
-```
+        elif category == 'psychological_profile':
+            system_prompt, user_prompt = generate_psychological_prompt(student_data, get_basic_context_data())
 
-### Class Averages by Subject
-```json
-{json.dumps(student_data['class_context'], ensure_ascii=False, indent=2, default=str)}
-```
+        elif category == 'extracurricular':
+            system_prompt, user_prompt = generate_extracurricular_prompt(student_data, get_basic_context_data())
 
-## Psychological States
-```json
-{json.dumps(student_data['psychological_states'], ensure_ascii=False, indent=2, default=str)}
-```
+        elif category == 'recommendations':
+            system_prompt, user_prompt = generate_strengths_prompt(student_data, get_basic_context_data())
 
-## Achievements
-```json
-{json.dumps(student_data['achievements'], ensure_ascii=False, indent=2, default=str)}
-```
+        custom_system_prompt = get_custom_system_prompt(system_prompt)
+        result[category] = (custom_system_prompt, user_prompt)
 
-## Reading Activity
-```json
-{json.dumps(student_data['reading'], ensure_ascii=False, indent=2, default=str)}
-```
+    return result
 
-## Club Activity
-```json
-{json.dumps(student_data['clubs'], ensure_ascii=False, indent=2, default=str)}
-```
-
-Remember: output ONLY qualitative text analysis. NO numbers, NO percentages, NO scores in your response."""
-
-    return system_prompt, user_prompt
