@@ -1,11 +1,11 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 def generate_subject_prompt(student_data: dict, subjects: str, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to process the subject related part of the report. 
             
-            {section_prompts.subject_analysis}
+            {section_prompts['subject_analyses']}
             
             The subject_analysis keys MUST exactly match these subject names: {subjects}
         """

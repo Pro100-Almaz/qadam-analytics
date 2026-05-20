@@ -1,12 +1,12 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_psychological_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to process the student's psychological profile. 
 
-            {section_prompts.psychological_profile}
+            {section_prompts['psychological_profile']}
     """
 
     user_prompt = f"""

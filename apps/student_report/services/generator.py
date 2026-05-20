@@ -16,9 +16,9 @@ REQUIRED_KEYS = [
 ]
 
 
-def _get_ai_response(system_prompt:str, user_prompt:str):
+def _get_ai_response(system_prompt: str, user_prompt: str):
     client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-    response = client.chat.completions.create(
+    return client.chat.completions.create(
         model=settings.AI_REPORT_MODEL,
         max_tokens=settings.AI_REPORT_MAX_TOKENS,
         temperature=0.2,
@@ -59,28 +59,29 @@ def generate_report(report_id: int) -> None:
 
         used_tokens = 0
         start_time = time.monotonic()
+        report_data = {}
 
-
-        for system_prompt, user_prompt in prompt_categories:
+        for category, (system_prompt, user_prompt) in prompt_categories.items():
             response = _get_ai_response(system_prompt, user_prompt)
             raw_text = response.choices[0].message.content
-            report_data = json.loads(raw_text)
-            report.report_data.update(report_data)
+            section_data = json.loads(raw_text)
+            report_data.update(section_data)
             used_tokens += response.usage.prompt_tokens + response.usage.completion_tokens
 
+        conclusion_system, conclusion_user = generate_conclusion_prompt(
+            report_data, report.language,
+        )
+        response = _get_ai_response(conclusion_system, conclusion_user)
+        raw_text = response.choices[0].message.content
+        section_data = json.loads(raw_text)
+        report_data.update(section_data)
+        used_tokens += response.usage.prompt_tokens + response.usage.completion_tokens
 
-        missing = [k for k in REQUIRED_KEYS if k not in report.report_data]
+        missing = [k for k in REQUIRED_KEYS if k not in report_data]
         if missing:
             raise ValueError(f"AI response missing required keys: {missing}")
 
-
-        conclusion = generate_conclusion_prompt(report.report_data, report.language)
-        response = _get_ai_response(conclusion.first, conclusion.second)
-        raw_text = response.choices[0].message.content
-
-        report_data = json.loads(raw_text)
-        report.report_data.update(report_data)
-        used_tokens += response.usage.prompt_tokens + response.usage.completion_tokens
+        report.report_data = report_data
 
         elapsed_ms = int((time.monotonic() - start_time) * 1000)
 

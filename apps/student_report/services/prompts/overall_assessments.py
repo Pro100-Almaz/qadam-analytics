@@ -1,12 +1,12 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_assessment_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to give the overall assessment of the student based on the grades, trends, class averages and other relevant data. 
 
-            {section_prompts.overall_assessments}
+            {section_prompts['overall_assessment']}
     """
 
     user_prompt = f"""

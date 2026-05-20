@@ -6,6 +6,7 @@ from apps.student_report.services.prompts.overall_assessments import generate_as
 from apps.student_report.services.prompts.psychological_profile import generate_psychological_prompt
 from apps.student_report.services.prompts.strengths import generate_strengths_prompt
 from apps.student_report.services.prompts.subject_analysis import generate_subject_prompt
+from apps.student_report.services.prompts.recommendations import generate_recommendations_prompt
 from apps.student_report.services.prompts.summary import generate_summary_prompt
 
 LANGUAGE_INSTRUCTIONS = {
@@ -75,7 +76,7 @@ def build_report_prompt(student_data: dict, language: str, quarter: int) -> dict
 
     result = {} # category : (custom_system_prompt, custom_user_prompt)
 
-    categories = ['summary', 'subject_analyses', 'strengths', 'areas_for_improvement', 'psychological_profile', 'extracurricular', 'recommendations']
+    categories = ['summary', 'overall_assessment', 'subject_analyses', 'strengths', 'areas_for_improvement', 'psychological_profile', 'extracurricular', 'recommendations']
 
     for category in categories:
 
@@ -101,7 +102,7 @@ def build_report_prompt(student_data: dict, language: str, quarter: int) -> dict
             system_prompt, user_prompt = generate_extracurricular_prompt(student_data, get_basic_context_data())
 
         elif category == 'recommendations':
-            system_prompt, user_prompt = generate_strengths_prompt(student_data, get_basic_context_data())
+            system_prompt, user_prompt = generate_recommendations_prompt(student_data, subjects_json, get_basic_context_data())
 
         custom_system_prompt = get_custom_system_prompt(system_prompt)
         result[category] = (custom_system_prompt, user_prompt)

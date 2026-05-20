@@ -1,5 +1,5 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_extracurricular_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
@@ -7,7 +7,7 @@ def generate_extracurricular_prompt(student_data: dict, basic_info: str) -> tupl
             Currently, you have to process the data related to the student's extracurricular activities and give the report on that
             according to the provided descriptions. 
 
-            {section_prompts.extracurricular}
+            {section_prompts['extracurricular']}
     """
 
     user_prompt = f"""

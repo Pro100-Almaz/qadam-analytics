@@ -1,12 +1,12 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_recommendations_prompt(student_data: dict, subjects: str, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to process the provided context data and give recommendations according to the provided descriptions.
 
-            {section_prompts.recommendations}
+            {section_prompts['recommendations']}
     """
 
     user_prompt = f"""

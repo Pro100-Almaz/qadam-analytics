@@ -1,12 +1,12 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_strengths_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to process the provided information and give a qualitative report on the student's strengths. 
 
-            {section_prompts.strengths}
+            {section_prompts['strengths']}
         """
 
     user_prompt = f"""

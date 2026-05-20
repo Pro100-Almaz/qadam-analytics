@@ -1,12 +1,12 @@
 import json
-from sections import section_prompts
+from .sections import section_prompts
 
 
 def generate_improvement_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
     system_prompt = f"""
             Currently, you have to process show the areas for improvement based on provided context data by giving constructive feedback. 
             
-            {section_prompts.areas_for_improvement}
+            {section_prompts['areas_for_improvement']}
     """
 
     user_prompt = f"""
