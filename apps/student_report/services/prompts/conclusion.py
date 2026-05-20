@@ -24,9 +24,9 @@ def generate_conclusion_prompt(total_context: str, language: str) -> tuple[str, 
     
         Generate ONLY this JSON structure:
     
-        {
+        {{
             "conclusion": "2-3 sentence professional concluding statement"
-        }
+        }}
     
         Rules:
         - NEVER invent information that does not appear in the provided report sections.
