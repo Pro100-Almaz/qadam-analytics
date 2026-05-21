@@ -1,16 +1,33 @@
 import json
-from .sections import section_prompts
+
+from .additional.user_descriptions import user_descriptions
+from .additional.system_descriptions import sys_descriptions
+from .sections.en_sections import en_section_prompts
+from .sections.kz_sections import kz_section_prompts
+from .sections.ru_sections import ru_section_prompts
+from .additional.supportive import REMINDERS
 
 
-def generate_summary_prompt(student_data: dict, subjects: str, basic_info: str) -> tuple[str, str]:
+def generate_summary_prompt(student_data: dict, subjects: str, basic_info: str, language: str) -> tuple[str, str]:
+
+    if language == 'en':
+        section_prompts = en_section_prompts
+    elif language == 'ru':
+        section_prompts = ru_section_prompts
+    else:
+        section_prompts = kz_section_prompts
+
+
+    system_description = sys_descriptions['summary'][language]
+
     system_prompt = f"""
-            Currently, you have to provide a qualitative summary of the student's performance based on the provided data. 
+            {system_description}
 
             {section_prompts['summary']}
     """
 
     user_prompt = f"""
-        Generate a qualitative summary report for:
+        {user_descriptions['summary'][language]}
 
         {basic_info}
 
@@ -39,7 +56,7 @@ def generate_summary_prompt(student_data: dict, subjects: str, basic_info: str) 
         {json.dumps(student_data['clubs'], ensure_ascii=False, indent=2, default=str)}
         ```
 
-        Remember: output ONLY qualitative text analysis. NO numbers, NO percentages, NO scores in your response.
+        {REMINDERS[language]}
     """
 
     return system_prompt, user_prompt

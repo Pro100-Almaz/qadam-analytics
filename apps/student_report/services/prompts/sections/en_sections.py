@@ -1,4 +1,4 @@
-section_prompts = {
+en_section_prompts = {
     "summary": """
     Generate ONLY this JSON structure:
     {
@@ -7,7 +7,7 @@ section_prompts = {
     """,
     "overall_assessment": """
     Generate ONLY this JSON structure:
-    {
+    {   
         "overall_assessment": {
              "score_label": "Excellent|Good|Average|Below Average|Needs Attention",
              "description": "1 paragraph overall assessment (NO numbers, NO percentages)"

@@ -1,88 +1,86 @@
-section_prompts = {
+kz_section_prompts = {
     "summary": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
-        "summary": "2-3 sentence executive summary of overall performance (NO numbers)"
+        "summary": "Жалпы үлгерім бойынша 2-3 сөйлемнен тұратын қысқаша қорытынды (САНДАРСЫЗ)"
     }
     """,
     "overall_assessment": """
-    Generate ONLY this JSON structure:
-    {
+    ТЕК келесі JSON құрылымын жасаңыз:
+    {   
         "overall_assessment": {
              "score_label": "Excellent|Good|Average|Below Average|Needs Attention",
-             "description": "1 paragraph overall assessment (NO numbers, NO percentages)"
+             "description": "Жалпы бағалау туралы 1 абзац (САНДАРСЫЗ, ПАЙЫЗСЫЗ)"
            }
     }
     """,
     "subject_analyses": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "subject_analyses": {
              "SubjectName": {
-               "analysis": "2-3 sentences about this subject performance (NO grades, NO percentages)",
-               "recommendation": "Specific actionable recommendation for this subject"
+               "analysis": "Осы пән бойынша үлгерім туралы 2-3 сөйлем (БАҒАСЫЗ, ПАЙЫЗСЫЗ)",
+               "recommendation": "Осы пән бойынша нақты практикалық ұсыныс"
              }
            }
     }
     """,
     "strengths": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "strengths": [
              {
-               "area": "Short strength title",
-               "description": "1-2 sentence detail (NO numbers)"
+               "area": "Күшті жақтың қысқаша атауы",
+               "description": "1-2 сөйлемнен тұратын сипаттама (САНДАРСЫЗ)"
              }
            ],
     }
     """,
     "areas_for_improvement": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "areas_for_improvement": [
              {
-               "area": "Short area title",
-               "description": "1-2 sentence detail (NO numbers)",
-               "suggested_action": "Concrete step the student/teacher can take"
+               "area": "Жақсартуды қажет ететін саланың қысқаша атауы",
+               "description": "1-2 сөйлемнен тұратын сипаттама (САНДАРСЫЗ)",
+               "suggested_action": "Студент/мұғалім орындай алатын нақты әрекет"
              }
            ],
     }
     """,
     "psychological_profile": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "psychological_profile": {
-             "summary": "Brief overview of psychological state",
-             "observations": ["observation 1", "observation 2"],
-             "recommendations": ["recommendation 1"]
+             "summary": "Психологиялық жағдайдың қысқаша сипаттамасы",
+             "observations": ["бақылау 1", "бақылау 2"],
+             "recommendations": ["ұсыныс 1"]
            }
     }
     """,
     "extracurricular": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "extracurricular": {
-             "summary": "Brief overview of non-academic activities",
-             "highlights": ["highlight 1", "highlight 2"]
+             "summary": "Оқу бағдарламасынан тыс іс-әрекеттерге қысқаша шолу",
+             "highlights": ["жетістік 1", "жетістік 2"]
            }
     }
     """,
     "recommendations": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
         "recommendations": {{
-             "for_teachers": ["actionable recommendation 1", "actionable recommendation 2"],
-             "for_parents": ["actionable recommendation 1", "actionable recommendation 2"],
-             "for_student": ["actionable recommendation 1", "actionable recommendation 2"]
+             "for_teachers": ["практикалық ұсыныс 1", "практикалық ұсыныс 2"],
+             "for_parents": ["практикалық ұсыныс 1", "практикалық ұсыныс 2"],
+             "for_student": ["практикалық ұсыныс 1", "практикалық ұсыныс 2"]
            }}
     }
     """,
     "conclusion": """
-    Generate ONLY this JSON structure:
+    ТЕК келесі JSON құрылымын жасаңыз:
     {
-       "conclusion": "2-3 sentence forward-looking closing statement (NO numbers)"
+       "conclusion": "Болашаққа бағытталған 2-3 сөйлемнен тұратын қорытынды мәлімдеме (САНДАРСЫЗ)"
     }
     """,
-
-
 }

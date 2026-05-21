@@ -1,88 +1,86 @@
-section_prompts = {
+ru_section_prompts = {
     "summary": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
-        "summary": "2-3 sentence executive summary of overall performance (NO numbers)"
+        "summary": "Краткое итоговое резюме общей успеваемости из 2-3 предложений (БЕЗ чисел)"
     }
     """,
     "overall_assessment": """
-    Generate ONLY this JSON structure:
-    {
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
+    {   
         "overall_assessment": {
              "score_label": "Excellent|Good|Average|Below Average|Needs Attention",
-             "description": "1 paragraph overall assessment (NO numbers, NO percentages)"
+             "description": "1 абзац общей оценки (БЕЗ чисел, БЕЗ процентов)"
            }
     }
     """,
     "subject_analyses": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "subject_analyses": {
              "SubjectName": {
-               "analysis": "2-3 sentences about this subject performance (NO grades, NO percentages)",
-               "recommendation": "Specific actionable recommendation for this subject"
+               "analysis": "2-3 предложения об успеваемости по этому предмету (БЕЗ оценок, БЕЗ процентов)",
+               "recommendation": "Конкретная практическая рекомендация по этому предмету"
              }
            }
     }
     """,
     "strengths": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "strengths": [
              {
-               "area": "Short strength title",
-               "description": "1-2 sentence detail (NO numbers)"
+               "area": "Краткое название сильной стороны",
+               "description": "Описание из 1-2 предложений (БЕЗ чисел)"
              }
            ],
     }
     """,
     "areas_for_improvement": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "areas_for_improvement": [
              {
-               "area": "Short area title",
-               "description": "1-2 sentence detail (NO numbers)",
-               "suggested_action": "Concrete step the student/teacher can take"
+               "area": "Краткое название области для улучшения",
+               "description": "Описание из 1-2 предложений (БЕЗ чисел)",
+               "suggested_action": "Конкретное действие, которое может выполнить студент/учитель"
              }
            ],
     }
     """,
     "psychological_profile": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "psychological_profile": {
-             "summary": "Brief overview of psychological state",
-             "observations": ["observation 1", "observation 2"],
-             "recommendations": ["recommendation 1"]
+             "summary": "Краткий обзор психологического состояния",
+             "observations": ["наблюдение 1", "наблюдение 2"],
+             "recommendations": ["рекомендация 1"]
            }
     }
     """,
     "extracurricular": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "extracurricular": {
-             "summary": "Brief overview of non-academic activities",
-             "highlights": ["highlight 1", "highlight 2"]
+             "summary": "Краткий обзор внеучебной деятельности",
+             "highlights": ["достижение 1", "достижение 2"]
            }
     }
     """,
     "recommendations": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
         "recommendations": {{
-             "for_teachers": ["actionable recommendation 1", "actionable recommendation 2"],
-             "for_parents": ["actionable recommendation 1", "actionable recommendation 2"],
-             "for_student": ["actionable recommendation 1", "actionable recommendation 2"]
+             "for_teachers": ["практическая рекомендация 1", "практическая рекомендация 2"],
+             "for_parents": ["практическая рекомендация 1", "практическая рекомендация 2"],
+             "for_student": ["практическая рекомендация 1", "практическая рекомендация 2"]
            }}
     }
     """,
     "conclusion": """
-    Generate ONLY this JSON structure:
+    Сгенерируйте ТОЛЬКО следующую JSON-структуру:
     {
-       "conclusion": "2-3 sentence forward-looking closing statement (NO numbers)"
+       "conclusion": "Итоговое заключение с взглядом в будущее из 2-3 предложений (БЕЗ чисел)"
     }
     """,
-
-
 }
