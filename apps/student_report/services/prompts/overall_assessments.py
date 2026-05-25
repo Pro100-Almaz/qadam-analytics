@@ -1,17 +1,35 @@
 import json
-from .sections import section_prompts
+
+from .additional.supportive import REMINDERS
+from .additional.system_descriptions import sys_descriptions
+from .additional.user_descriptions import user_descriptions
+from .sections.en_sections import en_section_prompts
+from .sections.kz_sections import kz_section_prompts
+from .sections.ru_sections import ru_section_prompts
 
 
-def generate_assessment_prompt(student_data: dict, basic_info: str) -> tuple[str, str]:
+def generate_assessment_prompt(student_data: dict, basic_info: str, language: str) -> tuple[str, str]:
+
+    if language == 'en':
+        section_prompts = en_section_prompts
+    elif language == 'ru':
+        section_prompts = ru_section_prompts
+    else:
+        section_prompts = kz_section_prompts
+
+    system_description = sys_descriptions['overall_assessment'][language]
+
+
     system_prompt = f"""
-            Currently, you have to give the overall assessment of the student based on the grades, trends, class averages and other relevant data. 
-
+            {system_description}
+            
             {section_prompts['overall_assessment']}
     """
 
-    user_prompt = f"""
-        Generate a qualitative overall assessment for:
 
+    user_prompt = f"""
+        {user_descriptions['overall_assessment'][language]}
+        
         {basic_info}
 
         ## Academic Data
@@ -30,7 +48,8 @@ def generate_assessment_prompt(student_data: dict, basic_info: str) -> tuple[str
         ```json
         {json.dumps(student_data['class_context'], ensure_ascii=False, indent=2, default=str)}
         ```
-        Remember: output ONLY qualitative text analysis. NO numbers, NO percentages, NO scores in your response.
+        {REMINDERS[language]}
     """
+
 
     return system_prompt, user_prompt
