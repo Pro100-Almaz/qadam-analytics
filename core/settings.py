@@ -255,6 +255,8 @@ else:
         cast=lambda v: [o.strip() for o in v.split(',')],
     )
 
+CORS_ALLOW_CREDENTIALS = True
+
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
