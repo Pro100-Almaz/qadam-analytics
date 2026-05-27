@@ -49,7 +49,8 @@ urlpatterns = [
     ),
 
     # PATCH /api/v1/subtopics/<id>/  update subtopic
-    path('subtopics/<int:pk>/', views.SubtopicUpdateAPIView.as_view(), name='subtopic-update'),
+    # DELETE /api/v1/subtopics/<id>/ delete subtopic
+    path('subtopics/<int:pk>/', views.SubtopicUpdateDeleteAPIView.as_view(), name='subtopic-update'),
 
     # ── Grading ──
     # GET   /api/v1/lessons/<lesson_id>/grading/  grading page data
