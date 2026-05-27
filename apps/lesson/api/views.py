@@ -331,7 +331,7 @@ class SubtopicCreateAPIView(APIView):
         )
 
 
-class SubtopicUpdateAPIView(APIView):
+class SubtopicUpdateDeleteAPIView(APIView):
     """PATCH subtopics/<id>/ — update a subtopic."""
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
 
@@ -356,6 +356,29 @@ class SubtopicUpdateAPIView(APIView):
 
         from .serializers import SubtopicSerializer
         return Response(SubtopicSerializer(subtopic).data)
+
+    def delete(self, request, pk):
+        subtopic = get_object_or_404(Topic, pk=pk)
+        if subtopic.parent is None:
+            return Response(
+                {'detail': NOT_A_SUBTOPIC},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        lesson = subtopic.lesson
+        if not can_modify_lesson(request.user, lesson):
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lesson_id = lesson.id
+        subtopic.soft_delete(request.user)
+
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        recalculate_topic_weights(lesson)
+        distribute_subtopic_weights(lesson)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SubtopicDistributeWeightsAPIView(APIView):
