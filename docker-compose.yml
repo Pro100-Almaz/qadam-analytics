@@ -22,7 +22,7 @@ services:
 
   certbot:
     container_name: certbot
-    image: certbot/certbot:latest
+    image: certbot/certbot:v2.11.0
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt
@@ -39,7 +39,7 @@ services:
       DEBUG: "False"
       DB_NAME: ${DB_NAME:-qadam}
       DB_USER: ${DB_USER:-qadam}
-      DB_PASSWORD: ${DB_PASSWORD:-qadam}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_HOST: db
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/1
@@ -67,7 +67,7 @@ services:
       DEBUG: "False"
       DB_NAME: ${DB_NAME:-qadam}
       DB_USER: ${DB_USER:-qadam}
-      DB_PASSWORD: ${DB_PASSWORD:-qadam}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       DB_HOST: db
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/1
@@ -99,7 +99,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-qadam}
       POSTGRES_USER: ${DB_USER:-qadam}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-qadam}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

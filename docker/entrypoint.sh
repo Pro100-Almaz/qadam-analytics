@@ -20,7 +20,8 @@ exec gunicorn core.wsgi:application \
   --bind 0.0.0.0:8000 \
   --workers ${GUNICORN_WORKERS:-3} \
   --timeout ${GUNICORN_TIMEOUT:-30} \
+  --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}" \
   --access-logfile '-' \
   --error-logfile '-' \
   --capture-output \
-  --log-level debug
+  --log-level ${GUNICORN_LOG_LEVEL:-info}
