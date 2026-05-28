@@ -141,7 +141,7 @@ class Lesson(SoftDeleteMixin, models.Model):
         return results
 
 
-class Topic(SoftDeleteMixin, models.Model):
+class Topic(models.Model):
     lesson = models.ForeignKey(
         Lesson,
         related_name='topics',
