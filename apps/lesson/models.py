@@ -205,7 +205,7 @@ class Topic(SoftDeleteMixin, models.Model):
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
 
-class TopicGrade(SoftDeleteMixin, models.Model):
+class TopicGrade(models.Model):
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
     grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
