@@ -198,10 +198,7 @@ def delete_student_grades(lesson, student, user=None):
     from django.utils import timezone
 
     invalidate_lesson_grade_cache(lesson.id)
-    now = timezone.now()
-    TopicGrade.objects.filter(student=student, topic__lesson=lesson).update(
-        is_deleted=True, deleted_at=now, deleted_by=user,
-    )
+    TopicGrade.objects.filter(student=student, topic__lesson=lesson).delete()
     MergedLessonComment.objects.filter(lesson=lesson, student=student).delete()
 
 
