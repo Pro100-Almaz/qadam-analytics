@@ -138,7 +138,7 @@ class LessonListCreateAPIView(APIView):
         )
 
 
-class LessonDetailDeleteAPIView(APIView):
+class LessonDetailGetDeleteAPIView(APIView):
     """
     GET    lessons/<id>/  — lesson detail
     DELETE lessons/<id>/  — delete lesson

@@ -12,7 +12,7 @@ urlpatterns = [
 
     # GET    /api/v1/lessons/<id>/  lesson detail with topics, students, student_grades
     # DELETE /api/v1/lessons/<id>/  delete lesson
-    path('lessons/<int:pk>/', views.LessonDetailDeleteAPIView.as_view(), name='lesson-detail-delete'),
+    path('lessons/<int:pk>/', views.LessonDetailGetDeleteAPIView.as_view(), name='lesson-detail-delete'),
 
     # ── Topics ──
     # POST /api/v1/lessons/<lesson_id>/topics/  create parent topic
