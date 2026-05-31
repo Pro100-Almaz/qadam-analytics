@@ -66,7 +66,7 @@ class ParentChildDetailAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = StudentDetailSerializer(child)
+        serializer = StudentDetailSerializer(child, context={'request': request})
         return Response(serializer.data)
 
 
