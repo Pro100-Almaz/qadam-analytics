@@ -8,10 +8,10 @@ from apps.student_report.services.prompts.strengths import generate_strengths_pr
 from apps.student_report.services.prompts.subject_analysis import generate_subject_prompt
 from apps.student_report.services.prompts.recommendations import generate_recommendations_prompt
 from apps.student_report.services.prompts.summary import generate_summary_prompt
-from base_sys_prompts.en_base_prompt import english_system_prompt
-from base_sys_prompts.kz_base_prompt import kazakh_system_prompt
-from base_sys_prompts.ru_base_prompt import russian_system_prompt
-from prompts.additional.supportive import BASIC_CONTEXT_DATA
+from apps.student_report.services.base_sys_prompts.en_base_prompt import english_system_prompt
+from apps.student_report.services.base_sys_prompts.kz_base_prompt import kazakh_system_prompt
+from apps.student_report.services.base_sys_prompts.ru_base_prompt import russian_system_prompt
+from apps.student_report.services.prompts.additional.supportive import BASIC_CONTEXT_DATA
 
 
 def build_report_prompt(student_data: dict, language: str, quarter: int) -> dict:

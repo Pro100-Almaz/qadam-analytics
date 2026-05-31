@@ -724,7 +724,7 @@ POST /api/v1/students/<id>/reports/generate/
 }
 ```
 
-- `language`: required — `"ru"` (Russian), `"kk"` (Kazakh), `"en"` (English)
+- `language`: required — `"ru"` (Russian), `"kz"` (Kazakh), `"en"` (English)
 - `quarter`: required — integer 1-4
 
 **Report Response:**

@@ -208,7 +208,7 @@ LANGUAGE_CODE = 'en'
 LANGUAGES = [
     ('en', 'English'),
     ('ru', 'Russian'),
-    ('kk', 'Kazakh'),
+    ('kz', 'Kazakh'),
 ]
 
 TIME_ZONE = 'Asia/Almaty'

@@ -5,7 +5,7 @@ from django.db import models
 class StudentReport(models.Model):
     class Language(models.TextChoices):
         RUSSIAN = 'ru', 'Русский'
-        KAZAKH = 'kk', 'Қазақша'
+        KAZAKH = 'kz', 'Қазақша'
         ENGLISH = 'en', 'English'
 
     class Status(models.TextChoices):
