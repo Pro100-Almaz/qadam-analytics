@@ -1,11 +1,13 @@
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Parent
-from apps.home.models import TeachingAssignment, Enrollment
+from apps.authentication.models import Parent, Student, Teacher
+from apps.home.models import TeachingAssignment, Enrollment, Subject, SubjectOffering
 from apps.home.services import compute_child_grades
+from apps.lesson.models import Lesson, QuarterGradeSnapshot
 
 from apps.home.api.permissions import IsParent
 from core.error_messages import CHILD_NOT_FOUND
@@ -13,7 +15,7 @@ from apps.home.api.serializers import (
     StudentDetailSerializer,
     ParentChildSerializer,
     ParentChildDetailSerializer,
-    ParentTeacherDetailSerializer,
+    ParentTeacherDetailSerializer, ParentChildSubjectDetailSerializer,
 )
 
 
@@ -118,4 +120,43 @@ class ParentTeachersAPIView(APIView):
             t['children'] = sorted(t['children'])
 
         serializer = ParentTeacherDetailSerializer(list(teacher_map.values()), many=True)
+        return Response(serializer.data)
+
+class ParentChildSubjectDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsParent]
+
+    def get(self, request, student_pk, subject_pk):
+        child = Student.objects.filter(pk=student_pk).first()
+        if not child:
+            raise NotFound("Student not found")
+
+        subject = Subject.objects.filter(pk=subject_pk).first()
+        if not subject:
+            raise NotFound("Subject not found")
+
+        teacher = subject.assigned_teachers.first()
+
+        class_group = child.get_current_class_group()
+        if not class_group:
+            return Response(
+                {"detail": "Student does not belong to any class group"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        offering = SubjectOffering.objects.filter(
+            subject=subject,
+            class_group=class_group,
+            academic_year=class_group.academic_year
+        ).first()
+
+        data = {
+            'teacher': teacher,
+            'subject': subject,
+            'offering': offering,
+            'class_group': class_group,
+            'child': child,
+            'lessons': Lesson.objects.filter(offering=offering) if offering else None,
+        }
+
+        serializer = ParentChildSubjectDetailSerializer(data)
         return Response(serializer.data)
