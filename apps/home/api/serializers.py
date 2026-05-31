@@ -550,37 +550,38 @@ class ParentTeacherDetailSerializer(serializers.Serializer):
 
 
 class ParentChildBriefSerializer(serializers.ModelSerializer):
-    full_name = serializers.SerializerMethodField()
+    full_name = serializers.CharField(source='user')
     avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = ['id', 'full_name', 'avatar']
 
-    def get_full_name(self, obj):
-        return str(obj.user)
-
     def get_avatar(self, obj):
-        return obj.user.avatar.url if obj.user.avatar else None
+        if not obj.user.avatar:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return obj.user.avatar.url
 
 
 class ParentTeacherBriefSerializer(serializers.ModelSerializer):
-    full_name = serializers.SerializerMethodField()
+    full_name = serializers.CharField(source='user')
     avatar = serializers.SerializerMethodField()
-    email = serializers.SerializerMethodField()
+    email = serializers.EmailField(source='user.email')
 
     class Meta:
         model = Teacher
         fields = ['id', 'full_name', 'avatar', 'email', 'occupation']
 
-    def get_full_name(self, obj):
-        return str(obj.user)
-
     def get_avatar(self, obj):
-        return obj.user.avatar.url if obj.user.avatar else None
-
-    def get_email(self, obj):
-        return obj.user.email
+        if not obj.user.avatar:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return obj.user.avatar.url
 
 
 class CommentSerializer(serializers.Serializer):
@@ -602,33 +603,15 @@ class ParentChildLessonSerializer(serializers.Serializer):
 class ParentChildSubjectDetailSerializer(serializers.Serializer):
     child = ParentChildBriefSerializer()
     teacher = ParentTeacherBriefSerializer()
-    subject_id = serializers.SerializerMethodField()
-    subject_name = serializers.SerializerMethodField()
-    language_group = serializers.SerializerMethodField()
-    status = serializers.SerializerMethodField()
-    class_group_name = serializers.SerializerMethodField()
-    academic_year = serializers.SerializerMethodField()
+    subject_id = serializers.IntegerField(source='subject.id')
+    subject_name = serializers.CharField(source='subject.name')
+    language_group = serializers.CharField(source='subject.language_group')
+    status = serializers.CharField(source='subject.status')
+    class_group_name = serializers.CharField(source='class_group')
+    academic_year = serializers.CharField(source='class_group.academic_year')
     cumulative_grade = serializers.SerializerMethodField()
     quarter_grades = serializers.SerializerMethodField()
     lessons = serializers.SerializerMethodField()
-
-    def get_subject_id(self, obj):
-        return obj.get('subject').id
-
-    def get_subject_name(self, obj):
-        return obj.get('subject').name
-
-    def get_language_group(self, obj):
-        return obj.get('subject').language_group
-
-    def get_status(self, obj):
-        return obj.get('subject').status
-
-    def get_class_group_name(self, obj):
-        return str(obj.get('class_group'))
-
-    def get_academic_year(self, obj):
-        return str(obj.get('class_group').academic_year)
 
     def _get_quarter_grades(self, obj):
         if hasattr(self, '_quarter_grades_cache'):

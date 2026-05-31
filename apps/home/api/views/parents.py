@@ -15,7 +15,8 @@ from apps.home.api.serializers import (
     StudentDetailSerializer,
     ParentChildSerializer,
     ParentChildDetailSerializer,
-    ParentTeacherDetailSerializer, ParentChildSubjectDetailSerializer,
+    ParentTeacherDetailSerializer,
+    ParentChildSubjectDetailSerializer,
 )
 
 
@@ -157,5 +158,5 @@ class ParentChildSubjectDetailAPIView(APIView):
             'lessons': Lesson.objects.filter(offering=offering) if offering else None,
         }
 
-        serializer = ParentChildSubjectDetailSerializer(data)
+        serializer = ParentChildSubjectDetailSerializer(data, context={'request': request})
         return Response(serializer.data)
