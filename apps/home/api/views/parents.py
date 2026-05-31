@@ -152,7 +152,6 @@ class ParentChildSubjectDetailAPIView(APIView):
         data = {
             'teacher': teacher,
             'subject': subject,
-            'offering': offering,
             'class_group': class_group,
             'child': child,
             'lessons': Lesson.objects.filter(offering=offering) if offering else None,
