@@ -70,11 +70,11 @@ def build_graded_percent_map(lessons):
 
     total_by_offering = dict(
         Enrollment.objects.filter(
-            class_group__offerings__id__in=offering_ids,
+            class_group__subject_offerings__id__in=offering_ids,
             status='active',
-        ).values('class_group__offerings__id').annotate(
+        ).values('class_group__subject_offerings__id').annotate(
             cnt=Count('student', distinct=True)
-        ).values_list('class_group__offerings__id', 'cnt')
+        ).values_list('class_group__subject_offerings__id', 'cnt')
     )
 
     graded_by_lesson = dict(

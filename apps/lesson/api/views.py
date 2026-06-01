@@ -2,6 +2,7 @@ from django.db import models as django_models
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +10,7 @@ from rest_framework.views import APIView
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
+from core import settings
 from core.permissions import (
     can_access_lesson, can_modify_lesson, can_grade_student,
     is_admin_role, is_teacher_role,
@@ -112,12 +114,16 @@ class LessonListCreateAPIView(APIView):
         lessons = list(lessons)
         graded_percent_map = build_graded_percent_map(lessons)
 
+        paginator = PageNumberPagination()
+        paginator.page_size = settings.REST_FRAMEWORK.get('PAGE_SIZE', 50)
+        page = paginator.paginate_queryset(lessons, request)
+
         serializer = LessonListSerializer(
-            lessons,
+            page,
             many=True,
             context={'request': request, 'graded_percent_map': graded_percent_map},
         )
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = LessonCreateSerializer(data=request.data, context={'request': request})
