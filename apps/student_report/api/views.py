@@ -12,7 +12,7 @@ from apps.student_report.api.serializers import (
     StudentReportSerializer,
     StudentReportListSerializer,
 )
-from core.permissions import IsTeacherAdminOrSupervisor
+from core.permissions import IsTeacherAdminOrSupervisor, CanAccessStudent
 
 
 class GenerateReportView(GenericAPIView):
@@ -95,7 +95,7 @@ class ReportDetailView(RetrieveAPIView):
 
 
 class StudentReportListView(ListAPIView):
-    permission_classes = [IsTeacherAdminOrSupervisor]
+    permission_classes = [CanAccessStudent]
     serializer_class = StudentReportListSerializer
 
     def get_queryset(self):
