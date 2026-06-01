@@ -9,6 +9,7 @@ from apps.home.models import (
     AcademicYear, GradeLevel, ClassGroup,
     Subject, SubjectOffering, TeachingAssignment, Enrollment,
 )
+from apps.lesson.models import Lesson, TopicGrade, Topic
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -546,3 +547,180 @@ class ParentTeacherDetailSerializer(serializers.Serializer):
     email = serializers.CharField()
     subjects = serializers.ListField(child=serializers.CharField())
     children = serializers.ListField(child=serializers.CharField())
+
+
+class ParentChildBriefSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='user')
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Student
+        fields = ['id', 'full_name', 'avatar']
+
+    def get_avatar(self, obj):
+        if not obj.user.avatar:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return obj.user.avatar.url
+
+
+class ParentTeacherBriefSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='user')
+    avatar = serializers.SerializerMethodField()
+    email = serializers.EmailField(source='user.email')
+
+    class Meta:
+        model = Teacher
+        fields = ['id', 'full_name', 'avatar', 'email', 'occupation']
+
+    def get_avatar(self, obj):
+        if not obj.user.avatar:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return obj.user.avatar.url
+
+
+class CommentSerializer(serializers.Serializer):
+    topic_title = serializers.CharField()
+    comment = serializers.CharField(allow_null=True)
+
+
+class ParentChildLessonSerializer(serializers.Serializer):
+    lesson_id = serializers.IntegerField()
+    lesson_title = serializers.CharField()
+    lesson_date = serializers.DateField()
+    order = serializers.IntegerField()
+    quarter = serializers.IntegerField()
+    status = serializers.CharField()
+    earned_points = serializers.FloatField(allow_null=True)
+    comments = CommentSerializer(allow_null=True, many=True)
+
+
+class ParentChildSubjectDetailSerializer(serializers.Serializer):
+    child = ParentChildBriefSerializer()
+    teacher = ParentTeacherBriefSerializer()
+    subject_id = serializers.IntegerField(source='subject.id')
+    subject_name = serializers.CharField(source='subject.name')
+    language_group = serializers.CharField(source='subject.language_group')
+    status = serializers.CharField(source='subject.status')
+    class_group_name = serializers.CharField(source='class_group')
+    academic_year = serializers.CharField(source='class_group.academic_year')
+    cumulative_grade = serializers.SerializerMethodField()
+    quarter_grades = serializers.SerializerMethodField()
+    lessons = serializers.SerializerMethodField()
+
+    def _get_quarter_grades(self, obj):
+        if hasattr(self, '_quarter_grades_cache'):
+            return self._quarter_grades_cache
+
+        grades_map = Lesson.calculate_grades_bulk(
+            obj.get('lessons'),
+            [obj.get('child')]
+        ) if obj.get('lessons') else {}
+
+        self._quarter_grades_cache = {}
+        for quarter in [1, 2, 3, 4]:
+            self._quarter_grades_cache[quarter] = {}
+
+            quarter_lessons = [l for l in obj.get('lessons') if l.quarter == quarter]
+            if quarter_lessons:
+                lesson_grades = [grades_map.get((l.id, obj.get('child').id), 0) for l in quarter_lessons]
+                grade = sum(lesson_grades) / len(lesson_grades)
+            else:
+                grade = 0
+            self._quarter_grades_cache[quarter] = grade
+
+        return self._quarter_grades_cache
+
+    def get_cumulative_grade(self, obj):
+        grades = self._get_quarter_grades(obj)
+        total = sum(grades[q] for q in [1, 2, 3, 4])
+        return round(total / 4, 1)
+
+    def get_quarter_grades(self, obj):
+        return self._get_quarter_grades(obj)
+
+    def get_lessons(self, obj):
+        student = obj.get('child')
+        lessons = obj.get('lessons')
+
+        all_topic_grades = TopicGrade.objects.filter(
+            topic__lesson__in=lessons,
+            student=obj.get('child'),
+        ).values('topic_id', 'grade', 'comment', 'comment_selected', 'topic__lesson_id', 'topic__title')
+
+        grades_map = {}
+        topic_grades_by_lesson = {}
+        for tg in all_topic_grades:
+            grades_map[(tg['topic_id'], tg['topic__lesson_id'])] = tg['grade']
+            lesson_map = topic_grades_by_lesson.setdefault(tg['topic__lesson_id'], {})
+            lesson_map[tg['topic_id']] = {
+                'grade': tg['grade'],
+                'comment': tg['comment'] or '',
+                'comment_selected': tg['comment_selected'],
+            }
+
+        # Subtopic ids per parent topic for comment aggregation
+        parent_topics = Topic.objects.filter(
+            lesson__in=lessons, parent__isnull=True
+        ).prefetch_related('subtopics')
+        topic_subtopic_ids = {
+            t.id: [s.id for s in t.subtopics.all()] for t in parent_topics
+        }
+        topic_titles = { t.id: t.title for t in parent_topics }
+
+        result = {}
+        bulk_grades = Lesson.calculate_grades_bulk(lessons, [student])
+        for lesson in lessons:
+            key = str(lesson.id)
+            result[key] = {
+                'grade_total': round(bulk_grades[(lesson.id, student.id)], 1),
+            }
+            per_topic = topic_grades_by_lesson.get(lesson.id, {})
+            result[key].update({str(k): v for k, v in per_topic.items()})
+            # Resolve comment display for parent topics that have subtopics
+            comments = []
+            for topic_id, subtopic_ids in topic_subtopic_ids.items():
+                entry = result[key].get(str(topic_id))
+                if not isinstance(entry, dict):
+                    continue
+                selected_sub_comment = None
+
+                if not subtopic_ids:
+                    selected_sub_comment = per_topic.get(topic_id, {}).get('comment', '')
+                for sub_id in subtopic_ids:
+                    sub_entry = per_topic.get(sub_id, {})
+                    if sub_entry.get('comment_selected') and sub_entry.get('comment'):
+                        selected_sub_comment = sub_entry['comment']
+                        break
+                if selected_sub_comment:
+                    entry['comment'] = selected_sub_comment
+                elif not entry.get('comment'):
+                    sub_comments = [
+                        per_topic[sub_id]['comment']
+                        for sub_id in subtopic_ids
+                        if per_topic.get(sub_id, {}).get('comment')
+                    ]
+                    if sub_comments:
+                        entry['comment'] = '. '.join(sub_comments)
+                comments.append({"topic_title": topic_titles.get(topic_id, ""), "comment": entry['comment']})
+            result[key]["comment_total"] = comments
+
+        data = [
+            {
+                "lesson_id": lesson.id,
+                "lesson_title": lesson.title,
+                "lesson_date": lesson.date,
+                "order": lesson.order,
+                "quarter": lesson.quarter,
+                "status": lesson.status,
+                "earned_points": result[str(lesson.id)].get('grade_total', None),
+                "comments": result[str(lesson.id)].get('comment_total', [])
+            }
+            for lesson in lessons
+        ]
+        return ParentChildLessonSerializer(data, many=True).data

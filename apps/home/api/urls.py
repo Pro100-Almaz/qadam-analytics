@@ -62,6 +62,7 @@ urlpatterns = [
     # Parent self-service
     path('parents/me/children/', views.ParentChildrenListAPIView.as_view(), name='parent-children'),
     path('parents/me/children/<int:student_pk>/', views.ParentChildDetailAPIView.as_view(), name='parent-child-detail'),
+    path('parents/me/children/<int:student_pk>/subjects/<int:subject_pk>/', views.ParentChildSubjectDetailAPIView.as_view(), name='parent-child-subject-detail'),
     path('parents/me/teachers/', views.ParentTeachersAPIView.as_view(), name='parent-my-teachers'),
 
     # Teacher dashboards (role-specific)

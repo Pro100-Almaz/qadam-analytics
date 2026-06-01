@@ -31,6 +31,7 @@ from .parents import (
     ParentChildrenListAPIView,
     ParentChildDetailAPIView,
     ParentTeachersAPIView,
+    ParentChildSubjectDetailAPIView,
 )
 from .teacher_dashboard import (
     TeacherRoleDashboardAPIView,
