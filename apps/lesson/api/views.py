@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
+from core import settings
 from core.permissions import (
     can_access_lesson, can_modify_lesson, can_grade_student,
     is_admin_role, is_teacher_role,
@@ -114,7 +115,7 @@ class LessonListCreateAPIView(APIView):
         graded_percent_map = build_graded_percent_map(lessons)
 
         paginator = PageNumberPagination()
-        paginator.page_size = 20
+        paginator.page_size = settings.REST_FRAMEWORK.get('PAGE_SIZE', 50)
         page = paginator.paginate_queryset(lessons, request)
 
         serializer = LessonListSerializer(
