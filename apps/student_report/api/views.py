@@ -12,7 +12,7 @@ from apps.student_report.api.serializers import (
     StudentReportSerializer,
     StudentReportListSerializer,
 )
-from core.permissions import IsTeacherAdminOrSupervisor, IsParent, CanAccessStudent
+from core.permissions import IsTeacherAdminOrSupervisor, CanAccessStudent
 
 
 class GenerateReportView(GenericAPIView):
