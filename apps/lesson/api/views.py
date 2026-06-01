@@ -287,6 +287,21 @@ class TopicDistributeWeightsAPIView(APIView):
         return Response(TopicSerializer(updated, many=True).data)
 
 
+class TopicTotalWeightAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
+
+    def get(self, request, topic_id):
+        topic = Topic.objects.get(pk=topic_id)
+        subtopics = topic.subtopics.all()
+
+        total_weight = 0
+        for subtopic in subtopics:
+            total_weight += subtopic.weight
+
+        return Response({
+            'total_weight' : total_weight
+        })
+
 # ── Subtopics ──
 
 class SubtopicCreateAPIView(APIView):
@@ -351,6 +366,12 @@ class SubtopicUpdateDeleteAPIView(APIView):
 
         serializer = SubtopicUpdateSerializer(subtopic, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        if not self._validate_update_weight(request.data):
+            return Response(
+                {'detail': 'Provided weight is out of range (0-100).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer.save()
         subtopic.refresh_from_db()
 
@@ -379,6 +400,13 @@ class SubtopicUpdateDeleteAPIView(APIView):
         distribute_subtopic_weights(lesson)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _validate_update_weight(self, data: dict) -> bool:
+        if 'weight' in data:
+            value = float(data['weight'])
+            if value < 0 or value > 100:
+                return False
+        return True
 
 
 class SubtopicDistributeWeightsAPIView(APIView):

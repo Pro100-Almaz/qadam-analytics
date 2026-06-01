@@ -22,7 +22,7 @@ urlpatterns = [
         name='topic-create',
     ),
 
-    # POST /api/v1/lessons/<lesson_id>/topics/distribute-weights/
+    # POST /api/v1/lessons/<lesson_id>/topics/distribute-weights/   get total weight of topic's subtopics
     path(
         'lessons/<int:lesson_id>/topics/distribute-weights/',
         views.TopicDistributeWeightsAPIView.as_view(),
@@ -32,6 +32,13 @@ urlpatterns = [
     # PATCH  /api/v1/topics/<id>/  update topic
     # DELETE /api/v1/topics/<id>/  delete topic (rebalances weights)
     path('topics/<int:pk>/', views.TopicUpdateDeleteAPIView.as_view(), name='topic-update-delete'),
+
+    # GET /api/v1/topics/<int:topic_id>/total-weight/
+    path(
+        'topics/<int:topic_id>/total-weight/',
+        views.TopicTotalWeightAPIView.as_view(),
+        name='topic-total-weight'
+    ),
 
     # ── Subtopics ──
     # POST /api/v1/lessons/<lesson_id>/subtopics/  create subtopic
