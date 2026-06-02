@@ -136,9 +136,10 @@ class SubjectDetailAPIView(RetrieveAPIView):
 class SubjectGradesAPIView(APIView):
     def get(self, request, pk):
         quarter = int(request.query_params.get('quarter', 1))
+        class_group_id = int(request.query_params.get('class_group_id', 0))
         subject = Subject.objects.get(pk=pk)
 
-        result = get_subject_grades(subject, request.user, quarter)
+        result = get_subject_grades(subject, request.user, quarter, class_group_id)
         if result is None:
             return Response(
                 {'detail': 'You do not have permission to view this subject.'},

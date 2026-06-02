@@ -136,7 +136,7 @@ def compute_child_grades(student, enrollment):
     return student_total_grade, quarter_grades, subject_data
 
 
-def get_subject_grades(subject, user, quarter=1):
+def get_subject_grades(subject, user, quarter=1, class_group_id=0):
     """Compute grade data for a subject's grades page."""
     from core.permissions import can_access_subject
 
@@ -179,10 +179,14 @@ def get_subject_grades(subject, user, quarter=1):
 
     total_lessons = list(
         Lesson.objects.filter(offering__in=offerings)
-        .select_related('offering')
+        .select_related('offering', 'offering__class_group')
     )
     quarter_lessons = sorted(
-        [l for l in total_lessons if l.quarter == quarter],
+        [
+            l for l in total_lessons
+            if l.quarter == quarter and
+               (not class_group_id or l.offering.class_group_id == class_group_id)
+         ],
         key=lambda x: x.created_at,
     )
 
@@ -232,7 +236,13 @@ def get_subject_grades(subject, user, quarter=1):
     completion = round((graded / students_count) * 100, 1) if students_count else 0
 
     lessons_data = [
-        {'id': l.id, 'title': l.title, 'date': l.date, 'order': l.order}
+        {
+            'id': l.id,
+            'title': l.title,
+            'date': l.date,
+            'order': l.order,
+            'class_group_name': str(l.offering.class_group)
+        }
         for l in quarter_lessons
     ]
 
