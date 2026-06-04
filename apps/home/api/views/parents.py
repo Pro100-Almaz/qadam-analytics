@@ -38,14 +38,13 @@ class ParentChildrenListAPIView(APIView):
                 quarter_grades = {'1': None, '2': None, '3': None, '4': None}
                 class_group_name = None
 
-            avatar_url = child.user.avatar.url if child.user.avatar else None
             school_group_name = child.school_group.name if child.school_group else None
 
             result.append({
                 'id': child.id,
                 'user_id': child.user.id,
                 'full_name': child.user.get_full_name(),
-                'avatar': avatar_url,
+                'avatar': request.build_absolute_uri(child.user.avatar.url) if child.user.avatar else None,
                 'class_group_name': class_group_name,
                 'school_group': school_group_name,
                 'student_total_grade': total_grade,
