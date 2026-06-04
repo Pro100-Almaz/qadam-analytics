@@ -27,6 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     primary_group = serializers.CharField(read_only=True)
     profile_id = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -42,6 +43,12 @@ class UserSerializer(serializers.ModelSerializer):
             profile = getattr(obj, attr, None)
             if profile is not None:
                 return profile.pk
+        return None
+
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        if request and obj.avatar:
+            return request.build_absolute_uri(obj.avatar.url)
         return None
 
 
