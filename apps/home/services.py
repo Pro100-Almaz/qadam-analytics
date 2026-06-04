@@ -185,7 +185,7 @@ def get_subject_grades(subject, user, quarter=1, class_group_id=0):
         [
             l for l in total_lessons
             if l.quarter == quarter and
-               (not class_group_id or l.offering.class_group_id == class_group_id)
+               (not class_group_id or l.offering.class_group.id == class_group_id)
          ],
         key=lambda x: x.created_at,
     )
