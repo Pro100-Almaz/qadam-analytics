@@ -101,8 +101,12 @@ class CustomUser(AbstractUser):
     @property
     def primary_group(self):
         """Get the user's primary group (first group found)."""
-        group = self.groups.first()
-        return group.name if group else None
+        priority = ["Admin", "HomeroomTeacher"]
+        _groups = self.groups.all()
+        for p in priority:
+            if any(g.name == p for g in _groups):
+                return p
+        return _groups.first().name if _groups else None
 
     @property
     def role(self):
