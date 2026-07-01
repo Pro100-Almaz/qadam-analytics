@@ -64,9 +64,7 @@ class AchievementListCreateAPIView(APIView):
             qs = qs.filter(category=category)
 
         serializer = AchievementListSerializer(qs, many=True, context={"request": request})
-        data = serializer.data
-        print("DATA create", data)
-        return Response(data)
+        return Response(serializer.data)
 
     def post(self, request, student_pk):
         student = get_object_or_404(Student, pk=student_pk)
@@ -120,9 +118,8 @@ class AchievementDetailAPIView(APIView):
         denied = self._check_access(request, achievement)
         if denied:
             return denied
-        data = AchievementDetailSerializer(achievement, context={"request": request}).data
-        print("DATA Detail", data)
-        return Response(data)
+        serializer = AchievementDetailSerializer(achievement, context={"request": request})
+        return Response(serializer.data)
 
     def patch(self, request, pk):
         achievement = self._get_achievement(pk)
