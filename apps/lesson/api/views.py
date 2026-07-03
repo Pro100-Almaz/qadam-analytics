@@ -190,7 +190,6 @@ class LessonCopyAPIView(APIView):
     All the topics and subtopics are also cloned and attached to new lesson.
     """
 
-    # Fields inherited from the source lesson when omitted from the body.
     FALLBACK_FIELDS = ('title', 'description', 'order', 'status', 'quarter', 'unit', 'date')
 
     def get_permissions(self):
