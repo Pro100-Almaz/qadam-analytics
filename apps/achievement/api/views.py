@@ -208,7 +208,7 @@ class ReadingEntryListCreateAPIView(APIView):
         if month:
             qs = qs.filter(month=month)
 
-        serializer = ReadingEntrySerializer(qs, many=True)
+        serializer = ReadingEntrySerializer(qs, many=True, context={"request": request})
         return Response(serializer.data)
 
     def post(self, request, student_pk):
@@ -227,7 +227,7 @@ class ReadingEntryListCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
         return Response(
-            ReadingEntrySerializer(entry).data,
+            ReadingEntrySerializer(entry, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -263,7 +263,7 @@ class ReadingEntryDetailAPIView(APIView):
         denied = self._check_access(request, entry)
         if denied:
             return denied
-        return Response(ReadingEntrySerializer(entry).data)
+        return Response(ReadingEntrySerializer(entry, context={"request": request}).data)
 
     def patch(self, request, pk):
         entry = self._get_entry(pk)
@@ -274,7 +274,7 @@ class ReadingEntryDetailAPIView(APIView):
         serializer = ReadingEntryCreateSerializer(entry, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         updated = serializer.save()
-        return Response(ReadingEntrySerializer(updated).data)
+        return Response(ReadingEntrySerializer(updated, context={"request": request}).data)
 
     def delete(self, request, pk):
         entry = self._get_entry(pk)
