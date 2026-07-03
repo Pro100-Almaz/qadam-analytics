@@ -19,8 +19,8 @@ en_section_prompts = {
     {
         "subject_analyses": {
              "SubjectName": {
-               "analysis": "2-3 sentences about this subject performance (NO grades, NO percentages)",
-               "recommendation": "Specific actionable recommendation for this subject"
+               "analysis": "5-6 sentences about this subject performance (NO grades, NO percentages)",
+               "recommendation": "Specific actionable recommendation for this subject, use comments left by teachers if applicable"
              }
            }
     }

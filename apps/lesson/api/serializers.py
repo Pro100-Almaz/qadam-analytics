@@ -386,10 +386,10 @@ class GradingDataSerializer(serializers.ModelSerializer):
             MergedLessonComment.objects
             .filter(lesson=obj, student__in=students)
             .select_related('student__user')
-            .values('student__user_id', 'comment_text')
+            .values('student__user_id', 'comment_text', 'is_merged')
         )
         merged_comment_map = {
-            mc['student__user_id']: mc['comment_text'] for mc in merged_comments
+            mc['student__user_id']: mc['comment_text'] for mc in merged_comments if mc['is_merged']
         }
 
         selected_qs = (
@@ -464,10 +464,10 @@ class GradingDataSerializer(serializers.ModelSerializer):
         modes = {}
         for student in self._get_students(obj):
             uid = student.user.id
-            if uid in merged:
-                modes[str(uid)] = 'merged'
-            elif uid in selected:
+            if uid in selected:
                 modes[str(uid)] = 'selected'
+            elif uid in merged:
+                modes[str(uid)] = 'merged'
             else:
                 modes[str(uid)] = None
         return modes

@@ -1,5 +1,7 @@
 from typing import Optional
 
+from apps.lesson.services import get_comments_for_lesson_bulk
+
 
 def collect_student_data(student_id: int, quarter: int) -> dict:
     from apps.authentication.models import Student
@@ -25,7 +27,7 @@ def collect_student_data(student_id: int, quarter: int) -> dict:
     reading = _collect_reading(student, academic_year)
     clubs = _collect_clubs(student, academic_year)
 
-    return {
+    data = {
         'personal': personal,
         'grades': grades,
         'trends': trends,
@@ -35,6 +37,7 @@ def collect_student_data(student_id: int, quarter: int) -> dict:
         'reading': reading,
         'clubs': clubs,
     }
+    return data
 
 
 def _collect_grades(student, academic_year, quarter: int) -> dict:
@@ -57,22 +60,25 @@ def _collect_grades(student, academic_year, quarter: int) -> dict:
 
     lessons = list(Lesson.objects.filter(offering__in=offerings))
     grades_map = get_cached_grades_bulk(lessons, [student])
+    comments_map = get_comments_for_lesson_bulk(lessons, [student])
 
     subjects = {}
     for offering in offerings:
         quarter_grades = {}
+        lesson_comments = []
         for q in [1, 2, 3, 4]:
             q_lessons = [
                 l for l in lessons
                 if l.offering_id == offering.id and l.quarter == q
             ]
             if q_lessons:
-                lesson_grades = [
-                    grades_map.get((l.id, student.id), 0) for l in q_lessons
-                ]
-                quarter_grades[f'q{q}'] = round(
-                    sum(lesson_grades) / len(lesson_grades), 1
-                )
+                lesson_grades = [grades_map.get((l.id, student.id), 0) for l in q_lessons]
+                quarter_grades[f'q{q}'] = round(sum(lesson_grades) / len(lesson_grades), 1)
+                if q == quarter:
+                    lesson_comments = [
+                        c for l in q_lessons
+                        if (c := comments_map.get((l.id, student.id), {}))
+                    ]
             else:
                 quarter_grades[f'q{q}'] = None
 
@@ -80,6 +86,7 @@ def _collect_grades(student, academic_year, quarter: int) -> dict:
         quarter_grades['cumulative'] = (
             round(sum(graded) / len(graded), 1) if graded else None
         )
+        quarter_grades[f'lesson_comments_q{quarter}'] = lesson_comments
         subjects[offering.subject.name] = quarter_grades
 
     from apps.home.repo.students import grade_identifier
@@ -105,11 +112,12 @@ def _collect_grades(student, academic_year, quarter: int) -> dict:
         round(sum(cumulatives) / len(cumulatives), 1) if cumulatives else 0
     )
 
-    return {
+    data = {
         'subjects': subjects,
         'total_quarter_grades': total_quarter_grades,
         'student_total_grade': student_total_grade,
     }
+    return data
 
 
 def _compute_trends(subjects_grades: dict) -> dict:

@@ -10,6 +10,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from core.decorators import role_required
 from core.permissions import (
@@ -725,7 +729,63 @@ def delete_grade(request, student_id, lesson_id):
     return redirect('lesson:grading', pk=lesson_id)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def merge_all_comments(request):
 
+    def _append_helper(l: list, target):
+        if target:
+            l.append(target)
+
+    topics_by_lesson = {}
+    for topic in Topic.objects.filter(parent__isnull=True).prefetch_related('subtopics'):
+        if not topics_by_lesson.get(topic.lesson_id):
+            topics_by_lesson[topic.lesson_id] = []
+        topics_by_lesson[topic.lesson_id].append(topic)
+
+    students = Student.objects.values_list('id', flat=True)
+    all_grades = TopicGrade.objects.select_related('student', 'topic', 'topic__lesson')
+
+    merged_comments = {
+        (mc.student_id, mc.lesson_id) : mc.comment_text
+        for mc in MergedLessonComment.objects.all()
+    }
+
+    grade_map = {}
+    for grade in all_grades:
+        if grade.comment_selected:
+            grade_map[(grade.student.id, grade.topic.id)] = grade.comment
+
+    to_create = []
+    for topics in topics_by_lesson.values():
+        to_merge = []
+        for student_id in students:
+            lesson_id = None
+
+            for topic in topics:
+                lesson_id = topic.lesson_id
+                if (student_id, topic.lesson_id) not in merged_comments:
+                    _append_helper(
+                        to_merge, grade_map.get((student_id, topic.id))
+                    )
+                    for subtopic in topic.subtopics.all():
+                        _append_helper(
+                            to_merge, grade_map.get((student_id, subtopic.id))
+                        )
+
+            if to_merge and lesson_id:
+                instance = MergedLessonComment(
+                    lesson_id=lesson_id,
+                    student_id=student_id,
+                    comment_text='\n\n'.join(to_merge)
+                )
+                _append_helper(to_create, instance)
+
+    MergedLessonComment.objects.bulk_create(to_create)
+    return Response(
+        {'detail': f'Comments merged successfully. {len(to_create)} comments merged.'},
+        status=status.HTTP_200_OK,
+    )
 
 
 #EMAIL SENDING SIGNAL ------------------------------------------

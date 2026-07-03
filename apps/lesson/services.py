@@ -41,6 +41,35 @@ def get_cached_grades_bulk(lessons, students):
     return cached_results
 
 
+def get_comments_for_lesson_bulk(lessons: list[Lesson], students: list[Student]):
+    if not lessons:
+        return {}
+    uncached_lessons = []
+    cached_results = {}
+
+    for lesson in lessons:
+        key = f'grades:lesson:comments:{lesson.id}'
+        cached = cache.get(key)
+        if cached is not None:
+            for student in students:
+                comment = cached.get(student.id, {})
+                cached_results[(lesson.id, student.id)] = comment
+        else:
+            uncached_lessons.append(lesson)
+
+    if uncached_lessons:
+        grades_map = Lesson.calculate_grades_bulk(uncached_lessons, students)
+        fresh = Lesson.construct_comment_bulk(uncached_lessons, students, grades_map)
+        cached_results.update(fresh)
+
+        for lesson in uncached_lessons:
+            lesson_comments = {
+                s.id: fresh.get((lesson.id, s.id), {}) for s in students
+            }
+            cache.set(f'grades:lesson:comments:{lesson.id}', lesson_comments, GRADE_CACHE_TTL)
+    return cached_results
+
+
 def get_available_offerings(user):
     """Return the SubjectOffering queryset available to the requesting user."""
     if is_admin_role(user):
@@ -129,7 +158,7 @@ def distribute_subtopic_weights(lesson):
 def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='none'):
     """Process grade submission for a student on a lesson."""
     invalidate_lesson_grade_cache(lesson.id)
-    to_merge = ''
+    to_merge = []
 
     for topic in lesson.topics.filter(parent__isnull=True):
         topic_entry = topics_data.get(str(topic.id), {})
@@ -138,8 +167,8 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
         top_comment = topic_entry.get('comment', '').strip()
         top_comment_selected = topic_entry.get('comment_selected', False)
 
-        if comment_mode == 'merged':
-            to_merge += top_comment + ' \n\n'
+        if (top_comment_selected or comment_mode == 'merged') and top_comment:
+            to_merge.append(top_comment)
 
         for sub in subtopics:
             sub_entry = subtopics_data.get(str(sub.id), {})
@@ -147,8 +176,8 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
             sub_comment = sub_entry.get('comment', '').strip()
             sub_comment_selected = sub_entry.get('comment_selected', False)
 
-            if comment_mode == 'merged':
-                to_merge += sub_comment + '\n\n'
+            if (sub_comment_selected or comment_mode == 'merged') and sub_comment:
+                to_merge.append(sub_comment)
 
             TopicGrade.objects.update_or_create(
                 student=student,
@@ -176,21 +205,20 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
             },
         )
 
+    MergedLessonComment.objects.update_or_create(
+        lesson=lesson,
+        student=student,
+        defaults={'comment_text': '\n\n'.join(to_merge), 'is_merged': False},
+    )
     if comment_mode == 'merged':
         TopicGrade.objects.filter(
             topic__lesson=lesson,
             student=student,
         ).update(comment_selected=False)
-        MergedLessonComment.objects.update_or_create(
-            lesson=lesson,
-            student=student,
-            defaults={'comment_text': to_merge},
-        )
-    else:
         MergedLessonComment.objects.filter(
             lesson=lesson,
-            student=student,
-        ).delete()
+            student=student
+        ).update(is_merged=True)
 
 
 def delete_student_grades(lesson, student, user=None):
