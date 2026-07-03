@@ -464,10 +464,10 @@ class GradingDataSerializer(serializers.ModelSerializer):
         modes = {}
         for student in self._get_students(obj):
             uid = student.user.id
-            if uid in merged:
-                modes[str(uid)] = 'merged'
-            elif uid in selected:
+            if uid in selected:
                 modes[str(uid)] = 'selected'
+            elif uid in merged:
+                modes[str(uid)] = 'merged'
             else:
                 modes[str(uid)] = None
         return modes

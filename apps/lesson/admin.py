@@ -50,6 +50,6 @@ class TopicGradeAdmin(admin.ModelAdmin):
 
 @admin.register(MergedLessonComment)
 class MergedLessonCommentAdmin(admin.ModelAdmin):
-    list_display = ('lesson', 'student', 'comment_text')
+    list_display = ('lesson', 'student', 'comment_text', 'is_merged')
     list_filter = ('lesson',)
     search_fields = ('comment_text', 'student__user__first_name')

@@ -140,6 +140,22 @@ class Lesson(SoftDeleteMixin, models.Model):
 
         return results
 
+    @classmethod
+    def construct_comment_bulk(cls, lessons, students, grades_map):
+        merged_comments = {
+            (m.lesson_id, m.student_id): [m.lesson.title, m.comment_text]
+            for m in MergedLessonComment.objects.filter(lesson__in=lessons, student__in=students)
+        }
+
+        results = {
+            key: {
+                'title': value[0],
+                'comment': value[1],
+                'grade': grades_map.get(key, 0)
+            } for key, value in merged_comments.items()
+        }
+        return results
+
 
 class Topic(models.Model):
     lesson = models.ForeignKey(
@@ -237,6 +253,7 @@ class MergedLessonComment(models.Model):
     )
 
     comment_text = models.TextField(help_text="Template comment text")
+    is_merged = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.student} - {self.lesson}: {self.comment_text[:30]}"

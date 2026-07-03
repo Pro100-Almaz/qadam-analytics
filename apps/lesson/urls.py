@@ -23,6 +23,7 @@ urlpatterns = [
     path('subtopic/distribute_equally/<int:lesson_id>', views.distribute_subtopic_weights_equally, name='distribute_subtopic_weights_equally'),
 
     path('<int:pk>/', views.lesson_details, name='lesson_details'),
+    path('merge_all_comments/', views.merge_all_comments, name='merge_all_comments'),
     # path('list/<int:pk>/', views.lesson_details_json, name='lesson_details_json'),
     # path('comment-template/create/', views.comment_template_create, name='comment_template_create'),
     # path('comment-template/<int:comment_id>/update/', views.comment_template_update, name='comment_template_update'),
