@@ -1,4 +1,5 @@
 from django.db import models as django_models
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
@@ -181,6 +182,87 @@ class LessonDetailGetDeleteAPIView(APIView):
         lesson.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+class LessonCopyAPIView(APIView):
+    """
+    POST lessons/<lesson_id>/copy/  — clone a lesson into a target offering.
+    If no lesson with lesson_id exist then new is created.
+    All the topics and subtopics are also cloned and attached to new lesson.
+    """
+
+    FALLBACK_FIELDS = ('title', 'description', 'order', 'status', 'quarter', 'unit', 'date')
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), IsTeacherAdminOrSupervisor()]
+        return [IsAuthenticated()]
+
+    def post(self, request, lesson_id):
+        source = Lesson.objects.filter(pk=lesson_id).first()
+
+        data = {'offering': request.data.get('offering')}
+
+        date_val = request.data.get('date')
+        if date_val:
+            data['date'] = date_val
+
+        for field in self.FALLBACK_FIELDS:
+            val = request.data.get(field)
+            if val not in (None, ''):   # cant "if val:" because it will give false for 0
+                data[field] = val
+            elif source is not None:
+                data[field] = getattr(source, field)
+
+        serializer = LessonCreateSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        offering = serializer.validated_data['offering']
+        available = get_available_offerings(request.user)
+        if not available.filter(id=offering.id).exists():
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        with transaction.atomic():
+            lesson = serializer.save()
+            if source is not None:
+                self._clone_topics(source, lesson)
+
+        return Response(
+            LessonDetailSerializer(lesson, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def _clone_topics(source, target):
+        """Copy parent topics and their subtopics from source to target lesson."""
+        parent_topics = Topic.objects.filter(
+            lesson=source, parent__isnull=True
+        ).prefetch_related('subtopics')
+
+        for topic in parent_topics:
+            new_parent = Topic.objects.create(
+                lesson=target,
+                parent=None,
+                title=topic.title,
+                order=topic.order,
+                weight=topic.weight,
+                comment_template=topic.comment_template,
+            )
+            subtopics = [
+                Topic(
+                    lesson=target,
+                    parent=new_parent,
+                    title=sub.title,
+                    order=sub.order,
+                    weight=sub.weight,
+                    comment_template=sub.comment_template,
+                )
+                for sub in topic.subtopics.all()
+            ]
+            if subtopics:
+                Topic.objects.bulk_create(subtopics)
 
 # ── Topics ──
 

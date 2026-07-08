@@ -69,6 +69,12 @@ urlpatterns = [
         name='grading',
     ),
 
+    path(
+        'lessons/<int:lesson_id>/copy/',
+        views.LessonCopyAPIView.as_view(),
+        name='lesson-copy',
+    ),
+
     # DELETE /api/v1/lessons/<lesson_id>/grading/<student_user_id>/
     path(
         'lessons/<int:lesson_id>/grading/<int:student_user_id>/',
