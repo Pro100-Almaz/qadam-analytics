@@ -1,13 +1,27 @@
-import factory
-from factory.django import DjangoModelFactory
-from django.contrib.auth.models import Group
+from datetime import timedelta
 
+import factory
+from django.contrib.auth.models import Group
+from factory.django import DjangoModelFactory
+
+from apps.achievement.models import Club, ClubAttendance, ClubSession
 from apps.authentication.models import (
-    CustomUser, Student, Teacher, Parent, Supervisor, SchoolGroup,
+    ClubManager,
+    CustomUser,
+    Parent,
+    SchoolGroup,
+    Student,
+    Supervisor,
+    Teacher,
 )
 from apps.home.models import (
-    AcademicYear, GradeLevel, ClassGroup, Subject, SubjectOffering,
-    TeachingAssignment, Enrollment,
+    AcademicYear,
+    ClassGroup,
+    Enrollment,
+    GradeLevel,
+    Subject,
+    SubjectOffering,
+    TeachingAssignment,
 )
 from apps.lesson.models import Lesson, Topic, TopicGrade
 
@@ -93,6 +107,15 @@ class ParentUserFactory(UserFactory):
         self.groups.add(group)
 
 
+class ClubManagerUserFactory(UserFactory):
+    @factory.post_generation
+    def group_name(self, create, extracted, **kwargs):
+        if not create:
+            return
+        group, _ = Group.objects.get_or_create(name=CustomUser.GROUP_CLUB_MANAGER)
+        self.groups.add(group)
+
+
 class AcademicYearFactory(DjangoModelFactory):
     class Meta:
         model = AcademicYear
@@ -148,6 +171,47 @@ class SupervisorFactory(DjangoModelFactory):
         model = Supervisor
 
     user = factory.SubFactory(SupervisorUserFactory)
+
+
+class ClubManagerFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubManager
+
+    user = factory.SubFactory(ClubManagerUserFactory)
+
+
+class ClubFactory(DjangoModelFactory):
+    class Meta:
+        model = Club
+
+    manager = factory.SubFactory(ClubManagerFactory)
+    academic_year = factory.SubFactory(AcademicYearFactory)
+    start_date = factory.Faker('date_object')
+    end_date = factory.LazyAttribute(
+        lambda obj: obj.start_date + timedelta(days=240)
+    )
+    name = factory.Sequence(lambda n: f'Club {n}')
+
+
+class ClubSessionFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubSession
+
+    club = factory.SubFactory(ClubFactory)
+    weekday = 'monday'
+    start_time = '15:30'
+    end_time = '16:30'
+    location = 'Room 204'
+
+
+class ClubAttendanceFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubAttendance
+
+    session = factory.SubFactory(ClubSessionFactory)
+    student = factory.SubFactory(StudentFactory)
+    date = factory.Faker('date_object')
+    status = 'present'
 
 
 class SubjectFactory(DjangoModelFactory):

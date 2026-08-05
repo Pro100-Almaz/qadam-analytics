@@ -51,6 +51,7 @@ class CustomUser(AbstractUser):
     GROUP_PRINCIPAL = 'Principal'
     GROUP_ADMIN = 'Admin'
     GROUP_PSYCHOLOGIST = 'Psychologist'
+    GROUP_CLUB_MANAGER = 'ClubManager'
 
     # Choices for forms - maps internal group name to display name
     GROUP_CHOICES = [
@@ -62,6 +63,7 @@ class CustomUser(AbstractUser):
         (GROUP_PRINCIPAL, 'Principal'),
         (GROUP_ADMIN, 'Admin'),
         (GROUP_PSYCHOLOGIST, 'Psychologist'),
+        (GROUP_CLUB_MANAGER, 'Club Manager'),
     ]
 
     # Display names for groups
@@ -74,6 +76,7 @@ class CustomUser(AbstractUser):
         GROUP_PRINCIPAL: 'Principal',
         GROUP_ADMIN: 'Admin',
         GROUP_PSYCHOLOGIST: 'Psychologist',
+        GROUP_CLUB_MANAGER: 'Club Manager',
     }
 
     SCHOOL_CHOICES = [
@@ -159,6 +162,10 @@ class CustomUser(AbstractUser):
     def is_student(self):
         """Check if user is a student."""
         return self._has_group(self.GROUP_STUDENT)
+
+    def is_club_manager(self):
+        """Check if user is a club manager."""
+        return self._has_group(self.GROUP_CLUB_MANAGER)
 
     def get_students(self):
         """Get all students linked to this parent user."""
@@ -286,6 +293,10 @@ class Teacher(models.Model):
 
 
 class Supervisor(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+
+class ClubManager(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 

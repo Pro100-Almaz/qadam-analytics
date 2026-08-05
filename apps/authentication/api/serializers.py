@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.authentication.models import (
-    CustomUser, Student, Teacher, Parent, Supervisor,
+    CustomUser, Student, Teacher, Parent, Supervisor, ClubManager,
     SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
     MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
 )
@@ -13,7 +13,7 @@ from apps.authentication.models import (
 class PublicSchoolGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolGroup
-        fields = ['id', 'name', 'avatar', 'color']
+        fields = ['id', 'name']
 
 
 class SchoolGroupSerializer(serializers.ModelSerializer):
@@ -39,7 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username']
 
     def get_profile_id(self, obj):
-        for attr in ('student', 'teacher', 'parent', 'supervisor'):
+        for attr in ('student', 'teacher', 'parent', 'supervisor', 'clubmanager'):
             profile = getattr(obj, attr, None)
             if profile is not None:
                 return profile.pk
@@ -184,6 +184,8 @@ class RegisterSerializer(serializers.Serializer):
                     pass
         elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
             Supervisor.objects.create(user=user)
+        elif group_name == CustomUser.GROUP_CLUB_MANAGER:
+            ClubManager.objects.create(user=user)
 
         return user
 

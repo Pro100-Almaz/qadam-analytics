@@ -14,7 +14,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 
 from core import settings
-from .models import Teacher, Supervisor, Student, CustomUser
+from apps.authentication.models import Teacher, Supervisor, Student, ClubManager, CustomUser
 from errors import find_error_by_key
 
 
@@ -101,6 +101,8 @@ class AccountService:
                     pass
         elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
             Supervisor.objects.create(user=user)
+        elif group_name == CustomUser.GROUP_CLUB_MANAGER:
+            ClubManager.objects.create(user=user)
         # Admin group doesn't need a profile model
 
         # self.send_reset_password_link(request, user)

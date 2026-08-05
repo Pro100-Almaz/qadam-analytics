@@ -554,6 +554,12 @@ class GradingAPIView(APIView):
     def _handle_grade_submit(self, request, lesson_id):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
 
+        if not can_modify_lesson(request.user, lesson):
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = GradeSubmitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
