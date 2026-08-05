@@ -12,7 +12,7 @@ from apps.lesson.models import Lesson
 from apps.home.repo.students import grade_identifier
 from apps.home.services import get_students_for_role
 from apps.lesson.services import get_cached_grades_bulk
-from core.permissions import can_access_student
+from core.permissions import can_access_student, CanAccessStudent
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
@@ -171,7 +171,7 @@ class PsychologicalStateDeleteAPIView(APIView):
 class PsychologicalStateTemplateListAPIView(ListAPIView):
     queryset = PsychologicalStateTemplates.objects.all()
     serializer_class = PsychologicalStateTemplateSerializer
-    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
+    permission_classes = [IsAuthenticated, CanAccessStudent]
     pagination_class = None
 
 

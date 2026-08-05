@@ -32,6 +32,11 @@ def is_teacher_role(user):
     return user.groups.filter(name__in=TEACHER_GROUPS).exists()
 
 
+def is_staff_role(user):
+    """Check if user has a staff role that bypasses object permissions."""
+    return user.groups.filter(name__in=STAFF_GROUPS).exists()
+
+
 def is_club_management_role(user):
     """Check whether a user can enter the club-management API."""
     return user.groups.filter(name__in=CLUB_MANAGEMENT_GROUPS).exists()
@@ -218,6 +223,9 @@ def can_access_student(user, student):
             return parent.students.filter(pk=student.pk).exists()
         except Parent.DoesNotExist:
             return False
+
+    if user.is_psychologist():
+        return True
 
     return False
 
