@@ -9,6 +9,7 @@ from apps.home.models import (
 from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
 from apps.home.repo.students import grade_identifier
+from core.permissions import is_staff_role
 
 
 def get_dashboard_stats():
@@ -52,7 +53,7 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
         except Parent.DoesNotExist:
             return []
 
-    if not (is_admin_role(user) or is_teacher_role(user)):
+    if not (is_admin_role(user) or is_teacher_role(user) or is_staff_role(user)):
         return []
 
     if not year_id:

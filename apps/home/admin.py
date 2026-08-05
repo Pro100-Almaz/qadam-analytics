@@ -4,14 +4,16 @@ Copyright (c) 2019 - present AppSeed.us
 """
 
 from django.contrib import admin
+from django.contrib.auth.models import Group
 from django.utils.html import format_html
 from django import forms
 from .models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, Enrollment,
-    SubjectOffering, TeachingAssignment
+    SubjectOffering, TeachingAssignment, HomeroomTeacherAssignment
 )
 
 from apps.lesson.models import Lesson
+from apps.authentication.models import Teacher
 
 
 admin.site.register(GradeLevel)
@@ -65,6 +67,50 @@ class TeachingAssignmentAdmin(admin.ModelAdmin):
     list_filter = ("role", "offering__academic_year")
     search_fields = ("teacher__user__first_name", "teacher__user__last_name")
     raw_id_fields = ("teacher", "offering")
+
+
+@admin.register(HomeroomTeacherAssignment)
+class HomeroomTeacherAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("teacher", "class_group", "academic_year")
+    list_filter = ("academic_year", "class_group__grade_level")
+    search_fields = (
+        "teacher__user__first_name",
+        "teacher__user__last_name",
+        "teacher__user__username",
+        "class_group__letter",
+    )
+    ordering = ("-academic_year__year", "class_group", "teacher")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "teacher":
+            kwargs["queryset"] = Teacher.objects.select_related("user").all()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        homeroom_group, _ = Group.objects.get_or_create(name="HomeroomTeacher")
+        obj.teacher.user.groups.add(homeroom_group)
+
+    @staticmethod
+    def _remove_role_if_unassigned(teacher_ids):
+        homeroom_group = Group.objects.filter(name="HomeroomTeacher").first()
+        if not homeroom_group:
+            return
+
+        teachers = Teacher.objects.filter(pk__in=teacher_ids).select_related("user")
+        for teacher in teachers:
+            if not teacher.homeroom_assignments.exists():
+                teacher.user.groups.remove(homeroom_group)
+
+    def delete_model(self, request, obj):
+        teacher_id = obj.teacher_id
+        super().delete_model(request, obj)
+        self._remove_role_if_unassigned([teacher_id])
+
+    def delete_queryset(self, request, queryset):
+        teacher_ids = list(queryset.values_list("teacher_id", flat=True).distinct())
+        super().delete_queryset(request, queryset)
+        self._remove_role_if_unassigned(teacher_ids)
 
 
 @admin.register(Lesson)
@@ -247,4 +293,3 @@ class EnrollmentAdmin(admin.ModelAdmin):
         selected = queryset.values_list('student_id', flat=True)
         request.session['bulk_enroll_students'] = list(selected)
         return HttpResponseRedirect(reverse('admin_bulk_enroll_form'))
-
