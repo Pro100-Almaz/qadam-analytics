@@ -1,7 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import CustomUser, SchoolGroup, Teacher, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
+from .models import (
+    CustomUser, SchoolGroup, Teacher, ClubManager,
+    MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
+)
 
 
 class LoginForm(forms.Form):
@@ -290,6 +293,8 @@ class SignUpForm(UserCreationForm):
             elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
                 from .models import Supervisor
                 Supervisor.objects.create(user=user)
+            elif group_name == CustomUser.GROUP_CLUB_MANAGER:
+                ClubManager.objects.create(user=user)
             # Admin group doesn't need a profile model
         return user
 

@@ -11,10 +11,78 @@ from .views import (
     ReadingEntryDetailAPIView,
     ReadingEntryListCreateAPIView,
 )
+from .club_views import (
+    ClubAttachmentDeleteAPIView,
+    ClubAttachmentUploadAPIView,
+    ClubAttendanceDetailAPIView,
+    ClubAttendanceHistoryAPIView,
+    ClubAvailableStudentListAPIView,
+    ClubDetailAPIView,
+    ClubListCreateAPIView,
+    ClubMemberDeleteAPIView,
+    ClubMemberListReplaceAPIView,
+    StudentClubAttendanceListAPIView,
+    StudentClubDetailAPIView,
+    StudentClubListAPIView,
+)
 
 app_name = 'achievement-api'
 
 urlpatterns = [
+    # Managed clubs
+    path('clubs/', ClubListCreateAPIView.as_view(), name='club-list-create'),
+    path(
+        'clubs/available-students/',
+        ClubAvailableStudentListAPIView.as_view(),
+        name='club-available-students',
+    ),
+    path('clubs/<int:pk>/', ClubDetailAPIView.as_view(), name='club-detail'),
+    path(
+        'students/<int:student_id>/clubs/',
+        StudentClubListAPIView.as_view(),
+        name='student-clubs',
+    ),
+    path(
+        'students/<int:student_id>/clubs/<int:club_id>/',
+        StudentClubDetailAPIView.as_view(),
+        name='student-club-detail',
+    ),
+    path(
+        'students/<int:student_id>/clubs/<int:club_id>/attendance/',
+        StudentClubAttendanceListAPIView.as_view(),
+        name='student-club-attendance',
+    ),
+    path(
+        'clubs/<int:pk>/members/',
+        ClubMemberListReplaceAPIView.as_view(),
+        name='club-members',
+    ),
+    path(
+        'clubs/<int:pk>/members/<int:student_id>/',
+        ClubMemberDeleteAPIView.as_view(),
+        name='club-member-delete',
+    ),
+    path(
+        'clubs/<int:pk>/attendance/',
+        ClubAttendanceHistoryAPIView.as_view(),
+        name='club-attendance-history',
+    ),
+    path(
+        'clubs/<int:pk>/attendance/<str:attendance_date>/sessions/<int:session_id>/',
+        ClubAttendanceDetailAPIView.as_view(),
+        name='club-attendance-detail',
+    ),
+    path(
+        'clubs/<int:pk>/attachments/',
+        ClubAttachmentUploadAPIView.as_view(),
+        name='club-attachment-upload',
+    ),
+    path(
+        'clubs/<int:pk>/attachments/<int:attachment_id>/',
+        ClubAttachmentDeleteAPIView.as_view(),
+        name='club-attachment-delete',
+    ),
+
     # Achievements
     path(
         'students/<int:student_pk>/achievements/',

@@ -17,6 +17,10 @@ TEACHER_GROUPS = ('Teacher', 'HomeroomTeacher')
 # All staff that work with students (teachers + psychologists)
 STAFF_GROUPS = ('Teacher', 'HomeroomTeacher', 'Psychologist')
 
+# Roles allowed to use the club-management API. ClubManager access is further
+# limited to assigned clubs at the queryset/object level.
+CLUB_MANAGEMENT_GROUPS = ('ClubManager',) + ADMIN_GROUPS
+
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
@@ -26,6 +30,11 @@ def is_admin_role(user):
 def is_teacher_role(user):
     """Check if user has a teacher role (teacher or homeroom_teacher)."""
     return user.groups.filter(name__in=TEACHER_GROUPS).exists()
+
+
+def is_club_management_role(user):
+    """Check whether a user can enter the club-management API."""
+    return user.groups.filter(name__in=CLUB_MANAGEMENT_GROUPS).exists()
 
 
 def _teacher_teaches_subject(teacher, subject):
@@ -401,3 +410,10 @@ class IsStaffOrAdmin(BasePermission):
             is_admin_role(request.user)
             or request.user.groups.filter(name__in=STAFF_GROUPS).exists()
         )
+
+
+class IsClubManagementRole(BasePermission):
+    """ClubManager, Admin, Supervisor, or Principal."""
+
+    def has_permission(self, request, view):
+        return is_club_management_role(request.user)

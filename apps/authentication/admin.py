@@ -4,7 +4,10 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from django import forms
 from django.contrib import messages
-from apps.authentication.models import CustomUser, SchoolGroup, PsychologicalState, Supervisor, Teacher, Parent, Student
+from apps.authentication.models import (
+    ClubManager, CustomUser, SchoolGroup, PsychologicalState, Supervisor,
+    Teacher, Parent, Student,
+)
 from apps.home.models import Enrollment, ClassGroup, AcademicYear
 
 
@@ -285,6 +288,7 @@ class ParentAdmin(ModelAdmin):
 
 admin.site.register(Teacher)
 admin.site.register(Supervisor)
+admin.site.register(ClubManager)
 
 admin.site.register(SchoolGroup)
 admin.site.register(PsychologicalState)
