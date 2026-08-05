@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import (
+from apps.achievement.api.views import (
     AchievementDetailAPIView,
     AchievementDownloadAPIView,
     AchievementListCreateAPIView,
@@ -11,7 +11,7 @@ from .views import (
     ReadingEntryDetailAPIView,
     ReadingEntryListCreateAPIView,
 )
-from .club_views import (
+from apps.achievement.api.club_views import (
     ClubAttachmentDeleteAPIView,
     ClubAttachmentUploadAPIView,
     ClubAttendanceDetailAPIView,

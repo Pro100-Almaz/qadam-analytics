@@ -14,7 +14,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 
 from core import settings
-from .models import Teacher, Supervisor, Student, ClubManager, CustomUser
+from apps.authentication.models import Teacher, Supervisor, Student, ClubManager, CustomUser
 from errors import find_error_by_key
 
 

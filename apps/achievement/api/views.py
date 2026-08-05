@@ -18,8 +18,8 @@ from core.error_messages import (
     NO_MODIFY_CLUB, NO_CERTIFICATE, CERTIFICATE_NOT_FOUND,
 )
 
-from .permissions import IsTeacherAdminOrSupervisor
-from .serializers import (
+from apps.achievement.api.permissions import IsTeacherAdminOrSupervisor
+from apps.achievement.api.serializers import (
     AchievementCreateSerializer,
     AchievementDetailSerializer,
     AchievementListSerializer,
