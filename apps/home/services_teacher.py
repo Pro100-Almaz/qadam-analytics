@@ -172,6 +172,7 @@ def get_homeroom_dashboard(teacher):
     return {
         'class_group': class_label,
         'class_group_id': cg.id,
+        'academic_year': str(year),
         'student_count': len(students),
         'subject_count': len(offerings),
         'students': students_data,

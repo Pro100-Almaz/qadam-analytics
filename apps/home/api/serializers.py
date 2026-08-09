@@ -91,7 +91,10 @@ class StudentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'school_group', 'academic_year', 'current_class_group']
+        fields = [
+            'id', 'user', 'school_group', 'academic_year',
+            'medical_features', 'current_class_group',
+        ]
 
     def get_current_class_group(self, obj):
         class_group = getattr(obj, 'classroom', None)
@@ -112,15 +115,16 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     cumulative_subject_grades = serializers.SerializerMethodField()
     student_total_grade = serializers.SerializerMethodField()
     psychological_states = serializers.SerializerMethodField()
+    parents = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = [
             'id', 'user', 'school_group', 'academic_year',
-            'current_class_group', 'offerings',
+            'medical_features', 'current_class_group', 'offerings',
             'subject_quarter_grades', 'total_quarter_grades',
             'cumulative_subject_grades', 'student_total_grade',
-            'psychological_states',
+            'psychological_states', 'parents',
         ]
 
     def _get_grade_context(self, student):
@@ -225,6 +229,18 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ctx = self._get_grade_context(obj)
         return ctx['student_total_grade']
 
+    def get_parents(self, obj):
+        return [
+            {
+                'id': parent.id,
+                'user_id': parent.user_id,
+                'full_name': parent.user.get_full_name() or parent.user.username,
+                'phone_number': parent.user.phone_number,
+                'email': parent.user.email or None,
+            }
+            for parent in obj.parent.all()
+        ]
+
     def get_psychological_states(self, obj):
         states = PsychologicalState.objects.filter(
             student=obj
@@ -277,6 +293,9 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
     school_group = serializers.IntegerField(required=False, allow_null=True)
     academic_year = serializers.IntegerField(required=False, allow_null=True)
     class_group = serializers.IntegerField(required=False, allow_null=True)
+    medical_features = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
 
 
 # ── Teacher serializers ──

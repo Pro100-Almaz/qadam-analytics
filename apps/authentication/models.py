@@ -203,6 +203,7 @@ class Student(models.Model):
         blank=True,
         help_text='Enrollment year for this student'
     )
+    medical_features = models.TextField(null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):

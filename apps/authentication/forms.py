@@ -233,6 +233,15 @@ class SignUpForm(UserCreationForm):
             "id": "id_school_group"
         })
     )
+    medical_features = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            "placeholder": "Медицинские особенности",
+            "class": "form-control",
+            "id": "id_medical_features",
+            "rows": 3
+        })
+    )
 
 
     class Meta:
@@ -278,6 +287,7 @@ class SignUpForm(UserCreationForm):
                 Student.objects.create(
                     user=user,
                     school_group=self.cleaned_data.get('school_group'),
+                    medical_features=self.cleaned_data.get('medical_features'),
                 )
             elif group_name == CustomUser.GROUP_PARENT:
                 from .models import Parent, Student

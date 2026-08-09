@@ -276,6 +276,11 @@ def student_profile_update(request, pk):
             except SchoolGroup.DoesNotExist:
                 pass
 
+        # Update medical features if provided
+        medical_features = request.POST.get('medical_features')
+        if medical_features is not None:
+            student.medical_features = medical_features
+
         # Update academic year if provided
         academic_year_id = request.POST.get('academic_year')
         if academic_year_id:
