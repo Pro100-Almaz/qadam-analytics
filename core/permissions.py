@@ -7,6 +7,7 @@ Use these in views after the role_required decorator has verified the user's rol
 
 from django.http import HttpResponseForbidden
 
+from apps.home.models import HomeroomTeacherAssignment, AcademicYear
 
 # Group names for admin-level roles (bypass object-level checks)
 ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
@@ -201,12 +202,17 @@ def can_access_student(user, student):
         from apps.home.models import TeachingAssignment, Enrollment
         try:
             teacher = Teacher.objects.get(user=user)
-            # Get class groups where teacher has assignments
+            academic_year = AcademicYear.objects.filter(is_active=True).first()
+            homeroom = HomeroomTeacherAssignment.objects.filter(teacher=teacher, academic_year=academic_year).first()
+            if homeroom:
+                enrollment = student.get_current_enrollment()
+                if enrollment.class_group_id == homeroom.class_group_id:
+                    return True
+
             teacher_class_groups = TeachingAssignment.objects.filter(
                 teacher=teacher
             ).values_list('offering__class_group_id', flat=True)
 
-            # Check if student is enrolled in any of those class groups
             return Enrollment.objects.filter(
                 student=student,
                 class_group_id__in=teacher_class_groups,

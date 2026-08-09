@@ -12,7 +12,7 @@ from apps.lesson.models import Lesson
 from apps.home.repo.students import grade_identifier
 from apps.home.services import get_students_for_role
 from apps.lesson.services import get_cached_grades_bulk
-from core.permissions import can_access_student, CanAccessStudent
+from core.permissions import can_access_student, CanAccessStudent, IsPsychologist, CanModifyStudent
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
@@ -49,7 +49,7 @@ class StudentDetailAPIView(RetrieveAPIView):
     lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        return Student.objects.select_related('user')
+        return Student.objects.select_related('user').prefetch_related('parent__user')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
@@ -60,7 +60,7 @@ class StudentDetailAPIView(RetrieveAPIView):
 
 
 class StudentProfileUpdateAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrSupervisor]
+    permission_classes = [IsAuthenticated,  CanModifyStudent]
 
     def patch(self, request, pk):
         student = Student.objects.select_related('user').get(pk=pk)
@@ -80,6 +80,9 @@ class StudentProfileUpdateAPIView(APIView):
                 student.school_group = SchoolGroup.objects.get(id=data['school_group'])
             except SchoolGroup.DoesNotExist:
                 pass
+
+        if 'medical_features' in data:
+            student.medical_features = data['medical_features']
 
         if 'academic_year' in data and data['academic_year']:
             try:
@@ -106,7 +109,7 @@ class StudentProfileUpdateAPIView(APIView):
 # ── Psychological States ──
 
 class PsychologicalStateCreateAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor | IsPsychologist]
 
     def post(self, request, pk):
         try:

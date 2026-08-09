@@ -87,6 +87,7 @@ class AccountService:
             Student.objects.create(
                 user=user,
                 school_group=form.cleaned_data.get("school_group"),
+                medical_features=form.cleaned_data.get("medical_features"),
             )
         elif group_name == CustomUser.GROUP_PARENT:
             from .models import Parent

@@ -141,7 +141,7 @@ class StudentAdmin(ModelAdmin):
             "fields": ("user", "class_group")
         }),
         ("Дополнительно", {
-            "fields": ("school_group", "academic_year", "subjects"),
+            "fields": ("school_group", "academic_year", "medical_features", "subjects"),
             "classes": ("collapse",)
         }),
     )

@@ -23,7 +23,7 @@ class SchoolGroupSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    role = serializers.CharField(read_only=True)
+    roles = serializers.SerializerMethodField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     primary_group = serializers.CharField(read_only=True)
     profile_id = serializers.SerializerMethodField()
@@ -34,7 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'phone_number', 'date_of_birth', 'address', 'avatar',
-            'school', 'role', 'role_display', 'primary_group', 'profile_id',
+            'school', 'roles', 'role_display', 'primary_group', 'profile_id',
         ]
         read_only_fields = ['id', 'username']
 
@@ -50,6 +50,12 @@ class UserSerializer(serializers.ModelSerializer):
         if request and obj.avatar:
             return request.build_absolute_uri(obj.avatar.url)
         return None
+
+    def get_roles(self, obj):
+        groups = [group.name.lower() for group in obj.groups.all()]
+        for i in range(len(groups)):
+            groups[i] = groups[i].replace('homeroomteacher', 'homeroom_teacher')
+        return groups
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -122,6 +128,9 @@ class RegisterSerializer(serializers.Serializer):
     school_group = serializers.PrimaryKeyRelatedField(
         queryset=SchoolGroup.objects.all(), required=False, allow_null=True
     )
+    medical_features = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
 
     # Parent-specific
     student_id = serializers.IntegerField(required=False, allow_null=True)
@@ -148,6 +157,7 @@ class RegisterSerializer(serializers.Serializer):
         employment_type = validated_data.pop('employment_type', None)
         occupation = validated_data.pop('occupation', None)
         school_group = validated_data.pop('school_group', None)
+        medical_features = validated_data.pop('medical_features', None)
         student_id = validated_data.pop('student_id', None)
 
         user = CustomUser(
@@ -173,7 +183,11 @@ class RegisterSerializer(serializers.Serializer):
                 occupation=occupation,
             )
         elif group_name == CustomUser.GROUP_STUDENT:
-            Student.objects.create(user=user, school_group=school_group)
+            Student.objects.create(
+                user=user,
+                school_group=school_group,
+                medical_features=medical_features,
+            )
         elif group_name == CustomUser.GROUP_PARENT:
             parent = Parent.objects.create(user=user)
             if student_id:
