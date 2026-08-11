@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from simple_history.models import HistoricalRecords
 
+from apps.home.models import ClassGroup, Subject, SubjectOffering
 from core.models import SoftDeleteMixin
 
 
@@ -299,3 +300,52 @@ class QuarterGradeSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
+
+
+class SubjectSchedule(models.Model):
+    offering = models.ForeignKey(
+        SubjectOffering,
+        on_delete=models.CASCADE,
+        related_name='schedules',
+    )
+    quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
+
+    class Meta:
+        unique_together = ['offering', 'quarter']
+
+    def __str__(self):
+        return f"{self.offering} - {self.quarter}"
+
+
+class ScheduleSession(models.Model):
+    schedule = models.ForeignKey(
+        SubjectSchedule,
+        on_delete=models.CASCADE,
+        related_name='sessions',
+    )
+    order = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
+    weekday = models.PositiveSmallIntegerField(validators=[MinValueValidator(0), MaxValueValidator(6)])
+
+    class Meta:
+        unique_together = ['schedule', 'order', 'weekday']
+
+
+class ScheduleAttendance(models.Model):
+    ATTENDANCE_CHOICES = (
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+    )
+
+    student = models.ForeignKey(
+        'authentication.Student',
+        on_delete=models.CASCADE,
+        related_name='attendances',
+    )
+    session = models.ForeignKey(
+        ScheduleSession,
+        on_delete=models.CASCADE,
+        related_name='attendances',
+    )
+    date = models.DateField()
+    status = models.CharField(choices=ATTENDANCE_CHOICES, max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)

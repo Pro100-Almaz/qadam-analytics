@@ -1,8 +1,11 @@
 from django.core.cache import cache
+from rest_framework import status
+from rest_framework.response import Response
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
+from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot, SubjectSchedule
+from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import is_admin_role, is_teacher_role
 
 GRADE_CACHE_TTL = 300
@@ -276,3 +279,57 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
 
     QuarterGradeSnapshot.objects.bulk_create(snapshots)
     return len(snapshots)
+
+
+def build_other_sessions_map(schedules):
+    """
+    Build {schedule_id: [ScheduleSession, ...]} of the rest of the class group's
+    timetable.
+
+    "Other" sessions are every session of the same class group, academic year and
+    quarter that belongs to a different schedule — i.e. the slots taken by other
+    subjects, which the client renders read-only next to the schedule's own sessions.
+    """
+    from apps.lesson.models import ScheduleSession
+
+    schedules = list(schedules)
+    if not schedules:
+        return {}
+
+    def key_of(class_group_id, academic_year_id, quarter):
+        return (class_group_id, academic_year_id, quarter)
+
+    wanted_keys = {
+        key_of(s.offering.class_group_id, s.offering.academic_year_id, s.quarter)
+        for s in schedules
+    }
+
+    sessions = ScheduleSession.objects.filter(
+        schedule__offering__class_group_id__in={k[0] for k in wanted_keys},
+        schedule__offering__academic_year_id__in={k[1] for k in wanted_keys},
+        schedule__quarter__in={k[2] for k in wanted_keys},
+    ).select_related(
+        'schedule', 'schedule__offering', 'schedule__offering__subject',
+    )
+
+    sessions_by_key = {}
+    for session in sessions:
+        offering = session.schedule.offering
+        key = key_of(
+            offering.class_group_id, offering.academic_year_id, session.schedule.quarter,
+        )
+        if key in wanted_keys:
+            sessions_by_key.setdefault(key, []).append(session)
+
+    result = {}
+    for schedule in schedules:
+        key = key_of(
+            schedule.offering.class_group_id,
+            schedule.offering.academic_year_id,
+            schedule.quarter,
+        )
+        result[schedule.id] = sorted(
+            (s for s in sessions_by_key.get(key, []) if s.schedule_id != schedule.id),
+            key=lambda s: (s.weekday, s.order),
+        )
+    return result

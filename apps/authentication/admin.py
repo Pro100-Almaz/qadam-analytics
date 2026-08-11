@@ -286,7 +286,30 @@ class ParentAdmin(ModelAdmin):
 
 
 
-admin.site.register(Teacher)
+@admin.register(Teacher)
+class TeacherAdmin(ModelAdmin):
+    list_display = ("full_name", "email", "employment_type", "occupation")
+    list_display_links = ("full_name",)
+    search_fields = (
+        "user__first_name", "user__last_name", "user__username", "user__email",
+    )
+    ordering = ("user__last_name", "user__first_name")
+    filter_horizontal = ("subjects",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user")
+
+    def full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+    full_name.short_description = "ФИО"
+    full_name.admin_order_field = "user__last_name"
+
+    def email(self, obj):
+        return obj.user.email or "-"
+    email.short_description = "Email"
+    email.admin_order_field = "user__email"
+
+
 admin.site.register(Supervisor)
 admin.site.register(ClubManager)
 

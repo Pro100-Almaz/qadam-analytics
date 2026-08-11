@@ -72,6 +72,43 @@ def _student_enrolled_in_offering(student, offering):
     ).exists()
 
 
+def teacher_homeroom_class_group_ids(teacher):
+    """Class group ids where the teacher is homeroom teacher for the active year."""
+    academic_year = AcademicYear.objects.filter(is_active=True).first()
+    assignments = HomeroomTeacherAssignment.objects.filter(teacher=teacher)
+    if academic_year:
+        assignments = assignments.filter(academic_year=academic_year)
+    return list(assignments.values_list('class_group_id', flat=True))
+
+
+def can_manage_offering_schedule(user, offering):
+    """
+    Check if user can create/modify schedules, sessions and attendance for an offering.
+
+    Returns True if:
+    - User is admin/supervisor/principal — any subject, any class
+    - User is a teacher assigned to the offering — their own subjects only
+    - User is the homeroom teacher of the offering's class group — any subject
+      taught to their students
+    """
+    if is_admin_role(user):
+        return True
+
+    if not is_teacher_role(user):
+        return False
+
+    from apps.authentication.models import Teacher
+    try:
+        teacher = Teacher.objects.get(user=user)
+    except Teacher.DoesNotExist:
+        return False
+
+    if _teacher_teaches_offering(teacher, offering):
+        return True
+
+    return offering.class_group_id in teacher_homeroom_class_group_ids(teacher)
+
+
 def can_access_subject(user, subject):
     """
     Check if user can access a specific subject.
@@ -364,6 +401,13 @@ class IsParent(BasePermission):
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_student()
+
+
+class IsNotStudent(BasePermission):
+    """Any authenticated role except students (staff, teachers, parents)."""
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and not user.is_student())
 
 
 class CanAccessStudent(BasePermission):

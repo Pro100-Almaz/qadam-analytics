@@ -342,7 +342,7 @@ def get_teacher_classes(teacher):
     return result
 
 
-def get_class_students(class_group_id, teacher=None):
+def get_class_students(class_group_id, request, teacher=None):
     """Get students in a class group with basic grade info."""
     from apps.home.models import ClassGroup
 
@@ -418,7 +418,7 @@ def get_class_students(class_group_id, teacher=None):
             'student_id': student.id,
             'user_id': student.user.id,
             'full_name': student.user.get_full_name(),
-            'avatar': student.user.avatar.url if student.user.avatar else None,
+            'avatar': request.build_absolute_uri(student.user.avatar.url) if student.user.avatar else None,
             'overall_average': overall,
             'overall_letter': grade_identifier(overall) if overall else None,
             'subjects': subject_grades,
