@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import attendance_views, views
 
 app_name = 'lesson-api'
 
@@ -107,5 +107,77 @@ urlpatterns = [
         'audit/grades/',
         views.GradeAuditLogAPIView.as_view(),
         name='grade-audit-log',
+    ),
+
+    # ── Teaching assignments ──
+    # GET /api/v1/teaching-assignments/  filters: academic_year, class_group
+    #                                    active subjects, primary teacher only
+    path(
+        'teaching-assignments/',
+        attendance_views.TeachingAssignmentListAPIView.as_view(),
+        name='teaching-assignment-list',
+    ),
+
+    # ── Subject schedules ──
+    # GET  /api/v1/subject-schedules/   filters: offering, quarter, class_group,
+    #                                   subject, academic_year
+    # POST /api/v1/subject-schedules/   create schedule for an offering + quarter
+    path(
+        'subject-schedules/',
+        attendance_views.SubjectScheduleListCreateAPIView.as_view(),
+        name='subject-schedule-list-create',
+    ),
+
+    # GET    /api/v1/subject-schedules/<pk>/  schedule with its sessions
+    # PATCH  /api/v1/subject-schedules/<pk>/  update offering / quarter
+    # DELETE /api/v1/subject-schedules/<pk>/  delete schedule
+    path(
+        'subject-schedules/<int:pk>/',
+        attendance_views.SubjectScheduleDetailAPIView.as_view(),
+        name='subject-schedule-detail',
+    ),
+
+    # ── Schedule sessions ──
+    # GET  /api/v1/subject-schedules/<schedule_id>/sessions/  weekly slots
+    # POST /api/v1/subject-schedules/<schedule_id>/sessions/  add a slot
+    path(
+        'subject-schedules/<int:schedule_id>/sessions/',
+        attendance_views.ScheduleSessionListCreateAPIView.as_view(),
+        name='schedule-session-list-create',
+    ),
+
+    # GET    /api/v1/schedule-sessions/<pk>/  single slot
+    # PATCH  /api/v1/schedule-sessions/<pk>/  change weekday / order
+    # DELETE /api/v1/schedule-sessions/<pk>/  delete slot
+    path(
+        'schedule-sessions/<int:pk>/',
+        attendance_views.ScheduleSessionDetailAPIView.as_view(),
+        name='schedule-session-detail',
+    ),
+
+    # ── Attendance ──
+    # GET  /api/v1/schedule-sessions/<session_id>/attendance/  filters: date,
+    #                                   date_from, date_to, student, status
+    # POST /api/v1/schedule-sessions/<session_id>/attendance/  record attendance
+    path(
+        'schedule-sessions/<int:session_id>/attendance/',
+        attendance_views.ScheduleAttendanceListCreateAPIView.as_view(),
+        name='schedule-attendance-list-create',
+    ),
+
+    # GET    /api/v1/attendance/<pk>/  single attendance row
+    # PATCH  /api/v1/attendance/<pk>/  change status / date / student
+    # DELETE /api/v1/attendance/<pk>/  remove the row
+    path(
+        'attendance/<int:pk>/',
+        attendance_views.ScheduleAttendanceDetailAPIView.as_view(),
+        name='schedule-attendance-detail',
+    ),
+
+    # GET /api/v1/students/<student_id>/attendance/  one student's history
+    path(
+        'students/<int:student_id>/attendance/',
+        attendance_views.StudentAttendanceListAPIView.as_view(),
+        name='student-attendance-list',
     ),
 ]

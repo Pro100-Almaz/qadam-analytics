@@ -1,7 +1,10 @@
 from rest_framework import serializers
 
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment
-from apps.home.models import SubjectOffering, Enrollment
+from apps.lesson.models import (
+    Lesson, Topic, TopicGrade, MergedLessonComment,
+    SubjectSchedule, ScheduleSession, ScheduleAttendance,
+)
+from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.authentication.models import Student
 
 
@@ -471,3 +474,206 @@ class GradingDataSerializer(serializers.ModelSerializer):
             else:
                 modes[str(uid)] = None
         return modes
+
+
+# ── Schedule session serializers ──
+
+class ScheduleSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScheduleSession
+        fields = ['id', 'schedule', 'order', 'weekday']
+        read_only_fields = ['schedule']
+
+
+class ScheduleSessionWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScheduleSession
+        fields = ['order', 'weekday']
+
+    def validate_order(self, value):
+        if not (1 <= value <= 12):
+            raise serializers.ValidationError('Order must be between 1 and 12.')
+        return value
+
+    def validate_weekday(self, value):
+        if not (0 <= value <= 6):
+            raise serializers.ValidationError(
+                'Weekday must be between 0 (Monday) and 6 (Sunday).'
+            )
+        return value
+
+    def validate(self, attrs):
+        """Reject a second session in the same slot of the same schedule."""
+        schedule = self.context['schedule']
+        order = attrs.get('order', getattr(self.instance, 'order', None))
+        weekday = attrs.get('weekday', getattr(self.instance, 'weekday', None))
+
+        clash = ScheduleSession.objects.filter(
+            schedule=schedule, order=order, weekday=weekday,
+        )
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(
+                'This schedule already has a session in that weekday/order slot.'
+            )
+        return attrs
+
+
+# ── Subject schedule serializers ──
+
+class OtherScheduleSessionSerializer(serializers.ModelSerializer):
+    """A slot in the class group's timetable owned by a different subject."""
+    offering_id = serializers.IntegerField(source='schedule.offering_id', read_only=True)
+    subject_name = serializers.CharField(
+        source='schedule.offering.subject.name', read_only=True,
+    )
+
+    class Meta:
+        model = ScheduleSession
+        fields = ['id', 'schedule', 'offering_id', 'subject_name', 'order', 'weekday']
+
+
+class SubjectScheduleSerializer(serializers.ModelSerializer):
+    offering = OfferingMinimalSerializer(read_only=True)
+    offering_id = serializers.IntegerField(read_only=True)
+    sessions = serializers.SerializerMethodField()
+    other_sessions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubjectSchedule
+        fields = [
+            'id', 'offering', 'offering_id', 'quarter',
+            'sessions', 'other_sessions',
+        ]
+
+    def get_sessions(self, obj):
+        sessions = sorted(obj.sessions.all(), key=lambda s: (s.weekday, s.order))
+        return ScheduleSessionSerializer(sessions, many=True).data
+
+    def get_other_sessions(self, obj):
+        """
+        The rest of the class group's timetable for this quarter — sessions of
+        every *other* subject, for read-only display alongside `sessions`.
+
+        Pre-computed data is injected via context['other_sessions_map'] on the
+        bulk (list) path; otherwise it is resolved per object.
+        """
+        sessions_map = self.context.get('other_sessions_map')
+        if sessions_map is None:
+            from apps.lesson.services import build_other_sessions_map
+            sessions_map = build_other_sessions_map([obj])
+
+        return OtherScheduleSessionSerializer(
+            sessions_map.get(obj.id, []), many=True,
+        ).data
+
+
+class TeachingAssignmentListSerializer(serializers.ModelSerializer):
+    """
+    One offering with its primary teacher.
+
+    `id` is the SubjectOffering id, not the TeachingAssignment id — the list is
+    keyed by offering, one row each.
+    """
+    id = serializers.IntegerField(source='offering_id', read_only=True)
+    subject_name = serializers.CharField(source='offering.subject.name', read_only=True)
+    class_group_name = serializers.CharField(
+        source='offering.class_group.__str__', read_only=True,
+    )
+    teacher_name = serializers.CharField(source='teacher.__str__', read_only=True)
+    academic_year = serializers.CharField(
+        source='offering.academic_year.year', read_only=True,
+    )
+    academic_year_id = serializers.IntegerField(
+        source='offering.academic_year_id', read_only=True,
+    )
+
+    class Meta:
+        model = TeachingAssignment
+        fields = [
+            'id', 'subject_name', 'class_group_name',
+            'teacher_name', 'academic_year', 'academic_year_id',
+        ]
+
+
+class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
+    offering = serializers.PrimaryKeyRelatedField(
+        queryset=SubjectOffering.objects.select_related(
+            'subject', 'class_group', 'academic_year'
+        )
+    )
+
+    class Meta:
+        model = SubjectSchedule
+        fields = ['offering', 'quarter']
+
+    def validate_quarter(self, value):
+        if not (1 <= value <= 4):
+            raise serializers.ValidationError('Quarter must be between 1 and 4.')
+        return value
+
+
+# ── Attendance serializers ──
+
+class ScheduleAttendanceSerializer(serializers.ModelSerializer):
+    student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
+    student_name = serializers.CharField(
+        source='student.user.get_full_name', read_only=True
+    )
+    schedule_id = serializers.IntegerField(source='session.schedule_id', read_only=True)
+    subject_name = serializers.CharField(
+        source='session.schedule.offering.subject.name', read_only=True
+    )
+
+    class Meta:
+        model = ScheduleAttendance
+        fields = [
+            'id', 'session', 'schedule_id', 'subject_name',
+            'student', 'student_user_id', 'student_name',
+            'date', 'status', 'created_at',
+        ]
+        read_only_fields = ['session', 'created_at']
+
+
+class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.select_related('user')
+    )
+
+    class Meta:
+        model = ScheduleAttendance
+        fields = ['student', 'date', 'status']
+
+    def validate_student(self, student):
+        """The student must be actively enrolled in the offering's class group."""
+        session = self.context['session']
+        offering = session.schedule.offering
+        enrolled = Enrollment.objects.filter(
+            student=student,
+            class_group=offering.class_group,
+            academic_year=offering.academic_year,
+            status='active',
+        ).exists()
+        if not enrolled:
+            raise serializers.ValidationError(
+                'This student is not enrolled in the class group of this schedule.'
+            )
+        return student
+
+    def validate(self, attrs):
+        """One attendance row per student per session per date."""
+        session = self.context['session']
+        student = attrs.get('student', getattr(self.instance, 'student', None))
+        date = attrs.get('date', getattr(self.instance, 'date', None))
+
+        duplicate = ScheduleAttendance.objects.filter(
+            session=session, student=student, date=date,
+        )
+        if self.instance is not None:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError(
+                'Attendance for this student on this date is already recorded.'
+            )
+        return attrs

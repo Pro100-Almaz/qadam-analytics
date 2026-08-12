@@ -29,6 +29,7 @@ class SubjectAdmin(admin.ModelAdmin):
 class TeachingAssignmentInline(admin.TabularInline):
     model = TeachingAssignment
     extra = 1
+    autocomplete_fields = ("teacher",)
 
 
 class LessonInline(admin.TabularInline):
@@ -41,7 +42,12 @@ class LessonInline(admin.TabularInline):
 class SubjectOfferingAdmin(admin.ModelAdmin):
     list_display = ("__str__", "subject", "class_group", "academic_year", "get_primary_teacher")
     list_filter = ("academic_year", "subject", "class_group__grade_level")
-    search_fields = ("subject__name", "class_group__letter")
+    search_fields = (
+        "subject__name",
+        "class_group__letter",
+        "class_group__grade_level__number",
+        "academic_year__year",
+    )
     ordering = ("-academic_year__year", "class_group", "subject")
     inlines = [TeachingAssignmentInline, LessonInline]
 
@@ -66,7 +72,14 @@ class TeachingAssignmentAdmin(admin.ModelAdmin):
     list_display = ("teacher", "offering", "role")
     list_filter = ("role", "offering__academic_year")
     search_fields = ("teacher__user__first_name", "teacher__user__last_name")
-    raw_id_fields = ("teacher", "offering")
+    autocomplete_fields = ("teacher", "offering")
+    ordering = ("-offering__academic_year__year", "offering", "teacher")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            "teacher__user", "offering__subject", "offering__class_group",
+            "offering__class_group__grade_level", "offering__academic_year",
+        )
 
 
 @admin.register(HomeroomTeacherAssignment)
