@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from apps.notification import views
 
 app_name = 'notification'
 

@@ -90,7 +90,7 @@ class AccountService:
                 medical_features=form.cleaned_data.get("medical_features"),
             )
         elif group_name == CustomUser.GROUP_PARENT:
-            from .models import Parent
+            from apps.authentication.models import Parent
             parent = Parent.objects.create(user=user)
             # Link to student if student_id provided
             student_id = form.cleaned_data.get("student_id")

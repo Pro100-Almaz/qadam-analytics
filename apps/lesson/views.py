@@ -20,8 +20,8 @@ from core.permissions import (
     can_modify_lesson, can_access_lesson, can_grade_student,
     permission_denied_response, is_admin_role
 )
-from .forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
-from .models import Lesson, Topic, TopicGrade, MergedLessonComment
+from apps.lesson.forms import LessonForm, LessonGroupForm, SubtopicForm, TopicForm
+from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment
 from apps.authentication.models import CustomUser, Student, Parent
 from apps.home.models import Subject, ClassGroup, QuarterGrader, Enrollment
 from apps.notification.models import Notification

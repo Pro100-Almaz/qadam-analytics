@@ -1,11 +1,11 @@
 import json
 
-from .additional.user_descriptions import user_descriptions
-from .additional.system_descriptions import sys_descriptions
-from .sections.en_sections import en_section_prompts
-from .sections.kz_sections import kz_section_prompts
-from .sections.ru_sections import ru_section_prompts
-from .additional.supportive import REMINDERS
+from apps.student_report.services.prompts.additional.user_descriptions import user_descriptions
+from apps.student_report.services.prompts.additional.system_descriptions import sys_descriptions
+from apps.student_report.services.prompts.sections.en_sections import en_section_prompts
+from apps.student_report.services.prompts.sections.kz_sections import kz_section_prompts
+from apps.student_report.services.prompts.sections.ru_sections import ru_section_prompts
+from apps.student_report.services.prompts.additional.supportive import REMINDERS
 
 
 def generate_improvement_prompt(student_data: dict, basic_info: str, language: str) -> tuple[str, str]:

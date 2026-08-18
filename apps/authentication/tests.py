@@ -10,7 +10,7 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 import os
 
-from .models import CustomUser
+from apps.authentication.models import CustomUser
 
 
 class CustomUserAvatarTests(TestCase):

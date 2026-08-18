@@ -2,8 +2,8 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 
-from .forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm, ResetPasswordForm
-from .models import CustomUser
+from apps.authentication.forms import LoginForm, SignUpForm, ForgetPasswordForm, VerificationPasswordForm, ResetPasswordForm
+from apps.authentication.models import CustomUser
 from apps.authentication.services import get_user_service
 from errors import find_error_by_key
 

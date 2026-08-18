@@ -34,7 +34,7 @@ from core.permissions import (
     teacher_homeroom_class_group_ids,
 )
 
-from .serializers import (
+from apps.lesson.api.serializers import (
     ScheduleAttendanceSerializer,
     ScheduleAttendanceWriteSerializer,
     ScheduleSessionSerializer,

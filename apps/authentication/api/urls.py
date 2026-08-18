@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from apps.authentication.api import views
 
 app_name = 'auth-api'
 

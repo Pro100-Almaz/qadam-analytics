@@ -5,7 +5,7 @@ from django.utils.text import Truncator
 
 from apps.achievement.models import Attachment
 
-from .models import Homework, HomeworkGrade, Topic, TopicGrade, MergedLessonComment
+from apps.lesson.models import Homework, HomeworkGrade, Topic, TopicGrade, MergedLessonComment
 
 
 class SubtopicInline(admin.TabularInline):
