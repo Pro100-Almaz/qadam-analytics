@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import attendance_views, views
+from apps.lesson.api import attendance_views, homework, views
 
 app_name = 'lesson-api'
 
@@ -179,5 +179,66 @@ urlpatterns = [
         'students/<int:student_id>/attendance/',
         attendance_views.StudentAttendanceListAPIView.as_view(),
         name='student-attendance-list',
+    ),
+
+    # ── Homework ──
+    # POST /api/v1/homeworks/   create one homework per offering in `offerings`
+    path(
+        'homeworks/',
+        homework.HomeworkCreateAPIView.as_view(),
+        name='homework-create',
+    ),
+
+    # GET    /api/v1/homeworks/<pk>/  single homework
+    # PUT    /api/v1/homeworks/<pk>/  replace description / max_grade / due_date /
+    #                                 is_active, plus attachment add/remove
+    # DELETE /api/v1/homeworks/<pk>/  delete homework
+    path(
+        'homeworks/<int:pk>/',
+        homework.HomeworkDetailAPIView.as_view(),
+        name='homework-detail',
+    ),
+
+    # ── Homework grades ──
+    # GET  /api/v1/homeworks/<homework_id>/grades/  role-scoped grade list
+    # POST /api/v1/homeworks/<homework_id>/grades/  grade one student
+    path(
+        'homeworks/<int:homework_id>/grades/',
+        homework.HomeworkGradeListCreateAPIView.as_view(),
+        name='homework-grade-list-create',
+    ),
+
+    # PATCH  /api/v1/homework-grades/<pk>/  change the grade
+    # DELETE /api/v1/homework-grades/<pk>/  remove the grade
+    path(
+        'homework-grades/<int:pk>/',
+        homework.HomeworkGradeDetailAPIView.as_view(),
+        name='homework-grade-detail',
+    ),
+
+    # GET /api/v1/teachers/my-class/homeworks/  published homework of the
+    #                                   caller's homeroom class, every subject.
+    #                                   Read-only; listed before the <int:...>
+    #                                   route it shadows nothing of.
+    path(
+        'teachers/my-class/homeworks/',
+        homework.HomeroomHomeworkListAPIView.as_view(),
+        name='homeroom-homework-list',
+    ),
+
+    # GET /api/v1/teachers/<teacher_id>/homeworks/  homework set by one teacher.
+    #                                   Teachers may only request their own id.
+    path(
+        'teachers/<int:teacher_id>/homeworks/',
+        homework.TeacherHomeworkListAPIView.as_view(),
+        name='teacher-homework-list',
+    ),
+
+    # GET /api/v1/students/<student_id>/homeworks/  homework assigned to one
+    #                                   student, with their own grade inlined
+    path(
+        'students/<int:student_id>/homeworks/',
+        homework.StudentHomeworkListAPIView.as_view(),
+        name='student-homework-list',
     ),
 ]
