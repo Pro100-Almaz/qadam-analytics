@@ -65,6 +65,90 @@ urlpatterns = [
     path('parents/me/children/<int:student_pk>/subjects/<int:subject_pk>/', views.ParentChildSubjectDetailAPIView.as_view(), name='parent-child-subject-detail'),
     path('parents/me/teachers/', views.ParentTeachersAPIView.as_view(), name='parent-my-teachers'),
 
+    # ── Subject assignments ──
+    # GET  /api/v1/subject-assignments/  role-scoped list; filters: offering,
+    #                                    subject, class_group, academic_year,
+    #                                    category, date, date_from, date_to
+    # POST /api/v1/subject-assignments/  create one in an offering you teach
+    path(
+        'subject-assignments/',
+        views.SubjectAssignmentListCreateAPIView.as_view(),
+        name='subject-assignment-list-create',
+    ),
+
+    # GET    /api/v1/subject-assignments/<pk>/  single assignment
+    # PATCH  /api/v1/subject-assignments/<pk>/  change title / category / max_grade / date
+    # DELETE /api/v1/subject-assignments/<pk>/  delete it and its grades
+    path(
+        'subject-assignments/<int:pk>/',
+        views.SubjectAssignmentDetailAPIView.as_view(),
+        name='subject-assignment-detail',
+    ),
+
+    # GET  /api/v1/subject-assignments/<assignment_id>/grades/  role-scoped list
+    # POST /api/v1/subject-assignments/<assignment_id>/grades/  grade a student
+    path(
+        'subject-assignments/<int:assignment_id>/grades/',
+        views.SubjectAssignmentGradeListCreateAPIView.as_view(),
+        name='subject-assignment-grade-list-create',
+    ),
+
+    # ── Subject grades ──
+    # GET /api/v1/teachers/my-class/subject-grades/  every grade of the
+    #                                    caller's homeroom class, all subjects
+    path(
+        'teachers/my-class/subject-grades/',
+        views.HomeroomSubjectGradeListAPIView.as_view(),
+        name='homeroom-subject-grade-list',
+    ),
+
+    # GET /api/v1/subject-grades/  every grade the caller may see, assignment
+    #                              inlined; filters: student, assignment,
+    #                              offering, subject, class_group,
+    #                              academic_year, category, date, date_from,
+    #                              date_to
+    path(
+        'subject-grades/',
+        views.SubjectGradeListAPIView.as_view(),
+        name='subject-grade-list',
+    ),
+
+    # GET    /api/v1/subject-grades/<pk>/  single grade
+    # PATCH  /api/v1/subject-grades/<pk>/  change grade / comments
+    # DELETE /api/v1/subject-grades/<pk>/  remove the grade
+    path(
+        'subject-grades/<int:pk>/',
+        views.SubjectGradeDetailAPIView.as_view(),
+        name='subject-grade-detail',
+    ),
+
+    # ── Quarter grades ──
+    # GET /api/v1/teachers/my-class/quarter-grades/  every quarter grade of the
+    #                                    caller's homeroom class, all subjects
+    path(
+        'teachers/my-class/quarter-grades/',
+        views.HomeroomQuarterGradeListAPIView.as_view(),
+        name='homeroom-quarter-grade-list',
+    ),
+
+    # GET  /api/v1/quarter-grades/  role-scoped list; filters: student, quarter,
+    #                               offering, subject, class_group, academic_year
+    # POST /api/v1/quarter-grades/  record one in an offering you teach
+    path(
+        'quarter-grades/',
+        views.QuarterGradeListCreateAPIView.as_view(),
+        name='quarter-grade-list-create',
+    ),
+
+    # GET    /api/v1/quarter-grades/<pk>/  single quarter grade
+    # PATCH  /api/v1/quarter-grades/<pk>/  change grade / quarter
+    # DELETE /api/v1/quarter-grades/<pk>/  remove it
+    path(
+        'quarter-grades/<int:pk>/',
+        views.QuarterGradeDetailAPIView.as_view(),
+        name='quarter-grade-detail',
+    ),
+
     # Teacher dashboards (role-specific)
     path('teacher/dashboard/', views.TeacherRoleDashboardAPIView.as_view(), name='teacher-dashboard'),
     path('teacher/my-class/', views.HomeroomClassAPIView.as_view(), name='homeroom-class'),

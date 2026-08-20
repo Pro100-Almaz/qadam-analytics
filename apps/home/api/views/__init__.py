@@ -33,6 +33,19 @@ from apps.home.api.views.parents import (
     ParentTeachersAPIView,
     ParentChildSubjectDetailAPIView,
 )
+from apps.home.api.views.assignments import (
+    SubjectAssignmentListCreateAPIView,
+    SubjectAssignmentDetailAPIView,
+    SubjectAssignmentGradeListCreateAPIView,
+    SubjectGradeListAPIView,
+    SubjectGradeDetailAPIView,
+    HomeroomSubjectGradeListAPIView,
+)
+from apps.home.api.views.quarter_grades import (
+    QuarterGradeListCreateAPIView,
+    QuarterGradeDetailAPIView,
+    HomeroomQuarterGradeListAPIView,
+)
 from apps.home.api.views.teacher_dashboard import (
     TeacherRoleDashboardAPIView,
     HomeroomClassAPIView,
@@ -78,4 +91,13 @@ __all__ = [
     'PsychologistStudentDetailAPIView',
     'TeacherMyClassesAPIView',
     'TeacherClassStudentsAPIView',
+    'SubjectAssignmentListCreateAPIView',
+    'SubjectAssignmentDetailAPIView',
+    'SubjectAssignmentGradeListCreateAPIView',
+    'SubjectGradeListAPIView',
+    'SubjectGradeDetailAPIView',
+    'HomeroomSubjectGradeListAPIView',
+    'QuarterGradeListCreateAPIView',
+    'QuarterGradeDetailAPIView',
+    'HomeroomQuarterGradeListAPIView',
 ]

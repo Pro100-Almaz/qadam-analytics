@@ -734,7 +734,12 @@ class HomeworkSerializer(serializers.ModelSerializer):
 class StudentHomeworkSerializer(HomeworkSerializer):
     """
     Homework as seen from one student: same payload plus that student's own
-    grade, or null when it is not graded yet / not visible to the caller.
+    grade row, or null when there is no row at all / it is not visible to the
+    caller.
+
+    A row that exists may still carry `grade: null` — the teacher opened it to
+    leave a comment, or marked the student as awaiting a mark — so clients must
+    tell "no row" apart from "row with no mark".
     """
     student_grade = serializers.SerializerMethodField()
 
@@ -746,7 +751,12 @@ class StudentHomeworkSerializer(HomeworkSerializer):
         grade = self.context.get('grade_map', {}).get(obj.pk)
         if grade is None:
             return None
-        return {'id': grade.pk, 'grade': grade.grade, 'created_at': grade.created_at}
+        return {
+            'id': grade.pk,
+            'grade': grade.grade,
+            'comments': grade.comments,
+            'created_at': grade.created_at,
+        }
 
 
 class HomeworkCreateSerializer(serializers.Serializer):
@@ -870,21 +880,36 @@ class HomeworkGradeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'homework', 'offering_id', 'subject_name', 'due_date',
             'student', 'student_user_id', 'student_name',
-            'grade', 'homework_max_grade', 'created_at',
+            'grade', 'comments', 'homework_max_grade', 'created_at',
         ]
         read_only_fields = fields
 
 
 class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
+    """
+    Create / update payload for a single homework grade.
+
+    Both `grade` and `comments` are optional and nullable: a row may carry a
+    mark with no feedback, feedback with no mark yet, or neither — an empty
+    placeholder for a student who has not handed anything in. Sending `null`
+    clears a value that was set before.
+    """
     student = serializers.PrimaryKeyRelatedField(
         queryset=Student.objects.select_related('user'),
         help_text='Student profile id of the student being graded.',
     )
-    grade = serializers.IntegerField(min_value=0)
+    grade = serializers.IntegerField(
+        min_value=0, required=False, allow_null=True,
+        help_text='Points awarded, or null for "not graded yet".',
+    )
+    comments = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True,
+        help_text='Free-text feedback for the student.',
+    )
 
     class Meta:
         model = HomeworkGrade
-        fields = ['student', 'grade']
+        fields = ['student', 'grade', 'comments']
 
     def validate_student(self, student):
         """The student must be actively enrolled in the homework's class group."""
@@ -903,9 +928,12 @@ class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
         return student
 
     def validate_grade(self, grade):
-        """min_value on the field already rejects negatives."""
+        """
+        min_value on the field already rejects negatives; null means the work
+        is simply not marked yet, so there is no ceiling to check against.
+        """
         homework = self.context['homework']
-        if grade > homework.max_grade:
+        if grade is not None and grade > homework.max_grade:
             raise serializers.ValidationError(
                 f'Grade cannot exceed the maximum of {homework.max_grade}.'
             )

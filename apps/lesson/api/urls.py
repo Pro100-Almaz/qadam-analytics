@@ -208,7 +208,7 @@ urlpatterns = [
         name='homework-grade-list-create',
     ),
 
-    # PATCH  /api/v1/homework-grades/<pk>/  change the grade
+    # PATCH  /api/v1/homework-grades/<pk>/  change the grade / comments
     # DELETE /api/v1/homework-grades/<pk>/  remove the grade
     path(
         'homework-grades/<int:pk>/',
