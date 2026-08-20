@@ -1,7 +1,8 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
 from simple_history.models import HistoricalRecords
-from apps.authentication.models import Teacher
+from apps.authentication.models import Teacher, Student
 
 
 class AcademicYear(models.Model):
@@ -325,5 +326,44 @@ class QuarterGrader(models.Model):
         return f"Q{self.quarter}: avg={self.average_points}"
 
 
+class SubjectAssignment(models.Model):
+    CATEGORY_CHOICES = (
+        ('lesson', 'Lesson'),
+        ('exam', 'Exam'),
+        ('final', 'Final'),
+    )
+
+    title = models.TextField()
+    offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="assignments")
+    max_grade = models.PositiveIntegerField()
+    category = models.CharField(choices=CATEGORY_CHOICES, max_length=50, default='lesson')
+    date = models.DateField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
+class SubjectGrade(models.Model):
+    assignment = models.ForeignKey(SubjectAssignment, on_delete=models.CASCADE, related_name="grades")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grades")
+    grade = models.PositiveIntegerField(null=True, blank=True)
+    comments = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('assignment', 'student')
+        ordering = ['student']
+
+
+class QuarterGrade(models.Model):
+    grade = models.PositiveIntegerField(validators=[MinValueValidator(2), MaxValueValidator(5)])
+    quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
+
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="quarter_grades")
+    offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="quarter_grades")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('student', 'offering', 'quarter')
+        ordering = ['quarter', 'student']

@@ -449,6 +449,15 @@ class HomeworkGradeListCreateAPIView(APIView):
     @extend_schema(
         request=HomeworkGradeWriteSerializer,
         responses={201: HomeworkGradeSerializer},
+        description=(
+            'Grades one student. The caller must teach the homework\'s '
+            'offering, and the student must be actively enrolled in that '
+            'offering\'s class group. One grade per student per homework — '
+            'change an existing one with PATCH homework-grades/<pk>/. '
+            '`grade` and `comments` are both optional and nullable, so a row '
+            'can hold feedback without a mark, or stand as an empty '
+            'placeholder until the work is handed in.'
+        ),
     )
     def post(self, request, homework_id):
         homework = get_object_or_404(
@@ -473,7 +482,8 @@ class HomeworkGradeListCreateAPIView(APIView):
 
 class HomeworkGradeDetailAPIView(APIView):
     """
-    PATCH  homework-grades/<pk>/  — change the grade
+    PATCH  homework-grades/<pk>/  — change the grade or its comments; `null` on
+                                   either one clears it
     DELETE homework-grades/<pk>/  — remove the grade
 
     Both are limited to the teachers of the offering the homework belongs to;

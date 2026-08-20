@@ -376,6 +376,10 @@ class Homework(models.Model):
 class HomeworkGrade(models.Model):
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
-    grade = models.PositiveIntegerField()
+    grade = models.PositiveIntegerField(null=True, blank=True)
+    comments = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('homework', 'student')
