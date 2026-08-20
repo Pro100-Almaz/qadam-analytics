@@ -13,7 +13,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import IsAdminRole
+from apps.authentication.api.permissions import IsAdminRole
 from apps.authentication.models import CustomUser, SchoolGroup
 from apps.authentication.services import AccountService
 from core.error_messages import (
@@ -23,7 +23,7 @@ from core.error_messages import (
     PASSWORD_CHANGED, GENERIC_ERROR,
 )
 
-from .serializers import (
+from apps.authentication.api.serializers import (
     LoginSerializer,
     RegisterSerializer,
     UserSerializer,

@@ -1,9 +1,11 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.validators import MinValueValidator, MaxValueValidator
 from simple_history.models import HistoricalRecords
 
-from apps.home.models import ClassGroup, Subject, SubjectOffering
+from apps.authentication.models import CustomUser
+from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
 from core.models import SoftDeleteMixin
 
 
@@ -348,4 +350,32 @@ class ScheduleAttendance(models.Model):
     )
     date = models.DateField()
     status = models.CharField(choices=ATTENDANCE_CHOICES, max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Homework(models.Model):
+    description = models.TextField()
+    offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
+    teaching_assignment = models.ForeignKey(TeachingAssignment, on_delete=models.CASCADE, related_name='homeworks')
+    max_grade = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
+    due_date = models.DateField()
+    is_active = models.BooleanField(default=False)
+
+    attachments = GenericRelation(
+        'achievement.Attachment',
+        content_type_field='content_type',
+        object_id_field='object_id',
+        related_query_name='homework',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class HomeworkGrade(models.Model):
+    homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
+    student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
+    grade = models.PositiveIntegerField()
+
     created_at = models.DateTimeField(auto_now_add=True)

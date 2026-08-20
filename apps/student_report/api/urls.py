@@ -1,7 +1,7 @@
 from django.urls import path
 
-from .views import GenerateReportView, ReportDetailView, StudentReportListView
-from .pdf_export import ReportPDFExportView
+from apps.student_report.api.views import GenerateReportView, ReportDetailView, StudentReportListView
+from apps.student_report.api.pdf_export import ReportPDFExportView
 
 app_name = 'student-report-api'
 

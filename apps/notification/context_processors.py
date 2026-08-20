@@ -1,4 +1,4 @@
-from .models import Notification
+from apps.notification.models import Notification
 
 
 def notifications_context(request):

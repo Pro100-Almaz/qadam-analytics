@@ -1,5 +1,5 @@
 from django import forms
-from .models import Subject, ClassGroup, AcademicYear
+from apps.home.models import Subject, ClassGroup, AcademicYear
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

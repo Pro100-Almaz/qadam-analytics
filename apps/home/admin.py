@@ -7,7 +7,7 @@ from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
 from django import forms
-from .models import (
+from apps.home.models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, Enrollment,
     SubjectOffering, TeachingAssignment, HomeroomTeacherAssignment
 )

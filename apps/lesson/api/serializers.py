@@ -1,8 +1,18 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.achievement.models import Attachment
 from apps.lesson.models import (
     Lesson, Topic, TopicGrade, MergedLessonComment,
     SubjectSchedule, ScheduleSession, ScheduleAttendance,
+    Homework, HomeworkGrade,
+)
+from apps.lesson.services import (
+    MAX_HOMEWORK_ATTACHMENTS,
+    attach_files_to_homeworks,
+    delete_homework_attachments,
+    validate_homework_attachments,
 )
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.authentication.models import Student
@@ -675,5 +685,242 @@ class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
         if duplicate.exists():
             raise serializers.ValidationError(
                 'Attendance for this student on this date is already recorded.'
+            )
+        return attrs
+
+
+# ── Homework serializers ──
+
+class HomeworkAttachmentSerializer(serializers.ModelSerializer):
+    """One file hanging off a homework. `url` is absolute when a request is in
+    context, so the frontend can link to it directly."""
+    name = serializers.CharField(source='original_name', read_only=True)
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attachment
+        fields = ['id', 'name', 'url', 'file_type', 'created_at']
+        read_only_fields = fields
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+
+
+class HomeworkSerializer(serializers.ModelSerializer):
+    offering = OfferingMinimalSerializer(read_only=True)
+    class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
+    subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
+    teacher = serializers.SerializerMethodField()
+    attachments = HomeworkAttachmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Homework
+        fields = [
+            'id', 'description', 'offering', 'class_group_id', 'subject_id',
+            'teaching_assignment', 'teacher', 'max_grade', 'due_date',
+            'is_active', 'attachments', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_teacher(self, obj):
+        teacher = obj.teaching_assignment.teacher
+        return {'id': teacher.user_id, 'full_name': teacher.user.get_full_name()}
+
+
+class StudentHomeworkSerializer(HomeworkSerializer):
+    """
+    Homework as seen from one student: same payload plus that student's own
+    grade, or null when it is not graded yet / not visible to the caller.
+    """
+    student_grade = serializers.SerializerMethodField()
+
+    class Meta(HomeworkSerializer.Meta):
+        fields = HomeworkSerializer.Meta.fields + ['student_grade']
+        read_only_fields = fields
+
+    def get_student_grade(self, obj):
+        grade = self.context.get('grade_map', {}).get(obj.pk)
+        if grade is None:
+            return None
+        return {'id': grade.pk, 'grade': grade.grade, 'created_at': grade.created_at}
+
+
+class HomeworkCreateSerializer(serializers.Serializer):
+    """
+    One payload creates the same homework in several offerings at once.
+
+    `offerings` is a list so a teacher can hand the same task to every class
+    they teach in a single request; one Homework row is created per offering.
+    """
+    offerings = serializers.PrimaryKeyRelatedField(
+        queryset=SubjectOffering.objects.select_related(
+            'subject', 'class_group', 'academic_year',
+        ),
+        many=True,
+        allow_empty=False,
+        write_only=True,
+    )
+    description = serializers.CharField()
+    max_grade = serializers.IntegerField(min_value=1, max_value=100)
+    due_date = serializers.DateField()
+    is_active = serializers.BooleanField(required=False, default=False)
+    attachments = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        max_length=MAX_HOMEWORK_ATTACHMENTS,
+        help_text=(
+            'Files to attach, sent as multipart/form-data. Every offering in '
+            '`offerings` gets its own copy of each file.'
+        ),
+    )
+
+    def validate_offerings(self, offerings):
+        """Drop repeats so the same offering is never created twice."""
+        unique, seen = [], set()
+        for offering in offerings:
+            if offering.pk not in seen:
+                seen.add(offering.pk)
+                unique.append(offering)
+        return unique
+
+    def validate_attachments(self, files):
+        validate_homework_attachments(files)
+        return files
+
+
+class HomeworkWriteSerializer(serializers.ModelSerializer):
+    """
+    Update payload. The offering stays fixed — moving a homework to another
+    class means creating it there instead.
+
+    Attachments are edited incrementally: `attachments` appends new files and
+    `remove_attachments` drops existing ones by id. Neither is a replacement of
+    the whole set, so a PUT that omits both leaves the files untouched.
+    """
+    attachments = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        max_length=MAX_HOMEWORK_ATTACHMENTS,
+        help_text='New files to add, sent as multipart/form-data.',
+    )
+    remove_attachments = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text='Ids of attachments to delete from this homework.',
+    )
+
+    class Meta:
+        model = Homework
+        fields = [
+            'description', 'max_grade', 'due_date', 'is_active',
+            'attachments', 'remove_attachments',
+        ]
+
+    def validate(self, attrs):
+        """
+        Check the batch against what the homework already holds, minus whatever
+        this same request is about to remove.
+        """
+        files = attrs.get('attachments') or []
+        if files and self.instance is not None:
+            removing = len(set(attrs.get('remove_attachments') or []))
+            existing = self.instance.attachments.count() - removing
+            validate_homework_attachments(files, existing_count=max(existing, 0))
+        return attrs
+
+    def update(self, instance, validated_data):
+        files = validated_data.pop('attachments', [])
+        remove_ids = validated_data.pop('remove_attachments', [])
+        request = self.context.get('request')
+
+        # Removals run first so a request can swap files without tripping the
+        # per-homework cap.
+        delete_homework_attachments(instance, remove_ids)
+        homework = super().update(instance, validated_data)
+        attach_files_to_homeworks(
+            [homework], files, request.user if request else None,
+        )
+        return homework
+
+
+class HomeworkGradeSerializer(serializers.ModelSerializer):
+    student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
+    student_name = serializers.CharField(
+        source='student.user.get_full_name', read_only=True
+    )
+    homework_max_grade = serializers.IntegerField(source='homework.max_grade', read_only=True)
+    offering_id = serializers.IntegerField(source='homework.offering_id', read_only=True)
+    subject_name = serializers.CharField(
+        source='homework.offering.subject.name', read_only=True
+    )
+    due_date = serializers.DateField(source='homework.due_date', read_only=True)
+
+    class Meta:
+        model = HomeworkGrade
+        fields = [
+            'id', 'homework', 'offering_id', 'subject_name', 'due_date',
+            'student', 'student_user_id', 'student_name',
+            'grade', 'homework_max_grade', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.select_related('user'),
+        help_text='Student profile id of the student being graded.',
+    )
+    grade = serializers.IntegerField(min_value=0)
+
+    class Meta:
+        model = HomeworkGrade
+        fields = ['student', 'grade']
+
+    def validate_student(self, student):
+        """The student must be actively enrolled in the homework's class group."""
+        homework = self.context['homework']
+        offering = homework.offering
+        enrolled = Enrollment.objects.filter(
+            student=student,
+            class_group=offering.class_group,
+            academic_year=offering.academic_year,
+            status='active',
+        ).exists()
+        if not enrolled:
+            raise serializers.ValidationError(
+                'This student is not enrolled in the class group of this homework.'
+            )
+        return student
+
+    def validate_grade(self, grade):
+        """min_value on the field already rejects negatives."""
+        homework = self.context['homework']
+        if grade > homework.max_grade:
+            raise serializers.ValidationError(
+                f'Grade cannot exceed the maximum of {homework.max_grade}.'
+            )
+        return grade
+
+    def validate(self, attrs):
+        """One grade per student per homework."""
+        homework = self.context['homework']
+        student = attrs.get('student', getattr(self.instance, 'student', None))
+
+        duplicate = HomeworkGrade.objects.filter(homework=homework, student=student)
+        if self.instance is not None:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError(
+                'This student is already graded for this homework.'
             )
         return attrs

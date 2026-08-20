@@ -29,8 +29,8 @@ from apps.lesson.services import (
     freeze_quarter_grades,
 )
 
-from .permissions import IsTeacherAdminOrSupervisor
-from .serializers import (
+from apps.lesson.api.permissions import IsTeacherAdminOrSupervisor
+from apps.lesson.api.serializers import (
     LessonListSerializer,
     LessonDetailSerializer,
     LessonCreateSerializer,
@@ -298,7 +298,7 @@ class TopicCreateAPIView(APIView):
         recalculate_topic_weights(lesson)
         topic.refresh_from_db()
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         return Response(
             TopicSerializer(topic).data,
             status=status.HTTP_201_CREATED,
@@ -325,7 +325,7 @@ class TopicUpdateDeleteAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         # Re-fetch with subtopics
         topic.refresh_from_db()
         return Response(TopicSerializer(topic).data)
@@ -370,7 +370,7 @@ class TopicDistributeWeightsAPIView(APIView):
 
         recalculate_topic_weights(lesson)
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         updated = Topic.objects.filter(lesson=lesson, parent__isnull=True).prefetch_related('subtopics')
         return Response(TopicSerializer(updated, many=True).data)
 
@@ -427,7 +427,7 @@ class SubtopicCreateAPIView(APIView):
         distribute_subtopic_weights(lesson)
         subtopic.refresh_from_db()
 
-        from .serializers import SubtopicSerializer
+        from apps.lesson.api.serializers import SubtopicSerializer
         return Response(
             SubtopicSerializer(subtopic).data,
             status=status.HTTP_201_CREATED,
@@ -463,7 +463,7 @@ class SubtopicUpdateDeleteAPIView(APIView):
         serializer.save()
         subtopic.refresh_from_db()
 
-        from .serializers import SubtopicSerializer
+        from apps.lesson.api.serializers import SubtopicSerializer
         return Response(SubtopicSerializer(subtopic).data)
 
     def delete(self, request, pk):
@@ -511,7 +511,7 @@ class SubtopicDistributeWeightsAPIView(APIView):
 
         distribute_subtopic_weights(lesson)
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         parent_topics = Topic.objects.filter(
             lesson=lesson, parent__isnull=True
         ).prefetch_related('subtopics')

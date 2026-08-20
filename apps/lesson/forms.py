@@ -1,5 +1,5 @@
 from django import forms
-from .models import Lesson, Topic
+from apps.lesson.models import Lesson, Topic
 
 
 class DateInput(forms.DateInput):
