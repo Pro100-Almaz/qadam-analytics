@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent
 CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -104,29 +105,41 @@ AUTH_USER_MODEL = "authentication.CustomUser"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Local file storage for media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(CORE_DIR, "media")
+
+
+S3_BUCKET_NAME = config("S3_BUCKET_NAME", default="qadam-media")
+
+S3_STORAGE_OPTIONS = {
+    "bucket_name": S3_BUCKET_NAME,
+    "endpoint_url": config("S3_ENDPOINT_URL", default=""),
+    "access_key": config("S3_ACCESS_KEY", default=""),
+    "secret_key": config("S3_SECRET_KEY", default=""),
+    "region_name": config("S3_REGION", default="us-east-1"),
+    "addressing_style": "path",
+    "signature_version": "s3v4",
+    "querystring_auth": True,
+    "querystring_expire": config("S3_URL_EXPIRE", default=3600, cast=int),
+    "file_overwrite": False,
+    "default_acl": None,
+    "location": "media",
+}
+
+# Media storage is S3/MinIO only — there is no local-disk fallback.
+if not S3_STORAGE_OPTIONS["endpoint_url"]:
+    raise ImproperlyConfigured(
+        "S3_ENDPOINT_URL is required: media files are stored in S3/MinIO.")
+
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": S3_STORAGE_OPTIONS,
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(CORE_DIR, "media")
-
-# AWS S3 configuration (disabled - using local storage)
-# Uncomment below and update STORAGES to re-enable S3
-# AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-# AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-# AWS_STORAGE_BUCKET_NAME = 'qadam-avatars'
-# AWS_S3_REGION_NAME = 'eu-north-1'
-# AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-# AWS_S3_FILE_OVERWRITE = False
-# AWS_LOCATION = "media"
-# DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
 TEMPLATES = [
     {
