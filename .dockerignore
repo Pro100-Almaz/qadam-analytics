@@ -1,0 +1,53 @@
+# Secrets — never bake these into image layers.
+# .env reaches containers via `env_file: .env` in the compose files, so
+# excluding it here does not remove it from the running app.
+.env
+.env.*
+!.env.production.example
+
+# VCS & local tooling
+.git
+.gitignore
+.github
+.idea
+.vscode
+.claude
+.DS_Store
+
+# Python build/venv artefacts
+.venv
+venv
+env
+__pycache__/
+*.py[cod]
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Node (theme assets are committed pre-built)
+apps/static/assets/node_modules
+apps/static/assets/.temp
+package-lock.json
+node_modules
+
+# Database dumps, logs, local sqlite
+*.dump
+*.sql
+*.db
+*.sqlite3
+*.log
+
+# collectstatic output — the entrypoint regenerates this at container start
+staticfiles/
+
+# User uploads live in a volume / MinIO; keep only the seeded default avatar
+media/
+!media/avatars/default/
+
+# Docs & compose files not needed at runtime
+README.md
+LICENSE.md
+CLAUDE.md
+docker-compose*.yml
