@@ -20,10 +20,19 @@ from apps.home.models import (
     Enrollment,
     GradeLevel,
     Subject,
+    SubjectAssignment,
+    SubjectGrade,
     SubjectOffering,
     TeachingAssignment,
 )
-from apps.lesson.models import Lesson, Topic, TopicGrade
+from apps.lesson.models import (
+    Lesson,
+    ScheduleAttendance,
+    ScheduleSession,
+    SubjectSchedule,
+    Topic,
+    TopicGrade,
+)
 
 
 class GroupFactory(DjangoModelFactory):
@@ -287,3 +296,50 @@ class TopicGradeFactory(DjangoModelFactory):
     topic = factory.SubFactory(TopicFactory)
     student = factory.SubFactory(StudentFactory)
     grade = 0
+
+
+class SubjectAssignmentFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectAssignment
+
+    offering = factory.SubFactory(SubjectOfferingFactory)
+    title = factory.Sequence(lambda n: f'Assignment {n}')
+    max_grade = 100
+    category = 'lesson'
+    date = factory.Faker('date_object')
+
+
+class SubjectGradeFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectGrade
+
+    assignment = factory.SubFactory(SubjectAssignmentFactory)
+    student = factory.SubFactory(StudentFactory)
+    grade = None
+
+
+class SubjectScheduleFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectSchedule
+
+    offering = factory.SubFactory(SubjectOfferingFactory)
+    quarter = 1
+
+
+class ScheduleSessionFactory(DjangoModelFactory):
+    class Meta:
+        model = ScheduleSession
+
+    schedule = factory.SubFactory(SubjectScheduleFactory)
+    order = 1
+    weekday = 0
+
+
+class ScheduleAttendanceFactory(DjangoModelFactory):
+    class Meta:
+        model = ScheduleAttendance
+
+    session = factory.SubFactory(ScheduleSessionFactory)
+    student = factory.SubFactory(StudentFactory)
+    date = factory.Faker('date_object')
+    status = 'present'

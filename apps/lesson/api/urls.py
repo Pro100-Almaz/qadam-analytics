@@ -1,6 +1,9 @@
 from django.urls import path
 
-from apps.lesson.api import attendance_views, homework, views
+from apps.lesson.api import (
+    analytics, analytics_attendance, analytics_subject, attendance_views,
+    homework, views,
+)
 
 app_name = 'lesson-api'
 
@@ -240,5 +243,102 @@ urlpatterns = [
         'students/<int:student_id>/homeworks/',
         homework.StudentHomeworkListAPIView.as_view(),
         name='student-homework-list',
+    ),
+
+    # ── Analytics ──
+    # Read-only chart data. Missing topic grades count as zero throughout;
+    # every payload carries a `coverage` figure so an unentered grade stays
+    # distinguishable from a scored one.
+
+    # GET /api/v1/analytics/students/<student_id>/offerings/<offering_id>/trajectory/
+    #     per-lesson grade for one student with the class band around it.
+    #     Filters: quarter, unit, date_from, date_to, include_class_stats
+    path(
+        'analytics/students/<int:student_id>/offerings/<int:offering_id>/trajectory/',
+        analytics.StudentTrajectoryAPIView.as_view(),
+        name='analytics-student-trajectory',
+    ),
+
+    # GET /api/v1/analytics/offerings/<offering_id>/topic-heatmap/
+    #     student × topic matrix for one offering. Staff only.
+    #     Filters: quarter, unit, date_from, date_to, group_by, include_subtopics
+    path(
+        'analytics/offerings/<int:offering_id>/topic-heatmap/',
+        analytics.OfferingTopicHeatmapAPIView.as_view(),
+        name='analytics-topic-heatmap',
+    ),
+
+    # GET /api/v1/analytics/students/<student_id>/subject-radar/
+    #     one axis per subject for one quarter.
+    #     Filters: academic_year, quarter, source, include_class_mean
+    path(
+        'analytics/students/<int:student_id>/subject-radar/',
+        analytics.StudentSubjectRadarAPIView.as_view(),
+        name='analytics-subject-radar',
+    ),
+
+    # ── Analytics: subject grades ──
+    # The same three shapes over the assignment gradebook. Marks are a percent
+    # of each assignment's own max_grade, and unmarked work is left out of the
+    # averages unless missing=zero says otherwise.
+
+    # GET /api/v1/analytics/students/<student_id>/offerings/<offering_id>/assignment-trajectory/
+    #     per-assignment score for one student with the class band around it.
+    #     Filters: category, date_from, date_to, missing, include_class_stats
+    path(
+        'analytics/students/<int:student_id>/offerings/<int:offering_id>/assignment-trajectory/',
+        analytics_subject.StudentAssignmentTrajectoryAPIView.as_view(),
+        name='analytics-assignment-trajectory',
+    ),
+
+    # GET /api/v1/analytics/offerings/<offering_id>/assignment-heatmap/
+    #     student × assignment matrix for one offering. Staff only.
+    #     Filters: category, date_from, date_to, missing
+    path(
+        'analytics/offerings/<int:offering_id>/assignment-heatmap/',
+        analytics_subject.OfferingAssignmentHeatmapAPIView.as_view(),
+        name='analytics-assignment-heatmap',
+    ),
+
+    # GET /api/v1/analytics/students/<student_id>/assignment-summary/
+    #     one axis per subject, each split by lesson / exam / final.
+    #     Filters: academic_year, quarter, category, date_from, date_to,
+    #              missing, include_class_mean
+    path(
+        'analytics/students/<int:student_id>/assignment-summary/',
+        analytics_subject.StudentAssignmentSummaryAPIView.as_view(),
+        name='analytics-assignment-summary',
+    ),
+
+    # ── Analytics: attendance ──
+    # An unrecorded slot is never counted as an absence; every rate carries the
+    # `recorded` count it was taken over.
+
+    # GET /api/v1/analytics/students/<student_id>/attendance-summary/
+    #     one student's attendance by subject, weekday and month.
+    #     Filters: academic_year, quarter, date_from, date_to, offering,
+    #              include_class_stats
+    path(
+        'analytics/students/<int:student_id>/attendance-summary/',
+        analytics_attendance.StudentAttendanceSummaryAPIView.as_view(),
+        name='analytics-attendance-summary',
+    ),
+
+    # GET /api/v1/analytics/offerings/<offering_id>/attendance-heatmap/
+    #     student × registered slot matrix for one offering. Staff only.
+    #     Filters: quarter, date_from, date_to
+    path(
+        'analytics/offerings/<int:offering_id>/attendance-heatmap/',
+        analytics_attendance.OfferingAttendanceHeatmapAPIView.as_view(),
+        name='analytics-attendance-heatmap',
+    ),
+
+    # GET /api/v1/analytics/class-groups/<class_group_id>/attendance-overview/
+    #     one class group ranked by attendance, with an at-risk list. Staff only.
+    #     Filters: academic_year, quarter, date_from, date_to, at_risk_below
+    path(
+        'analytics/class-groups/<int:class_group_id>/attendance-overview/',
+        analytics_attendance.ClassGroupAttendanceOverviewAPIView.as_view(),
+        name='analytics-attendance-overview',
     ),
 ]
