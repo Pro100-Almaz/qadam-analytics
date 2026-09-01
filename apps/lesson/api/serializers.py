@@ -491,19 +491,14 @@ class GradingDataSerializer(serializers.ModelSerializer):
 class ScheduleSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScheduleSession
-        fields = ['id', 'schedule', 'order', 'weekday']
+        fields = ['id', 'schedule', 'weekday', 'time_start', 'time_end']
         read_only_fields = ['schedule']
 
 
 class ScheduleSessionWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScheduleSession
-        fields = ['order', 'weekday']
-
-    def validate_order(self, value):
-        if not (1 <= value <= 12):
-            raise serializers.ValidationError('Order must be between 1 and 12.')
-        return value
+        fields = ['weekday', 'time_start', 'time_end']
 
     def validate_weekday(self, value):
         if not (0 <= value <= 6):
@@ -513,52 +508,101 @@ class ScheduleSessionWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Reject a second session in the same slot of the same schedule."""
+        """
+        A slot must end after it starts, and must not overlap another slot of
+        the same schedule on the same weekday.
+
+        Overlap is the time-based replacement for the old weekday/order
+        uniqueness: two lessons of the same subject cannot run at once, and
+        touching slots (10:00–10:45 then 10:45–11:30) are not an overlap.
+        """
         schedule = self.context['schedule']
-        order = attrs.get('order', getattr(self.instance, 'order', None))
         weekday = attrs.get('weekday', getattr(self.instance, 'weekday', None))
+        time_start = attrs.get('time_start', getattr(self.instance, 'time_start', None))
+        time_end = attrs.get('time_end', getattr(self.instance, 'time_end', None))
+
+        if time_start is not None and time_end is not None and time_end <= time_start:
+            raise serializers.ValidationError(
+                {'time_end': 'time_end must be later than time_start.'}
+            )
 
         clash = ScheduleSession.objects.filter(
-            schedule=schedule, order=order, weekday=weekday,
+            schedule=schedule,
+            weekday=weekday,
+            time_start__lt=time_end,
+            time_end__gt=time_start,
         )
         if self.instance is not None:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
             raise serializers.ValidationError(
-                'This schedule already has a session in that weekday/order slot.'
+                'This schedule already has a session overlapping that time on '
+                'that weekday.'
             )
         return attrs
 
 
 # ── Subject schedule serializers ──
 
+def schedule_title(schedule):
+    """
+    What to call a schedule row: its subject, or its description.
+
+    A schedule without an offering is a free timetable entry (a break, an
+    assembly, a club) and carries its own description instead of a subject.
+    """
+    if schedule.offering_id:
+        return schedule.offering.subject.name
+    return schedule.description or ''
+
+
 class OtherScheduleSessionSerializer(serializers.ModelSerializer):
-    """A slot in the class group's timetable owned by a different subject."""
+    """A slot in the class group's timetable owned by a different entry."""
     offering_id = serializers.IntegerField(source='schedule.offering_id', read_only=True)
-    subject_name = serializers.CharField(
-        source='schedule.offering.subject.name', read_only=True,
-    )
+    subject_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ScheduleSession
-        fields = ['id', 'schedule', 'offering_id', 'subject_name', 'order', 'weekday']
+        fields = [
+            'id', 'schedule', 'offering_id', 'subject_name',
+            'weekday', 'time_start', 'time_end',
+        ]
+
+    def get_subject_name(self, obj):
+        """The subject's name, or the description for an offering-less entry."""
+        return schedule_title(obj.schedule)
 
 
 class SubjectScheduleSerializer(serializers.ModelSerializer):
-    offering = OfferingMinimalSerializer(read_only=True)
-    offering_id = serializers.IntegerField(read_only=True)
+    offering = OfferingMinimalSerializer(read_only=True, allow_null=True)
+    offering_id = serializers.IntegerField(read_only=True, allow_null=True)
+    type = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
     other_sessions = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectSchedule
         fields = [
-            'id', 'offering', 'offering_id', 'quarter',
-            'sessions', 'other_sessions',
+            'id', 'type', 'title', 'offering', 'offering_id', 'description',
+            'quarter', 'sessions', 'other_sessions',
         ]
 
+    def get_type(self, obj):
+        """'subject' for an offering's timetable, 'other' for a free entry."""
+        return (
+            SubjectSchedule.SUBJECT_CHOICE if obj.offering_id
+            else SubjectSchedule.OTHER_CHOICE
+        )
+
+    def get_title(self, obj):
+        return schedule_title(obj)
+
     def get_sessions(self, obj):
-        sessions = sorted(obj.sessions.all(), key=lambda s: (s.weekday, s.order))
+        sessions = sorted(
+            obj.sessions.all(),
+            key=lambda s: (s.weekday, s.time_start, s.time_end),
+        )
         return ScheduleSessionSerializer(sessions, many=True).data
 
     def get_other_sessions(self, obj):
@@ -611,17 +655,55 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
     offering = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
             'subject', 'class_group', 'academic_year'
-        )
+        ),
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
         model = SubjectSchedule
-        fields = ['offering', 'quarter']
+        fields = ['offering', 'description', 'quarter']
+        # The model's (offering, quarter) uniqueness is checked in validate()
+        # instead: DRF's automatic UniqueTogetherValidator would make `offering`
+        # mandatory on create, and an offering-less entry has none to give.
+        validators = []
 
     def validate_quarter(self, value):
         if not (1 <= value <= 4):
             raise serializers.ValidationError('Quarter must be between 1 and 4.')
         return value
+
+    def validate(self, attrs):
+        """
+        A schedule is either a subject's or a free entry, never neither.
+
+        With no offering the row has nothing to name it, so `description`
+        becomes mandatory, and one offering still gets a single schedule per
+        quarter. On a PATCH the fields already stored count too — a request that
+        only changes the quarter must not have to resend them.
+        """
+        offering = attrs.get('offering', getattr(self.instance, 'offering', None))
+        description = attrs.get(
+            'description', getattr(self.instance, 'description', None),
+        )
+        quarter = attrs.get('quarter', getattr(self.instance, 'quarter', None))
+
+        if offering is None and not (description or '').strip():
+            raise serializers.ValidationError(
+                {'description': 'Required when the schedule has no offering.'}
+            )
+
+        if offering is not None:
+            duplicate = SubjectSchedule.objects.filter(
+                offering=offering, quarter=quarter,
+            )
+            if self.instance is not None:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError(
+                    'This offering already has a schedule for that quarter.'
+                )
+        return attrs
 
 
 # ── Attendance serializers ──
@@ -659,6 +741,11 @@ class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
         """The student must be actively enrolled in the offering's class group."""
         session = self.context['session']
         offering = session.schedule.offering
+        if offering is None:
+            raise serializers.ValidationError(
+                'Attendance can only be recorded against a schedule bound to a '
+                'subject offering.'
+            )
         enrolled = Enrollment.objects.filter(
             student=student,
             class_group=offering.class_group,
@@ -952,3 +1039,532 @@ class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
                 'This student is already graded for this homework.'
             )
         return attrs
+
+
+# ── Analytics response shapes ──
+#
+# Declared for the OpenAPI schema only. The analytics views assemble their
+# payloads as plain dicts — the numbers come out of aggregation, not out of
+# model instances, and running them back through a serializer would only
+# re-copy them — so these are what drf-spectacular documents rather than what
+# builds the response. Keep them in step with apps/lesson/api/analytics.py.
+
+
+class GradingNoteSerializer(serializers.Serializer):
+    missing_topics_as = serializers.CharField(
+        help_text='Always "zero": an ungraded topic counts as 0.',
+    )
+
+
+class CoverageSerializer(serializers.Serializer):
+    topic_count = serializers.IntegerField()
+    graded_topic_count = serializers.IntegerField()
+
+
+class AnalyticsStudentSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    short_name = serializers.CharField()
+
+
+class AnalyticsOfferingSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    subject = serializers.CharField()
+    subject_id = serializers.IntegerField()
+    class_group = serializers.CharField(allow_null=True)
+    academic_year = serializers.CharField(allow_null=True)
+    max_points = serializers.IntegerField()
+    grading_strategy = serializers.CharField()
+
+
+class LessonFiltersSerializer(serializers.Serializer):
+    quarter = serializers.IntegerField(allow_null=True)
+    unit = serializers.IntegerField(allow_null=True)
+    date_from = serializers.DateField(allow_null=True)
+    date_to = serializers.DateField(allow_null=True)
+
+
+class TrajectoryPointSerializer(serializers.Serializer):
+    lesson_id = serializers.IntegerField()
+    title = serializers.CharField()
+    date = serializers.DateField(allow_null=True)
+    order = serializers.IntegerField()
+    quarter = serializers.IntegerField()
+    unit = serializers.IntegerField()
+    status = serializers.CharField()
+    student_grade = serializers.FloatField()
+    coverage = CoverageSerializer()
+    # Present unless include_class_stats=false.
+    class_mean = serializers.FloatField(required=False)
+    class_median = serializers.FloatField(required=False)
+    p25 = serializers.FloatField(required=False)
+    p75 = serializers.FloatField(required=False)
+    class_min = serializers.FloatField(required=False)
+    class_max = serializers.FloatField(required=False)
+    class_size = serializers.IntegerField(required=False)
+    rank = serializers.IntegerField(required=False)
+
+
+class TrajectorySummarySerializer(serializers.Serializer):
+    lesson_count = serializers.IntegerField()
+    student_mean = serializers.FloatField()
+    class_mean = serializers.FloatField(allow_null=True)
+    delta = serializers.FloatField(allow_null=True)
+    trend_slope = serializers.FloatField(help_text='Least-squares points per lesson.')
+    coverage = CoverageSerializer()
+
+
+class StudentTrajectorySerializer(serializers.Serializer):
+    student = AnalyticsStudentSerializer()
+    offering = AnalyticsOfferingSerializer()
+    filters = LessonFiltersSerializer()
+    grading = GradingNoteSerializer()
+    points = TrajectoryPointSerializer(many=True)
+    summary = TrajectorySummarySerializer()
+
+
+class HeatmapFiltersSerializer(LessonFiltersSerializer):
+    group_by = serializers.CharField()
+    include_subtopics = serializers.BooleanField()
+
+
+class HeatmapColumnSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    parent = serializers.CharField(allow_null=True)
+    weight = serializers.FloatField(help_text='Mean weight of the topics folded in.')
+    lesson_count = serializers.IntegerField()
+    topic_count = serializers.IntegerField()
+
+
+class HeatmapScaleSerializer(serializers.Serializer):
+    min = serializers.IntegerField()
+    max = serializers.IntegerField()
+
+
+class TopicHeatmapSerializer(serializers.Serializer):
+    offering = AnalyticsOfferingSerializer()
+    filters = HeatmapFiltersSerializer()
+    grading = GradingNoteSerializer()
+    scale = HeatmapScaleSerializer()
+    students = AnalyticsStudentSerializer(many=True)
+    topics = HeatmapColumnSerializer(many=True)
+    matrix = serializers.ListField(
+        child=serializers.ListField(child=serializers.FloatField()),
+        help_text='matrix[i][j] = students[i] on topics[j]. Dense, never null.',
+    )
+    coverage = serializers.ListField(
+        child=serializers.ListField(child=serializers.IntegerField()),
+        help_text='Topic grades actually entered behind each cell.',
+    )
+    row_means = serializers.ListField(child=serializers.FloatField())
+    column_means = serializers.ListField(child=serializers.FloatField())
+    class_size = serializers.IntegerField()
+    lesson_count = serializers.IntegerField()
+    truncated = serializers.BooleanField(
+        help_text='True when columns were capped; narrow with quarter or unit.',
+    )
+
+
+class RadarAxisSerializer(serializers.Serializer):
+    offering_id = serializers.IntegerField()
+    subject_id = serializers.IntegerField()
+    subject = serializers.CharField()
+    language_group = serializers.CharField()
+    value = serializers.FloatField()
+    source = serializers.ChoiceField(choices=['snapshot', 'live'])
+    lesson_count = serializers.IntegerField()
+    graded_lesson_count = serializers.IntegerField()
+    letter_grade = serializers.CharField(
+        required=False, help_text='Snapshot-sourced axes only.',
+    )
+    class_mean = serializers.FloatField(required=False)
+    percentile = serializers.IntegerField(required=False)
+
+
+class RadarExtremeSerializer(serializers.Serializer):
+    subject = serializers.CharField()
+    value = serializers.FloatField()
+
+
+class RadarSourceCountSerializer(serializers.Serializer):
+    snapshot = serializers.IntegerField()
+    live = serializers.IntegerField()
+
+
+class RadarSummarySerializer(serializers.Serializer):
+    overall_mean = serializers.FloatField()
+    class_overall_mean = serializers.FloatField(allow_null=True)
+    strongest = RadarExtremeSerializer(allow_null=True)
+    weakest = RadarExtremeSerializer(allow_null=True)
+    axis_count = serializers.IntegerField(help_text='Axes drawn on the radar.')
+    subject_count = serializers.IntegerField(
+        help_text=(
+            'Axes with lessons behind them — the ones the averages and '
+            'strongest/weakest are computed over. Axes with lesson_count 0 '
+            'are drawn but excluded here.'
+        ),
+    )
+    sources = RadarSourceCountSerializer()
+
+
+class AnalyticsAcademicYearSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    year = serializers.CharField()
+
+
+class StudentSubjectRadarSerializer(serializers.Serializer):
+    student = AnalyticsStudentSerializer()
+    academic_year = AnalyticsAcademicYearSerializer(allow_null=True)
+    class_group = serializers.CharField(allow_null=True)
+    quarter = serializers.IntegerField(allow_null=True)
+    grading = GradingNoteSerializer()
+    axes = RadarAxisSerializer(many=True)
+    summary = RadarSummarySerializer()
+
+
+# ── Subject-grade analytics response shapes ──
+#
+# For apps/lesson/api/analytics_subject.py. Same rule as above: schema only.
+# Scores are a percent of each assignment's own max_grade, and an unmarked
+# grade is left out of the averages rather than counted as zero — the opposite
+# of the topic-grade rule, because SubjectGrade.grade is nullable and a null
+# means "not marked yet".
+
+
+class AssignmentGradingNoteSerializer(serializers.Serializer):
+    missing_grades_as = serializers.ChoiceField(
+        choices=['excluded', 'zero'],
+        help_text='Follows the `missing` query parameter.',
+    )
+    scale = serializers.CharField(
+        help_text='Always "percent_of_max_grade".',
+    )
+
+
+class AssignmentCoverageSerializer(serializers.Serializer):
+    possible_count = serializers.IntegerField(
+        help_text='Assignments × students in scope.',
+    )
+    graded_count = serializers.IntegerField()
+    graded_share = serializers.FloatField(help_text='graded_count as a percent.')
+
+
+class AssignmentCategoryBlockSerializer(serializers.Serializer):
+    assignment_count = serializers.IntegerField()
+    graded_count = serializers.IntegerField()
+    value = serializers.FloatField()
+
+
+class AssignmentCategoryBreakdownSerializer(serializers.Serializer):
+    lesson = AssignmentCategoryBlockSerializer()
+    exam = AssignmentCategoryBlockSerializer()
+    final = AssignmentCategoryBlockSerializer()
+
+
+class AssignmentFiltersSerializer(serializers.Serializer):
+    category = serializers.CharField(allow_null=True)
+    date_from = serializers.DateField(allow_null=True)
+    date_to = serializers.DateField(allow_null=True)
+    missing = serializers.ChoiceField(choices=['exclude', 'zero'])
+
+
+class AssignmentColumnSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    category = serializers.CharField()
+    date = serializers.DateField(allow_null=True)
+    max_grade = serializers.IntegerField()
+    graded_count = serializers.IntegerField()
+
+
+class AssignmentTrajectoryPointSerializer(serializers.Serializer):
+    id = serializers.IntegerField(help_text='Subject assignment id.')
+    title = serializers.CharField()
+    category = serializers.CharField()
+    date = serializers.DateField(allow_null=True)
+    max_grade = serializers.IntegerField()
+    grade = serializers.IntegerField(
+        allow_null=True, help_text='The raw mark, null when unmarked.',
+    )
+    percent = serializers.FloatField(
+        help_text='grade as a percent of max_grade. 0.0 when unmarked.',
+    )
+    graded = serializers.BooleanField(
+        help_text='False means unmarked — read this before reading percent.',
+    )
+    # Present unless include_class_stats=false.
+    class_mean = serializers.FloatField(required=False)
+    class_median = serializers.FloatField(required=False)
+    p25 = serializers.FloatField(required=False)
+    p75 = serializers.FloatField(required=False)
+    class_min = serializers.FloatField(required=False)
+    class_max = serializers.FloatField(required=False)
+    class_size = serializers.IntegerField(required=False)
+    graded_class_count = serializers.IntegerField(
+        required=False, allow_null=True,
+        help_text='Classmates with a mark. Null under missing=zero.',
+    )
+    rank = serializers.IntegerField(
+        required=False, help_text='0 when this student has no mark.',
+    )
+
+
+class AssignmentTrajectorySummarySerializer(serializers.Serializer):
+    assignment_count = serializers.IntegerField()
+    graded_count = serializers.IntegerField()
+    student_mean = serializers.FloatField()
+    class_mean = serializers.FloatField(allow_null=True)
+    delta = serializers.FloatField(allow_null=True)
+    trend_slope = serializers.FloatField(
+        help_text='Least-squares percentage points per assignment.',
+    )
+    by_category = AssignmentCategoryBreakdownSerializer()
+    coverage = AssignmentCoverageSerializer()
+
+
+class StudentAssignmentTrajectorySerializer(serializers.Serializer):
+    student = AnalyticsStudentSerializer()
+    offering = AnalyticsOfferingSerializer()
+    filters = AssignmentFiltersSerializer()
+    grading = AssignmentGradingNoteSerializer()
+    points = AssignmentTrajectoryPointSerializer(many=True)
+    summary = AssignmentTrajectorySummarySerializer()
+
+
+class AssignmentHeatmapSerializer(serializers.Serializer):
+    offering = AnalyticsOfferingSerializer()
+    filters = AssignmentFiltersSerializer()
+    grading = AssignmentGradingNoteSerializer()
+    scale = HeatmapScaleSerializer(help_text='Always 0–100: cells are percentages.')
+    students = AnalyticsStudentSerializer(many=True)
+    assignments = AssignmentColumnSerializer(many=True)
+    matrix = serializers.ListField(
+        child=serializers.ListField(child=serializers.FloatField()),
+        help_text=(
+            'matrix[i][j] = students[i] on assignments[j], as a percent. '
+            '0.0 where unmarked — check graded[i][j].'
+        ),
+    )
+    graded = serializers.ListField(
+        child=serializers.ListField(child=serializers.BooleanField()),
+        help_text='Whether each cell holds a real mark.',
+    )
+    raw_grades = serializers.ListField(
+        child=serializers.ListField(
+            child=serializers.IntegerField(allow_null=True),
+        ),
+        help_text='The marks as entered, in the assignment\'s own points.',
+    )
+    row_means = serializers.ListField(child=serializers.FloatField())
+    column_means = serializers.ListField(child=serializers.FloatField())
+    coverage = AssignmentCoverageSerializer()
+    class_size = serializers.IntegerField()
+    assignment_count = serializers.IntegerField()
+    truncated = serializers.BooleanField(
+        help_text='True when older assignments were dropped; narrow by date.',
+    )
+
+
+class AssignmentSummaryFiltersSerializer(AssignmentFiltersSerializer):
+    quarter = serializers.IntegerField(allow_null=True)
+
+
+class AssignmentAxisSerializer(serializers.Serializer):
+    offering_id = serializers.IntegerField()
+    subject_id = serializers.IntegerField()
+    subject = serializers.CharField()
+    language_group = serializers.CharField()
+    value = serializers.FloatField()
+    assignment_count = serializers.IntegerField(
+        help_text='Read this before value: 0 means the subject set no work.',
+    )
+    graded_count = serializers.IntegerField()
+    by_category = AssignmentCategoryBreakdownSerializer()
+    class_mean = serializers.FloatField(required=False)
+    percentile = serializers.IntegerField(required=False)
+
+
+class AssignmentSummaryTotalsSerializer(serializers.Serializer):
+    overall_mean = serializers.FloatField()
+    class_overall_mean = serializers.FloatField(allow_null=True)
+    strongest = RadarExtremeSerializer(allow_null=True)
+    weakest = RadarExtremeSerializer(allow_null=True)
+    axis_count = serializers.IntegerField()
+    subject_count = serializers.IntegerField(
+        help_text='Axes with assignments behind them — what the averages use.',
+    )
+    assignment_count = serializers.IntegerField()
+    graded_count = serializers.IntegerField()
+    by_category = AssignmentCategoryBreakdownSerializer()
+
+
+class AnalyticsClassGroupSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    grade_level = serializers.IntegerField(allow_null=True)
+    letter = serializers.CharField()
+    academic_year = serializers.CharField(allow_null=True)
+
+
+class StudentAssignmentSummarySerializer(serializers.Serializer):
+    student = AnalyticsStudentSerializer()
+    academic_year = AnalyticsAcademicYearSerializer(allow_null=True)
+    class_group = AnalyticsClassGroupSerializer(allow_null=True)
+    filters = AssignmentSummaryFiltersSerializer()
+    grading = AssignmentGradingNoteSerializer()
+    axes = AssignmentAxisSerializer(many=True)
+    summary = AssignmentSummaryTotalsSerializer()
+
+
+# ── Attendance analytics response shapes ──
+#
+# For apps/lesson/api/analytics_attendance.py. Schema only, as above. An
+# unrecorded slot is never an absence: rates are present / (present + absent)
+# over the rows that exist, and `recorded` says how many that was.
+
+
+class AttendanceCountingNoteSerializer(serializers.Serializer):
+    unrecorded_as = serializers.CharField(help_text='Always "excluded".')
+    rate = serializers.CharField(help_text='Always "present / (present + absent)".')
+
+
+class AttendanceCountsSerializer(serializers.Serializer):
+    recorded = serializers.IntegerField()
+    present = serializers.IntegerField()
+    absent = serializers.IntegerField()
+    attendance_rate = serializers.FloatField(
+        help_text='0.0 when nothing was recorded — read `recorded` first.',
+    )
+
+
+class AttendanceFiltersSerializer(serializers.Serializer):
+    academic_year = serializers.IntegerField(allow_null=True)
+    quarter = serializers.IntegerField(
+        allow_null=True, help_text="The schedule's own quarter, not a date window.",
+    )
+    date_from = serializers.DateField(allow_null=True)
+    date_to = serializers.DateField(allow_null=True)
+
+
+class StudentAttendanceFiltersSerializer(AttendanceFiltersSerializer):
+    offering = serializers.IntegerField(allow_null=True)
+
+
+class ClassAttendanceFiltersSerializer(AttendanceFiltersSerializer):
+    at_risk_below = serializers.FloatField()
+
+
+class SubjectAttendanceBlockSerializer(AttendanceCountsSerializer):
+    offering_id = serializers.IntegerField(
+        allow_null=True, help_text='Null for a schedule with no offering.',
+    )
+    subject = serializers.CharField(
+        help_text="The subject's name, or the description of an offering-less entry.",
+    )
+
+
+class WeekdayAttendanceBlockSerializer(AttendanceCountsSerializer):
+    weekday = serializers.IntegerField(help_text='0 = Monday … 6 = Sunday.')
+
+
+class MonthAttendanceBlockSerializer(AttendanceCountsSerializer):
+    month = serializers.CharField(allow_null=True, help_text='YYYY-MM.')
+
+
+class AttendanceClassComparisonSerializer(serializers.Serializer):
+    class_size = serializers.IntegerField()
+    class_attendance_rate = serializers.FloatField(
+        help_text='Pooled over every row of the class.',
+    )
+    class_mean_rate = serializers.FloatField(
+        help_text='Mean of the per-student rates — what the rank is taken over.',
+    )
+    rank = serializers.IntegerField(help_text='1-based, best first; ties share.')
+    percentile = serializers.IntegerField()
+    delta = serializers.FloatField(
+        help_text="This student's rate minus class_mean_rate.",
+    )
+
+
+class StudentAttendanceSummarySerializer(serializers.Serializer):
+    student = AnalyticsStudentSerializer()
+    academic_year = AnalyticsAcademicYearSerializer(allow_null=True)
+    class_group = AnalyticsClassGroupSerializer(allow_null=True)
+    filters = StudentAttendanceFiltersSerializer()
+    counting = AttendanceCountingNoteSerializer()
+    totals = AttendanceCountsSerializer()
+    by_subject = SubjectAttendanceBlockSerializer(many=True)
+    by_weekday = WeekdayAttendanceBlockSerializer(
+        many=True, help_text='Always seven entries, Monday first.',
+    )
+    by_month = MonthAttendanceBlockSerializer(many=True)
+    class_comparison = AttendanceClassComparisonSerializer(allow_null=True)
+
+
+class AttendanceSlotSerializer(serializers.Serializer):
+    key = serializers.CharField(help_text='"<date>:<session_id>".')
+    date = serializers.DateField()
+    session_id = serializers.IntegerField()
+    time_start = serializers.TimeField(help_text='When the slot starts, HH:MM:SS.')
+    time_end = serializers.TimeField()
+    weekday = serializers.IntegerField()
+    quarter = serializers.IntegerField()
+
+
+class OfferingAttendanceHeatmapSerializer(serializers.Serializer):
+    offering = AnalyticsOfferingSerializer()
+    filters = AttendanceFiltersSerializer()
+    counting = AttendanceCountingNoteSerializer()
+    legend = serializers.ListField(
+        child=serializers.CharField(allow_null=True),
+        help_text='The three cell values: "present", "absent", null.',
+    )
+    students = AnalyticsStudentSerializer(many=True)
+    slots = AttendanceSlotSerializer(many=True)
+    matrix = serializers.ListField(
+        child=serializers.ListField(
+            child=serializers.CharField(allow_null=True),
+        ),
+        help_text=(
+            'matrix[i][j] = students[i] at slots[j]: "present", "absent", or '
+            'null where nothing was registered. Null is not an absence.'
+        ),
+    )
+    row_summary = AttendanceCountsSerializer(many=True)
+    column_summary = AttendanceCountsSerializer(many=True)
+    totals = AttendanceCountsSerializer()
+    class_size = serializers.IntegerField()
+    slot_count = serializers.IntegerField()
+    truncated = serializers.BooleanField(
+        help_text='True when older slots were dropped; narrow by date or quarter.',
+    )
+
+
+class StudentAttendanceBlockSerializer(AttendanceCountsSerializer):
+    student = AnalyticsStudentSerializer()
+    rank = serializers.IntegerField(help_text='1-based, best first; ties share.')
+
+
+class ClassAttendanceTotalsSerializer(AttendanceCountsSerializer):
+    class_size = serializers.IntegerField()
+    mean_student_rate = serializers.FloatField(
+        help_text='Mean of the per-student rates, unweighted by row count.',
+    )
+
+
+class ClassGroupAttendanceOverviewSerializer(serializers.Serializer):
+    class_group = AnalyticsClassGroupSerializer()
+    academic_year = AnalyticsAcademicYearSerializer(allow_null=True)
+    filters = ClassAttendanceFiltersSerializer()
+    counting = AttendanceCountingNoteSerializer()
+    totals = ClassAttendanceTotalsSerializer()
+    students = StudentAttendanceBlockSerializer(
+        many=True, help_text='Best attendance first.',
+    )
+    by_subject = SubjectAttendanceBlockSerializer(many=True)
+    by_weekday = WeekdayAttendanceBlockSerializer(many=True)
+    by_month = MonthAttendanceBlockSerializer(many=True)
+    at_risk = StudentAttendanceBlockSerializer(
+        many=True, help_text='Below at_risk_below, and with something recorded.',
+    )

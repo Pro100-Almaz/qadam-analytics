@@ -66,7 +66,8 @@ urlpatterns = [
     path('parents/me/teachers/', views.ParentTeachersAPIView.as_view(), name='parent-my-teachers'),
 
     # ── Subject assignments ──
-    # GET  /api/v1/subject-assignments/  role-scoped list; filters: offering,
+    # GET  /api/v1/subject-assignments/  role-scoped list, a teacher's own
+    #                                    offerings only; filters: offering,
     #                                    subject, class_group, academic_year,
     #                                    category, date, date_from, date_to
     # POST /api/v1/subject-assignments/  create one in an offering you teach
@@ -83,6 +84,14 @@ urlpatterns = [
         'subject-assignments/<int:pk>/',
         views.SubjectAssignmentDetailAPIView.as_view(),
         name='subject-assignment-detail',
+    ),
+
+    # GET /api/v1/my-class/subject-assignments/  every assignment set to the
+    #                                    caller's homeroom class, all subjects
+    path(
+        'my-class/subject-assignments/',
+        views.HomeroomSubjectAssignmentListAPIView.as_view(),
+        name='homeroom-subject-assignment-list',
     ),
 
     # GET  /api/v1/subject-assignments/<assignment_id>/grades/  role-scoped list

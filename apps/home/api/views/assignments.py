@@ -20,9 +20,12 @@ Read access:
 - Teacher        — the assignments and grades of every offering they teach,
                    plus, for grades, their own homeroom class across every
                    subject taught to it.
-- Homeroom teacher — that homeroom reach has its own endpoint,
-                   teachers/my-class/subject-grades/, which spans every subject
-                   their class is taught rather than only the ones they teach.
+- Homeroom teacher — that homeroom reach has its own endpoints,
+                   my-class/subject-assignments/ and
+                   teachers/my-class/subject-grades/, each spanning every
+                   subject their class is taught rather than only the ones they
+                   teach — and, conversely, never their own work for the other
+                   classes they teach.
 - Student        — their own grades, and the assignments of the classes they
                    are enrolled in.
 - Parent         — the same, for their children.
@@ -115,10 +118,7 @@ def assignment_queryset(user):
         teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return qs.none()
-        return qs.filter(
-            Q(offering_id__in=teacher_offering_ids(teacher))
-            | Q(offering__class_group_id__in=teacher_homeroom_class_group_ids(teacher))
-        ).distinct()
+        return qs.filter(offering_id__in=teacher_offering_ids(teacher))
 
     if user.is_student():
         student = Student.objects.filter(user=user).first()
@@ -177,6 +177,29 @@ def grade_queryset(user):
         return qs.filter(student__in=parent.students.all())
 
     return qs.none()
+
+
+def homeroom_assignment_queryset(user):
+    """
+    Every assignment set to the caller's own homeroom class, across all subjects
+    taught to it — not only the subjects the caller teaches, and never the
+    caller's own assignments for their other classes.
+
+    Empty for anyone without a homeroom assignment in the active academic year,
+    admin roles included: they reach the same rows through GET
+    subject-assignments/?class_group=<id>.
+    """
+    teacher = Teacher.objects.filter(user=user).first()
+    if teacher is None:
+        return SubjectAssignment.objects.none()
+
+    class_group_ids = teacher_homeroom_class_group_ids(teacher)
+    if not class_group_ids:
+        return SubjectAssignment.objects.none()
+
+    return SubjectAssignment.objects.select_related(
+        *ASSIGNMENT_SELECT_RELATED,
+    ).filter(offering__class_group_id__in=class_group_ids)
 
 
 def homeroom_grade_queryset(user):
@@ -307,6 +330,26 @@ ASSIGNMENT_FILTER_PARAMS = (
 )
 
 
+def _assignment_list_response(view, request, rows):
+    """
+    Filter, order and paginate an assignment queryset into a list response.
+
+    Shared by the role-scoped list and the homeroom one so the two only ever
+    differ in the queryset they start from — the payload, the filters and the
+    ordering are the same by construction.
+    """
+    rows = _apply_assignment_filters(rows, request.query_params).order_by(
+        '-date', '-created_at', '-id',
+    )
+
+    paginator = SubjectAssignmentPagination()
+    page = paginator.paginate_queryset(rows, request, view=view)
+    serializer = SubjectAssignmentSerializer(
+        page, many=True, context={'request': request},
+    )
+    return paginator.get_paginated_response(serializer.data)
+
+
 # ── Assignments ──
 
 class SubjectAssignmentListCreateAPIView(APIView):
@@ -325,25 +368,19 @@ class SubjectAssignmentListCreateAPIView(APIView):
         parameters=ASSIGNMENT_FILTER_PARAMS,
         description=(
             'Role-scoped list of subject assignments. Teachers get the '
-            'offerings they teach and their homeroom class, students and '
-            'parents the classes they (or their children) are enrolled in, and '
-            'admin roles and psychologists the whole school. Filter by '
-            '`category` to separate ordinary work from exams and finals, and by '
-            '`date` / `date_from` / `date_to` to pick a day or a range. Newest '
-            'assignment date first.'
+            'offerings they teach and nothing else — a homeroom class they do '
+            'not teach is read through GET my-class/subject-assignments/ '
+            'instead. Students and parents get the classes they (or their '
+            'children) are enrolled in, and admin roles and psychologists the '
+            'whole school. Filter by `category` to separate ordinary work from '
+            'exams and finals, and by `date` / `date_from` / `date_to` to pick '
+            'a day or a range. Newest assignment date first.'
         ),
     )
     def get(self, request):
-        rows = _apply_assignment_filters(
-            assignment_queryset(request.user), request.query_params,
-        ).order_by('-date', '-created_at', '-id')
-
-        paginator = SubjectAssignmentPagination()
-        page = paginator.paginate_queryset(rows, request, view=self)
-        serializer = SubjectAssignmentSerializer(
-            page, many=True, context={'request': request},
+        return _assignment_list_response(
+            self, request, assignment_queryset(request.user),
         )
-        return paginator.get_paginated_response(serializer.data)
 
     @extend_schema(
         request=SubjectAssignmentCreateSerializer,
@@ -550,6 +587,40 @@ class SubjectGradeListAPIView(APIView):
             page, many=True, context={'request': request},
         )
         return paginator.get_paginated_response(serializer.data)
+
+
+class HomeroomSubjectAssignmentListAPIView(APIView):
+    """
+    GET my-class/subject-assignments/ — every assignment set to the students in
+    the caller's own homeroom class, across every subject taught to it.
+
+    The mirror image of GET subject-assignments/, which is scoped to the
+    offerings the caller teaches: this one is scoped to the class group they are
+    homeroom teacher of, so their own assignments for their *other* classes stay
+    out of it. Same payload, same filters, same ordering.
+
+    Read-only, and read-only by construction rather than by a flag: writing to
+    an assignment still needs a TeachingAssignment on its offering, so a
+    homeroom teacher editing a colleague's assignment is the same 403 it has
+    always been. A teacher with no homeroom class gets an empty list rather than
+    an error.
+    """
+    permission_classes = [IsAuthenticated, IsTeacherRole]
+
+    @extend_schema(
+        responses=SubjectAssignmentSerializer(many=True),
+        parameters=ASSIGNMENT_FILTER_PARAMS,
+        description=(
+            'Subject assignments of the classes the caller is homeroom teacher '
+            'of, every subject taught to them. Same payload as GET '
+            'subject-assignments/. Empty when the caller has no homeroom '
+            'assignment for the active academic year.'
+        ),
+    )
+    def get(self, request):
+        return _assignment_list_response(
+            self, request, homeroom_assignment_queryset(request.user),
+        )
 
 
 class HomeroomSubjectGradeListAPIView(APIView):

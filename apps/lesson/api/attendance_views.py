@@ -8,6 +8,13 @@ Write access follows the same rules everywhere in this module:
 Students and parents get read-only access to their own (or their children's)
 schedules and attendance — except for the per-session attendance list, which
 students cannot read at all.
+
+A schedule may also carry no offering at all — a free entry named by its own
+`description` (a break, an assembly, a club slot). Those belong to no class
+group, so everyone can read them and only admin roles may write them.
+
+Sessions are slots in time: `weekday` plus `time_start`/`time_end`, ordered by
+clock time. Two sessions of one schedule may not overlap on the same weekday.
 """
 
 from django.db.models import Min, Q
@@ -63,7 +70,7 @@ class CustomQueryset:
             'offering__class_group', 'offering__academic_year',
         ).prefetch_related('sessions')
 
-        return cls._filter_qs_by_roles(qs, user)
+        return cls._filter_qs_by_roles(qs, user, include_offering_less=True)
 
     @classmethod
     def teaching_assignment_queryset(cls, user):
@@ -78,33 +85,63 @@ class CustomQueryset:
         return cls._filter_qs_by_roles(qs, user)
 
     @staticmethod
-    def _filter_qs_by_roles(qs, user):
+    def _filter_qs_by_roles(qs, user, include_offering_less=False):
+        """
+        Narrow a queryset of offering-bound rows to what `user` may see.
+
+        `include_offering_less` widens the result with the rows that carry no
+        offering at all — free schedule entries such as breaks or assemblies.
+        They belong to no class group, so no role filter can reach them; they
+        are school-wide by nature and readable by anyone. Only schedules have
+        them, which is why teaching assignments leave the flag off.
+        """
+        extra = Q(offering__isnull=True) if include_offering_less else Q(pk__in=[])
+
         if is_admin_role(user):
             return qs
 
         if is_teacher_role(user):
             teacher = Teacher.objects.filter(user=user).first()
             if teacher is None:
-                return qs.none()
-            return qs.filter(teacher_offering_filter(teacher))
+                return qs.filter(extra)
+            return qs.filter(teacher_offering_filter(teacher) | extra)
 
         if user.is_student():
             student = Student.objects.filter(user=user).first()
             if student is None:
-                return qs.none()
+                return qs.filter(extra)
             return qs.filter(
-                offering__class_group_id__in=active_class_group_ids([student])
+                Q(offering__class_group_id__in=active_class_group_ids([student]))
+                | extra
             )
 
         if user.is_parent():
             parent = Parent.objects.filter(user=user).first()
             if parent is None:
-                return qs.none()
+                return qs.filter(extra)
             return qs.filter(
-                offering__class_group_id__in=active_class_group_ids(parent.students.all())
+                Q(
+                    offering__class_group_id__in=active_class_group_ids(
+                        parent.students.all()
+                    )
+                )
+                | extra
             )
 
-        return qs.none()
+        return qs.filter(extra)
+
+
+def can_manage_schedule(user, schedule):
+    """
+    Write rights on a schedule row and everything hanging off it.
+
+    A schedule with an offering follows the usual offering rules; one without
+    is school-wide and only admin roles may touch it, since there is no class
+    group or teaching assignment to derive ownership from.
+    """
+    if schedule.offering_id is None:
+        return is_admin_role(user)
+    return can_manage_offering_schedule(user, schedule.offering)
 
 
 def active_class_group_ids(students):
@@ -244,7 +281,8 @@ class TeachingAssignmentListAPIView(APIView):
 class SubjectScheduleListCreateAPIView(APIView):
     """
     GET  subject-schedules/   — list schedules visible to the user
-    POST subject-schedules/   — create a schedule for an offering
+    POST subject-schedules/   — create a schedule for an offering, or a free
+                                entry carrying only a description
     """
 
     def get_permissions(self):
@@ -260,6 +298,14 @@ class SubjectScheduleListCreateAPIView(APIView):
             OpenApiParameter('class_group', int),
             OpenApiParameter('subject', int),
             OpenApiParameter('academic_year', int),
+            OpenApiParameter(
+                'type', str,
+                description=(
+                    '"subject" for schedules bound to an offering, "other" for '
+                    'free entries carrying only a description.'
+                ),
+                enum=[SubjectSchedule.SUBJECT_CHOICE, SubjectSchedule.OTHER_CHOICE],
+            ),
             OpenApiParameter('page', int),
             OpenApiParameter('page_size', int),
         ],
@@ -280,9 +326,14 @@ class SubjectScheduleListCreateAPIView(APIView):
             schedules = schedules.filter(
                 offering__academic_year_id=params['academic_year']
             )
+        if params.get('type') == SubjectSchedule.SUBJECT_CHOICE:
+            schedules = schedules.filter(offering__isnull=False)
+        elif params.get('type') == SubjectSchedule.OTHER_CHOICE:
+            schedules = schedules.filter(offering__isnull=True)
 
         schedules = schedules.order_by(
-            'offering__class_group_id', 'offering__subject__name', 'quarter',
+            'offering__class_group_id', 'offering__subject__name',
+            'description', 'quarter',
         )
 
         paginator = SchedulePagination()
@@ -305,8 +356,14 @@ class SubjectScheduleListCreateAPIView(APIView):
         serializer = SubjectScheduleWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        offering = serializer.validated_data['offering']
-        if not can_manage_offering_schedule(request.user, offering):
+        offering = serializer.validated_data.get('offering')
+        if offering is None:
+            # A free entry belongs to no offering, so only admin roles may add one.
+            if not is_admin_role(request.user):
+                return Response(
+                    {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
+                )
+        elif not can_manage_offering_schedule(request.user, offering):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         schedule = serializer.save()
@@ -319,7 +376,7 @@ class SubjectScheduleListCreateAPIView(APIView):
 class SubjectScheduleDetailAPIView(APIView):
     """
     GET    subject-schedules/<pk>/  — schedule with its sessions
-    PATCH  subject-schedules/<pk>/  — update offering / quarter
+    PATCH  subject-schedules/<pk>/  — update offering / description / quarter
     DELETE subject-schedules/<pk>/  — delete schedule (cascades to sessions)
     """
 
@@ -343,7 +400,7 @@ class SubjectScheduleDetailAPIView(APIView):
         schedule = get_object_or_404(
             SubjectSchedule.objects.select_related('offering'), pk=pk
         )
-        if not can_manage_offering_schedule(request.user, schedule.offering):
+        if not can_manage_schedule(request.user, schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = SubjectScheduleWriteSerializer(
@@ -369,7 +426,7 @@ class SubjectScheduleDetailAPIView(APIView):
         schedule = get_object_or_404(
             SubjectSchedule.objects.select_related('offering'), pk=pk
         )
-        if not can_manage_offering_schedule(request.user, schedule.offering):
+        if not can_manage_schedule(request.user, schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         schedule.delete()
@@ -392,7 +449,7 @@ class ScheduleSessionListCreateAPIView(APIView):
     @extend_schema(responses=ScheduleSessionSerializer(many=True))
     def get(self, request, schedule_id):
         schedule = get_object_or_404(CustomQueryset.schedule_queryset(request.user), pk=schedule_id)
-        sessions = schedule.sessions.order_by('weekday', 'order')
+        sessions = schedule.sessions.order_by('weekday', 'time_start', 'time_end')
         return Response(ScheduleSessionSerializer(sessions, many=True).data)
 
     @extend_schema(
@@ -403,7 +460,7 @@ class ScheduleSessionListCreateAPIView(APIView):
         schedule = get_object_or_404(
             SubjectSchedule.objects.select_related('offering'), pk=schedule_id
         )
-        if not can_manage_offering_schedule(request.user, schedule.offering):
+        if not can_manage_schedule(request.user, schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = ScheduleSessionWriteSerializer(
@@ -421,7 +478,7 @@ class ScheduleSessionListCreateAPIView(APIView):
 class ScheduleSessionDetailAPIView(APIView):
     """
     GET    schedule-sessions/<pk>/  — single slot
-    PATCH  schedule-sessions/<pk>/  — change weekday / order
+    PATCH  schedule-sessions/<pk>/  — change weekday / time_start / time_end
     DELETE schedule-sessions/<pk>/  — delete slot (cascades to its attendance)
     """
 
@@ -444,7 +501,7 @@ class ScheduleSessionDetailAPIView(APIView):
             ScheduleSession.objects.select_related('schedule', 'schedule__offering'),
             pk=pk,
         )
-        if not can_manage_offering_schedule(request.user, session.schedule.offering):
+        if not can_manage_schedule(request.user, session.schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = ScheduleSessionWriteSerializer(
@@ -464,7 +521,7 @@ class ScheduleSessionDetailAPIView(APIView):
             ScheduleSession.objects.select_related('schedule', 'schedule__offering'),
             pk=pk,
         )
-        if not can_manage_offering_schedule(request.user, session.schedule.offering):
+        if not can_manage_schedule(request.user, session.schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         session.delete()
@@ -539,7 +596,7 @@ class ScheduleAttendanceListCreateAPIView(APIView):
             ScheduleSession.objects.select_related('schedule', 'schedule__offering'),
             pk=session_id,
         )
-        if not can_manage_offering_schedule(request.user, session.schedule.offering):
+        if not can_manage_schedule(request.user, session.schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = ScheduleAttendanceWriteSerializer(
@@ -618,8 +675,7 @@ class ScheduleAttendanceDetailAPIView(APIView):
             ),
             pk=pk,
         )
-        offering = attendance.session.schedule.offering
-        if not can_manage_offering_schedule(request.user, offering):
+        if not can_manage_schedule(request.user, attendance.session.schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
         return attendance
 
@@ -664,7 +720,7 @@ class StudentAttendanceListAPIView(APIView):
         if params.get('status'):
             rows = rows.filter(status=params['status'])
 
-        rows = rows.order_by('-date', 'session__order')
+        rows = rows.order_by('-date', 'session__time_start', 'session__time_end')
 
         paginator = SchedulePagination()
         page = paginator.paginate_queryset(rows, request, view=self)
