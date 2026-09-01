@@ -491,19 +491,14 @@ class GradingDataSerializer(serializers.ModelSerializer):
 class ScheduleSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScheduleSession
-        fields = ['id', 'schedule', 'order', 'weekday']
+        fields = ['id', 'schedule', 'weekday', 'time_start', 'time_end']
         read_only_fields = ['schedule']
 
 
 class ScheduleSessionWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScheduleSession
-        fields = ['order', 'weekday']
-
-    def validate_order(self, value):
-        if not (1 <= value <= 12):
-            raise serializers.ValidationError('Order must be between 1 and 12.')
-        return value
+        fields = ['weekday', 'time_start', 'time_end']
 
     def validate_weekday(self, value):
         if not (0 <= value <= 6):
@@ -513,52 +508,101 @@ class ScheduleSessionWriteSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Reject a second session in the same slot of the same schedule."""
+        """
+        A slot must end after it starts, and must not overlap another slot of
+        the same schedule on the same weekday.
+
+        Overlap is the time-based replacement for the old weekday/order
+        uniqueness: two lessons of the same subject cannot run at once, and
+        touching slots (10:00–10:45 then 10:45–11:30) are not an overlap.
+        """
         schedule = self.context['schedule']
-        order = attrs.get('order', getattr(self.instance, 'order', None))
         weekday = attrs.get('weekday', getattr(self.instance, 'weekday', None))
+        time_start = attrs.get('time_start', getattr(self.instance, 'time_start', None))
+        time_end = attrs.get('time_end', getattr(self.instance, 'time_end', None))
+
+        if time_start is not None and time_end is not None and time_end <= time_start:
+            raise serializers.ValidationError(
+                {'time_end': 'time_end must be later than time_start.'}
+            )
 
         clash = ScheduleSession.objects.filter(
-            schedule=schedule, order=order, weekday=weekday,
+            schedule=schedule,
+            weekday=weekday,
+            time_start__lt=time_end,
+            time_end__gt=time_start,
         )
         if self.instance is not None:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
             raise serializers.ValidationError(
-                'This schedule already has a session in that weekday/order slot.'
+                'This schedule already has a session overlapping that time on '
+                'that weekday.'
             )
         return attrs
 
 
 # ── Subject schedule serializers ──
 
+def schedule_title(schedule):
+    """
+    What to call a schedule row: its subject, or its description.
+
+    A schedule without an offering is a free timetable entry (a break, an
+    assembly, a club) and carries its own description instead of a subject.
+    """
+    if schedule.offering_id:
+        return schedule.offering.subject.name
+    return schedule.description or ''
+
+
 class OtherScheduleSessionSerializer(serializers.ModelSerializer):
-    """A slot in the class group's timetable owned by a different subject."""
+    """A slot in the class group's timetable owned by a different entry."""
     offering_id = serializers.IntegerField(source='schedule.offering_id', read_only=True)
-    subject_name = serializers.CharField(
-        source='schedule.offering.subject.name', read_only=True,
-    )
+    subject_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ScheduleSession
-        fields = ['id', 'schedule', 'offering_id', 'subject_name', 'order', 'weekday']
+        fields = [
+            'id', 'schedule', 'offering_id', 'subject_name',
+            'weekday', 'time_start', 'time_end',
+        ]
+
+    def get_subject_name(self, obj):
+        """The subject's name, or the description for an offering-less entry."""
+        return schedule_title(obj.schedule)
 
 
 class SubjectScheduleSerializer(serializers.ModelSerializer):
-    offering = OfferingMinimalSerializer(read_only=True)
-    offering_id = serializers.IntegerField(read_only=True)
+    offering = OfferingMinimalSerializer(read_only=True, allow_null=True)
+    offering_id = serializers.IntegerField(read_only=True, allow_null=True)
+    type = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
     other_sessions = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectSchedule
         fields = [
-            'id', 'offering', 'offering_id', 'quarter',
-            'sessions', 'other_sessions',
+            'id', 'type', 'title', 'offering', 'offering_id', 'description',
+            'quarter', 'sessions', 'other_sessions',
         ]
 
+    def get_type(self, obj):
+        """'subject' for an offering's timetable, 'other' for a free entry."""
+        return (
+            SubjectSchedule.SUBJECT_CHOICE if obj.offering_id
+            else SubjectSchedule.OTHER_CHOICE
+        )
+
+    def get_title(self, obj):
+        return schedule_title(obj)
+
     def get_sessions(self, obj):
-        sessions = sorted(obj.sessions.all(), key=lambda s: (s.weekday, s.order))
+        sessions = sorted(
+            obj.sessions.all(),
+            key=lambda s: (s.weekday, s.time_start, s.time_end),
+        )
         return ScheduleSessionSerializer(sessions, many=True).data
 
     def get_other_sessions(self, obj):
@@ -611,17 +655,55 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
     offering = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
             'subject', 'class_group', 'academic_year'
-        )
+        ),
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
         model = SubjectSchedule
-        fields = ['offering', 'quarter']
+        fields = ['offering', 'description', 'quarter']
+        # The model's (offering, quarter) uniqueness is checked in validate()
+        # instead: DRF's automatic UniqueTogetherValidator would make `offering`
+        # mandatory on create, and an offering-less entry has none to give.
+        validators = []
 
     def validate_quarter(self, value):
         if not (1 <= value <= 4):
             raise serializers.ValidationError('Quarter must be between 1 and 4.')
         return value
+
+    def validate(self, attrs):
+        """
+        A schedule is either a subject's or a free entry, never neither.
+
+        With no offering the row has nothing to name it, so `description`
+        becomes mandatory, and one offering still gets a single schedule per
+        quarter. On a PATCH the fields already stored count too — a request that
+        only changes the quarter must not have to resend them.
+        """
+        offering = attrs.get('offering', getattr(self.instance, 'offering', None))
+        description = attrs.get(
+            'description', getattr(self.instance, 'description', None),
+        )
+        quarter = attrs.get('quarter', getattr(self.instance, 'quarter', None))
+
+        if offering is None and not (description or '').strip():
+            raise serializers.ValidationError(
+                {'description': 'Required when the schedule has no offering.'}
+            )
+
+        if offering is not None:
+            duplicate = SubjectSchedule.objects.filter(
+                offering=offering, quarter=quarter,
+            )
+            if self.instance is not None:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError(
+                    'This offering already has a schedule for that quarter.'
+                )
+        return attrs
 
 
 # ── Attendance serializers ──
@@ -659,6 +741,11 @@ class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
         """The student must be actively enrolled in the offering's class group."""
         session = self.context['session']
         offering = session.schedule.offering
+        if offering is None:
+            raise serializers.ValidationError(
+                'Attendance can only be recorded against a schedule bound to a '
+                'subject offering.'
+            )
         enrolled = Enrollment.objects.filter(
             student=student,
             class_group=offering.class_group,
@@ -1369,8 +1456,12 @@ class ClassAttendanceFiltersSerializer(AttendanceFiltersSerializer):
 
 
 class SubjectAttendanceBlockSerializer(AttendanceCountsSerializer):
-    offering_id = serializers.IntegerField()
-    subject = serializers.CharField()
+    offering_id = serializers.IntegerField(
+        allow_null=True, help_text='Null for a schedule with no offering.',
+    )
+    subject = serializers.CharField(
+        help_text="The subject's name, or the description of an offering-less entry.",
+    )
 
 
 class WeekdayAttendanceBlockSerializer(AttendanceCountsSerializer):
@@ -1415,7 +1506,8 @@ class AttendanceSlotSerializer(serializers.Serializer):
     key = serializers.CharField(help_text='"<date>:<session_id>".')
     date = serializers.DateField()
     session_id = serializers.IntegerField()
-    order = serializers.IntegerField(help_text='Period within the day, 1–12.')
+    time_start = serializers.TimeField(help_text='When the slot starts, HH:MM:SS.')
+    time_end = serializers.TimeField()
     weekday = serializers.IntegerField()
     quarter = serializers.IntegerField()
 

@@ -305,18 +305,29 @@ class QuarterGradeSnapshot(models.Model):
 
 
 class SubjectSchedule(models.Model):
+    SUBJECT_CHOICE = 'subject'
+    OTHER_CHOICE   = 'other'
+    SCHEDULE_CHOICES = [
+        (SUBJECT_CHOICE, "Subject"),
+        (OTHER_CHOICE, "Other"),
+    ]
     offering = models.ForeignKey(
         SubjectOffering,
         on_delete=models.CASCADE,
         related_name='schedules',
+        null=True,
+        blank=True
     )
+    description = models.TextField(blank=True, null=True)
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
 
     class Meta:
         unique_together = ['offering', 'quarter']
 
     def __str__(self):
-        return f"{self.offering} - {self.quarter}"
+        if self.offering:
+            return f"{self.offering} - {self.quarter}"
+        return f"{self.description} - {self.quarter}"
 
 
 class ScheduleSession(models.Model):
@@ -325,11 +336,14 @@ class ScheduleSession(models.Model):
         on_delete=models.CASCADE,
         related_name='sessions',
     )
-    order = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
+    time_start = models.TimeField()
+    time_end = models.TimeField()
+
     weekday = models.PositiveSmallIntegerField(validators=[MinValueValidator(0), MaxValueValidator(6)])
 
     class Meta:
-        unique_together = ['schedule', 'order', 'weekday']
+        unique_together = ['schedule', 'time_start', 'time_end', 'weekday']
+        ordering        = ['schedule', 'weekday', 'time_start', 'time_end']
 
 
 class ScheduleAttendance(models.Model):

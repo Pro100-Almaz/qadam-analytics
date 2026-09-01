@@ -189,21 +189,33 @@ def by_month(queryset):
 
 
 def by_offering(queryset):
-    """One block per subject, by subject name."""
+    """
+    One block per subject, by subject name.
+
+    A schedule with no offering has no subject either, so it is labelled by its
+    own description and reports `offering_id` null.
+    """
     rows = tally(
         queryset,
         'session__schedule__offering_id',
         'session__schedule__offering__subject__name',
+        'session__schedule__description',
     )
     blocks = [
         dict(
             offering_id=row['session__schedule__offering_id'],
-            subject=row['session__schedule__offering__subject__name'],
+            subject=(
+                row['session__schedule__offering__subject__name']
+                or row['session__schedule__description']
+                or ''
+            ),
             **counts_from(row),
         )
         for row in rows
     ]
-    return sorted(blocks, key=lambda block: (block['subject'], block['offering_id']))
+    return sorted(
+        blocks, key=lambda block: (block['subject'], block['offering_id'] or 0),
+    )
 
 
 def rates_by_student(queryset, students):
@@ -448,7 +460,8 @@ class OfferingAttendanceHeatmapAPIView(APIView):
                     'key': f"{slot['date'].isoformat()}:{slot['session_id']}",
                     'date': slot['date'].isoformat(),
                     'session_id': slot['session_id'],
-                    'order': slot['order'],
+                    'time_start': slot['time_start'].isoformat(),
+                    'time_end': slot['time_end'].isoformat(),
                     'weekday': slot['weekday'],
                     'quarter': slot['quarter'],
                 }
@@ -474,9 +487,9 @@ class OfferingAttendanceHeatmapAPIView(APIView):
         """
         distinct = list(
             rows.values(
-                'date', 'session_id', 'session__order', 'session__weekday',
-                'session__schedule__quarter',
-            ).distinct().order_by('-date', '-session__order', '-session_id')
+                'date', 'session_id', 'session__time_start', 'session__time_end',
+                'session__weekday', 'session__schedule__quarter',
+            ).distinct().order_by('-date', '-session__time_start', '-session_id')
         )
         truncated = len(distinct) > MAX_HEATMAP_COLUMNS
         if truncated:
@@ -486,7 +499,8 @@ class OfferingAttendanceHeatmapAPIView(APIView):
             {
                 'date': row['date'],
                 'session_id': row['session_id'],
-                'order': row['session__order'],
+                'time_start': row['session__time_start'],
+                'time_end': row['session__time_end'],
                 'weekday': row['session__weekday'],
                 'quarter': row['session__schedule__quarter'],
             }

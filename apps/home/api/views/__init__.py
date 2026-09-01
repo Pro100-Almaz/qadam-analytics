@@ -39,6 +39,7 @@ from apps.home.api.views.assignments import (
     SubjectAssignmentGradeListCreateAPIView,
     SubjectGradeListAPIView,
     SubjectGradeDetailAPIView,
+    HomeroomSubjectAssignmentListAPIView,
     HomeroomSubjectGradeListAPIView,
 )
 from apps.home.api.views.quarter_grades import (
@@ -96,6 +97,7 @@ __all__ = [
     'SubjectAssignmentGradeListCreateAPIView',
     'SubjectGradeListAPIView',
     'SubjectGradeDetailAPIView',
+    'HomeroomSubjectAssignmentListAPIView',
     'HomeroomSubjectGradeListAPIView',
     'QuarterGradeListCreateAPIView',
     'QuarterGradeDetailAPIView',

@@ -123,8 +123,9 @@ urlpatterns = [
 
     # ── Subject schedules ──
     # GET  /api/v1/subject-schedules/   filters: offering, quarter, class_group,
-    #                                   subject, academic_year
-    # POST /api/v1/subject-schedules/   create schedule for an offering + quarter
+    #                                   subject, academic_year, type
+    # POST /api/v1/subject-schedules/   create schedule for an offering + quarter,
+    #                                   or a free entry with a description
     path(
         'subject-schedules/',
         attendance_views.SubjectScheduleListCreateAPIView.as_view(),
@@ -132,7 +133,7 @@ urlpatterns = [
     ),
 
     # GET    /api/v1/subject-schedules/<pk>/  schedule with its sessions
-    # PATCH  /api/v1/subject-schedules/<pk>/  update offering / quarter
+    # PATCH  /api/v1/subject-schedules/<pk>/  update offering / description / quarter
     # DELETE /api/v1/subject-schedules/<pk>/  delete schedule
     path(
         'subject-schedules/<int:pk>/',
@@ -141,8 +142,9 @@ urlpatterns = [
     ),
 
     # ── Schedule sessions ──
-    # GET  /api/v1/subject-schedules/<schedule_id>/sessions/  weekly slots
+    # GET  /api/v1/subject-schedules/<schedule_id>/sessions/  weekly slots, by time
     # POST /api/v1/subject-schedules/<schedule_id>/sessions/  add a slot
+    #                                   (weekday + time_start + time_end)
     path(
         'subject-schedules/<int:schedule_id>/sessions/',
         attendance_views.ScheduleSessionListCreateAPIView.as_view(),
@@ -150,7 +152,7 @@ urlpatterns = [
     ),
 
     # GET    /api/v1/schedule-sessions/<pk>/  single slot
-    # PATCH  /api/v1/schedule-sessions/<pk>/  change weekday / order
+    # PATCH  /api/v1/schedule-sessions/<pk>/  change weekday / time_start / time_end
     # DELETE /api/v1/schedule-sessions/<pk>/  delete slot
     path(
         'schedule-sessions/<int:pk>/',

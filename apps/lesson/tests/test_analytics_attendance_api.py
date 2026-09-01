@@ -7,6 +7,8 @@ rows that exist rather than the number of slots that might have existed — and
 the heatmap tests assert the nulls that keep the two distinguishable.
 """
 
+from datetime import time
+
 import pytest
 from django.urls import reverse
 
@@ -74,11 +76,20 @@ def cohort(db):
         students.append(student)
 
     maths_schedule = SubjectScheduleFactory(offering=maths, quarter=1)
-    monday = ScheduleSessionFactory(schedule=maths_schedule, weekday=0, order=1)
-    wednesday = ScheduleSessionFactory(schedule=maths_schedule, weekday=2, order=3)
+    monday = ScheduleSessionFactory(
+        schedule=maths_schedule, weekday=0,
+        time_start=time(9, 0), time_end=time(9, 45),
+    )
+    wednesday = ScheduleSessionFactory(
+        schedule=maths_schedule, weekday=2,
+        time_start=time(11, 0), time_end=time(11, 45),
+    )
 
     physics_schedule = SubjectScheduleFactory(offering=physics, quarter=1)
-    tuesday = ScheduleSessionFactory(schedule=physics_schedule, weekday=1, order=2)
+    tuesday = ScheduleSessionFactory(
+        schedule=physics_schedule, weekday=1,
+        time_start=time(10, 0), time_end=time(10, 45),
+    )
 
     def register(session, date, **statuses):
         for index, value in statuses.items():
@@ -229,7 +240,10 @@ class TestStudentAttendanceSummary:
         self, cohort, authenticated_client,
     ):
         second_quarter = SubjectScheduleFactory(offering=cohort['maths'], quarter=2)
-        session = ScheduleSessionFactory(schedule=second_quarter, weekday=3, order=4)
+        session = ScheduleSessionFactory(
+            schedule=second_quarter, weekday=3,
+            time_start=time(12, 0), time_end=time(12, 45),
+        )
         ScheduleAttendanceFactory(
             session=session, student=cohort['students'][0],
             date='2025-11-05', status='absent',
@@ -299,6 +313,10 @@ class TestOfferingAttendanceHeatmap:
             '2025-09-01', '2025-09-03', '2025-09-08',
         ]
         assert [slot['weekday'] for slot in response.data['slots']] == [0, 2, 0]
+        assert [slot['time_start'] for slot in response.data['slots']] == [
+            '09:00:00', '11:00:00', '09:00:00',
+        ]
+        assert response.data['slots'][0]['time_end'] == '09:45:00'
         assert response.data['slots'][0]['key'] == (
             f"2025-09-01:{cohort['monday'].id}"
         )

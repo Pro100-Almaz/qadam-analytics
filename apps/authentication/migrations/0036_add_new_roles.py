@@ -25,5 +25,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_groups, reverse),
+        migrations.RunPython(create_groups),
     ]

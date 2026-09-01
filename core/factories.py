@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import time, timedelta
 
 import factory
 from django.contrib.auth.models import Group
@@ -331,8 +331,9 @@ class ScheduleSessionFactory(DjangoModelFactory):
         model = ScheduleSession
 
     schedule = factory.SubFactory(SubjectScheduleFactory)
-    order = 1
     weekday = 0
+    time_start = time(9, 0)
+    time_end = time(9, 45)
 
 
 class ScheduleAttendanceFactory(DjangoModelFactory):
