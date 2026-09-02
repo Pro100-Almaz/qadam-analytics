@@ -14,7 +14,9 @@ from apps.lesson.services import (
     delete_homework_attachments,
     validate_homework_attachments,
 )
-from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
+from apps.home.models import (
+    ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
+)
 from apps.authentication.models import Student
 
 
@@ -68,6 +70,22 @@ class OfferingMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubjectOffering
         fields = ['id', 'subject_name', 'class_group_name', 'academic_year_label']
+
+
+class ClassGroupMinimalSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='__str__', read_only=True)
+    # Both relations are nullable on ClassGroup, so render null rather than
+    # dropping the key when they are unset.
+    grade_level = serializers.IntegerField(
+        source='grade_level.number', read_only=True, allow_null=True,
+    )
+    academic_year_label = serializers.CharField(
+        source='academic_year.year', read_only=True, allow_null=True,
+    )
+
+    class Meta:
+        model = ClassGroup
+        fields = ['id', 'name', 'grade_level', 'letter', 'academic_year_label']
 
 
 # ── Lesson serializers ──
@@ -576,6 +594,8 @@ class OtherScheduleSessionSerializer(serializers.ModelSerializer):
 class SubjectScheduleSerializer(serializers.ModelSerializer):
     offering = OfferingMinimalSerializer(read_only=True, allow_null=True)
     offering_id = serializers.IntegerField(read_only=True, allow_null=True)
+    class_group = ClassGroupMinimalSerializer(read_only=True)
+    class_group_id = serializers.IntegerField(read_only=True)
     type = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
@@ -584,7 +604,8 @@ class SubjectScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubjectSchedule
         fields = [
-            'id', 'type', 'title', 'offering', 'offering_id', 'description',
+            'id', 'type', 'title', 'offering', 'offering_id',
+            'class_group', 'class_group_id', 'description',
             'quarter', 'sessions', 'other_sessions',
         ]
 
@@ -659,10 +680,13 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    class_group = serializers.PrimaryKeyRelatedField(
+        queryset=ClassGroup.objects.select_related('grade_level', 'academic_year'),
+    )
 
     class Meta:
         model = SubjectSchedule
-        fields = ['offering', 'description', 'quarter']
+        fields = ['offering', 'class_group', 'description', 'quarter']
         # The model's (offering, quarter) uniqueness is checked in validate()
         # instead: DRF's automatic UniqueTogetherValidator would make `offering`
         # mandatory on create, and an offering-less entry has none to give.
@@ -675,18 +699,42 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """
-        A schedule is either a subject's or a free entry, never neither.
+        A schedule is either a subject's or a free entry, never neither, and
+        either way it belongs to exactly one class group.
 
         With no offering the row has nothing to name it, so `description`
         becomes mandatory, and one offering still gets a single schedule per
         quarter. On a PATCH the fields already stored count too — a request that
         only changes the quarter must not have to resend them.
+
+        `class_group` is required, but an offering already names one: when the
+        offering is given and the class group is not, it is filled in from the
+        offering. Sending both means they must agree — a schedule cannot sit in
+        one class group while its offering is taught to another.
         """
         offering = attrs.get('offering', getattr(self.instance, 'offering', None))
         description = attrs.get(
             'description', getattr(self.instance, 'description', None),
         )
         quarter = attrs.get('quarter', getattr(self.instance, 'quarter', None))
+        class_group = attrs.get(
+            'class_group', getattr(self.instance, 'class_group', None),
+        )
+
+        if offering is not None:
+            if 'class_group' not in attrs:
+                # Derive from the offering: on create there is nothing stored
+                # yet, and on a PATCH that moves the schedule to another
+                # offering the stored class group would go stale.
+                class_group = offering.class_group
+                attrs['class_group'] = class_group
+            elif class_group is not None and class_group != offering.class_group:
+                raise serializers.ValidationError(
+                    {'class_group': "Must match the offering's class group."}
+                )
+
+        if class_group is None:
+            raise serializers.ValidationError({'class_group': 'This field is required.'})
 
         if offering is None and not (description or '').strip():
             raise serializers.ValidationError(

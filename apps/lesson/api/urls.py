@@ -124,8 +124,11 @@ urlpatterns = [
     # ── Subject schedules ──
     # GET  /api/v1/subject-schedules/   filters: offering, quarter, class_group,
     #                                   subject, academic_year, type
+    #                                   (class_group matches free entries too)
     # POST /api/v1/subject-schedules/   create schedule for an offering + quarter,
-    #                                   or a free entry with a description
+    #                                   or a free entry with a description;
+    #                                   class_group is required unless an
+    #                                   offering supplies it
     path(
         'subject-schedules/',
         attendance_views.SubjectScheduleListCreateAPIView.as_view(),
@@ -133,7 +136,8 @@ urlpatterns = [
     ),
 
     # GET    /api/v1/subject-schedules/<pk>/  schedule with its sessions
-    # PATCH  /api/v1/subject-schedules/<pk>/  update offering / description / quarter
+    # PATCH  /api/v1/subject-schedules/<pk>/  update offering / class_group /
+    #                                         description / quarter
     # DELETE /api/v1/subject-schedules/<pk>/  delete schedule
     path(
         'subject-schedules/<int:pk>/',

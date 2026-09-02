@@ -579,11 +579,11 @@ class ClassGroupAttendanceOverviewAPIView(APIView):
         )
         rows = ScheduleAttendance.objects.filter(
             student__in=students,
-            session__schedule__offering__class_group_id=class_group.id,
+            session__schedule__class_group_id=class_group.id,
         )
         if academic_year is not None:
             rows = rows.filter(
-                session__schedule__offering__academic_year_id=academic_year.id,
+                session__schedule__class_group__academic_year_id=academic_year.id,
             )
         rows, filters = apply_attendance_filters(
             rows, request.query_params, academic_year,

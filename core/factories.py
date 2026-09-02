@@ -323,6 +323,11 @@ class SubjectScheduleFactory(DjangoModelFactory):
         model = SubjectSchedule
 
     offering = factory.SubFactory(SubjectOfferingFactory)
+    # Follows the offering, as the API does; pass it explicitly for a schedule
+    # that has no offering of its own.
+    class_group = factory.LazyAttribute(
+        lambda o: o.offering.class_group if o.offering else None
+    )
     quarter = 1
 
 

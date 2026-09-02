@@ -9,9 +9,11 @@ Students and parents get read-only access to their own (or their children's)
 schedules and attendance — except for the per-session attendance list, which
 students cannot read at all.
 
-A schedule may also carry no offering at all — a free entry named by its own
-`description` (a break, an assembly, a club slot). Those belong to no class
-group, so everyone can read them and only admin roles may write them.
+Every schedule belongs to a class group, and that is what reads are scoped by.
+A schedule may carry no offering at all — a free entry named by its own
+`description` (a break, an assembly, a club slot) — but it still sits in one
+class group's timetable, so it is read by that class group and written by admin
+roles or the class group's homeroom teacher.
 
 Sessions are slots in time: `weekday` plus `time_start`/`time_end`, ordered by
 clock time. Two sessions of one schedule may not overlap on the same weekday.
@@ -35,6 +37,7 @@ from apps.lesson.services import build_other_sessions_map
 from core.permissions import (
     IsNotStudent,
     IsTeacherAdminOrSupervisor,
+    can_manage_class_group_schedule,
     can_manage_offering_schedule,
     is_admin_role,
     is_teacher_role,
@@ -64,13 +67,42 @@ class SchedulePagination(PageNumberPagination):
 class CustomQueryset:
     @classmethod
     def schedule_queryset(cls, user):
-        """SubjectSchedules visible to the requesting user."""
+        """
+        SubjectSchedules visible to the requesting user.
+
+        Scoped by the schedule's own `class_group`, so an entry without an
+        offering is reached by exactly the same rules as a subject's one.
+        """
         qs = SubjectSchedule.objects.select_related(
             'offering', 'offering__subject',
             'offering__class_group', 'offering__academic_year',
+            'class_group', 'class_group__grade_level', 'class_group__academic_year',
         ).prefetch_related('sessions')
 
-        return cls._filter_qs_by_roles(qs, user, include_offering_less=True)
+        if is_admin_role(user):
+            return qs
+
+        if is_teacher_role(user):
+            teacher = Teacher.objects.filter(user=user).first()
+            if teacher is None:
+                return qs.none()
+            return qs.filter(teacher_schedule_filter(teacher))
+
+        if user.is_student():
+            student = Student.objects.filter(user=user).first()
+            if student is None:
+                return qs.none()
+            return qs.filter(class_group_id__in=active_class_group_ids([student]))
+
+        if user.is_parent():
+            parent = Parent.objects.filter(user=user).first()
+            if parent is None:
+                return qs.none()
+            return qs.filter(
+                class_group_id__in=active_class_group_ids(parent.students.all())
+            )
+
+        return qs.none()
 
     @classmethod
     def teaching_assignment_queryset(cls, user):
@@ -85,50 +117,36 @@ class CustomQueryset:
         return cls._filter_qs_by_roles(qs, user)
 
     @staticmethod
-    def _filter_qs_by_roles(qs, user, include_offering_less=False):
-        """
-        Narrow a queryset of offering-bound rows to what `user` may see.
-
-        `include_offering_less` widens the result with the rows that carry no
-        offering at all — free schedule entries such as breaks or assemblies.
-        They belong to no class group, so no role filter can reach them; they
-        are school-wide by nature and readable by anyone. Only schedules have
-        them, which is why teaching assignments leave the flag off.
-        """
-        extra = Q(offering__isnull=True) if include_offering_less else Q(pk__in=[])
-
+    def _filter_qs_by_roles(qs, user):
+        """Narrow a queryset of offering-bound rows to what `user` may see."""
         if is_admin_role(user):
             return qs
 
         if is_teacher_role(user):
             teacher = Teacher.objects.filter(user=user).first()
             if teacher is None:
-                return qs.filter(extra)
-            return qs.filter(teacher_offering_filter(teacher) | extra)
+                return qs.none()
+            return qs.filter(teacher_offering_filter(teacher))
 
         if user.is_student():
             student = Student.objects.filter(user=user).first()
             if student is None:
-                return qs.filter(extra)
+                return qs.none()
             return qs.filter(
-                Q(offering__class_group_id__in=active_class_group_ids([student]))
-                | extra
+                offering__class_group_id__in=active_class_group_ids([student])
             )
 
         if user.is_parent():
             parent = Parent.objects.filter(user=user).first()
             if parent is None:
-                return qs.filter(extra)
+                return qs.none()
             return qs.filter(
-                Q(
-                    offering__class_group_id__in=active_class_group_ids(
-                        parent.students.all()
-                    )
+                offering__class_group_id__in=active_class_group_ids(
+                    parent.students.all()
                 )
-                | extra
             )
 
-        return qs.filter(extra)
+        return qs.none()
 
 
 def can_manage_schedule(user, schedule):
@@ -136,11 +154,11 @@ def can_manage_schedule(user, schedule):
     Write rights on a schedule row and everything hanging off it.
 
     A schedule with an offering follows the usual offering rules; one without
-    is school-wide and only admin roles may touch it, since there is no class
-    group or teaching assignment to derive ownership from.
+    has no teaching assignment to derive ownership from, so it falls back to
+    the class group it sits in — admin roles, or its homeroom teacher.
     """
     if schedule.offering_id is None:
-        return is_admin_role(user)
+        return can_manage_class_group_schedule(user, schedule.class_group_id)
     return can_manage_offering_schedule(user, schedule.offering)
 
 
@@ -159,13 +177,35 @@ def teacher_offering_filter(teacher):
     return Q(offering_id__in=offering_ids) | Q(offering__class_group_id__in=homeroom_ids)
 
 
+def teacher_schedule_filter(teacher):
+    """
+    Schedules a teacher may see, by class group rather than by offering.
+
+    Their own subjects, everything in a homeroom class of theirs, and the free
+    entries — breaks, assemblies — of every class group they teach in, since
+    those slots are part of the timetable they read their own lessons out of.
+    """
+    offerings = TeachingAssignment.objects.filter(teacher=teacher).values_list(
+        'offering_id', 'offering__class_group_id',
+    )
+    offering_ids = [offering_id for offering_id, _ in offerings]
+    taught_class_group_ids = {class_group_id for _, class_group_id in offerings}
+    homeroom_ids = teacher_homeroom_class_group_ids(teacher)
+
+    return (
+        Q(offering_id__in=offering_ids)
+        | Q(class_group_id__in=homeroom_ids)
+        | Q(offering__isnull=True, class_group_id__in=taught_class_group_ids)
+    )
+
+
 def session_queryset(user):
     """ScheduleSessions belonging to schedules the user can see."""
     return ScheduleSession.objects.filter(
         schedule__in=CustomQueryset.schedule_queryset(user).values('id')
     ).select_related(
         'schedule', 'schedule__offering', 'schedule__offering__subject',
-        'schedule__offering__class_group',
+        'schedule__offering__class_group', 'schedule__class_group',
     )
 
 
@@ -179,7 +219,7 @@ def attendance_queryset(user):
     qs = ScheduleAttendance.objects.select_related(
         'student', 'student__user', 'session', 'session__schedule',
         'session__schedule__offering', 'session__schedule__offering__subject',
-        'session__schedule__offering__class_group',
+        'session__schedule__offering__class_group', 'session__schedule__class_group',
     )
 
     if is_admin_role(user) or is_teacher_role(user):
@@ -212,7 +252,7 @@ def session_attendance_queryset(user):
     qs = ScheduleAttendance.objects.select_related(
         'student', 'student__user', 'session', 'session__schedule',
         'session__schedule__offering', 'session__schedule__offering__subject',
-        'session__schedule__offering__class_group',
+        'session__schedule__offering__class_group', 'session__schedule__class_group',
     )
 
     if user.is_parent():
@@ -283,6 +323,9 @@ class SubjectScheduleListCreateAPIView(APIView):
     GET  subject-schedules/   — list schedules visible to the user
     POST subject-schedules/   — create a schedule for an offering, or a free
                                 entry carrying only a description
+
+    `class_group` is the natural filter for both kinds: pass it with `quarter`
+    to get one class group's whole timetable, subjects and free entries alike.
     """
 
     def get_permissions(self):
@@ -295,7 +338,13 @@ class SubjectScheduleListCreateAPIView(APIView):
         parameters=[
             OpenApiParameter('offering', int),
             OpenApiParameter('quarter', int),
-            OpenApiParameter('class_group', int),
+            OpenApiParameter(
+                'class_group', int,
+                description=(
+                    "The schedule's own class group — matches free entries as "
+                    'well as subject ones.'
+                ),
+            ),
             OpenApiParameter('subject', int),
             OpenApiParameter('academic_year', int),
             OpenApiParameter(
@@ -312,19 +361,25 @@ class SubjectScheduleListCreateAPIView(APIView):
     )
     def get(self, request):
         schedules = CustomQueryset.schedule_queryset(request.user)
-
         params = request.query_params
         if params.get('offering'):
             schedules = schedules.filter(offering_id=params['offering'])
         if params.get('quarter'):
             schedules = schedules.filter(quarter=params['quarter'])
         if params.get('class_group'):
-            schedules = schedules.filter(offering__class_group_id=params['class_group'])
+            # Free entries carry the class group directly; subject ones inherit
+            # it from the offering.
+            schedules = schedules.filter(
+                Q(class_group_id=params['class_group'])
+                | Q(offering__class_group_id=params['class_group'])
+            )
         if params.get('subject'):
             schedules = schedules.filter(offering__subject_id=params['subject'])
         if params.get('academic_year'):
+            # Via the class group, so free entries are matched by the same year.
             schedules = schedules.filter(
-                offering__academic_year_id=params['academic_year']
+                Q(class_group__academic_year_id=params['academic_year'])
+                | Q(offering__class_group__academic_year_id=params['academic_year'])
             )
         if params.get('type') == SubjectSchedule.SUBJECT_CHOICE:
             schedules = schedules.filter(offering__isnull=False)
@@ -332,7 +387,7 @@ class SubjectScheduleListCreateAPIView(APIView):
             schedules = schedules.filter(offering__isnull=True)
 
         schedules = schedules.order_by(
-            'offering__class_group_id', 'offering__subject__name',
+            'class_group_id', 'offering__subject__name',
             'description', 'quarter',
         )
 
@@ -358,8 +413,10 @@ class SubjectScheduleListCreateAPIView(APIView):
 
         offering = serializer.validated_data.get('offering')
         if offering is None:
-            # A free entry belongs to no offering, so only admin roles may add one.
-            if not is_admin_role(request.user):
+            # A free entry has no offering to own it, so rights come from the
+            # class group: admin roles, or its homeroom teacher.
+            class_group = serializer.validated_data['class_group']
+            if not can_manage_class_group_schedule(request.user, class_group.id):
                 return Response(
                     {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
                 )
@@ -376,7 +433,8 @@ class SubjectScheduleListCreateAPIView(APIView):
 class SubjectScheduleDetailAPIView(APIView):
     """
     GET    subject-schedules/<pk>/  — schedule with its sessions
-    PATCH  subject-schedules/<pk>/  — update offering / description / quarter
+    PATCH  subject-schedules/<pk>/  — update offering / class group /
+                                      description / quarter
     DELETE subject-schedules/<pk>/  — delete schedule (cascades to sessions)
     """
 
@@ -398,7 +456,7 @@ class SubjectScheduleDetailAPIView(APIView):
     )
     def patch(self, request, pk):
         schedule = get_object_or_404(
-            SubjectSchedule.objects.select_related('offering'), pk=pk
+            SubjectSchedule.objects.select_related('offering', 'class_group'), pk=pk
         )
         if not can_manage_schedule(request.user, schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
@@ -408,12 +466,23 @@ class SubjectScheduleDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        # Moving a schedule to another offering requires rights on the target too.
-        target_offering = serializer.validated_data.get('offering')
-        if target_offering and not can_manage_offering_schedule(
-            request.user, target_offering
+        # Moving a schedule elsewhere requires rights on the target too — on the
+        # offering when there is one, on the bare class group when there is not.
+        # Both default to what is already stored: a PATCH that only moves the
+        # quarter must be judged on the schedule the row still points at.
+        target_offering = serializer.validated_data.get('offering', schedule.offering)
+        target_class_group = serializer.validated_data.get(
+            'class_group', schedule.class_group,
+        )
+        if target_offering:
+            if not can_manage_offering_schedule(request.user, target_offering):
+                return Response(
+                    {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
+                )
+        elif target_class_group and not can_manage_class_group_schedule(
+            request.user, target_class_group.id
         ):
-            return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN)
 
         schedule = serializer.save()
         schedule = get_object_or_404(CustomQueryset.schedule_queryset(request.user), pk=schedule.pk)

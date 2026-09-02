@@ -109,6 +109,31 @@ def can_manage_offering_schedule(user, offering):
     return offering.class_group_id in teacher_homeroom_class_group_ids(teacher)
 
 
+def can_manage_class_group_schedule(user, class_group_id):
+    """
+    Check if user can create/modify a class group's timetable entries that
+    belong to no offering — breaks, assemblies, club slots.
+
+    There is no subject to derive ownership from, so only the roles that own the
+    class group itself qualify:
+    - User is admin/supervisor/principal — any class group
+    - User is the homeroom teacher of that class group
+    """
+    if is_admin_role(user):
+        return True
+
+    if not is_teacher_role(user):
+        return False
+
+    from apps.authentication.models import Teacher
+    try:
+        teacher = Teacher.objects.get(user=user)
+    except Teacher.DoesNotExist:
+        return False
+
+    return class_group_id in teacher_homeroom_class_group_ids(teacher)
+
+
 def can_access_subject(user, subject):
     """
     Check if user can access a specific subject.

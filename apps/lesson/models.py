@@ -318,6 +318,12 @@ class SubjectSchedule(models.Model):
         null=True,
         blank=True
     )
+    class_group = models.ForeignKey(
+        ClassGroup,
+        on_delete=models.CASCADE,
+        related_name='schedules',
+        null=True,
+    )
     description = models.TextField(blank=True, null=True)
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
 
