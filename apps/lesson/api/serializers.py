@@ -594,8 +594,12 @@ class OtherScheduleSessionSerializer(serializers.ModelSerializer):
 class SubjectScheduleSerializer(serializers.ModelSerializer):
     offering = OfferingMinimalSerializer(read_only=True, allow_null=True)
     offering_id = serializers.IntegerField(read_only=True, allow_null=True)
-    class_group = ClassGroupMinimalSerializer(read_only=True)
-    class_group_id = serializers.IntegerField(read_only=True)
+    class_group = ClassGroupMinimalSerializer(
+        source='offering.class_group', read_only=True, allow_null=True,
+    )
+    class_group_id = serializers.IntegerField(
+        source='offering.class_group_id', read_only=True, allow_null=True,
+    )
     type = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()

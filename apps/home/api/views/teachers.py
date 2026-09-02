@@ -23,7 +23,9 @@ class TeacherListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
 
     def get_queryset(self):
-        return Teacher.objects.select_related('user').all()
+        return Teacher.objects.select_related('user').order_by(
+            'user__last_name', 'user__first_name', 'id',
+        )
 
 
 class TeacherDetailAPIView(RetrieveAPIView):
@@ -103,4 +105,6 @@ class ParentTeacherListAPIView(ListAPIView):
         for a in assignments:
             teacher_ids.add(a.teacher_id)
 
-        return Teacher.objects.filter(id__in=teacher_ids).select_related('user')
+        return Teacher.objects.filter(id__in=teacher_ids).select_related('user').order_by(
+            'user__last_name', 'user__first_name', 'id',
+        )
