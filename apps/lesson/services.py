@@ -2,7 +2,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Q
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
@@ -300,13 +299,14 @@ def build_other_sessions_map(schedules):
     Build {schedule_id: [ScheduleSession, ...]} of the rest of the class group's
     timetable.
 
-    "Other" sessions are every session of the same class group, academic year and
-    quarter that belongs to a different schedule — i.e. the slots taken by other
-    subjects, which the client renders read-only next to the schedule's own sessions.
+    "Other" sessions are every session of the same class group and quarter that
+    belongs to a different schedule — i.e. the slots taken by other subjects,
+    which the client renders read-only next to the schedule's own sessions.
 
-    Schedules without an offering (breaks, assemblies) belong to no class group,
-    so they are treated as school-wide: their sessions are added to every
-    schedule of the same quarter, and among themselves they see only each other.
+    Schedules without an offering (breaks, assemblies) carry a class group of
+    their own, so they take part on exactly the same terms: they see the class
+    group's subject slots and the subjects see them. The class group already
+    pins the academic year, so the key needs only (class_group, quarter).
     """
     from apps.lesson.models import ScheduleSession
 
@@ -314,53 +314,27 @@ def build_other_sessions_map(schedules):
     if not schedules:
         return {}
 
-    def key_of(class_group_id, academic_year_id, quarter):
-        return (class_group_id, academic_year_id, quarter)
-
     def key_for(schedule):
-        if schedule.offering_id is None:
-            return key_of(None, None, schedule.quarter)
-        return key_of(
-            schedule.offering.class_group_id,
-            schedule.offering.academic_year_id,
-            schedule.quarter,
-        )
+        return (schedule.class_group_id, schedule.quarter)
 
     wanted_keys = {key_for(s) for s in schedules}
-    wanted_quarters = {k[2] for k in wanted_keys}
 
     sessions = ScheduleSession.objects.filter(
-        Q(
-            schedule__offering__class_group_id__in={
-                k[0] for k in wanted_keys if k[0] is not None
-            },
-            schedule__offering__academic_year_id__in={
-                k[1] for k in wanted_keys if k[1] is not None
-            },
-        )
-        | Q(schedule__offering__isnull=True),
-        schedule__quarter__in=wanted_quarters,
+        schedule__class_group_id__in={k[0] for k in wanted_keys},
+        schedule__quarter__in={k[1] for k in wanted_keys},
     ).select_related(
         'schedule', 'schedule__offering', 'schedule__offering__subject',
     )
 
     sessions_by_key = {}
-    school_wide_by_quarter = {}
     for session in sessions:
-        schedule = session.schedule
-        if schedule.offering_id is None:
-            school_wide_by_quarter.setdefault(schedule.quarter, []).append(session)
-            continue
-        key = key_for(schedule)
+        key = key_for(session.schedule)
         if key in wanted_keys:
             sessions_by_key.setdefault(key, []).append(session)
 
     result = {}
     for schedule in schedules:
-        key = key_for(schedule)
-        pool = sessions_by_key.get(key, []) + school_wide_by_quarter.get(
-            schedule.quarter, []
-        )
+        pool = sessions_by_key.get(key_for(schedule), [])
         result[schedule.id] = sorted(
             (s for s in pool if s.schedule_id != schedule.id),
             key=lambda s: (s.weekday, s.time_start, s.time_end),
