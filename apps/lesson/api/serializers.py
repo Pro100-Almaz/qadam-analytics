@@ -1408,6 +1408,16 @@ class AssignmentHeatmapSerializer(serializers.Serializer):
         ),
         help_text='The marks as entered, in the assignment\'s own points.',
     )
+    grade_ids = serializers.ListField(
+        child=serializers.ListField(
+            child=serializers.IntegerField(allow_null=True),
+        ),
+        help_text='Existing SubjectGrade ids aligned with raw_grades.',
+    )
+    comments = serializers.ListField(
+        child=serializers.ListField(child=serializers.CharField(allow_blank=True)),
+        help_text='Existing SubjectGrade comments aligned with raw_grades.',
+    )
     row_means = serializers.ListField(child=serializers.FloatField())
     column_means = serializers.ListField(child=serializers.FloatField())
     coverage = AssignmentCoverageSerializer()
