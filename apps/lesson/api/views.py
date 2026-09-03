@@ -658,7 +658,7 @@ class CalendarLessonListAPIView(APIView):
             'offering', 'offering__subject',
             'offering__class_group', 'offering__class_group__grade_level',
             'offering__academic_year',
-        ).filter(date__gte=start_date, date__lte=end_date)
+        ).filter(date__gte=start_dt, date__lte=end_dt)
 
         user = request.user
 

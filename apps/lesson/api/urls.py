@@ -92,6 +92,13 @@ urlpatterns = [
         views.CalendarLessonListAPIView.as_view(),
         name='calendar-lessons',
     ),
+    # GET /api/v1/calendar/subjects/  subject schedules with weekly sessions,
+    #                                  filtered by teacher and quarter
+    path(
+        'calendar/subjects/',
+        attendance_views.CalendarSubjectScheduleListAPIView.as_view(),
+        name='calendar-subjects',
+    ),
 
     # ── Quarter Snapshots ──
     path(
