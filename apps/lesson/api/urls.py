@@ -322,6 +322,15 @@ urlpatterns = [
         name='analytics-assignment-heatmap',
     ),
 
+    # GET /api/v1/analytics/teacher/offerings/<offering_id>/assignment-heatmap/
+    #     same heatmap payload, but available to any teacher-role user without a
+    #     TeachingAssignment or homeroom check. Read-only.
+    path(
+        'analytics/teacher/offerings/<int:offering_id>/assignment-heatmap/',
+        analytics_subject.TeacherScopedOfferingAssignmentHeatmapAPIView.as_view(),
+        name='analytics-teacher-scoped-assignment-heatmap',
+    ),
+
     # GET /api/v1/analytics/students/<student_id>/assignment-summary/
     #     one axis per subject, each split by lesson / exam / final.
     #     Filters: academic_year, quarter, category, date_from, date_to,
