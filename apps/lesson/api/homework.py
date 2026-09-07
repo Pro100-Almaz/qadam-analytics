@@ -81,23 +81,24 @@ class HomeworkPagination(PageNumberPagination):
 def enrolled_offering_query(students):
     """
     Q matching homework whose offering is taught to a class one of `students` is
-    actively enrolled in, within that same academic year.
+    actively enrolled in.
+
+    The academic year needs no clause of its own: a class group belongs to
+    exactly one year, and an offering's year is its class group's, so pinning
+    the class group already pins the year.
 
     Returns None when there is no active enrollment at all: an empty Q would
     filter on nothing and hand back the whole table, so callers turn None into
     an empty queryset instead.
     """
-    pairs = Enrollment.objects.filter(
-        student__in=students, status='active',
-    ).values_list('class_group_id', 'academic_year_id').distinct()
-
-    query = Q()
-    for class_group_id, academic_year_id in pairs:
-        query |= Q(
-            offering__class_group_id=class_group_id,
-            offering__class_group__academic_year_id=academic_year_id,
-        )
-    return query or None
+    class_group_ids = list(
+        Enrollment.objects.filter(
+            student__in=students, status='active',
+        ).values_list('class_group_id', flat=True).distinct()
+    )
+    if not class_group_ids:
+        return None
+    return Q(offering__class_group_id__in=class_group_ids)
 
 
 def teacher_offering_ids(teacher):

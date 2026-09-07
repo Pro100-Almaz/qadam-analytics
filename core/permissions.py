@@ -180,19 +180,17 @@ def can_access_subject(user, subject):
         from apps.home.models import Enrollment, SubjectOffering
         try:
             student = Student.objects.get(user=user)
-            # Check if student is enrolled in any class where this subject is offered
-            student_enrollments = Enrollment.objects.filter(
+            # Check if student is enrolled in any class where this subject is
+            # offered. The class group pins the academic year on its own, so
+            # there is nothing to match year by year.
+            class_group_ids = Enrollment.objects.filter(
                 student=student, status='active'
-            ).values_list('class_group_id', 'academic_year_id')
+            ).values_list('class_group_id', flat=True)
 
-            for class_group_id, academic_year_id in student_enrollments:
-                if SubjectOffering.objects.filter(
-                    subject=subject,
-                    class_group_id=class_group_id,
-                    class_group__academic_year_id=academic_year_id
-                ).exists():
-                    return True
-            return False
+            return SubjectOffering.objects.filter(
+                subject=subject,
+                class_group_id__in=class_group_ids,
+            ).exists()
         except Student.DoesNotExist:
             return False
 
