@@ -28,7 +28,7 @@ def get_lesson_teacher_dashboard(teacher):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=teacher,
-        offering__academic_year=year,
+        offering__class_group__academic_year=year,
     ).select_related(
         'offering', 'offering__subject',
         'offering__class_group', 'offering__class_group__grade_level',
@@ -47,7 +47,7 @@ def get_lesson_teacher_dashboard(teacher):
         total_lessons += lesson_count
 
         student_count = Enrollment.objects.filter(
-            class_group=cg, academic_year=year, status='active',
+            class_group=cg, class_group__academic_year=year, status='active',
         ).count()
 
         graded_count = 0
@@ -97,7 +97,7 @@ def get_homeroom_dashboard(teacher):
         return {'class_group': None, 'students': []}
 
     assignment = HomeroomTeacherAssignment.objects.filter(
-        teacher=teacher, academic_year=year,
+        teacher=teacher, class_group__academic_year=year,
     ).select_related('class_group', 'class_group__grade_level').first()
 
     if not assignment:
@@ -107,13 +107,13 @@ def get_homeroom_dashboard(teacher):
     class_label = f'{cg.grade_level}{cg.letter}' if cg and cg.grade_level else str(cg)
 
     enrollments = Enrollment.objects.filter(
-        class_group=cg, academic_year=year, status='active',
+        class_group=cg, class_group__academic_year=year, status='active',
     ).select_related('student', 'student__user')
 
     students = [e.student for e in enrollments]
 
     offerings = list(SubjectOffering.objects.filter(
-        class_group=cg, academic_year=year,
+        class_group=cg, class_group__academic_year=year,
     ).select_related('subject'))
 
     all_lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -288,7 +288,7 @@ def get_teacher_classes(teacher):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=teacher,
-        offering__academic_year=year,
+        offering__class_group__academic_year=year,
     ).select_related(
         'offering__class_group',
         'offering__class_group__grade_level',
@@ -299,7 +299,7 @@ def get_teacher_classes(teacher):
         if cg.id not in classes_map:
             label = f'{cg.grade_level}{cg.letter}' if cg and cg.grade_level else str(cg)
             student_count = Enrollment.objects.filter(
-                class_group=cg, academic_year=year, status='active',
+                class_group=cg, class_group__academic_year=year, status='active',
             ).count()
             classes_map[cg.id] = {
                 'class_group_id': cg.id,
@@ -317,7 +317,7 @@ def get_teacher_classes(teacher):
         })
 
     homeroom = HomeroomTeacherAssignment.objects.filter(
-        teacher=teacher, academic_year=year,
+        teacher=teacher, class_group__academic_year=year,
     ).select_related('class_group', 'class_group__grade_level')
     for h in homeroom:
         cg = h.class_group
@@ -326,7 +326,7 @@ def get_teacher_classes(teacher):
         else:
             label = f'{cg.grade_level}{cg.letter}' if cg and cg.grade_level else str(cg)
             student_count = Enrollment.objects.filter(
-                class_group=cg, academic_year=year, status='active',
+                class_group=cg, class_group__academic_year=year, status='active',
             ).count()
             classes_map[cg.id] = {
                 'class_group_id': cg.id,
@@ -354,13 +354,13 @@ def get_class_students(class_group_id, request, teacher=None):
     label = f'{cg.grade_level}{cg.letter}' if cg and cg.grade_level else str(cg)
 
     enrollments = Enrollment.objects.filter(
-        class_group=cg, academic_year=year, status='active',
+        class_group=cg, class_group__academic_year=year, status='active',
     ).select_related('student', 'student__user')
 
     students = [e.student for e in enrollments]
 
     offerings = list(SubjectOffering.objects.filter(
-        class_group=cg, academic_year=year,
+        class_group=cg, class_group__academic_year=year,
     ).select_related('subject'))
 
     if teacher:

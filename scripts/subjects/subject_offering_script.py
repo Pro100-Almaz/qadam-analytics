@@ -14,7 +14,6 @@ def add_subject_offering(subject, academic_year : AcademicYear, class_group: Cla
     try:
         SubjectOffering.objects.update_or_create(
             subject=subject,
-            academic_year=academic_year,
             class_group=class_group
         )
     except IntegrityError:

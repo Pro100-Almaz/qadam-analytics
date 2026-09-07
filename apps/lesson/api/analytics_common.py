@@ -38,7 +38,7 @@ from core.permissions import (
 
 
 OFFERING_SELECT_RELATED = (
-    'subject', 'class_group', 'class_group__grade_level', 'academic_year',
+    'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
 )
 
 
@@ -242,7 +242,7 @@ def enrolled_students(class_group_id, academic_year_id=None):
         class_group_id=class_group_id, status='active',
     )
     if academic_year_id is not None:
-        queryset = queryset.filter(academic_year_id=academic_year_id)
+        queryset = queryset.filter(class_group__academic_year_id=academic_year_id)
 
     return [
         enrollment.student
@@ -263,7 +263,7 @@ def student_is_enrolled_in(student, offering):
     return Enrollment.objects.filter(
         student=student,
         class_group_id=offering.class_group_id,
-        academic_year_id=offering.academic_year_id,
+        class_group__academic_year_id=offering.academic_year_id,
         status='active',
     ).exists()
 

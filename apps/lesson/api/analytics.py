@@ -661,7 +661,7 @@ class StudentSubjectRadarAPIView(APIView):
             quarter = academic_year.current_quarter or 1
 
         enrollment = Enrollment.objects.filter(
-            student=student, academic_year=academic_year, status='active',
+            student=student, class_group__academic_year=academic_year, status='active',
         ).select_related('class_group', 'class_group__grade_level').first()
         if enrollment is None:
             return Response(self._empty(student, academic_year, quarter, source))
@@ -669,7 +669,7 @@ class StudentSubjectRadarAPIView(APIView):
         offerings = list(
             SubjectOffering.objects.filter(
                 class_group=enrollment.class_group,
-                academic_year=academic_year,
+                class_group__academic_year=academic_year,
             ).select_related('subject').order_by('subject__name', 'id')
         )
         if not offerings:
@@ -681,7 +681,7 @@ class StudentSubjectRadarAPIView(APIView):
             other.student
             for other in Enrollment.objects.filter(
                 class_group=enrollment.class_group,
-                academic_year=academic_year,
+                class_group__academic_year=academic_year,
                 status='active',
             ).select_related('student')
         ]
@@ -750,7 +750,7 @@ class StudentSubjectRadarAPIView(APIView):
                 offering__in=offerings,
                 student__in=cohort,
                 quarter=quarter,
-                academic_year=academic_year,
+                offering__class_group__academic_year=academic_year,
             )
         }
 
