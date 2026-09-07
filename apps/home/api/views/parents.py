@@ -80,8 +80,7 @@ class ParentTeachersAPIView(APIView):
         children = parent.students.select_related('user').all()
 
         child_enrollments = Enrollment.objects.filter(
-            student__in=children, status='active',
-            class_group__academic_year__is_active=True,
+            student__in=children, status='active', academic_year__is_active=True,
         ).select_related('class_group', 'student')
 
         class_group_to_children = {}
@@ -93,7 +92,7 @@ class ParentTeachersAPIView(APIView):
         class_group_ids = list(class_group_to_children.keys())
         assignments = TeachingAssignment.objects.filter(
             offering__class_group_id__in=class_group_ids,
-            offering__class_group__academic_year__is_active=True,
+            offering__academic_year__is_active=True,
         ).select_related('teacher__user', 'offering__subject', 'offering__class_group')
 
         teacher_map = {}
@@ -147,6 +146,7 @@ class ParentChildSubjectDetailAPIView(APIView):
         offering = SubjectOffering.objects.filter(
             subject=subject,
             class_group=class_group,
+            academic_year=class_group.academic_year
         ).first()
 
         data = {

@@ -1,4 +1,3 @@
-from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
@@ -56,12 +55,6 @@ class GradeLevel(models.Model):
 
 
 class ClassGroup(models.Model):
-    MAJOR_CHOICE = 'major'
-    MINOR_CHOICE = 'minor'
-    CATEGORY_CHOICES = (
-        (MAJOR_CHOICE, 'Major'),
-        (MINOR_CHOICE, 'Minor'),
-    )
     academic_year = models.ForeignKey(
         AcademicYear,
         related_name='class_groups',
@@ -76,131 +69,10 @@ class ClassGroup(models.Model):
         null=True,
         blank=True,
     )
-    letter = models.CharField(default="A", max_length=50)
-    category = models.CharField(choices=CATEGORY_CHOICES, max_length=10, default=MAJOR_CHOICE)
-
-    class Meta:
-        verbose_name = "Класс"
-        verbose_name_plural = "Классы"
-
-    @property
-    def short_name(self):
-        """`7A` for a class; a subgroup without a grade level is just its name."""
-        if self.grade_level_id:
-            return f"{self.grade_level}{self.letter}"
-        return self.letter
+    letter = models.CharField(default="A", max_length=10)
 
     def __str__(self):
-        return f"{self.short_name} ({self.academic_year})"
-
-    @property
-    def is_major(self):
-        return self.category == self.MAJOR_CHOICE
-
-    @property
-    def is_minor(self):
-        return self.category == self.MINOR_CHOICE
-
-
-class MinorClassGroupManager(models.Manager):
-    """Restricts every query — and every create — to the minor category."""
-
-    def get_queryset(self):
-        return super().get_queryset().filter(category=ClassGroup.MINOR_CHOICE)
-
-    def create(self, **kwargs):
-        kwargs['category'] = ClassGroup.MINOR_CHOICE
-        return super().create(**kwargs)
-
-
-class MinorClassGroup(ClassGroup):
-    """Подгруппа — a minor class group, e.g. an English or elective subgroup.
-
-    A proxy over ClassGroup so subgroups get their own admin section and their
-    own queries while sharing the model, enrollments and subject offerings of
-    regular (major) classes.
-    """
-    objects = MinorClassGroupManager()
-
-    class Meta:
-        proxy = True
-        verbose_name = "Подгруппа"
-        verbose_name_plural = "Подгруппы"
-
-    def save(self, *args, **kwargs):
-        self.category = ClassGroup.MINOR_CHOICE
-        return super().save(*args, **kwargs)
-
-
-class ClassGroupCollection(models.Model):
-    """A constellation: one class and the подгруппы bound to it.
-
-    Each major class group has at most one constellation, which is created the
-    first time a subgroup is bound and then stays — emptying it leaves it in
-    place, ready to be filled again. Subgroups are shared rather than owned:
-    «English Advanced» can sit in 7A's constellation and 7B's at the same time.
-    """
-    major = models.OneToOneField(
-        ClassGroup,
-        on_delete=models.CASCADE,
-        related_name='collection',
-        limit_choices_to={'category': ClassGroup.MAJOR_CHOICE},
-        verbose_name="Класс",
-    )
-    minor_groups = models.ManyToManyField(
-        ClassGroup,
-        related_name='collections',
-        limit_choices_to={'category': ClassGroup.MINOR_CHOICE},
-        blank=True,
-        verbose_name="Подгруппы",
-    )
-
-    class Meta:
-        verbose_name = "Созвездие класса"
-        verbose_name_plural = "Созвездия классов"
-
-    def __str__(self):
-        return f"Созвездие {self.major}"
-
-    @classmethod
-    def get_minor_groups(cls, class_group):
-        """The subgroups bound to `class_group`, empty list if it has none.
-
-        Reads through the constellation so a prefetched one costs no query;
-        use `minor_groups_of()` when a queryset is what you need.
-        """
-        collection = cls.of(class_group)
-        return list(collection.minor_groups.all()) if collection else []
-
-    @staticmethod
-    def minor_groups_of(class_group):
-        """Queryset of the подгруппы bound to a class group (instance or id)."""
-        return ClassGroup.objects.filter(collections__major=class_group)
-
-    @classmethod
-    def of(cls, class_group):
-        """The constellation of a class group, or None — never creates one."""
-        if not class_group or not class_group.pk:
-            return None
-        return getattr(class_group, 'collection', None)
-
-    @classmethod
-    def bind_minor_groups(cls, class_group, minor_groups):
-        """Bind exactly `minor_groups` to `class_group`.
-
-        The constellation is created on demand by the first binding. Clearing
-        the selection empties it but keeps it — an existing constellation is
-        never deleted from here.
-        """
-        collection = cls.of(class_group)
-
-        if collection is None:
-            if not minor_groups:
-                return None
-            collection = cls.objects.create(major=class_group)
-
-        collection.minor_groups.set(minor_groups or [])
-        return collection
+        return f"{self.grade_level}{self.letter} ({self.academic_year})"
 
 
 class Subject(models.Model):
@@ -250,6 +122,11 @@ class SubjectOffering(models.Model):
         on_delete=models.CASCADE,
         related_name='subject_offerings'
     )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='subject_offerings'
+    )
 
     # Grading configuration for this offering
     max_points = models.PositiveIntegerField(default=100)
@@ -264,14 +141,8 @@ class SubjectOffering(models.Model):
         default='average'
     )
 
-    @property
-    def academic_year(self):
-        """Derived from the class group — an offering runs in its class's year."""
-        return self.class_group.academic_year
-
-    @property
-    def academic_year_id(self):
-        return self.class_group.academic_year_id
+    class Meta:
+        unique_together = ('subject', 'class_group', 'academic_year')
 
     def __str__(self):
         return f"{self.subject} - {self.class_group} ({self.academic_year})"
@@ -337,29 +208,21 @@ class HomeroomTeacherAssignment(models.Model):
         on_delete=models.CASCADE,
         related_name='homeroom_assignments',
     )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='homeroom_assignments',
+    )
 
     class Meta:
-        unique_together = ('class_group',)
-
-    @property
-    def academic_year(self):
-        """Derived from the class group — a class group belongs to one year."""
-        return self.class_group.academic_year
-
-    @property
-    def academic_year_id(self):
-        return self.class_group.academic_year_id
+        unique_together = ('class_group', 'academic_year')
 
     def __str__(self):
         return f"{self.teacher} → {self.class_group} ({self.academic_year})"
 
 
 class Enrollment(models.Model):
-    """Tracks which class a student belongs to in a given academic year.
-
-    A student may hold at most one active enrollment in a *major* class group
-    per academic year, but any number of active *minor* group enrollments.
-    """
+    """Tracks which class a student belongs to in a given academic year."""
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('transferred', 'Transferred'),
@@ -378,6 +241,11 @@ class Enrollment(models.Model):
         on_delete=models.CASCADE,
         related_name='enrollments'
     )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='enrollments'
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -389,126 +257,56 @@ class Enrollment(models.Model):
     history = HistoricalRecords()
 
     class Meta:
-        ordering = ['-class_group__academic_year__year', 'class_group']
         constraints = [
             models.UniqueConstraint(
-                fields=['student', 'class_group'],
+                fields=['student', 'academic_year'],
                 condition=models.Q(status='active'),
-                name='unique_active_enrollment_per_class_group'
+                name='unique_active_enrollment_per_year'
             )
         ]
+        ordering = ['-academic_year__year', 'class_group']
         indexes = [
-            models.Index(fields=['class_group', 'status'], name='idx_enrollment_class_status'),
+            models.Index(fields=['academic_year', 'status'], name='idx_enrollment_year_status'),
             models.Index(fields=['student', 'status'], name='idx_enrollment_student_status'),
         ]
-
-    @property
-    def academic_year(self):
-        """Derived from the class group — a class group belongs to one year."""
-        return self.class_group.academic_year
-
-    @property
-    def academic_year_id(self):
-        return self.class_group.academic_year_id
 
     def __str__(self):
         return f"{self.student} - {self.class_group} ({self.status})"
 
-    def clean(self):
-        super().clean()
-        self.validate_single_major()
-
-    def save(self, *args, **kwargs):
-        self.validate_single_major()
-        return super().save(*args, **kwargs)
-
-    def validate_single_major(self):
-        """A student can hold only one active major enrollment per academic year."""
-        if self.status != 'active' or not self.class_group_id:
-            return
-
-        class_group = self.class_group
-        if not class_group.is_major:
-            return
-
-        conflict = type(self).objects.filter(
-            student_id=self.student_id,
-            status='active',
-            class_group__category=ClassGroup.MAJOR_CHOICE,
-            class_group__academic_year_id=class_group.academic_year_id,
-        ).exclude(pk=self.pk).exclude(class_group_id=class_group.pk).first()
-
-        if conflict:
-            raise ValidationError({
-                'class_group': (
-                    f"{self.student} is already enrolled in the major class group "
-                    f"{conflict.class_group}; a student can have only one major "
-                    f"class group per academic year."
-                )
-            })
-
     @classmethod
     def get_current_enrollment(cls, student):
-        """Get the student's current active enrollment in a major class group."""
+        """Get the student's current active enrollment."""
         return cls.objects.filter(
             student=student,
             status='active',
-            class_group__category=ClassGroup.MAJOR_CHOICE,
-            class_group__academic_year__is_active=True
-        ).select_related('class_group', 'class_group__academic_year').first()
-
-    @classmethod
-    def get_current_minor_enrollments(cls, student):
-        """Get the student's active enrollments in minor class groups."""
-        return cls.objects.filter(
-            student=student,
-            status='active',
-            class_group__category=ClassGroup.MINOR_CHOICE,
-            class_group__academic_year__is_active=True
-        ).select_related('class_group', 'class_group__academic_year')
+            academic_year__is_active=True
+        ).select_related('class_group', 'academic_year').first()
 
     @classmethod
     def get_students_in_class(cls, class_group, academic_year=None, status='active'):
         """Get all students enrolled in a class group."""
         qs = cls.objects.filter(class_group=class_group, status=status)
         if academic_year:
-            qs = qs.filter(class_group__academic_year=academic_year)
+            qs = qs.filter(academic_year=academic_year)
         return qs.select_related('student', 'student__user')
 
     @classmethod
-    def enroll_student(cls, student, class_group, academic_year=None, start_date=None):
-        """Enroll a student in a class group.
-
-        Enrolling in a major class group replaces the student's existing active
-        major enrollment for that academic year. Minor class groups are additive —
-        a student can be enrolled in as many of them as needed.
-        """
+    def enroll_student(cls, student, class_group, academic_year, start_date=None):
+        """Enroll a student in a class group, deactivating any existing active enrollment."""
         from django.utils import timezone
 
-        if academic_year is None:
-            academic_year = class_group.academic_year
-
-        existing = cls.objects.filter(
+        # Deactivate existing active enrollment for the same year
+        cls.objects.filter(
             student=student,
-            class_group=class_group,
-            status='active',
-        ).first()
-        if existing:
-            return existing
-
-        if class_group.is_major:
-            # Deactivate existing active major enrollment for the same year
-            cls.objects.filter(
-                student=student,
-                status='active',
-                class_group__category=ClassGroup.MAJOR_CHOICE,
-                class_group__academic_year=academic_year,
-            ).update(status='transferred', end_date=timezone.now().date())
+            academic_year=academic_year,
+            status='active'
+        ).update(status='transferred', end_date=timezone.now().date())
 
         # Create new enrollment
         return cls.objects.create(
             student=student,
             class_group=class_group,
+            academic_year=academic_year,
             status='active',
             start_date=start_date or timezone.now().date()
         )

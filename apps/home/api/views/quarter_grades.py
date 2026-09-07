@@ -68,7 +68,7 @@ QUARTER_GRADE_SELECT_RELATED = (
     'student', 'student__user',
     'offering', 'offering__subject',
     'offering__class_group', 'offering__class_group__grade_level',
-    'offering__class_group__academic_year',
+    'offering__academic_year',
 )
 
 

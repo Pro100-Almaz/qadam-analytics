@@ -91,7 +91,7 @@ def enrolled_offering_query(students):
     for class_group_id, academic_year_id in pairs:
         query |= Q(
             offering__class_group_id=class_group_id,
-            offering__class_group__academic_year_id=academic_year_id,
+            offering__academic_year_id=academic_year_id,
         )
     return query or None
 
@@ -115,7 +115,7 @@ def homework_queryset(user):
     qs = Homework.objects.select_related(
         'offering', 'offering__subject',
         'offering__class_group', 'offering__class_group__grade_level',
-        'offering__class_group__academic_year',
+        'offering__academic_year',
         'teaching_assignment', 'teaching_assignment__teacher',
         'teaching_assignment__teacher__user',
     ).prefetch_related('attachments')
@@ -252,7 +252,7 @@ def _apply_homework_filters(qs, params):
     if params.get('teacher'):
         qs = qs.filter(teaching_assignment__teacher_id=params['teacher'])
     if params.get('academic_year'):
-        qs = qs.filter(offering__class_group__academic_year_id=params['academic_year'])
+        qs = qs.filter(offering__academic_year_id=params['academic_year'])
     if params.get('is_active') in ('true', 'false'):
         qs = qs.filter(is_active=params['is_active'] == 'true')
     if params.get('due_from'):

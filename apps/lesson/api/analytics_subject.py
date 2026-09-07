@@ -798,7 +798,7 @@ class StudentAssignmentSummaryAPIView(APIView):
         filters['missing'] = missing
 
         enrollment = Enrollment.objects.filter(
-            student=student, class_group__academic_year=academic_year, status='active',
+            student=student, academic_year=academic_year, status='active',
         ).select_related('class_group', 'class_group__grade_level').first()
         if enrollment is None:
             payload = self._empty(student, academic_year, quarter, missing)
@@ -808,7 +808,7 @@ class StudentAssignmentSummaryAPIView(APIView):
         offerings = list(
             SubjectOffering.objects.filter(
                 class_group=enrollment.class_group,
-                class_group__academic_year=academic_year,
+                academic_year=academic_year,
             ).select_related('subject').order_by('subject__name', 'id')
         )
         cohort = (

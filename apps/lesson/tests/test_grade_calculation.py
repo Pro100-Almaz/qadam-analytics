@@ -18,6 +18,7 @@ class TestLessonGradeCalculation:
         class_group = ClassGroupFactory(academic_year=academic_year)
         offering = SubjectOfferingFactory(
             class_group=class_group,
+            academic_year=academic_year,
         )
         lesson = LessonFactory(offering=offering, quarter=1)
 
@@ -31,6 +32,7 @@ class TestLessonGradeCalculation:
             EnrollmentFactory(
                 student=s,
                 class_group=class_group,
+                academic_year=academic_year,
             )
             students.append(s)
 
@@ -98,6 +100,7 @@ class TestBulkGradeCalculation:
         class_group = ClassGroupFactory(academic_year=academic_year)
         offering = SubjectOfferingFactory(
             class_group=class_group,
+            academic_year=academic_year,
         )
 
         lessons = [
@@ -114,6 +117,7 @@ class TestBulkGradeCalculation:
             EnrollmentFactory(
                 student=s,
                 class_group=class_group,
+                academic_year=academic_year,
             )
             students.append(s)
 
@@ -162,6 +166,7 @@ class TestSubtopicGradeRollup:
         academic_year = AcademicYearFactory(is_active=True)
         offering = SubjectOfferingFactory(
             class_group=ClassGroupFactory(academic_year=academic_year),
+            academic_year=academic_year,
         )
         lesson = LessonFactory(offering=offering)
         parent_topic = TopicFactory(lesson=lesson, title='Parent', weight=100)
@@ -184,6 +189,7 @@ class TestSubtopicGradeRollup:
         academic_year = AcademicYearFactory(is_active=True)
         offering = SubjectOfferingFactory(
             class_group=ClassGroupFactory(academic_year=academic_year),
+            academic_year=academic_year,
         )
         lesson = LessonFactory(offering=offering)
         parent_topic = TopicFactory(lesson=lesson, title='Parent', weight=100)
@@ -204,6 +210,7 @@ class TestQueryEfficiency:
         class_group = ClassGroupFactory(academic_year=academic_year)
         offering = SubjectOfferingFactory(
             class_group=class_group,
+            academic_year=academic_year,
         )
         lessons = [LessonFactory(offering=offering, title=f'L{i}') for i in range(5)]
         for lesson in lessons:

@@ -1,7 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 
 from apps.authentication.models import Student
 from apps.home.models import ClassGroup, AcademicYear, Enrollment
@@ -30,7 +29,6 @@ def bulk_enroll_view(request):
                     return redirect('admin:authentication_student_changelist')
 
                 count = 0
-                skipped = []
                 for student_id in student_ids:
                     try:
                         student = Student.objects.get(pk=student_id)
@@ -38,15 +36,8 @@ def bulk_enroll_view(request):
                         count += 1
                     except Student.DoesNotExist:
                         continue
-                    except ValidationError as e:
-                        skipped.append(f"{student}: {'; '.join(e.messages)}")
 
                 messages.success(request, f"Успешно зачислено {count} студентов в {class_group}.")
-                if skipped:
-                    messages.warning(
-                        request,
-                        "Не зачислены: " + " | ".join(skipped),
-                    )
 
             except ClassGroup.DoesNotExist:
                 messages.error(request, "Выбранный класс не найден!")
@@ -76,15 +67,13 @@ def bulk_enroll_view(request):
         .select_related('grade_level')
         .order_by('grade_level__number', 'letter')
         if active_year
-        else ClassGroup.objects.none()
+        else []
     )
 
     context = {
         'title': 'Массовое зачисление студентов',
         'students': students,
-        # Classes and подгруппы are offered as separate groups of choices.
-        'major_groups': [g for g in class_groups if g.is_major],
-        'minor_groups': [g for g in class_groups if g.is_minor],
+        'class_groups': class_groups,
         'academic_year': active_year,
         'opts': Student._meta,
         'has_permission': True,

@@ -154,6 +154,7 @@ class TestHorizontalAccessControl:
         class_group = ClassGroupFactory(academic_year=self.academic_year)
         offering = SubjectOfferingFactory(
             class_group=class_group,
+            academic_year=self.academic_year,
         )
         other_teacher = TeacherFactory()
         TeachingAssignmentFactory(teacher=other_teacher, offering=offering)
@@ -175,8 +176,8 @@ class TestHorizontalAccessControl:
         cg_b = ClassGroupFactory(academic_year=self.academic_year)
         student_a = StudentFactory(academic_year=self.academic_year)
         student_b = StudentFactory(academic_year=self.academic_year)
-        EnrollmentFactory(student=student_a, class_group=cg_a)
-        EnrollmentFactory(student=student_b, class_group=cg_b)
+        EnrollmentFactory(student=student_a, class_group=cg_a, academic_year=self.academic_year)
+        EnrollmentFactory(student=student_b, class_group=cg_b, academic_year=self.academic_year)
 
         client = authenticated_client(student_a.user)
         url = reverse('home-api:student-detail', kwargs={'pk': student_b.pk})

@@ -14,7 +14,7 @@ from apps.achievement.models import (
     ReadingEntry,
 )
 from apps.authentication.models import ClubManager, Student
-from apps.home.models import AcademicYear, ClassGroup, Subject
+from apps.home.models import AcademicYear, Subject
 from core.permissions import is_admin_role
 
 # ── Shared nested serializers ──
@@ -250,14 +250,9 @@ class ClubStudentSerializer(serializers.ModelSerializer):
     def get_class_name(self, obj):
         enrollments = getattr(obj, 'club_enrollments', None)
         if enrollments is None:
-            enrollment = obj.enrollments.filter(
-                status='active', class_group__category=ClassGroup.MAJOR_CHOICE
-            ).select_related(
-                'class_group__grade_level', 'class_group__academic_year'
-            ).order_by(
-                '-class_group__academic_year__is_active',
-                '-class_group__academic_year__year',
-            ).first()
+            enrollment = obj.enrollments.filter(status='active').select_related(
+                'class_group__grade_level', 'academic_year'
+            ).order_by('-academic_year__is_active', '-academic_year__year').first()
         else:
             enrollment = enrollments[0] if enrollments else None
         if not enrollment or not enrollment.class_group:

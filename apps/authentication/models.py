@@ -210,39 +210,27 @@ class Student(models.Model):
         return self.user.get_full_name() or self.user.username
 
     def get_admin_label(self):
-        from apps.home.models import ClassGroup
         name = str(self)
-        enrollment = self.enrollments.filter(
-            status='active', class_group__category=ClassGroup.MAJOR_CHOICE
-        ).first()
+        enrollment = self.enrollments.filter(status='active').first()
         if enrollment and enrollment.class_group:
             return f'{name} ({enrollment.class_group.grade_level}{enrollment.class_group.letter})'
         return name
 
     def get_current_enrollment(self):
-        """Get current active enrollment in a major class group."""
+        """Get current active enrollment."""
         from apps.home.models import Enrollment
         return Enrollment.get_current_enrollment(self)
 
-    def get_current_minor_enrollments(self):
-        """Get current active enrollments in minor class groups."""
-        from apps.home.models import Enrollment
-        return Enrollment.get_current_minor_enrollments(self)
-
     def get_current_class_group(self):
-        """Get the major class group from current enrollment."""
+        """Get the class group from current enrollment."""
         enrollment = self.get_current_enrollment()
         return enrollment.class_group if enrollment else None
-
-    def get_current_minor_class_groups(self):
-        """Get the minor class groups the student is currently enrolled in."""
-        return [e.class_group for e in self.get_current_minor_enrollments()]
 
     def get_enrollment_history(self):
         """Get all enrollments ordered by year."""
         return self.enrollments.select_related(
-            'class_group', 'class_group__grade_level', 'class_group__academic_year'
-        ).order_by('-class_group__academic_year__year')
+            'class_group', 'class_group__grade_level', 'academic_year'
+        ).order_by('-academic_year__year')
 
     def enroll_in_class(self, class_group, academic_year, start_date=None):
         """Enroll student in a class group."""

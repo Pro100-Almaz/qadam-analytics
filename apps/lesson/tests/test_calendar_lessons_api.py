@@ -37,10 +37,12 @@ def schedule_data(academic_year):
     offering = SubjectOfferingFactory(
         subject=subject,
         class_group=class_group,
+        academic_year=academic_year,
     )
     other_offering = SubjectOfferingFactory(
         subject=other_subject,
         class_group=other_class_group,
+        academic_year=academic_year,
     )
 
     TeachingAssignmentFactory(teacher=teacher, offering=offering, role='assistant')

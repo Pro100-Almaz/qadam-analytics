@@ -49,7 +49,7 @@ class SubjectListAPIView(ListAPIView):
                 teacher = Teacher.objects.get(user=user)
                 assignments = TeachingAssignment.objects.filter(teacher=teacher)
                 if year_id:
-                    assignments = assignments.filter(offering__class_group__academic_year_id=year_id)
+                    assignments = assignments.filter(offering__academic_year_id=year_id)
                 subject_ids = set(a.offering.subject_id for a in assignments)
                 subjects = Subject.objects.filter(id__in=subject_ids)
                 if status_filter != 'all':
@@ -65,13 +65,11 @@ class SubjectListAPIView(ListAPIView):
                     student__in=children, status='active'
                 )
                 if year_id:
-                    child_enrollments = child_enrollments.filter(
-                        class_group__academic_year_id=year_id
-                    )
+                    child_enrollments = child_enrollments.filter(academic_year_id=year_id)
                 class_group_ids = child_enrollments.values_list('class_group_id', flat=True)
                 offerings = SubjectOffering.objects.filter(class_group_id__in=class_group_ids)
                 if year_id:
-                    offerings = offerings.filter(class_group__academic_year_id=year_id)
+                    offerings = offerings.filter(academic_year_id=year_id)
                 subject_ids = offerings.values_list('subject_id', flat=True)
                 subjects = Subject.objects.filter(id__in=subject_ids)
                 if status_filter != 'all':
@@ -86,13 +84,11 @@ class SubjectListAPIView(ListAPIView):
                     student=student, status='active'
                 )
                 if year_id:
-                    enrollments = enrollments.filter(
-                        class_group__academic_year_id=year_id
-                    )
+                    enrollments = enrollments.filter(academic_year_id=year_id)
                 class_group_ids = enrollments.values_list('class_group_id', flat=True)
                 offerings = SubjectOffering.objects.filter(class_group_id__in=class_group_ids)
                 if year_id:
-                    offerings = offerings.filter(class_group__academic_year_id=year_id)
+                    offerings = offerings.filter(academic_year_id=year_id)
                 subject_ids = offerings.values_list('subject_id', flat=True)
                 subjects = Subject.objects.filter(id__in=subject_ids)
                 if status_filter != 'all':

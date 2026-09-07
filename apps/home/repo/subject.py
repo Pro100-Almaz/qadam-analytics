@@ -16,7 +16,7 @@ def get_students_for_offering(offering):
     """Get count of students enrolled in an offering's class group."""
     return Enrollment.objects.filter(
         class_group=offering.class_group,
-        class_group__academic_year_id=offering.academic_year_id,
+        academic_year=offering.academic_year,
         status='active'
     ).count()
 
@@ -25,7 +25,7 @@ def get_students_count_for_subject(subject, academic_year=None):
     """Get count of students who can access a subject (via offerings)."""
     offerings = SubjectOffering.objects.filter(subject=subject)
     if academic_year:
-        offerings = offerings.filter(class_group__academic_year=academic_year)
+        offerings = offerings.filter(academic_year=academic_year)
 
     total = 0
     for offering in offerings:
@@ -53,6 +53,7 @@ def subject_create(request):
                     offering, created = SubjectOffering.objects.get_or_create(
                         subject=subject,
                         class_group=class_group,
+                        academic_year=academic_year
                     )
                     if created:
                         offerings_created += 1
@@ -123,7 +124,7 @@ def subjects_list(request, status=None):
             teacher = Teacher.objects.get(user=user)
             assignments = TeachingAssignment.objects.filter(teacher=teacher)
             if year_id:
-                assignments = assignments.filter(offering__class_group__academic_year_id=year_id)
+                assignments = assignments.filter(offering__academic_year_id=year_id)
             subject_ids = set(a.offering.subject_id for a in assignments)
             subjects = Subject.objects.filter(id__in=subject_ids)
             if status != 'all':
@@ -144,16 +145,14 @@ def subjects_list(request, status=None):
                 status='active'
             )
             if year_id:
-                child_enrollments = child_enrollments.filter(
-                    class_group__academic_year_id=year_id
-                )
+                child_enrollments = child_enrollments.filter(academic_year_id=year_id)
 
             class_group_ids = child_enrollments.values_list('class_group_id', flat=True)
 
             # Get subjects offered to those class groups
             offerings = SubjectOffering.objects.filter(class_group_id__in=class_group_ids)
             if year_id:
-                offerings = offerings.filter(class_group__academic_year_id=year_id)
+                offerings = offerings.filter(academic_year_id=year_id)
 
             subject_ids = offerings.values_list('subject_id', flat=True)
             subjects = Subject.objects.filter(id__in=subject_ids)
@@ -173,7 +172,7 @@ def subjects_list(request, status=None):
     if year_id:
         offerings = SubjectOffering.objects.filter(
             subject__in=subjects,
-            class_group__academic_year_id=year_id
+            academic_year_id=year_id
         ).select_related('class_group', 'subject')
 
         for offering in offerings:
@@ -326,7 +325,7 @@ def subject_details(request, pk):
     # Get offerings for this subject
     offerings = SubjectOffering.objects.filter(
         subject=subject,
-        class_group__academic_year=current_year
+        academic_year=current_year
     ).select_related('class_group') if current_year else []
 
     # Get students enrolled in these offerings
@@ -335,7 +334,7 @@ def subject_details(request, pk):
     for offering in offerings:
         enrollments = Enrollment.objects.filter(
             class_group=offering.class_group,
-            class_group__academic_year_id=offering.academic_year_id,
+            academic_year=offering.academic_year,
             status='active'
         ).select_related('student', 'student__user')
         for e in enrollments:

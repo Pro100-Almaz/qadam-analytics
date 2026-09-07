@@ -72,7 +72,7 @@ class SubjectAssignmentPagination(PageNumberPagination):
 ASSIGNMENT_SELECT_RELATED = (
     'offering', 'offering__subject',
     'offering__class_group', 'offering__class_group__grade_level',
-    'offering__class_group__academic_year',
+    'offering__academic_year',
 )
 
 
@@ -95,7 +95,7 @@ def enrolled_offering_query(students, prefix=''):
     for class_group_id, academic_year_id in pairs:
         query |= Q(**{
             f'{prefix}offering__class_group_id': class_group_id,
-            f'{prefix}offering__class_group__academic_year_id': academic_year_id,
+            f'{prefix}offering__academic_year_id': academic_year_id,
         })
     return query or None
 
@@ -268,7 +268,7 @@ def apply_offering_filters(qs, params, prefix=''):
     if params.get('class_group'):
         qs = qs.filter(**{f'{prefix}offering__class_group_id': params['class_group']})
     if params.get('academic_year'):
-        qs = qs.filter(**{f'{prefix}offering__class_group__academic_year_id': params['academic_year']})
+        qs = qs.filter(**{f'{prefix}offering__academic_year_id': params['academic_year']})
     return qs
 
 

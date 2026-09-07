@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils import timezone
 
 from apps.home.models import AcademicYear, ClassGroup, GradeLevel, Enrollment
 
@@ -53,10 +52,8 @@ class Command(BaseCommand):
         current_year.save(update_fields=['is_active', 'archived'])
         summary.append(f'Archived {current_year.year}, created {new_year_name}')
 
-        # Only major class groups are promoted — minor groups are re-formed each year.
         old_class_groups = ClassGroup.objects.filter(
             academic_year=current_year,
-            category=ClassGroup.MAJOR_CHOICE,
         ).select_related('grade_level')
 
         group_mapping = {}
@@ -71,23 +68,13 @@ class Command(BaseCommand):
                 academic_year=new_year,
                 grade_level=next_grade,
                 letter=old_cg.letter,
-                category=ClassGroup.MAJOR_CHOICE,
             )
             group_mapping[old_cg.id] = new_cg
 
         summary.append(f'Created {len(group_mapping)} class groups for {new_year_name}')
 
-        closed_minor = Enrollment.objects.filter(
-            class_group__academic_year=current_year,
-            class_group__category=ClassGroup.MINOR_CHOICE,
-            status='active',
-        ).update(status='transferred', end_date=timezone.now().date())
-        if closed_minor:
-            summary.append(f'Closed {closed_minor} minor group enrollments')
-
         active_enrollments = Enrollment.objects.filter(
-            class_group__academic_year=current_year,
-            class_group__category=ClassGroup.MAJOR_CHOICE,
+            academic_year=current_year,
             status='active',
         ).select_related('student', 'class_group')
 
@@ -106,6 +93,7 @@ class Command(BaseCommand):
             Enrollment.objects.create(
                 student=enrollment.student,
                 class_group=new_cg,
+                academic_year=new_year,
                 status='active',
             )
             promoted += 1

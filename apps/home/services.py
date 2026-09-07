@@ -63,7 +63,7 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
         return []
 
     enrollments = Enrollment.objects.filter(
-        class_group__academic_year_id=year_id, status='active'
+        academic_year_id=year_id, status='active'
     ).select_related('student', 'student__user', 'class_group')
 
     if class_group_id:
@@ -80,7 +80,7 @@ def compute_child_grades(student, enrollment):
     """Compute grade summaries for a student — used by parent endpoints."""
     offerings = list(SubjectOffering.objects.filter(
         class_group=enrollment.class_group,
-        class_group__academic_year=enrollment.academic_year,
+        academic_year=enrollment.academic_year,
     ).select_related('subject'))
 
     lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -150,7 +150,7 @@ def get_subject_grades(subject, user, quarter=1, class_group_id=0):
 
     offerings = list(
         SubjectOffering.objects.filter(
-            subject=subject, class_group__academic_year=current_year
+            subject=subject, academic_year=current_year
         ).select_related('class_group')
     ) if current_year else []
 
@@ -169,7 +169,7 @@ def get_subject_grades(subject, user, quarter=1, class_group_id=0):
     class_group_ids = [o.class_group_id for o in offerings]
     enrollments = Enrollment.objects.filter(
         class_group_id__in=class_group_ids,
-        class_group__academic_year=current_year,
+        academic_year=current_year,
         status='active',
     ).select_related('student', 'student__user')
 
@@ -299,7 +299,7 @@ def get_teacher_workload(teacher, week_start=None, week_end=None):
     for a in assignments:
         count = Enrollment.objects.filter(
             class_group=a.offering.class_group,
-            class_group__academic_year_id=a.offering.academic_year_id,
+            academic_year=a.offering.academic_year,
             status='active',
         ).count()
         enrollment_counts[a.offering_id] = count

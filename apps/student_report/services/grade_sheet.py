@@ -111,7 +111,7 @@ def active_students(class_group, academic_year):
     """Students actively enrolled in the class group, ordered by name."""
     enrollments = Enrollment.objects.filter(
         class_group=class_group,
-        class_group__academic_year=academic_year,
+        academic_year=academic_year,
         status='active',
     ).select_related('student', 'student__user').order_by(
         'student__user__last_name',
@@ -125,7 +125,7 @@ def offerings_for(class_group, academic_year, subject_id=None):
     """The class group's offerings for the year, narrowed to one subject if asked."""
     qs = SubjectOffering.objects.filter(
         class_group=class_group,
-        class_group__academic_year=academic_year,
+        academic_year=academic_year,
     ).select_related('subject')
     if subject_id is not None:
         qs = qs.filter(subject_id=subject_id)
