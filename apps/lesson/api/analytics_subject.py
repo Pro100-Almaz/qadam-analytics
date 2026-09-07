@@ -38,15 +38,16 @@ Read access:
 - Trajectory and summary — can_access_student(): the student, their parents,
                    teachers who teach them, their homeroom teacher,
                    psychologists, and Admin / Principal / Supervisor.
-- Heatmap        — teachers of the offering, the homeroom teacher of its class
-                   group, psychologists, and admin roles. Students and parents
-                   get 403; their equivalent is the trajectory endpoint, where
-                   the class appears only as an anonymous band.
+- Heatmap        — teachers of the offering only. Students, parents, admin
+                   roles and homeroom-only teachers stay out of this grading
+                   page endpoint; their equivalent is the trajectory endpoint,
+                   where the class appears only as an anonymous band.
 Nothing here writes.
 """
 
 from collections import defaultdict
 
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -56,12 +57,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Student
+from apps.authentication.models import Student, Teacher
 from apps.home.models import (
-    AcademicYear, Enrollment, SubjectAssignment, SubjectGrade, SubjectOffering,
+    AcademicYear, Enrollment, HomeroomTeacherAssignment, SubjectAssignment,
+    SubjectGrade, SubjectOffering, TeachingAssignment,
 )
 from core.error_messages import NO_PERMISSION
-from core.permissions import can_access_student
+from core.permissions import can_access_student, is_admin_role, is_teacher_role
 
 from apps.lesson.api.analytics_common import (
     ACADEMIC_YEAR_PARAM,
@@ -70,7 +72,6 @@ from apps.lesson.api.analytics_common import (
     academic_year_payload,
     band,
     bool_param,
-    can_read_class_wide,
     choice_param,
     class_students,
     class_group_payload,
@@ -119,10 +120,12 @@ def assignment_percent_matrix(assignments, students):
     """
     Percent scores for every (assignment, student) pair, in one query.
 
-    Returns (percents, raw):
+    Returns (percents, raw, grade_ids, comments):
         percents[(assignment_id, student_id)] -> float, or None when unmarked
         raw[(assignment_id, student_id)]      -> the SubjectGrade.grade as given,
                                                  or None
+        grade_ids[(assignment_id, student_id)] -> SubjectGrade.id for existing rows
+        comments[(assignment_id, student_id)]  -> SubjectGrade.comments or ''
 
     None means "no mark", never "zero" — see the module docstring. Callers turn
     it into a number, or leave it out, according to the `missing` parameter.
@@ -138,19 +141,90 @@ def assignment_percent_matrix(assignments, students):
 
     percents = {}
     raw = {}
+    grade_ids = {}
+    comments = {}
     rows = SubjectGrade.objects.filter(
         assignment_id__in=assignment_ids, student_id__in=student_ids,
-    ).values_list('assignment_id', 'student_id', 'grade')
-    for assignment_id, student_id, grade in rows:
+    ).values_list('id', 'assignment_id', 'student_id', 'grade', 'comments')
+    for grade_id, assignment_id, student_id, grade, comment in rows:
         key = (assignment_id, student_id)
         raw[key] = grade
+        grade_ids[key] = grade_id
+        comments[key] = comment or ''
         # A row with a null grade is a placeholder: it stays unmarked.
         percents[key] = (
             None if grade is None
             else _percent(grade, max_grades.get(assignment_id))
         )
 
-    return percents, raw
+    return percents, raw, grade_ids, comments
+
+
+def can_grade_offering(user, offering):
+    """Whether the caller teaches the offering and may edit its grades."""
+    if not is_teacher_role(user):
+        return False
+
+    teacher = Teacher.objects.filter(user=user).first()
+    if teacher is None:
+        return False
+
+    return TeachingAssignment.objects.filter(
+        offering=offering, teacher=teacher,
+    ).exists()
+
+
+def _teacher_payload(teacher):
+    full_name = teacher.user.get_full_name().strip() or teacher.user.username
+    return {
+        'id': teacher.id,
+        'user_id': teacher.user_id,
+        'full_name': full_name,
+        'username': teacher.user.username,
+    }
+
+
+def _requested_teacher(request):
+    teacher_id = int_param(request.query_params, 'teacher', 1)
+    current_teacher = Teacher.objects.filter(user=request.user).first()
+
+    if teacher_id is None:
+        if current_teacher is None:
+            return None, Response(
+                {'detail': 'teacher is required. Use a teacher profile id.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return current_teacher, None
+
+    if not is_admin_role(request.user):
+        if current_teacher is None or current_teacher.id != teacher_id:
+            return None, Response(
+                {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
+            )
+
+    teacher = get_object_or_404(
+        Teacher.objects.select_related('user'), pk=teacher_id,
+    )
+    return teacher, None
+
+
+def _active_or_requested_academic_year(params):
+    year_id = int_param(params, 'academic_year', 1)
+    if year_id is not None:
+        return get_object_or_404(AcademicYear, pk=year_id)
+    return AcademicYear.objects.filter(is_active=True).first()
+
+
+def _access_for(offering, taught_ids, homeroom_class_group_ids):
+    taught = offering.id in taught_ids
+    homeroom = offering.class_group_id in homeroom_class_group_ids
+    if taught and homeroom:
+        access = 'teaching_and_homeroom'
+    elif taught:
+        access = 'teaching'
+    else:
+        access = 'homeroom'
+    return access, taught, homeroom
 
 
 def _values_for(percents, keys, missing):
@@ -322,7 +396,9 @@ class StudentAssignmentTrajectoryAPIView(APIView):
         filters['missing'] = missing
 
         cohort = class_students(offering) if include_class_stats else [student]
-        percents, raw = assignment_percent_matrix(assignments, cohort)
+        percents, raw, _grade_ids, _comments = assignment_percent_matrix(
+            assignments, cohort,
+        )
 
         points = []
         for assignment in assignments:
@@ -434,8 +510,7 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             'Student × assignment matrix for one offering, scored as a percent '
             'of each assignment\'s own max_grade so that a 20-point quiz and a '
             '100-point exam share a scale. Newest assignments win when the '
-            'column cap bites. Teachers of the offering, its homeroom teacher, '
-            'psychologists and admin roles only.'
+            'column cap bites. Teachers assigned to the offering only.'
         ),
     )
     def get(self, request, offering_id):
@@ -443,7 +518,7 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             SubjectOffering.objects.select_related(*OFFERING_SELECT_RELATED),
             pk=offering_id,
         )
-        if not can_read_class_wide(request.user, offering):
+        if not can_grade_offering(request.user, offering):
             return Response(
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )
@@ -464,23 +539,34 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             assignments = assignments[-MAX_HEATMAP_COLUMNS:]
 
         students = class_students(offering)
-        percents, raw = assignment_percent_matrix(assignments, students)
+        percents, raw, grade_ids, comments = assignment_percent_matrix(
+            assignments, students,
+        )
 
         matrix = []
         graded_matrix = []
         raw_matrix = []
+        grade_id_matrix = []
+        comment_matrix = []
         for student in students:
             row = []
             graded_row = []
             raw_row = []
+            grade_id_row = []
+            comment_row = []
             for assignment in assignments:
-                value = percents.get((assignment.id, student.id))
+                key = (assignment.id, student.id)
+                value = percents.get(key)
                 row.append(0.0 if value is None else value)
                 graded_row.append(value is not None)
-                raw_row.append(raw.get((assignment.id, student.id)))
+                raw_row.append(raw.get(key))
+                grade_id_row.append(grade_ids.get(key))
+                comment_row.append(comments.get(key, ''))
             matrix.append(row)
             graded_matrix.append(graded_row)
             raw_matrix.append(raw_row)
+            grade_id_matrix.append(grade_id_row)
+            comment_matrix.append(comment_row)
 
         row_means = [
             mean(_values_for(
@@ -510,12 +596,125 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             'matrix': matrix,
             'graded': graded_matrix,
             'raw_grades': raw_matrix,
+            'grade_ids': grade_id_matrix,
+            'comments': comment_matrix,
             'row_means': row_means,
             'column_means': column_means,
             'coverage': _coverage(percents, assignments, students),
             'class_size': len(students),
             'assignment_count': len(assignments),
             'truncated': truncated,
+        })
+
+
+class AssignmentAnalyticsOfferingListAPIView(APIView):
+    """
+    GET analytics/assignment-offerings/
+
+    Offerings a teacher should see on the assignment analytics screen.
+
+    This is intentionally narrower than the schedule teaching-assignment list
+    for admin users: the assignment heatmap is teacher-owned, so a mixed
+    Admin/Teacher account needs the teacher's own analytics scope, not the
+    whole school's offerings.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                'teacher', int,
+                description=(
+                    'Teacher profile id. Optional for teacher accounts; admin '
+                    'roles may use it to inspect a specific teacher.'
+                ),
+            ),
+            OpenApiParameter(
+                'academic_year', int,
+                description=(
+                    'Academic year id. Defaults to the active academic year.'
+                ),
+            ),
+        ],
+        description=(
+            'Assignment analytics offering picker for one teacher. Includes '
+            'offerings they teach and active subjects in their homeroom class. '
+            '`can_heatmap` is true only for offerings the teacher directly '
+            'teaches.'
+        ),
+    )
+    def get(self, request):
+        teacher, error = _requested_teacher(request)
+        if error is not None:
+            return error
+
+        academic_year = _active_or_requested_academic_year(request.query_params)
+        if academic_year is None:
+            return Response({
+                'teacher': _teacher_payload(teacher),
+                'academic_year': None,
+                'offerings': [],
+                'count': 0,
+            })
+
+        taught_assignments = list(
+            TeachingAssignment.objects.filter(
+                teacher=teacher,
+                offering__academic_year=academic_year,
+            ).select_related('offering')
+        )
+        taught_ids = {assignment.offering_id for assignment in taught_assignments}
+        roles_by_offering = {
+            assignment.offering_id: assignment.role
+            for assignment in taught_assignments
+        }
+
+        homeroom_class_group_ids = set(
+            HomeroomTeacherAssignment.objects.filter(
+                teacher=teacher,
+                academic_year=academic_year,
+            ).values_list('class_group_id', flat=True)
+        )
+
+        offerings = list(
+            SubjectOffering.objects.filter(
+                Q(id__in=taught_ids) | Q(class_group_id__in=homeroom_class_group_ids),
+                academic_year=academic_year,
+                subject__status='active',
+            )
+            .select_related(*OFFERING_SELECT_RELATED)
+            .distinct()
+            .order_by(
+                'class_group__grade_level__number',
+                'class_group__letter',
+                'subject__name',
+                'id',
+            )
+        )
+
+        rows = []
+        for offering in offerings:
+            access, taught, homeroom = _access_for(
+                offering, taught_ids, homeroom_class_group_ids,
+            )
+            row = offering_payload(offering)
+            row.update({
+                'subject_language_group': offering.subject.language_group,
+                'class_group_id': offering.class_group_id,
+                'class_group_detail': class_group_payload(offering.class_group),
+                'academic_year_id': offering.academic_year_id,
+                'access': access,
+                'teaching_role': roles_by_offering.get(offering.id),
+                'is_homeroom_class': homeroom,
+                'can_heatmap': taught,
+            })
+            rows.append(row)
+
+        return Response({
+            'teacher': _teacher_payload(teacher),
+            'academic_year': academic_year_payload(academic_year),
+            'offerings': rows,
+            'count': len(rows),
         })
 
 
@@ -622,7 +821,9 @@ class StudentAssignmentSummaryAPIView(APIView):
         for assignment in assignments:
             by_offering[assignment.offering_id].append(assignment)
 
-        percents, _raw = assignment_percent_matrix(assignments, cohort)
+        percents, _raw, _grade_ids, _comments = assignment_percent_matrix(
+            assignments, cohort,
+        )
 
         axes = []
         for offering in offerings:

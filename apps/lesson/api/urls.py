@@ -295,6 +295,15 @@ urlpatterns = [
     # of each assignment's own max_grade, and unmarked work is left out of the
     # averages unless missing=zero says otherwise.
 
+    # GET /api/v1/analytics/assignment-offerings/
+    #     assignment analytics offering picker for one teacher.
+    #     Filters: teacher, academic_year
+    path(
+        'analytics/assignment-offerings/',
+        analytics_subject.AssignmentAnalyticsOfferingListAPIView.as_view(),
+        name='analytics-assignment-offering-list',
+    ),
+
     # GET /api/v1/analytics/students/<student_id>/offerings/<offering_id>/assignment-trajectory/
     #     per-assignment score for one student with the class band around it.
     #     Filters: category, date_from, date_to, missing, include_class_stats

@@ -9,6 +9,7 @@ is folded in on purpose.
 """
 
 import pytest
+from django.contrib.auth.models import Group
 from django.urls import reverse
 
 from apps.home.models import HomeroomTeacherAssignment
@@ -33,6 +34,10 @@ def heatmap_url(offering):
 
 def summary_url(student):
     return reverse('lesson-api:analytics-assignment-summary', args=[student.id])
+
+
+def assignment_offerings_url():
+    return reverse('lesson-api:analytics-assignment-offering-list')
 
 
 @pytest.fixture
@@ -85,13 +90,24 @@ def cohort(db):
         max_grade=10, date='2025-09-20',
     )
 
-    SubjectGradeFactory(assignment=quiz, student=students[0], grade=20)
-    SubjectGradeFactory(assignment=exam, student=students[0], grade=25)
-    SubjectGradeFactory(assignment=homework, student=students[0], grade=10)
+    s0_quiz = SubjectGradeFactory(
+        assignment=quiz, student=students[0], grade=20, comments='Excellent',
+    )
+    s0_exam = SubjectGradeFactory(
+        assignment=exam, student=students[0], grade=25, comments='Steady',
+    )
+    s0_homework = SubjectGradeFactory(
+        assignment=homework, student=students[0], grade=10,
+    )
 
-    SubjectGradeFactory(assignment=quiz, student=students[1], grade=10)
+    s1_quiz = SubjectGradeFactory(
+        assignment=quiz, student=students[1], grade=10,
+    )
     # A row with no mark: opened, not graded. Must not read as a zero.
-    SubjectGradeFactory(assignment=exam, student=students[1], grade=None)
+    s1_exam = SubjectGradeFactory(
+        assignment=exam, student=students[1], grade=None,
+        comments='Needs submission',
+    )
 
     teacher = TeacherFactory()
     TeachingAssignmentFactory(teacher=teacher, offering=offering)
@@ -102,6 +118,13 @@ def cohort(db):
         'offering': offering,
         'students': students,
         'assignments': [quiz, exam, homework],
+        'grades': {
+            's0_quiz': s0_quiz,
+            's0_exam': s0_exam,
+            's0_homework': s0_homework,
+            's1_quiz': s1_quiz,
+            's1_exam': s1_exam,
+        },
         'teacher': teacher,
     }
 
@@ -299,6 +322,72 @@ class TestAssignmentTrajectory:
 # ── Heatmap ──
 
 @pytest.mark.django_db
+class TestAssignmentAnalyticsOfferings:
+
+    def test_mixed_admin_teacher_gets_own_taught_and_homeroom_offerings(
+        self, cohort, authenticated_client,
+    ):
+        teacher = cohort['teacher']
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        teacher.user.groups.add(admin_group)
+
+        homeroom_subject = SubjectFactory(name='Chinese')
+        homeroom_offering = SubjectOfferingFactory(
+            subject=homeroom_subject,
+            class_group=cohort['class_group'],
+            academic_year=cohort['academic_year'],
+        )
+        unrelated = SubjectOfferingFactory(
+            subject=SubjectFactory(name='Physics'),
+            academic_year=cohort['academic_year'],
+        )
+        HomeroomTeacherAssignment.objects.create(
+            teacher=teacher,
+            class_group=cohort['class_group'],
+            academic_year=cohort['academic_year'],
+        )
+
+        client = authenticated_client(teacher.user)
+        response = client.get(assignment_offerings_url())
+
+        assert response.status_code == 200
+        rows = {row['id']: row for row in response.data['offerings']}
+        assert set(rows) == {cohort['offering'].id, homeroom_offering.id}
+        assert rows[cohort['offering'].id]['access'] == 'teaching_and_homeroom'
+        assert rows[cohort['offering'].id]['can_heatmap'] is True
+        assert rows[homeroom_offering.id]['access'] == 'homeroom'
+        assert rows[homeroom_offering.id]['can_heatmap'] is False
+        assert unrelated.id not in rows
+
+    def test_admin_can_request_a_specific_teacher(
+        self, cohort, authenticated_client,
+    ):
+        admin = AdminUserFactory()
+
+        client = authenticated_client(admin)
+        response = client.get(
+            assignment_offerings_url(), {'teacher': cohort['teacher'].id},
+        )
+
+        assert response.status_code == 200
+        assert [row['id'] for row in response.data['offerings']] == [
+            cohort['offering'].id,
+        ]
+
+    def test_teacher_cannot_request_another_teacher(
+        self, cohort, authenticated_client,
+    ):
+        other = TeacherFactory()
+
+        client = authenticated_client(other.user)
+        response = client.get(
+            assignment_offerings_url(), {'teacher': cohort['teacher'].id},
+        )
+
+        assert response.status_code == 403
+
+
+@pytest.mark.django_db
 class TestAssignmentHeatmap:
 
     def test_matrix_is_students_by_assignments(self, cohort, authenticated_client):
@@ -328,6 +417,22 @@ class TestAssignmentHeatmap:
         assert response.data['raw_grades'][0] == [20, 25, 10]
         assert response.data['raw_grades'][1] == [10, None, None]
 
+    def test_edit_metadata_is_aligned_with_cells(self, cohort, authenticated_client):
+        client = authenticated_client(cohort['teacher'].user)
+        response = client.get(heatmap_url(cohort['offering']))
+
+        grades = cohort['grades']
+        assert response.data['grade_ids'] == [
+            [grades['s0_quiz'].id, grades['s0_exam'].id, grades['s0_homework'].id],
+            [grades['s1_quiz'].id, grades['s1_exam'].id, None],
+            [None, None, None],
+        ]
+        assert response.data['comments'] == [
+            ['Excellent', 'Steady', ''],
+            ['', 'Needs submission', ''],
+            ['', '', ''],
+        ]
+
     def test_means_exclude_unmarked_cells(self, cohort, authenticated_client):
         client = authenticated_client(cohort['teacher'].user)
         response = client.get(heatmap_url(cohort['offering']))
@@ -355,7 +460,9 @@ class TestAssignmentHeatmap:
         assert response.data['coverage']['possible_count'] == 9
         assert response.data['coverage']['graded_count'] == 4
 
-    def test_homeroom_teacher_may_read(self, cohort, authenticated_client):
+    def test_homeroom_teacher_who_does_not_teach_is_403(
+        self, cohort, authenticated_client,
+    ):
         homeroom = TeacherFactory()
         HomeroomTeacherAssignment.objects.create(
             teacher=homeroom,
@@ -364,11 +471,11 @@ class TestAssignmentHeatmap:
         )
 
         client = authenticated_client(homeroom.user)
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 200
+        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
 
-    def test_admin_may_read(self, cohort, authenticated_client):
+    def test_admin_is_403(self, cohort, authenticated_client):
         client = authenticated_client(AdminUserFactory())
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 200
+        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
 
     def test_student_is_403(self, cohort, authenticated_client):
         client = authenticated_client(cohort['students'][0].user)
