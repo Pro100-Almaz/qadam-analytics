@@ -59,7 +59,7 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher
 from apps.home.models import (
-    AcademicYear, Enrollment, HomeroomTeacherAssignment, SubjectAssignment,
+    AcademicYear, HomeroomTeacherAssignment, SubjectAssignment,
     SubjectGrade, SubjectOffering, TeachingAssignment,
 )
 from core.error_messages import NO_PERMISSION
@@ -78,6 +78,7 @@ from apps.lesson.api.analytics_common import (
     date_param,
     enrolled_students,
     int_param,
+    major_enrollment,
     mean,
     offering_payload,
     percentile_rank,
@@ -133,7 +134,7 @@ def assignment_percent_matrix(assignments, students):
     assignment_ids = [assignment.id for assignment in assignments]
     student_ids = [student.id for student in students]
     if not assignment_ids or not student_ids:
-        return {}, {}
+        return {}, {}, {}, {}
 
     max_grades = {
         assignment.id: assignment.max_grade for assignment in assignments
@@ -657,10 +658,12 @@ class AssignmentAnalyticsOfferingListAPIView(APIView):
                 'count': 0,
             })
 
+        # An offering's year is its class group's — `academic_year` is a derived
+        # property on the model, not a column, so it has to be traversed.
         taught_assignments = list(
             TeachingAssignment.objects.filter(
                 teacher=teacher,
-                offering__academic_year=academic_year,
+                offering__class_group__academic_year=academic_year,
             ).select_related('offering')
         )
         taught_ids = {assignment.offering_id for assignment in taught_assignments}
@@ -672,14 +675,14 @@ class AssignmentAnalyticsOfferingListAPIView(APIView):
         homeroom_class_group_ids = set(
             HomeroomTeacherAssignment.objects.filter(
                 teacher=teacher,
-                academic_year=academic_year,
+                class_group__academic_year=academic_year,
             ).values_list('class_group_id', flat=True)
         )
 
         offerings = list(
             SubjectOffering.objects.filter(
                 Q(id__in=taught_ids) | Q(class_group_id__in=homeroom_class_group_ids),
-                academic_year=academic_year,
+                class_group__academic_year=academic_year,
                 subject__status='active',
             )
             .select_related(*OFFERING_SELECT_RELATED)
@@ -797,9 +800,7 @@ class StudentAssignmentSummaryAPIView(APIView):
         filters = self._filters(request.query_params, academic_year, quarter)
         filters['missing'] = missing
 
-        enrollment = Enrollment.objects.filter(
-            student=student, class_group__academic_year=academic_year, status='active',
-        ).select_related('class_group', 'class_group__grade_level').first()
+        enrollment = major_enrollment(student, academic_year)
         if enrollment is None:
             payload = self._empty(student, academic_year, quarter, missing)
             payload['filters'] = filters

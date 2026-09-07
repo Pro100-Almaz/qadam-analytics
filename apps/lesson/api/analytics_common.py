@@ -29,7 +29,7 @@ from drf_spectacular.utils import OpenApiParameter
 from rest_framework.exceptions import ValidationError
 
 from apps.authentication.models import Teacher
-from apps.home.models import Enrollment, TeachingAssignment
+from apps.home.models import ClassGroup, Enrollment, TeachingAssignment
 from core.permissions import (
     is_admin_role,
     is_teacher_role,
@@ -44,6 +44,16 @@ OFFERING_SELECT_RELATED = (
 
 # ── Query parameter parsing ──
 
+def _range_message(name, minimum, maximum):
+    """Only the bounds that were actually given get named — a one-sided range
+    would otherwise read as 'must be between 1 and None'."""
+    if minimum is not None and maximum is not None:
+        return f'{name} must be between {minimum} and {maximum}.'
+    if minimum is not None:
+        return f'{name} must be {minimum} or greater.'
+    return f'{name} must be {maximum} or less.'
+
+
 def int_param(params, name, minimum=None, maximum=None):
     """An optional positive-integer query param, or None. Out of range is a 400."""
     raw = params.get(name)
@@ -54,9 +64,9 @@ def int_param(params, name, minimum=None, maximum=None):
     except (TypeError, ValueError):
         raise ValidationError({name: f'{name} must be an integer.'})
     if minimum is not None and value < minimum:
-        raise ValidationError({name: f'{name} must be between {minimum} and {maximum}.'})
+        raise ValidationError({name: _range_message(name, minimum, maximum)})
     if maximum is not None and value > maximum:
-        raise ValidationError({name: f'{name} must be between {minimum} and {maximum}.'})
+        raise ValidationError({name: _range_message(name, minimum, maximum)})
     return value
 
 
@@ -70,9 +80,9 @@ def float_param(params, name, minimum=None, maximum=None):
     except (TypeError, ValueError):
         raise ValidationError({name: f'{name} must be a number.'})
     if minimum is not None and value < minimum:
-        raise ValidationError({name: f'{name} must be between {minimum} and {maximum}.'})
+        raise ValidationError({name: _range_message(name, minimum, maximum)})
     if maximum is not None and value > maximum:
-        raise ValidationError({name: f'{name} must be between {minimum} and {maximum}.'})
+        raise ValidationError({name: _range_message(name, minimum, maximum)})
     return value
 
 
@@ -257,6 +267,24 @@ def enrolled_students(class_group_id, academic_year_id=None):
 def class_students(offering):
     """Students actively enrolled in the offering's class group, in list order."""
     return enrolled_students(offering.class_group_id, offering.academic_year_id)
+
+
+def major_enrollment(student, academic_year):
+    """The student's active enrollment in their *class* for one academic year.
+
+    A student also holds one active enrollment per подгруппа they join, so the
+    class has to be asked for by category: the plain "first active enrollment"
+    can land on a subgroup and narrow a whole report down to it.
+    """
+    if academic_year is None:
+        return None
+
+    return Enrollment.objects.filter(
+        student=student,
+        class_group__academic_year=academic_year,
+        class_group__category=ClassGroup.MAJOR_CHOICE,
+        status='active',
+    ).select_related('class_group', 'class_group__grade_level').first()
 
 
 def student_is_enrolled_in(student, offering):
