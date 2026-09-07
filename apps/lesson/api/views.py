@@ -64,7 +64,7 @@ class LessonListCreateAPIView(APIView):
 
         lessons = Lesson.objects.select_related(
             'offering', 'offering__subject', 'offering__class_group',
-            'offering__academic_year',
+            'offering__class_group__academic_year',
         )
 
         user = request.user
@@ -160,7 +160,7 @@ class LessonDetailGetDeleteAPIView(APIView):
         lesson = get_object_or_404(
             Lesson.objects.select_related(
                 'offering', 'offering__subject',
-                'offering__class_group', 'offering__academic_year',
+                'offering__class_group', 'offering__class_group__academic_year',
             ),
             pk=pk,
         )
@@ -532,7 +532,7 @@ class GradingAPIView(APIView):
         lesson = get_object_or_404(
             Lesson.objects.select_related(
                 'offering', 'offering__subject',
-                'offering__class_group', 'offering__academic_year',
+                'offering__class_group', 'offering__class_group__academic_year',
             ),
             pk=lesson_id,
         )
@@ -657,7 +657,7 @@ class CalendarLessonListAPIView(APIView):
         lessons = Lesson.objects.select_related(
             'offering', 'offering__subject',
             'offering__class_group', 'offering__class_group__grade_level',
-            'offering__academic_year',
+            'offering__class_group__academic_year',
         ).filter(date__gte=start_dt, date__lte=end_dt)
 
         user = request.user
@@ -804,11 +804,11 @@ class StudentGradeHistoryAPIView(APIView):
         year_id = request.query_params.get('year')
         snapshots = QuarterGradeSnapshot.objects.filter(
             student=student,
-        ).select_related('offering__subject', 'academic_year').order_by(
-            '-academic_year__year', 'offering__subject__name', 'quarter',
+        ).select_related('offering__subject', 'offering__class_group__academic_year').order_by(
+            '-offering__class_group__academic_year__year', 'offering__subject__name', 'quarter',
         )
         if year_id:
-            snapshots = snapshots.filter(academic_year_id=year_id)
+            snapshots = snapshots.filter(offering__class_group__academic_year_id=year_id)
 
         data = []
         for s in snapshots:

@@ -7,7 +7,7 @@ Use these in views after the role_required decorator has verified the user's rol
 
 from django.http import HttpResponseForbidden
 
-from apps.home.models import HomeroomTeacherAssignment, AcademicYear
+from apps.home.models import AcademicYear, ClassGroup, HomeroomTeacherAssignment
 
 # Group names for admin-level roles (bypass object-level checks)
 ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
@@ -67,7 +67,7 @@ def _student_enrolled_in_offering(student, offering):
     return Enrollment.objects.filter(
         student=student,
         class_group=offering.class_group,
-        academic_year=offering.academic_year,
+        class_group__academic_year_id=offering.academic_year_id,
         status='active'
     ).exists()
 
@@ -77,8 +77,26 @@ def teacher_homeroom_class_group_ids(teacher):
     academic_year = AcademicYear.objects.filter(is_active=True).first()
     assignments = HomeroomTeacherAssignment.objects.filter(teacher=teacher)
     if academic_year:
-        assignments = assignments.filter(academic_year=academic_year)
+        assignments = assignments.filter(class_group__academic_year=academic_year)
     return list(assignments.values_list('class_group_id', flat=True))
+
+
+def teacher_homeroom_class_group_ids_with_subgroups(teacher):
+    """Homeroom class group ids, widened with the подгруппы bound to them.
+
+    A subgroup has no homeroom teacher of its own — it inherits the one of the
+    class whose constellation it sits in, so the homeroom teacher of 7A reaches
+    7A's subgroups as well. Used by the attendance side (schedules, sessions
+    and attendance rows); the plain homeroom list is unchanged.
+    """
+    homeroom_ids = teacher_homeroom_class_group_ids(teacher)
+    if not homeroom_ids:
+        return homeroom_ids
+
+    subgroup_ids = ClassGroup.objects.filter(
+        collections__major_id__in=homeroom_ids,
+    ).values_list('id', flat=True)
+    return homeroom_ids + list(subgroup_ids)
 
 
 def can_manage_offering_schedule(user, offering):
@@ -89,7 +107,7 @@ def can_manage_offering_schedule(user, offering):
     - User is admin/supervisor/principal — any subject, any class
     - User is a teacher assigned to the offering — their own subjects only
     - User is the homeroom teacher of the offering's class group — any subject
-      taught to their students
+      taught to their students, in the class itself or in one of its подгруппы
     """
     if is_admin_role(user):
         return True
@@ -106,7 +124,7 @@ def can_manage_offering_schedule(user, offering):
     if _teacher_teaches_offering(teacher, offering):
         return True
 
-    return offering.class_group_id in teacher_homeroom_class_group_ids(teacher)
+    return offering.class_group_id in teacher_homeroom_class_group_ids_with_subgroups(teacher)
 
 
 def can_manage_class_group_schedule(user, class_group_id):
@@ -117,7 +135,8 @@ def can_manage_class_group_schedule(user, class_group_id):
     There is no subject to derive ownership from, so only the roles that own the
     class group itself qualify:
     - User is admin/supervisor/principal — any class group
-    - User is the homeroom teacher of that class group
+    - User is the homeroom teacher of that class group, or of the class whose
+      constellation the подгруппа belongs to
     """
     if is_admin_role(user):
         return True
@@ -131,7 +150,7 @@ def can_manage_class_group_schedule(user, class_group_id):
     except Teacher.DoesNotExist:
         return False
 
-    return class_group_id in teacher_homeroom_class_group_ids(teacher)
+    return class_group_id in teacher_homeroom_class_group_ids_with_subgroups(teacher)
 
 
 def can_access_subject(user, subject):
@@ -170,7 +189,7 @@ def can_access_subject(user, subject):
                 if SubjectOffering.objects.filter(
                     subject=subject,
                     class_group_id=class_group_id,
-                    academic_year_id=academic_year_id
+                    class_group__academic_year_id=academic_year_id
                 ).exists():
                     return True
             return False
@@ -265,7 +284,9 @@ def can_access_student(user, student):
         try:
             teacher = Teacher.objects.get(user=user)
             academic_year = AcademicYear.objects.filter(is_active=True).first()
-            homeroom = HomeroomTeacherAssignment.objects.filter(teacher=teacher, academic_year=academic_year).first()
+            homeroom = HomeroomTeacherAssignment.objects.filter(
+                teacher=teacher, class_group__academic_year=academic_year
+            ).first()
             if homeroom:
                 enrollment = student.get_current_enrollment()
                 if enrollment.class_group_id == homeroom.class_group_id:

@@ -90,7 +90,7 @@ def get_available_offerings(user):
     """Return the SubjectOffering queryset available to the requesting user."""
     if is_admin_role(user):
         return SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'academic_year'
+            'subject', 'class_group', 'class_group__academic_year'
         )
     if is_teacher_role(user):
         try:
@@ -100,7 +100,7 @@ def get_available_offerings(user):
             ).values_list('offering_id', flat=True)
             return SubjectOffering.objects.filter(
                 id__in=offering_ids
-            ).select_related('subject', 'class_group', 'academic_year')
+            ).select_related('subject', 'class_group', 'class_group__academic_year')
         except Teacher.DoesNotExist:
             return SubjectOffering.objects.none()
     return SubjectOffering.objects.none()
@@ -251,17 +251,17 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
     from apps.home.repo.students import grade_identifier
 
     offering = SubjectOffering.objects.select_related(
-        'class_group', 'academic_year',
+        'class_group', 'class_group__academic_year',
     ).get(id=offering_id)
 
     if QuarterGradeSnapshot.objects.filter(
-        offering=offering, quarter=quarter, academic_year=offering.academic_year,
+        offering=offering, quarter=quarter,
     ).exists():
         raise ValueError(f"Quarter {quarter} is already frozen for this offering.")
 
     enrollments = Enrollment.objects.filter(
         class_group=offering.class_group,
-        academic_year=offering.academic_year,
+        class_group__academic_year_id=offering.academic_year_id,
         status='active',
     ).select_related('student')
     students = [e.student for e in enrollments]
@@ -281,7 +281,6 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
             student=student,
             offering=offering,
             quarter=quarter,
-            academic_year=offering.academic_year,
             final_grade=round(avg, 2),
             percentage=round(avg, 2),
             letter_grade=grade_identifier(avg) or '',
