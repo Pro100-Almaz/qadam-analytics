@@ -208,14 +208,14 @@ def parent_teachers_list(request):
     enrollments = Enrollment.objects.filter(
         student__in=students,
         status='active',
-        class_group__academic_year__is_active=True,
+        academic_year__is_active=True,
     ).select_related('class_group')
     class_groups = [e.class_group for e in enrollments]
 
     # Get teachers assigned to those class groups' subject offerings
     assignments = TeachingAssignment.objects.filter(
         offering__class_group__in=class_groups,
-        offering__class_group__academic_year__is_active=True,
+        offering__academic_year__is_active=True,
     ).select_related(
         'teacher', 'teacher__user',
         'offering__subject',

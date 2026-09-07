@@ -1,15 +1,10 @@
 """
 CRUD endpoints for subject schedules, their weekly sessions and attendance.
 
-Reading a timetable is staff-wide: admin roles and teachers see every schedule,
-so any teacher can look up any class group's week. `only_mine=true` narrows the
-schedule list to the caller's own offerings, homeroom classes and подгруппы.
-
-Write access is narrower, and follows the same rules everywhere in this module:
+Write access follows the same rules everywhere in this module:
 - Admin / Supervisor / Principal — any subject, any class group
 - Teacher                       — only offerings they are assigned to
-- HomeroomTeacher               — any subject taught to their homeroom class,
-                                  in the class itself or in one of its подгруппы
+- HomeroomTeacher               — any subject taught to their homeroom class
 Students and parents get read-only access to their own (or their children's)
 schedules and attendance — except for the per-session attendance list, which
 students cannot read at all.
@@ -33,8 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.authentication.models import Parent, Student, Teacher
-from apps.home.models import ClassGroupCollection, Enrollment, TeachingAssignment
-from apps.lesson.api.analytics_common import bool_param
+from apps.home.models import Enrollment, TeachingAssignment
 from apps.lesson.models import ScheduleAttendance, ScheduleSession, SubjectSchedule
 from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
 from apps.lesson.services import build_other_sessions_map
@@ -44,7 +38,7 @@ from core.permissions import (
     can_manage_offering_schedule,
     is_admin_role,
     is_teacher_role,
-    teacher_homeroom_class_group_ids_with_subgroups,
+    teacher_homeroom_class_group_ids,
 )
 
 from apps.lesson.api.serializers import (
@@ -69,25 +63,12 @@ class SchedulePagination(PageNumberPagination):
 
 class CustomQueryset:
     @classmethod
-    def schedule_queryset(cls, user, only_mine=False):
-        """SubjectSchedules visible to the requesting user.
-
-        A timetable is staff-wide reading matter: admin roles and teachers
-        alike see every schedule, so a teacher can look up any class group's
-        week. `only_mine` narrows a teacher to the offerings they are assigned
-        to plus their homeroom classes and подгруппы. Students and parents are
-        always limited to the class groups they belong to, whatever it says.
-
-        Writing is unaffected — that still goes through can_manage_schedule().
-        """
+    def schedule_queryset(cls, user):
+        """SubjectSchedules visible to the requesting user."""
         qs = SubjectSchedule.objects.select_related(
             'offering', 'offering__subject',
-            'offering__class_group', 'offering__class_group__academic_year',
-            'class_group', 'class_group__grade_level', 'class_group__academic_year',
+            'offering__class_group', 'offering__academic_year',
         ).prefetch_related('sessions')
-
-        if not only_mine and (is_admin_role(user) or is_teacher_role(user)):
-            return qs
 
         return cls._filter_qs_by_roles(qs, user, include_offering_less=True)
 
@@ -98,7 +79,7 @@ class CustomQueryset:
             'teacher', 'teacher__user',
             'offering', 'offering__subject',
             'offering__class_group', 'offering__class_group__grade_level',
-            'offering__class_group__academic_year',
+            'offering__academic_year',
         )
 
         return cls._filter_qs_by_roles(qs, user)
@@ -170,15 +151,11 @@ def active_class_group_ids(students):
 
 
 def teacher_offering_filter(teacher):
-    """Offerings a teacher may see: their own subjects + their homeroom class.
-
-    The homeroom side reaches the class's подгруппы too — a subgroup takes its
-    homeroom teacher from the class whose constellation holds it.
-    """
+    """Offerings a teacher may see: their own subjects + their homeroom class."""
     offering_ids = TeachingAssignment.objects.filter(
         teacher=teacher
     ).values_list('offering_id', flat=True)
-    homeroom_ids = teacher_homeroom_class_group_ids_with_subgroups(teacher)
+    homeroom_ids = teacher_homeroom_class_group_ids(teacher)
     return Q(offering_id__in=offering_ids) | Q(offering__class_group_id__in=homeroom_ids)
 
 
@@ -245,45 +222,6 @@ def session_attendance_queryset(user):
         return qs.filter(student__in=parent.students.all())
 
     return qs
-
-
-def class_group_schedule_filter(class_group_ids):
-    """Schedules belonging to any of these class groups.
-
-    A schedule names its class group directly, but rows created before that
-    field existed only carry it through their offering — match either.
-    """
-    return (
-        Q(class_group_id__in=class_group_ids)
-        | Q(offering__class_group_id__in=class_group_ids)
-    )
-
-
-def class_group_ids_param(params):
-    """The class group asked for, optionally widened to its подгруппы.
-
-    Returns (ids, error). `include_minor_groups` alone does nothing: there is
-    no class group to take the subgroups of.
-    """
-    raw = params.get('class_group')
-    if not raw:
-        return None, None
-
-    try:
-        class_group_id = int(raw)
-    except (TypeError, ValueError):
-        return None, Response(
-            {'detail': 'Invalid class_group. Use a class group id.'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    ids = [class_group_id]
-    if bool_param(params, 'include_minor_groups', False):
-        ids += list(
-            ClassGroupCollection.minor_groups_of(class_group_id)
-            .values_list('id', flat=True)
-        )
-    return ids, None
 
 
 def apply_schedule_filters(schedules, params, *, require_teacher=False, require_quarter=False):
@@ -360,7 +298,7 @@ class TeachingAssignmentListAPIView(APIView):
 
         params = request.query_params
         if params.get('academic_year'):
-            rows = rows.filter(offering__class_group__academic_year_id=params['academic_year'])
+            rows = rows.filter(offering__academic_year_id=params['academic_year'])
         if params.get('class_group'):
             rows = rows.filter(offering__class_group_id=params['class_group'])
 
@@ -404,21 +342,6 @@ class SubjectScheduleListCreateAPIView(APIView):
             OpenApiParameter('quarter', int),
             OpenApiParameter('teacher', int),
             OpenApiParameter('class_group', int),
-            OpenApiParameter(
-                'include_minor_groups', bool,
-                description=(
-                    'With `class_group`, also return the schedules of the '
-                    'подгруппы bound to that class group. Ignored on its own.'
-                ),
-            ),
-            OpenApiParameter(
-                'only_mine', bool,
-                description=(
-                    'Narrow the list to the caller\'s own timetable — the '
-                    'offerings they teach plus their homeroom class groups and '
-                    'подгруппы. Off by default: staff read every schedule.'
-                ),
-            ),
             OpenApiParameter('subject', int),
             OpenApiParameter('academic_year', int),
             OpenApiParameter(
@@ -434,26 +357,21 @@ class SubjectScheduleListCreateAPIView(APIView):
         ],
     )
     def get(self, request):
-        params = request.query_params
-        schedules = CustomQueryset.schedule_queryset(
-            request.user, only_mine=bool_param(params, 'only_mine', False),
-        )
+        schedules = CustomQueryset.schedule_queryset(request.user)
 
+        params = request.query_params
         if params.get('offering'):
             schedules = schedules.filter(offering_id=params['offering'])
         schedules, error = apply_schedule_filters(schedules, params)
         if error:
             return error
-        class_group_ids, error = class_group_ids_param(params)
-        if error:
-            return error
-        if class_group_ids:
-            schedules = schedules.filter(class_group_schedule_filter(class_group_ids))
+        if params.get('class_group'):
+            schedules = schedules.filter(offering__class_group_id=params['class_group'])
         if params.get('subject'):
             schedules = schedules.filter(offering__subject_id=params['subject'])
         if params.get('academic_year'):
             schedules = schedules.filter(
-                offering__class_group__academic_year_id=params['academic_year']
+                offering__academic_year_id=params['academic_year']
             )
         if params.get('type') == SubjectSchedule.SUBJECT_CHOICE:
             schedules = schedules.filter(offering__isnull=False)

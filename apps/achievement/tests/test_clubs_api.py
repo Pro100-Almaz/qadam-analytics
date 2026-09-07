@@ -675,11 +675,13 @@ class TestClubMembershipAndAttendance:
         EnrollmentFactory(
             student=student,
             class_group=class_group,
+            academic_year=academic_year,
         )
         registered_student = StudentFactory(academic_year=academic_year)
         EnrollmentFactory(
             student=registered_student,
             class_group=class_group,
+            academic_year=academic_year,
         )
         club = ClubFactory(academic_year=academic_year)
         club.members.add(registered_student)

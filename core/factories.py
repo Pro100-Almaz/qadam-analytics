@@ -19,7 +19,6 @@ from apps.home.models import (
     ClassGroup,
     Enrollment,
     GradeLevel,
-    MinorClassGroup,
     Subject,
     SubjectAssignment,
     SubjectGrade,
@@ -149,18 +148,6 @@ class ClassGroupFactory(DjangoModelFactory):
     academic_year = factory.SubFactory(AcademicYearFactory)
     grade_level = factory.SubFactory(GradeLevelFactory)
     letter = 'A'
-    category = ClassGroup.MAJOR_CHOICE
-
-
-class MinorClassGroupFactory(ClassGroupFactory):
-    """A подгруппа — named, and not tied to a grade level by default."""
-
-    class Meta:
-        model = MinorClassGroup
-
-    grade_level = None
-    letter = factory.Sequence(lambda n: f'Subgroup {n}')
-    category = ClassGroup.MINOR_CHOICE
 
 
 class StudentFactory(DjangoModelFactory):
@@ -251,6 +238,7 @@ class SubjectOfferingFactory(DjangoModelFactory):
 
     subject = factory.SubFactory(SubjectFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
+    academic_year = factory.LazyAttribute(lambda o: o.class_group.academic_year)
     max_points = 100
     grading_strategy = 'average'
 
@@ -270,6 +258,7 @@ class EnrollmentFactory(DjangoModelFactory):
 
     student = factory.SubFactory(StudentFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
+    academic_year = factory.LazyAttribute(lambda o: o.class_group.academic_year)
     status = 'active'
 
 

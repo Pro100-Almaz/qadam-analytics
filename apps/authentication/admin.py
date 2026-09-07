@@ -4,12 +4,10 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from django import forms
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from apps.authentication.models import (
     ClubManager, CustomUser, SchoolGroup, PsychologicalState, Supervisor,
     Teacher, Parent, Student,
 )
-from apps.home.forms import class_group_formfield
 from apps.home.models import Enrollment, ClassGroup, AcademicYear
 
 
@@ -65,22 +63,15 @@ class CustomUserAdmin(UserAdmin):
     avatar_preview_small.short_description = "Avatar"
 
 class EnrollmentInline(admin.TabularInline):
-    """Inline for managing student enrollments — classes and подгруппы alike."""
+    """Inline for managing student enrollments."""
     model = Enrollment
     extra = 0
-    fields = ('class_group', 'status', 'start_date', 'end_date')
+    fields = ('class_group', 'academic_year', 'status', 'start_date', 'end_date')
     readonly_fields = ('start_date', 'end_date')
-    ordering = ('-class_group__academic_year__year', 'class_group__category')
+    ordering = ('-academic_year__year',)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'class_group', 'class_group__grade_level', 'class_group__academic_year'
-        )
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'class_group':
-            return class_group_formfield(db_field, **kwargs)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+        return super().get_queryset(request).select_related('class_group', 'academic_year')
 
 
 class StudentAdminForm(forms.ModelForm):
@@ -101,10 +92,8 @@ class StudentAdminForm(forms.ModelForm):
         # Get active academic year
         active_year = AcademicYear.objects.filter(is_active=True).first()
         if active_year:
-            # Only major groups — this field sets the student's own class.
             self.fields['class_group'].queryset = ClassGroup.objects.filter(
-                academic_year=active_year,
-                category=ClassGroup.MAJOR_CHOICE,
+                academic_year=active_year
             ).select_related('grade_level').order_by('grade_level__number', 'letter')
             self.fields['class_group'].label = f"Класс ({active_year.year})"
 
@@ -137,8 +126,7 @@ class StudentAdmin(ModelAdmin):
     model = Student
     list_display = (
         "avatar_thumbnail", "full_name", "email", "phone",
-        "current_class_group", "current_minor_class_groups", "enrollment_status",
-        "academic_year", "school_group"
+        "current_class_group", "enrollment_status", "academic_year", "school_group"
     )
     list_display_links = ("full_name",)
     search_fields = ("user__first_name", "user__last_name", "user__username", "user__email")
@@ -193,13 +181,6 @@ class StudentAdmin(ModelAdmin):
         return format_html('<span style="color: #999;">—</span>')
     current_class_group.short_description = "Класс"
 
-    def current_minor_class_groups(self, obj):
-        groups = obj.get_current_minor_class_groups()
-        if groups:
-            return ", ".join(group.short_name for group in groups)
-        return format_html('<span style="color: #999;">—</span>')
-    current_minor_class_groups.short_description = "Подгруппы"
-
     def enrollment_status(self, obj):
         enrollment = obj.get_current_enrollment()
         if enrollment:
@@ -238,27 +219,14 @@ class StudentAdmin(ModelAdmin):
             return
 
         count = 0
-        skipped = []
         for student in queryset:
-            enrollments = Enrollment.objects.filter(
+            updated = Enrollment.objects.filter(
                 student=student,
-                class_group__academic_year=active_year
-            ).select_related('class_group')
-            # Saved one by one so the "one major class group" rule is enforced.
-            for enrollment in enrollments:
-                enrollment.status = 'active'
-                try:
-                    enrollment.save(update_fields=['status'])
-                except ValidationError as e:
-                    skipped.append(f"{student}: {'; '.join(e.messages)}")
-                    continue
-                count += 1
+                academic_year=active_year
+            ).update(status='active')
+            count += updated
 
         self.message_user(request, f"Активировано {count} зачислений.", messages.SUCCESS)
-        if skipped:
-            self.message_user(
-                request, "Не активированы: " + " | ".join(skipped), messages.WARNING
-            )
 
     @admin.action(description="Деактивировать зачисление (отчислить)")
     def deactivate_enrollments(self, request, queryset):
@@ -272,7 +240,7 @@ class StudentAdmin(ModelAdmin):
         for student in queryset:
             updated = Enrollment.objects.filter(
                 student=student,
-                class_group__academic_year=active_year,
+                academic_year=active_year,
                 status='active'
             ).update(status='withdrawn')
             count += updated

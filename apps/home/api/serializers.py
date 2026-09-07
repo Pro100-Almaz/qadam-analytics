@@ -41,24 +41,7 @@ class ClassGroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClassGroup
-        fields = ['id', 'letter', 'category', 'grade_level', 'academic_year', 'display_name']
-
-
-class ClassGroupStudentSerializer(serializers.ModelSerializer):
-    """One student on a class group's roster, read off their enrollment."""
-    id = serializers.IntegerField(source='student.id', read_only=True)
-    user = UserSerializer(source='student.user', read_only=True)
-    school_group = serializers.PrimaryKeyRelatedField(
-        source='student.school_group', read_only=True,
-    )
-    enrollment_id = serializers.IntegerField(source='id', read_only=True)
-
-    class Meta:
-        model = Enrollment
-        fields = [
-            'id', 'user', 'school_group',
-            'enrollment_id', 'status', 'start_date', 'end_date',
-        ]
+        fields = ['id', 'letter', 'grade_level', 'academic_year', 'display_name']
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -168,7 +151,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
         offerings = list(SubjectOffering.objects.filter(
             class_group=enrollment.class_group,
-            class_group__academic_year=enrollment.academic_year,
+            academic_year=enrollment.academic_year,
         ).select_related('subject'))
 
         lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -400,6 +383,7 @@ class SubjectCreateSerializer(serializers.Serializer):
                 offering, created = SubjectOffering.objects.get_or_create(
                     subject=subject,
                     class_group=class_group,
+                    academic_year=academic_year,
                 )
                 if created:
                     offerings_created += 1
@@ -444,7 +428,7 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
 
         offerings = list(
             SubjectOffering.objects.filter(
-                subject=obj, class_group__academic_year=current_year
+                subject=obj, academic_year=current_year
             ).select_related('class_group')
         ) if current_year else []
 
@@ -453,7 +437,7 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
         for offering in offerings:
             enrollments = Enrollment.objects.filter(
                 class_group=offering.class_group,
-                class_group__academic_year_id=offering.academic_year_id,
+                academic_year=offering.academic_year,
                 status='active',
             ).select_related('student', 'student__user')
             for e in enrollments:
@@ -797,7 +781,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     """
     offering = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
+            'subject', 'class_group', 'class_group__grade_level', 'academic_year',
         ),
     )
     title = serializers.CharField()
@@ -901,7 +885,7 @@ class SubjectGradeWriteSerializer(serializers.ModelSerializer):
         enrolled = Enrollment.objects.filter(
             student=student,
             class_group=offering.class_group,
-            class_group__academic_year_id=offering.academic_year_id,
+            academic_year=offering.academic_year,
             status='active',
         ).exists()
         if not enrolled:
@@ -944,7 +928,7 @@ def _assert_enrolled(student, offering):
     enrolled = Enrollment.objects.filter(
         student=student,
         class_group=offering.class_group,
-        class_group__academic_year_id=offering.academic_year_id,
+        academic_year=offering.academic_year,
         status='active',
     ).exists()
     if not enrolled:
@@ -993,7 +977,7 @@ class QuarterGradeCreateSerializer(serializers.ModelSerializer):
     """
     offering = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
+            'subject', 'class_group', 'class_group__grade_level', 'academic_year',
         ),
     )
     student = serializers.PrimaryKeyRelatedField(

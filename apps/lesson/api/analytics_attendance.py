@@ -290,7 +290,7 @@ class StudentAttendanceSummaryAPIView(APIView):
         scope = ScheduleAttendance.objects.all()
         if academic_year is not None:
             scope = scope.filter(
-                session__schedule__offering__class_group__academic_year_id=academic_year.id,
+                session__schedule__offering__academic_year_id=academic_year.id,
             )
         scope, filters = apply_attendance_filters(
             scope, request.query_params, academic_year,
@@ -318,7 +318,7 @@ class StudentAttendanceSummaryAPIView(APIView):
         }
 
         enrollment = Enrollment.objects.filter(
-            student=student, class_group__academic_year=academic_year, status='active',
+            student=student, academic_year=academic_year, status='active',
         ).select_related('class_group', 'class_group__grade_level').first() if academic_year else None
         if enrollment is not None:
             payload['class_group'] = class_group_payload(enrollment.class_group)

@@ -39,7 +39,7 @@ def is_homeroom_teacher_of(user, class_group, academic_year) -> bool:
     return HomeroomTeacherAssignment.objects.filter(
         teacher=teacher,
         class_group=class_group,
-        class_group__academic_year=academic_year,
+        academic_year=academic_year,
     ).exists()
 
 
@@ -53,7 +53,7 @@ def teaches_subject_in_class(user, class_group, academic_year, subject_id) -> bo
     return TeachingAssignment.objects.filter(
         teacher=teacher,
         offering__class_group=class_group,
-        offering__class_group__academic_year=academic_year,
+        offering__academic_year=academic_year,
         offering__subject_id=subject_id,
     ).exists()
 

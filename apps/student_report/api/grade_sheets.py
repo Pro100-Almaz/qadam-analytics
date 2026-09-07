@@ -120,7 +120,7 @@ def resolve_subject(class_group, academic_year, subject_id):
         return None
     offering = SubjectOffering.objects.filter(
         class_group=class_group,
-        class_group__academic_year=academic_year,
+        academic_year=academic_year,
         subject_id=subject_id,
     ).select_related('subject').first()
     if offering is None:

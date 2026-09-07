@@ -85,7 +85,7 @@ class ClassGroupMinimalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClassGroup
-        fields = ['id', 'name', 'category', 'grade_level', 'letter', 'academic_year_label']
+        fields = ['id', 'name', 'grade_level', 'letter', 'academic_year_label']
 
 
 # ── Lesson serializers ──
@@ -155,7 +155,7 @@ class LessonDetailSerializer(serializers.ModelSerializer):
             return []
         students = Student.objects.filter(
             enrollments__class_group=obj.offering.class_group,
-            enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
+            enrollments__academic_year=obj.offering.academic_year,
             enrollments__status='active',
         ).select_related('user').distinct()
         return [
@@ -174,7 +174,7 @@ class LessonDetailSerializer(serializers.ModelSerializer):
 
         students = list(Student.objects.filter(
             enrollments__class_group=obj.offering.class_group,
-            enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
+            enrollments__academic_year=obj.offering.academic_year,
             enrollments__status='active',
         ).distinct())
 
@@ -239,7 +239,7 @@ class LessonDetailSerializer(serializers.ModelSerializer):
 
 class LessonCreateSerializer(serializers.ModelSerializer):
     offering = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related('subject', 'class_group', 'class_group__academic_year')
+        queryset=SubjectOffering.objects.select_related('subject', 'class_group', 'academic_year')
     )
 
     class Meta:
@@ -381,7 +381,7 @@ class GradingDataSerializer(serializers.ModelSerializer):
             return self._students_cache
         self._students_cache = list(Student.objects.filter(
             enrollments__class_group=obj.offering.class_group,
-            enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
+            enrollments__academic_year=obj.offering.academic_year,
             enrollments__status='active',
         ).select_related('user').distinct())
         return self._students_cache
@@ -594,8 +594,12 @@ class OtherScheduleSessionSerializer(serializers.ModelSerializer):
 class SubjectScheduleSerializer(serializers.ModelSerializer):
     offering = OfferingMinimalSerializer(read_only=True, allow_null=True)
     offering_id = serializers.IntegerField(read_only=True, allow_null=True)
-    class_group = serializers.SerializerMethodField()
-    class_group_id = serializers.SerializerMethodField()
+    class_group = ClassGroupMinimalSerializer(
+        source='offering.class_group', read_only=True, allow_null=True,
+    )
+    class_group_id = serializers.IntegerField(
+        source='offering.class_group_id', read_only=True, allow_null=True,
+    )
     type = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
@@ -615,21 +619,6 @@ class SubjectScheduleSerializer(serializers.ModelSerializer):
             SubjectSchedule.SUBJECT_CHOICE if obj.offering_id
             else SubjectSchedule.OTHER_CHOICE
         )
-
-    @staticmethod
-    def _class_group(obj):
-        """The row's own class group; rows predating that field use their offering's."""
-        if obj.class_group_id:
-            return obj.class_group
-        return obj.offering.class_group if obj.offering_id else None
-
-    def get_class_group(self, obj):
-        class_group = self._class_group(obj)
-        return ClassGroupMinimalSerializer(class_group).data if class_group else None
-
-    def get_class_group_id(self, obj):
-        class_group = self._class_group(obj)
-        return class_group.id if class_group else None
 
     def get_title(self, obj):
         return schedule_title(obj)
@@ -690,7 +679,7 @@ class TeachingAssignmentListSerializer(serializers.ModelSerializer):
 class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
     offering = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__academic_year'
+            'subject', 'class_group', 'academic_year'
         ),
         required=False,
         allow_null=True,
@@ -812,7 +801,7 @@ class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
         enrolled = Enrollment.objects.filter(
             student=student,
             class_group=offering.class_group,
-            class_group__academic_year_id=offering.academic_year_id,
+            academic_year=offering.academic_year,
             status='active',
         ).exists()
         if not enrolled:
@@ -918,7 +907,7 @@ class HomeworkCreateSerializer(serializers.Serializer):
     """
     offerings = serializers.PrimaryKeyRelatedField(
         queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__academic_year',
+            'subject', 'class_group', 'academic_year',
         ),
         many=True,
         allow_empty=False,
@@ -1068,7 +1057,7 @@ class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
         enrolled = Enrollment.objects.filter(
             student=student,
             class_group=offering.class_group,
-            class_group__academic_year_id=offering.academic_year_id,
+            academic_year=offering.academic_year,
             status='active',
         ).exists()
         if not enrolled:

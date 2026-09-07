@@ -92,6 +92,7 @@ def offering(class_group, subject):
     return SubjectOfferingFactory(
         subject=subject,
         class_group=class_group,
+        academic_year=class_group.academic_year,
     )
 
 
@@ -100,6 +101,7 @@ def enrollment(student, class_group):
     return EnrollmentFactory(
         student=student,
         class_group=class_group,
+        academic_year=class_group.academic_year,
     )
 
 
