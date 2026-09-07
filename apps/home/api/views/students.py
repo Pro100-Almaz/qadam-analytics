@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -101,6 +102,11 @@ class StudentProfileUpdateAPIView(APIView):
                     Enrollment.enroll_student(student, class_group, academic_year)
             except ClassGroup.DoesNotExist:
                 pass
+            except DjangoValidationError as exc:
+                return Response(
+                    {'detail': '; '.join(exc.messages)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         student.save()
         return Response(StudentDetailSerializer(student).data)
@@ -191,7 +197,7 @@ class StudentMySubjectsAPIView(APIView):
 
         offerings = list(SubjectOffering.objects.filter(
             class_group=enrollment.class_group,
-            academic_year=enrollment.academic_year,
+            class_group__academic_year=enrollment.academic_year,
         ).select_related('subject', 'class_group', 'class_group__grade_level'))
 
         offering_ids = [o.id for o in offerings]
@@ -258,7 +264,7 @@ class StudentMyTeachersAPIView(APIView):
 
         assignments = TeachingAssignment.objects.filter(
             offering__class_group=enrollment.class_group,
-            offering__academic_year=enrollment.academic_year,
+            offering__class_group__academic_year=enrollment.academic_year,
         ).select_related('teacher__user', 'offering__subject')
 
         teacher_map = {}
@@ -292,7 +298,7 @@ class StudentClassmatesAPIView(APIView):
 
         classmates = Student.objects.filter(
             enrollments__class_group=enrollment.class_group,
-            enrollments__academic_year=enrollment.academic_year,
+            enrollments__class_group__academic_year=enrollment.academic_year,
             enrollments__status='active',
         ).exclude(id=student.id).select_related('user').distinct()
 
@@ -306,7 +312,7 @@ class StudentClassmatesAPIView(APIView):
 
         offerings = list(SubjectOffering.objects.filter(
             class_group=enrollment.class_group,
-            academic_year=enrollment.academic_year,
+            class_group__academic_year=enrollment.academic_year,
         ))
         classmate_list = list(classmates)
 

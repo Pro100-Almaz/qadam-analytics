@@ -5,6 +5,35 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+def class_group_label(obj):
+    """`7A — класс (2025/2026)` / `Шахматы — подгруппа (2025/2026)`."""
+    kind = "подгруппа" if obj.is_minor else "класс"
+    return f"{obj.short_name} — {kind} ({obj.academic_year})"
+
+
+class ClassGroupChoiceField(forms.ModelChoiceField):
+    """Spells out whether a choice is a class or a subgroup (подгруппа)."""
+
+    def label_from_instance(self, obj):
+        return class_group_label(obj)
+
+
+class ClassGroupMultipleChoiceField(forms.ModelMultipleChoiceField):
+    """The multi-select counterpart of ClassGroupChoiceField."""
+
+    def label_from_instance(self, obj):
+        return class_group_label(obj)
+
+
+def class_group_formfield(db_field, **kwargs):
+    """Dropdown over *both* categories — classes and Подгруппы alike."""
+    kwargs.setdefault("queryset", ClassGroup.objects.select_related(
+        "grade_level", "academic_year"
+    ).order_by("-academic_year__year", "category", "grade_level__number", "letter"))
+    kwargs["form_class"] = ClassGroupChoiceField
+    return db_field.formfield(**kwargs)
+
+
 class SubjectForm(forms.ModelForm):
     # Additional fields for creating SubjectOffering
     academic_year = forms.ModelChoiceField(

@@ -13,6 +13,23 @@ urlpatterns = [
     path('academic-years/', views.AcademicYearListAPIView.as_view(), name='academic-years'),
     path('class-groups/', views.ClassGroupListAPIView.as_view(), name='class-groups'),
 
+    # GET /api/v1/class-groups/<id>/minor-groups/  the подгруппы bound to one
+    #                                    class group; empty if it has none
+    path(
+        'class-groups/<int:pk>/minor-groups/',
+        views.ClassGroupMinorGroupListAPIView.as_view(),
+        name='class-group-minor-groups',
+    ),
+
+    # GET /api/v1/class-groups/<id>/students/  the students enrolled in one
+    #                                    class group or подгруппа;
+    #                                    filter: status (default active, or all)
+    path(
+        'class-groups/<int:pk>/students/',
+        views.ClassGroupStudentListAPIView.as_view(),
+        name='class-group-students',
+    ),
+
     # Students — self-service (must be before <int:pk> routes)
     path('students/me/subjects/', views.StudentMySubjectsAPIView.as_view(), name='student-my-subjects'),
     path('students/me/teachers/', views.StudentMyTeachersAPIView.as_view(), name='student-my-teachers'),

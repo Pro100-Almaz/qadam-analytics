@@ -99,7 +99,9 @@ def lesson_create(request, subject_id=None):
     # Determine available offerings for the current user
     user = request.user
     if user.is_admin() or user.is_principal() or user.is_manager():
-        available_offerings = SubjectOffering.objects.select_related('subject', 'class_group', 'academic_year')
+        available_offerings = SubjectOffering.objects.select_related(
+            'subject', 'class_group', 'class_group__academic_year'
+        )
     elif user.is_teacher() or user.is_homeroom_teacher():
         try:
             teacher = Teacher.objects.get(user=user)
@@ -108,7 +110,7 @@ def lesson_create(request, subject_id=None):
             ).values_list('offering_id', flat=True)
             available_offerings = SubjectOffering.objects.filter(
                 id__in=offering_ids
-            ).select_related('subject', 'class_group', 'academic_year')
+            ).select_related('subject', 'class_group', 'class_group__academic_year')
         except Teacher.DoesNotExist:
             available_offerings = SubjectOffering.objects.none()
     else:
@@ -168,7 +170,7 @@ def lesson_details(request, pk):
     topics = Topic.objects.filter(lesson=lesson, parent__isnull = True).prefetch_related('subtopics')
     students = list(Student.objects.filter(
         enrollments__class_group=lesson.offering.class_group,
-        enrollments__academic_year=lesson.offering.academic_year,
+        enrollments__class_group__academic_year_id=lesson.offering.academic_year_id,
         enrollments__status='active'
     ).distinct())
 
@@ -470,7 +472,7 @@ def grading(request, pk):
 
     students = list(Student.objects.filter(
         enrollments__class_group=lesson.offering.class_group,
-        enrollments__academic_year=lesson.offering.academic_year,
+        enrollments__class_group__academic_year_id=lesson.offering.academic_year_id,
         enrollments__status='active'
     ).distinct())
     topics = Topic.objects.filter(lesson=lesson)
