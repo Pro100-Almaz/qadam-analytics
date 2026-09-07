@@ -34,6 +34,13 @@ def heatmap_url(offering):
     return reverse('lesson-api:analytics-assignment-heatmap', args=[offering.id])
 
 
+def teacher_scoped_heatmap_url(offering):
+    return reverse(
+        'lesson-api:analytics-teacher-scoped-assignment-heatmap',
+        args=[offering.id],
+    )
+
+
 def summary_url(student):
     return reverse('lesson-api:analytics-assignment-summary', args=[student.id])
 
@@ -491,6 +498,50 @@ class TestAssignmentHeatmap:
     def test_unrelated_teacher_is_403(self, cohort, authenticated_client):
         client = authenticated_client(TeacherFactory().user)
         assert client.get(heatmap_url(cohort['offering'])).status_code == 403
+
+    def test_teacher_scoped_heatmap_allows_unrelated_teacher(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(TeacherFactory().user)
+        response = client.get(teacher_scoped_heatmap_url(cohort['offering']))
+
+        assert response.status_code == 200
+        assert response.data['offering']['id'] == cohort['offering'].id
+        assert response.data['matrix'] == [
+            [100.0, 50.0, 100.0],
+            [50.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+
+    def test_teacher_scoped_heatmap_allows_mixed_admin_teacher(
+        self, cohort, authenticated_client,
+    ):
+        teacher = TeacherFactory()
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        teacher.user.groups.add(admin_group)
+
+        client = authenticated_client(teacher.user)
+        response = client.get(teacher_scoped_heatmap_url(cohort['offering']))
+
+        assert response.status_code == 200
+
+    def test_teacher_scoped_heatmap_rejects_admin_without_teacher_role(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(AdminUserFactory())
+        assert (
+            client.get(teacher_scoped_heatmap_url(cohort['offering'])).status_code
+            == 403
+        )
+
+    def test_teacher_scoped_heatmap_rejects_student(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(cohort['students'][0].user)
+        assert (
+            client.get(teacher_scoped_heatmap_url(cohort['offering'])).status_code
+            == 403
+        )
 
 
 # ── Per-subject summary ──
