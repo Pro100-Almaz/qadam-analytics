@@ -9,15 +9,19 @@ from rest_framework.exceptions import PermissionDenied
 from apps.achievement.models import Club, ClubAttendance, ClubSession
 from apps.achievement.api.serializers import ClubSerializer, ClubStudentSerializer
 from apps.authentication.models import Student
-from apps.home.models import Enrollment
+from apps.home.models import ClassGroup, Enrollment
 from core.error_messages import NO_ACCESS_STUDENT
 from core.permissions import can_access_student, is_admin_role
 
 
 def student_queryset() -> QuerySet:
-    enrollments = Enrollment.objects.filter(status='active').select_related(
-        'class_group__grade_level', 'academic_year'
-    ).order_by('-academic_year__is_active', '-academic_year__year')
+    enrollments = Enrollment.objects.filter(
+        status='active', class_group__category=ClassGroup.MAJOR_CHOICE
+    ).select_related(
+        'class_group__grade_level', 'class_group__academic_year'
+    ).order_by(
+        '-class_group__academic_year__is_active', '-class_group__academic_year__year'
+    )
     return Student.objects.select_related('user').prefetch_related(
         Prefetch('enrollments', queryset=enrollments, to_attr='club_enrollments')
     )

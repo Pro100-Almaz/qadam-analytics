@@ -65,16 +65,15 @@ def sheet_setup(year_with_quarters):
         EnrollmentFactory(
             student=student,
             class_group=class_group,
-            academic_year=year_with_quarters,
         )
 
     math = SubjectFactory(name='Mathematics')
     art = SubjectFactory(name='Art')
     math_offering = SubjectOfferingFactory(
-        subject=math, class_group=class_group, academic_year=year_with_quarters,
+        subject=math, class_group=class_group,
     )
     art_offering = SubjectOfferingFactory(
-        subject=art, class_group=class_group, academic_year=year_with_quarters,
+        subject=art, class_group=class_group,
     )
 
     # Created out of date order on purpose — columns must come back sorted.
@@ -107,7 +106,6 @@ def sheet_setup(year_with_quarters):
     HomeroomTeacherAssignment.objects.create(
         teacher=homeroom_teacher,
         class_group=class_group,
-        academic_year=year_with_quarters,
     )
     math_teacher = TeacherFactory()
     TeachingAssignmentFactory(teacher=math_teacher, offering=math_offering)

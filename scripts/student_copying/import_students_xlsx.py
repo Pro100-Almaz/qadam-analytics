@@ -274,7 +274,7 @@ def sync_enrollment(student, class_group, academic_year):
     """Return 'unchanged' | 'moved' | 'enrolled'."""
     active = Enrollment.objects.filter(
         student=student,
-        academic_year=academic_year,
+        class_group__academic_year=academic_year,
         status='active',
     ).select_related('class_group').first()
 

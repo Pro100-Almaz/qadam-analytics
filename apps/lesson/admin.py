@@ -84,7 +84,7 @@ class HomeworkAdmin(admin.ModelAdmin):
         'max_grade', 'is_active', 'grade_count',
     )
     list_filter = (
-        'is_active', 'due_date', 'offering__academic_year',
+        'is_active', 'due_date', 'offering__class_group__academic_year',
         'offering__subject', 'offering__class_group',
     )
     search_fields = (
@@ -111,7 +111,7 @@ class HomeworkAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'offering', 'offering__subject', 'offering__class_group',
-            'offering__academic_year',
+            'offering__class_group__academic_year',
             'teaching_assignment__teacher__user',
         ).annotate(_grade_count=Count('grades'))
 
@@ -132,7 +132,7 @@ class HomeworkAdmin(admin.ModelAdmin):
 class HomeworkGradeAdmin(admin.ModelAdmin):
     list_display = ('student', 'homework', 'subject', 'grade', 'max_grade', 'created_at')
     list_filter = (
-        'homework__offering__academic_year',
+        'homework__offering__class_group__academic_year',
         'homework__offering__subject',
         'homework__offering__class_group',
     )

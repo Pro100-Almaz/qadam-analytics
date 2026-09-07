@@ -52,7 +52,6 @@ def cohort(db):
     offering = SubjectOfferingFactory(
         subject=SubjectFactory(name='Mathematics'),
         class_group=class_group,
-        academic_year=academic_year,
     )
 
     students = []
@@ -64,7 +63,6 @@ def cohort(db):
         EnrollmentFactory(
             student=student,
             class_group=class_group,
-            academic_year=academic_year,
         )
         students.append(student)
 
@@ -366,7 +364,7 @@ class TestStudentTrajectory:
             academic_year=cohort['academic_year'], letter='B',
         )
         other_offering = SubjectOfferingFactory(
-            class_group=other_class, academic_year=cohort['academic_year'],
+            class_group=other_class,
         )
         client = authenticated_client(AdminUserFactory())
         response = client.get(
@@ -487,7 +485,6 @@ class TestTopicHeatmap:
         HomeroomTeacherAssignment.objects.create(
             teacher=homeroom,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
         client = authenticated_client(homeroom.user)
         assert client.get(heatmap_url(cohort['offering'])).status_code == 200
@@ -516,7 +513,6 @@ class TestTopicHeatmap:
     ):
         empty = SubjectOfferingFactory(
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
         TeachingAssignmentFactory(teacher=cohort['teacher'], offering=empty)
         client = authenticated_client(cohort['teacher'].user)
@@ -542,7 +538,6 @@ def radar_cohort(cohort):
     physics = SubjectOfferingFactory(
         subject=SubjectFactory(name='Physics', language_group='rus'),
         class_group=cohort['class_group'],
-        academic_year=cohort['academic_year'],
     )
     lesson = LessonFactory(
         offering=physics, title='Physics 1', quarter=1, order=0,
@@ -657,7 +652,6 @@ class TestSubjectRadar:
                 student=student,
                 offering=radar_cohort['offering'],
                 quarter=1,
-                academic_year=radar_cohort['academic_year'],
                 final_grade=percentage,
                 percentage=percentage,
                 letter_grade='A',
@@ -689,7 +683,6 @@ class TestSubjectRadar:
             student=radar_cohort['students'][0],
             offering=radar_cohort['offering'],
             quarter=1,
-            academic_year=radar_cohort['academic_year'],
             final_grade=95, percentage=95, letter_grade='A',
             lesson_count=2, graded_lesson_count=2, frozen_by=admin,
         )
@@ -710,7 +703,6 @@ class TestSubjectRadar:
             student=radar_cohort['students'][0],
             offering=radar_cohort['offering'],
             quarter=1,
-            academic_year=radar_cohort['academic_year'],
             final_grade=95, percentage=95, letter_grade='A',
             lesson_count=2, graded_lesson_count=2, frozen_by=admin,
         )
@@ -729,7 +721,6 @@ class TestSubjectRadar:
         SubjectOfferingFactory(
             subject=SubjectFactory(name='Zoology'),
             class_group=radar_cohort['class_group'],
-            academic_year=radar_cohort['academic_year'],
         )
         client = authenticated_client(radar_cohort['teacher'].user)
         body = client.get(
@@ -752,7 +743,6 @@ class TestSubjectRadar:
         SubjectOfferingFactory(
             subject=SubjectFactory(name='Zoology'),
             class_group=radar_cohort['class_group'],
-            academic_year=radar_cohort['academic_year'],
         )
         client = authenticated_client(radar_cohort['teacher'].user)
         body = client.get(
@@ -772,11 +762,11 @@ class TestSubjectRadar:
         empty_class = ClassGroupFactory(academic_year=empty_year, letter='C')
         student = StudentFactory(academic_year=empty_year)
         EnrollmentFactory(
-            student=student, class_group=empty_class, academic_year=empty_year,
+            student=student, class_group=empty_class,
         )
         SubjectOfferingFactory(
             subject=SubjectFactory(name='Astronomy'),
-            class_group=empty_class, academic_year=empty_year,
+            class_group=empty_class,
         )
 
         client = authenticated_client(AdminUserFactory())
@@ -800,7 +790,6 @@ class TestSubjectRadar:
             offering = SubjectOfferingFactory(
                 subject=SubjectFactory(name=f'Extra {index}'),
                 class_group=radar_cohort['class_group'],
-                academic_year=radar_cohort['academic_year'],
             )
             lesson = LessonFactory(offering=offering, quarter=1, order=0)
             TopicFactory(lesson=lesson, title='T', weight=100, order=0)

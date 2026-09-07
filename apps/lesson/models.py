@@ -274,9 +274,6 @@ class QuarterGradeSnapshot(models.Model):
     quarter = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
     )
-    academic_year = models.ForeignKey(
-        'home.AcademicYear', on_delete=models.PROTECT,
-    )
     final_grade = models.DecimalField(max_digits=5, decimal_places=2)
     percentage = models.DecimalField(max_digits=5, decimal_places=2)
     letter_grade = models.CharField(max_length=2, blank=True)
@@ -289,11 +286,20 @@ class QuarterGradeSnapshot(models.Model):
     )
 
     class Meta:
-        unique_together = ['student', 'offering', 'quarter', 'academic_year']
+        unique_together = ['student', 'offering', 'quarter']
         indexes = [
-            models.Index(fields=['student', 'academic_year']),
+            models.Index(fields=['student', 'offering']),
             models.Index(fields=['offering', 'quarter']),
         ]
+
+    @property
+    def academic_year(self):
+        """Derived from the offering — a snapshot belongs to its offering's year."""
+        return self.offering.academic_year
+
+    @property
+    def academic_year_id(self):
+        return self.offering.academic_year_id
 
     def save(self, *args, **kwargs):
         if self.pk:
@@ -304,7 +310,7 @@ class QuarterGradeSnapshot(models.Model):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
 
 
-class SubjectSchedule(models.Model):
+class   SubjectSchedule(models.Model):
     SUBJECT_CHOICE = 'subject'
     OTHER_CHOICE   = 'other'
     SCHEDULE_CHOICES = [

@@ -1,5 +1,11 @@
 from apps.home.api.views.dashboard import DashboardStatsAPIView, TeacherWorkloadAPIView
-from apps.home.api.views.academic import AcademicYearListAPIView, ClassGroupListAPIView, RolloverAcademicYearAPIView
+from apps.home.api.views.academic import (
+    AcademicYearListAPIView,
+    ClassGroupListAPIView,
+    ClassGroupMinorGroupListAPIView,
+    ClassGroupStudentListAPIView,
+    RolloverAcademicYearAPIView,
+)
 from apps.home.api.views.students import (
     StudentListAPIView,
     StudentDetailAPIView,
@@ -61,6 +67,8 @@ __all__ = [
     'TeacherWorkloadAPIView',
     'AcademicYearListAPIView',
     'ClassGroupListAPIView',
+    'ClassGroupMinorGroupListAPIView',
+    'ClassGroupStudentListAPIView',
     'StudentListAPIView',
     'StudentDetailAPIView',
     'StudentProfileUpdateAPIView',

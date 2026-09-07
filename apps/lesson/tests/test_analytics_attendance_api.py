@@ -54,12 +54,10 @@ def cohort(db):
     maths = SubjectOfferingFactory(
         subject=SubjectFactory(name='Mathematics'),
         class_group=class_group,
-        academic_year=academic_year,
     )
     physics = SubjectOfferingFactory(
         subject=SubjectFactory(name='Physics'),
         class_group=class_group,
-        academic_year=academic_year,
     )
 
     students = []
@@ -71,7 +69,6 @@ def cohort(db):
         EnrollmentFactory(
             student=student,
             class_group=class_group,
-            academic_year=academic_year,
         )
         students.append(student)
 
@@ -379,7 +376,6 @@ class TestOfferingAttendanceHeatmap:
         HomeroomTeacherAssignment.objects.create(
             teacher=homeroom,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(homeroom.user)
@@ -497,7 +493,6 @@ class TestClassGroupAttendanceOverview:
         HomeroomTeacherAssignment.objects.create(
             teacher=homeroom,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(homeroom.user)
@@ -534,7 +529,6 @@ class TestClassGroupAttendanceOverview:
             EnrollmentFactory(
                 student=student,
                 class_group=cohort['class_group'],
-                academic_year=cohort['academic_year'],
             )
             ScheduleAttendanceFactory(
                 session=cohort['monday'], student=student,

@@ -1,6 +1,7 @@
 import json
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
@@ -31,7 +32,7 @@ def students_list(request):
     # Filter students via Enrollment
     if selected_year:
         enrollments = Enrollment.objects.filter(
-            academic_year_id=selected_year,
+            class_group__academic_year_id=selected_year,
             status='active'
         ).select_related('student', 'student__user', 'class_group')
 
@@ -154,7 +155,7 @@ def student_details(request, pk):
     if current_enrollment:
         offerings = list(SubjectOffering.objects.filter(
             class_group=current_class_group,
-            academic_year=current_enrollment.academic_year
+            class_group__academic_year=current_enrollment.academic_year
         ).select_related('subject'))
 
     # Get lessons for these offerings
@@ -299,6 +300,9 @@ def student_profile_update(request, pk):
                     Enrollment.enroll_student(student, class_group, academic_year)
             except ClassGroup.DoesNotExist:
                 pass
+            except ValidationError as e:
+                messages.error(request, '; '.join(e.messages))
+                return redirect('student_details', pk=student.user.id)
 
         # Handle avatar upload
         if 'avatar' in request.FILES:

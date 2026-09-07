@@ -61,7 +61,6 @@ def cohort(db):
     offering = SubjectOfferingFactory(
         subject=SubjectFactory(name='Mathematics'),
         class_group=class_group,
-        academic_year=academic_year,
     )
 
     students = []
@@ -73,7 +72,6 @@ def cohort(db):
         EnrollmentFactory(
             student=student,
             class_group=class_group,
-            academic_year=academic_year,
         )
         students.append(student)
 
@@ -295,7 +293,6 @@ class TestAssignmentTrajectory:
         other = SubjectOfferingFactory(
             subject=SubjectFactory(name='Physics'),
             class_group=ClassGroupFactory(academic_year=cohort['academic_year']),
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(AdminUserFactory())
@@ -467,7 +464,6 @@ class TestAssignmentHeatmap:
         HomeroomTeacherAssignment.objects.create(
             teacher=homeroom,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(homeroom.user)
@@ -504,7 +500,6 @@ class TestAssignmentSummary:
         SubjectOfferingFactory(
             subject=SubjectFactory(name='Art'),
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(AdminUserFactory())
@@ -521,7 +516,6 @@ class TestAssignmentSummary:
         SubjectOfferingFactory(
             subject=SubjectFactory(name='Art'),
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(AdminUserFactory())
@@ -607,7 +601,6 @@ class TestAssignmentSummary:
             offering = SubjectOfferingFactory(
                 subject=SubjectFactory(name=name),
                 class_group=cohort['class_group'],
-                academic_year=cohort['academic_year'],
             )
             assignment = SubjectAssignmentFactory(
                 offering=offering, max_grade=100, date='2025-09-15',

@@ -41,7 +41,6 @@ def cohort(db):
     def offering(subject, class_group):
         return SubjectOfferingFactory(
             subject=subject, class_group=class_group,
-            academic_year=academic_year,
         )
 
     homeroom_maths = offering(maths, homeroom_class)
@@ -53,7 +52,7 @@ def cohort(db):
     TeachingAssignmentFactory(teacher=TeacherFactory(), offering=homeroom_physics)
 
     HomeroomTeacherAssignment.objects.create(
-        teacher=teacher, class_group=homeroom_class, academic_year=academic_year,
+        teacher=teacher, class_group=homeroom_class,
     )
 
     return {
