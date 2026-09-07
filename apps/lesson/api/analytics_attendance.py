@@ -49,7 +49,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.authentication.models import Student
-from apps.home.models import AcademicYear, ClassGroup, Enrollment, SubjectOffering
+from apps.home.models import AcademicYear, ClassGroup, SubjectOffering
 from apps.lesson.models import ScheduleAttendance
 from core.error_messages import NO_PERMISSION
 from core.permissions import can_access_student
@@ -69,6 +69,7 @@ from apps.lesson.api.analytics_common import (
     enrolled_students,
     float_param,
     int_param,
+    major_enrollment,
     mean,
     offering_payload,
     percentile_rank,
@@ -317,9 +318,7 @@ class StudentAttendanceSummaryAPIView(APIView):
             'class_comparison': None,
         }
 
-        enrollment = Enrollment.objects.filter(
-            student=student, class_group__academic_year=academic_year, status='active',
-        ).select_related('class_group', 'class_group__grade_level').first() if academic_year else None
+        enrollment = major_enrollment(student, academic_year)
         if enrollment is not None:
             payload['class_group'] = class_group_payload(enrollment.class_group)
             if include_class_stats:

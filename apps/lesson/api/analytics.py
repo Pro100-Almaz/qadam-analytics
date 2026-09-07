@@ -76,6 +76,7 @@ from apps.lesson.api.analytics_common import (  # noqa: F401
     class_students,
     date_param as _date_param,
     int_param as _int_param,
+    major_enrollment,
     mean as _mean,
     offering_payload as _offering_payload,
     percentile as _percentile,
@@ -660,9 +661,7 @@ class StudentSubjectRadarAPIView(APIView):
         if quarter is None:
             quarter = academic_year.current_quarter or 1
 
-        enrollment = Enrollment.objects.filter(
-            student=student, class_group__academic_year=academic_year, status='active',
-        ).select_related('class_group', 'class_group__grade_level').first()
+        enrollment = major_enrollment(student, academic_year)
         if enrollment is None:
             return Response(self._empty(student, academic_year, quarter, source))
 

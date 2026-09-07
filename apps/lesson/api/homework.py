@@ -33,10 +33,12 @@ Write access — homework and grades alike:
 
 from django.db import transaction
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -55,6 +57,8 @@ from core.permissions import (
     can_access_student,
     teacher_homeroom_class_group_ids,
 )
+
+from apps.lesson.api.analytics_common import date_param, int_param
 
 from apps.lesson.api.serializers import (
     HomeworkCreateSerializer,
@@ -242,23 +246,48 @@ def can_manage_homework(user, homework):
     return teacher_assignment_for(user, homework.offering) is not None
 
 
+def _is_active_param(params):
+    """Tri-state `is_active`: None leaves the queryset alone, anything the flag
+    does not name is a 400 rather than a silently ignored filter."""
+    raw = params.get('is_active')
+    if raw in (None, ''):
+        return None
+    value = str(raw).lower()
+    if value not in ('true', 'false', '1', '0'):
+        raise ValidationError({'is_active': 'is_active must be true or false.'})
+    return value in ('true', '1')
+
+
 def _apply_homework_filters(qs, params):
-    if params.get('offering'):
-        qs = qs.filter(offering_id=params['offering'])
-    if params.get('class_group'):
-        qs = qs.filter(offering__class_group_id=params['class_group'])
-    if params.get('subject'):
-        qs = qs.filter(offering__subject_id=params['subject'])
-    if params.get('teacher'):
-        qs = qs.filter(teaching_assignment__teacher_id=params['teacher'])
-    if params.get('academic_year'):
-        qs = qs.filter(offering__class_group__academic_year_id=params['academic_year'])
-    if params.get('is_active') in ('true', 'false'):
-        qs = qs.filter(is_active=params['is_active'] == 'true')
-    if params.get('due_from'):
-        qs = qs.filter(due_date__gte=params['due_from'])
-    if params.get('due_to'):
-        qs = qs.filter(due_date__lte=params['due_to'])
+    """
+    Filters shared by every homework list. Values are parsed before they reach
+    the ORM: an unparseable id or date is the caller's mistake, so it comes back
+    as a 400 instead of blowing up in the query layer.
+    """
+    id_filters = (
+        ('offering', 'offering_id'),
+        ('class_group', 'offering__class_group_id'),
+        ('subject', 'offering__subject_id'),
+        ('teacher', 'teaching_assignment__teacher_id'),
+        ('academic_year', 'offering__class_group__academic_year_id'),
+    )
+    for name, field in id_filters:
+        value = int_param(params, name, 1)
+        if value is not None:
+            qs = qs.filter(**{field: value})
+
+    is_active = _is_active_param(params)
+    if is_active is not None:
+        qs = qs.filter(is_active=is_active)
+
+    due_from = date_param(params, 'due_from')
+    if due_from is not None:
+        qs = qs.filter(due_date__gte=due_from)
+
+    due_to = date_param(params, 'due_to')
+    if due_to is not None:
+        qs = qs.filter(due_date__lte=due_to)
+
     return qs
 
 
@@ -663,11 +692,12 @@ class StudentHomeworkListAPIView(APIView):
         ],
     )
     def get(self, request, student_id):
-        student = get_object_or_404(
-            Student.objects.select_related('user'), pk=student_id,
-        )
-        if not can_access_student(request.user, student):
-            return Response({'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN)
+        # "No such student" and "not your student" answer alike: a 404 on one
+        # and a 403 on the other would let any signed-in account walk the id
+        # range and read off which student ids exist.
+        student = Student.objects.select_related('user').filter(pk=student_id).first()
+        if student is None or not can_access_student(request.user, student):
+            raise Http404
 
         rows = self._student_homework(request.user, student)
         rows = _apply_homework_filters(rows, request.query_params).order_by(

@@ -12,7 +12,9 @@ import pytest
 from django.contrib.auth.models import Group
 from django.urls import reverse
 
-from apps.home.models import HomeroomTeacherAssignment
+from apps.home.models import (
+    Enrollment, HomeroomTeacherAssignment, SubjectAssignment,
+)
 from core.factories import (
     AcademicYearFactory, AdminUserFactory, ClassGroupFactory, EnrollmentFactory,
     ParentFactory, StudentFactory, SubjectAssignmentFactory, SubjectFactory,
@@ -328,20 +330,22 @@ class TestAssignmentAnalyticsOfferings:
         admin_group, _ = Group.objects.get_or_create(name='Admin')
         teacher.user.groups.add(admin_group)
 
+        # An offering's year comes from its class group — there is no
+        # academic_year field to set on either model.
         homeroom_subject = SubjectFactory(name='Chinese')
         homeroom_offering = SubjectOfferingFactory(
             subject=homeroom_subject,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
         unrelated = SubjectOfferingFactory(
             subject=SubjectFactory(name='Physics'),
-            academic_year=cohort['academic_year'],
+            class_group=ClassGroupFactory(
+                academic_year=cohort['academic_year'], letter='Z',
+            ),
         )
         HomeroomTeacherAssignment.objects.create(
             teacher=teacher,
             class_group=cohort['class_group'],
-            academic_year=cohort['academic_year'],
         )
 
         client = authenticated_client(teacher.user)
@@ -616,3 +620,84 @@ class TestAssignmentSummary:
 
         assert response.status_code == 200
         assert len(response.data['axes']) == 5
+
+
+# ── Nothing in scope ──
+
+@pytest.mark.django_db
+class TestNothingInScope:
+    """
+    An empty block of work is a normal state, not an error.
+
+    A brand-new offering, the first day of a quarter, or a filter that matches
+    no assignment all reach the scoring code with nothing to score. Every
+    endpoint has to answer 200 with empty numbers.
+    """
+
+    @pytest.fixture
+    def bare_offering(self, cohort):
+        """An offering of the same class group that has set no work yet."""
+        return SubjectOfferingFactory(
+            subject=SubjectFactory(name='Geography'),
+            class_group=cohort['class_group'],
+        )
+
+    def test_heatmap_of_an_offering_with_no_assignments(
+        self, cohort, bare_offering, authenticated_client,
+    ):
+        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=bare_offering)
+        client = authenticated_client(cohort['teacher'].user)
+
+        response = client.get(heatmap_url(bare_offering))
+
+        assert response.status_code == 200
+        assert response.data['assignments'] == []
+        assert response.data['matrix'] == [[], [], []]
+        assert response.data['coverage']['possible_count'] == 0
+
+    def test_trajectory_over_an_offering_with_no_assignments(
+        self, cohort, bare_offering, authenticated_client,
+    ):
+        client = authenticated_client(AdminUserFactory())
+
+        response = client.get(
+            trajectory_url(cohort['students'][0], bare_offering)
+        )
+
+        assert response.status_code == 200
+        assert response.data['points'] == []
+        assert response.data['summary']['assignment_count'] == 0
+
+    def test_summary_when_no_subject_has_set_work(
+        self, cohort, authenticated_client,
+    ):
+        SubjectAssignment.objects.all().delete()
+        client = authenticated_client(AdminUserFactory())
+
+        response = client.get(summary_url(cohort['students'][0]))
+
+        assert response.status_code == 200
+        assert [axis['assignment_count'] for axis in response.data['axes']] == [0]
+        assert response.data['summary']['overall_mean'] == 0.0
+
+    def test_a_filter_matching_no_assignment(self, cohort, authenticated_client):
+        client = authenticated_client(cohort['teacher'].user)
+
+        response = client.get(
+            heatmap_url(cohort['offering']), {'category': 'final'},
+        )
+
+        assert response.status_code == 200
+        assert response.data['assignments'] == []
+
+    def test_heatmap_of_a_class_with_no_students(
+        self, cohort, authenticated_client,
+    ):
+        Enrollment.objects.filter(class_group=cohort['class_group']).delete()
+        client = authenticated_client(cohort['teacher'].user)
+
+        response = client.get(heatmap_url(cohort['offering']))
+
+        assert response.status_code == 200
+        assert response.data['students'] == []
+        assert response.data['matrix'] == []

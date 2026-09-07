@@ -288,8 +288,11 @@ def can_access_student(user, student):
                 teacher=teacher, class_group__academic_year=academic_year
             ).first()
             if homeroom:
+                # A student with no active major enrollment in the active year
+                # has no current enrollment at all — unenrolled, graduated, or
+                # only in подгруппы — so there is nothing to compare against.
                 enrollment = student.get_current_enrollment()
-                if enrollment.class_group_id == homeroom.class_group_id:
+                if enrollment and enrollment.class_group_id == homeroom.class_group_id:
                     return True
 
             teacher_class_groups = TeachingAssignment.objects.filter(
