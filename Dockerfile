@@ -17,8 +17,10 @@ RUN useradd -m appuser
 WORKDIR /app
 
 # deps first for caching
-COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip setuptools && pip install -r requirements.txt
+# requirements-scripts.txt starts with `-r requirements.txt`, so this installs
+# both the app deps and the extras the scripts/ utilities need (gspread).
+COPY requirements.txt requirements-scripts.txt /app/
+RUN pip install --upgrade pip setuptools && pip install -r requirements-scripts.txt
 
 # app source
 COPY . /app
