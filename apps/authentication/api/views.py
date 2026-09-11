@@ -127,7 +127,7 @@ class ForgetPasswordAPIView(APIView):
     def post(self, request):
         serializer = ForgetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        username = serializer.validated_data['identifier']
+        username = serializer.validated_data['username']
 
         user = CustomUser.objects.filter(username=username).first()
         if not user:
