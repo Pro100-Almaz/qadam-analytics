@@ -10,7 +10,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.utils.html import format_html
-from apps.home.forms import ClassGroupMultipleChoiceField, class_group_formfield
+from apps.home.admin_forms import ClassGroupMultipleChoiceField, class_group_formfield
 from apps.home.models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, ClassGroupCollection,
     MinorClassGroup, Enrollment, SubjectOffering, TeachingAssignment,

@@ -9,7 +9,7 @@ from apps.home.models import (
 )
 from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
-from apps.home.repo.students import grade_identifier
+from apps.home.grading import grade_identifier
 from core.permissions import is_staff_role
 
 

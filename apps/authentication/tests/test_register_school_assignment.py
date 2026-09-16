@@ -1,0 +1,56 @@
+"""Registration must not let an admin place a user in another school.
+
+`school` used to be accepted straight from the request body, so an admin of
+one school could mint users in the other. It is now server-assigned from the
+creating admin; only a superuser may name a school explicitly.
+"""
+
+import pytest
+
+from apps.authentication.models import CustomUser
+from core.factories import AdminUserFactory
+
+URL = '/api/v1/auth/register/'
+OTHER = 'bukhar_zhyrau'
+OWN = 'muzafar_alimbayev'
+
+
+def _payload(**over):
+    data = {
+        'first_name': 'New', 'last_name': 'User',
+        'email': 'new.user@test.kz',
+        'password1': 'Qadam2026*', 'password2': 'Qadam2026*',
+        'role': CustomUser.GROUP_TEACHER,
+    }
+    data.update(over)
+    return data
+
+
+@pytest.mark.django_db
+def test_admin_cannot_register_user_into_another_school(authenticated_client):
+    admin = AdminUserFactory()
+    admin.school = OWN
+    admin.save(update_fields=['school'])
+
+    response = authenticated_client(admin).post(
+        URL, _payload(school=OTHER), format='multipart',
+    )
+
+    assert response.status_code == 201
+    created = CustomUser.objects.get(email='new.user@test.kz')
+    assert created.school == OWN, 'client-supplied school was honoured'
+
+
+@pytest.mark.django_db
+def test_superuser_may_name_the_school(authenticated_client):
+    root = AdminUserFactory()
+    root.is_superuser = True
+    root.school = OWN
+    root.save(update_fields=['is_superuser', 'school'])
+
+    response = authenticated_client(root).post(
+        URL, _payload(school=OTHER), format='multipart',
+    )
+
+    assert response.status_code == 201
+    assert CustomUser.objects.get(email='new.user@test.kz').school == OTHER

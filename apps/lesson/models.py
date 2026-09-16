@@ -310,7 +310,7 @@ class QuarterGradeSnapshot(models.Model):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
 
 
-class   SubjectSchedule(models.Model):
+class SubjectSchedule(models.Model):
     SUBJECT_CHOICE = 'subject'
     OTHER_CHOICE   = 'other'
     SCHEDULE_CHOICES = [

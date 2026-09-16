@@ -153,7 +153,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         from apps.home.models import SubjectOffering
         from apps.lesson.models import Lesson
         from apps.lesson.services import get_cached_grades_bulk
-        from apps.home.repo.students import calculate_quarter_grade, grade_identifier
+        from apps.home.grading import calculate_quarter_grade, grade_identifier
 
         enrollment = student.get_current_enrollment()
         if not enrollment:

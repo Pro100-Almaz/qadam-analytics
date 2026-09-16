@@ -89,7 +89,7 @@ def _collect_grades(student, academic_year, quarter: int) -> dict:
         quarter_grades[f'lesson_comments_q{quarter}'] = lesson_comments
         subjects[offering.subject.name] = quarter_grades
 
-    from apps.home.repo.students import grade_identifier
+    from apps.home.grading import grade_identifier
     total_quarter_grades = {}
     num_subjects = len(offerings)
     for q in [1, 2, 3, 4]:

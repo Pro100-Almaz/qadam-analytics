@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -10,10 +11,10 @@ from apps.home.models import (
     AcademicYear, ClassGroup, SubjectOffering, TeachingAssignment, Enrollment,
 )
 from apps.lesson.models import Lesson
-from apps.home.repo.students import grade_identifier
+from apps.home.grading import grade_identifier
 from apps.home.services import get_students_for_role
 from apps.lesson.services import get_cached_grades_bulk
-from core.permissions import can_access_student, CanAccessStudent, IsPsychologist, CanModifyStudent
+from core.permissions import can_access_student, IsPsychologist, CanModifyStudent
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
@@ -64,7 +65,15 @@ class StudentProfileUpdateAPIView(APIView):
     permission_classes = [IsAuthenticated,  CanModifyStudent]
 
     def patch(self, request, pk):
-        student = Student.objects.select_related('user').get(pk=pk)
+        # get_object_or_404 + an explicit object-permission check: this is a plain
+        # APIView, so DRF never calls check_object_permissions() for us and
+        # CanModifyStudent (which only defines has_object_permission) would
+        # otherwise never run — letting any authenticated user edit any student.
+        student = get_object_or_404(
+            Student.objects.select_related('user'), pk=pk
+        )
+        self.check_object_permissions(request, student)
+
         serializer = StudentProfileUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -180,7 +189,10 @@ class PsychologicalStateDeleteAPIView(APIView):
 class PsychologicalStateTemplateListAPIView(ListAPIView):
     queryset = PsychologicalStateTemplates.objects.all()
     serializer_class = PsychologicalStateTemplateSerializer
-    permission_classes = [IsAuthenticated, CanAccessStudent]
+    # CanAccessStudent only defines has_object_permission, which a ListAPIView
+    # never invokes — it was a no-op here. These templates populate the
+    # psychological-state creation form, so they match that view's audience.
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor | IsPsychologist]
     pagination_class = None
 
 

@@ -109,6 +109,8 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
+    # Server-assigned from the creating admin — see create(). Only a superuser
+    # may name a school, so an admin of one school cannot mint users in another.
     school = serializers.ChoiceField(choices=CustomUser.SCHOOL_CHOICES, required=False)
     role = serializers.ChoiceField(choices=CustomUser.GROUP_CHOICES)
     phone_number = serializers.CharField(required=False, allow_blank=True)
@@ -159,6 +161,16 @@ class RegisterSerializer(serializers.Serializer):
         school_group = validated_data.pop('school_group', None)
         medical_features = validated_data.pop('medical_features', None)
         student_id = validated_data.pop('student_id', None)
+
+        requested_school = validated_data.pop('school', None)
+        actor = getattr(self.context.get('request'), 'user', None)
+        if actor is not None and actor.is_superuser:
+            # Only a superuser may place a new user in an arbitrary school.
+            if requested_school:
+                validated_data['school'] = requested_school
+        elif actor is not None and getattr(actor, 'school', None):
+            # Everyone else creates users inside their own school, whatever they sent.
+            validated_data['school'] = actor.school
 
         user = CustomUser(
             username=validated_data['email'],

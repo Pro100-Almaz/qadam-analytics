@@ -9,7 +9,7 @@ from apps.authentication.models import (
     ClubManager, CustomUser, SchoolGroup, PsychologicalState, Supervisor,
     Teacher, Parent, Student,
 )
-from apps.home.forms import class_group_formfield
+from apps.home.admin_forms import class_group_formfield
 from apps.home.models import Enrollment, ClassGroup, AcademicYear
 
 
