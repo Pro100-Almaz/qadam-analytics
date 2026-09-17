@@ -4,9 +4,15 @@ from django.db import models
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
+from core.models import SchoolDerivedMixin
 
 
 class AcademicYear(models.Model):
+    # Root: each school runs its own years and quarter dates.
+    school = models.ForeignKey(
+        'authentication.School', related_name='academic_years',
+        on_delete=models.PROTECT,
+    )
     year = models.CharField(max_length=40)  # 2024/2025
     is_active = models.BooleanField(default=False)
     archived = models.BooleanField(default=True)
@@ -55,7 +61,12 @@ class GradeLevel(models.Model):
         return str(self.number)
 
 
-class ClassGroup(models.Model):
+class ClassGroup(SchoolDerivedMixin, models.Model):
+    # `academic_year` is nullable, which is why the school column exists at all —
+    # but when a year *is* set it is a reliable source, so derive from it and let
+    # callers supply the school only for year-less groups.
+    SCHOOL_DERIVED_FROM = ('academic_year',)
+
     MAJOR_CHOICE = 'major'
     MINOR_CHOICE = 'minor'
     CATEGORY_CHOICES = (
@@ -78,6 +89,12 @@ class ClassGroup(models.Model):
     )
     letter = models.CharField(default="A", max_length=50)
     category = models.CharField(choices=CATEGORY_CHOICES, max_length=10, default=MAJOR_CHOICE)
+    # Root: `academic_year` is SET_NULL/nullable, so a class group cannot
+    # reliably reach a school by join — it carries its own.
+    school = models.ForeignKey(
+        'authentication.School', related_name='class_groups',
+        on_delete=models.PROTECT,
+    )
 
     class Meta:
         verbose_name = "Класс"
@@ -216,6 +233,11 @@ class Subject(models.Model):
         ('rus', 'RUS'),
         ('eng', 'ENG')
     )
+    # Root: each school owns its own subject catalogue.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subjects',
+        on_delete=models.PROTECT,
+    )
     language_group = models.CharField(max_length=20, choices=LANGUAGE_CHOICES, default='KAZ')
     name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='disabled')
@@ -233,7 +255,9 @@ class Subject(models.Model):
         return f"{self.name}"
 
 
-class SubjectOffering(models.Model):
+class SubjectOffering(SchoolDerivedMixin, models.Model):
+    SCHOOL_DERIVED_FROM = ('class_group',)
+
     """
     The central entity: "Math for 7A in 2025/2026"
 
@@ -262,6 +286,13 @@ class SubjectOffering(models.Model):
         max_length=20,
         choices=GRADING_STRATEGY_CHOICES,
         default='average'
+    )
+    # Hub: everything in apps/lesson reaches a school through this row, and it
+    # is where cross-tenant mixing would happen (school A's Subject + school B's
+    # ClassGroup). Derived from class_group on save; see Phase 6.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subject_offerings',
+        on_delete=models.PROTECT,
     )
 
     @property

@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
@@ -9,6 +11,8 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from simple_history.models import HistoricalRecords
+
+from core.models import SchoolDerivedMixin
 from core import settings
 
 
@@ -32,10 +36,50 @@ def user_avatar_upload_path(instance, filename):
     return f'avatars/{filename}'
 
 
+class School(models.Model):
+    """A tenant. Every school-owned row reaches exactly one of these.
+
+    Not to be confused with SchoolGroup below, which is an Orda house
+    (Aq Orda, Uly Orda, ...) — a cohort *inside* a school, not a school.
+    """
+
+    uuid = models.UUIDField(
+        default=uuid.uuid4, unique=True, editable=False, db_index=True,
+        help_text="Public identifier — this is what crosses the network, never the pk.",
+    )
+    slug = models.SlugField(
+        max_length=50, unique=True,
+        help_text="Stable internal key used by migrations and script --school flags.",
+    )
+    name = models.CharField(max_length=200)
+    short_name = models.CharField(max_length=50, blank=True, default='')
+
+    address = models.TextField(blank=True, default='')
+    contact_phone = models.CharField(max_length=20, blank=True, default='')
+    contact_email = models.EmailField(blank=True, default='')
+
+    timezone = models.CharField(max_length=64, default='Asia/Almaty')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Школа'
+        verbose_name_plural = 'Школы'
+
+    def __str__(self):
+        return self.name
+
+
 class SchoolGroup(models.Model):
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
     color = models.CharField(max_length=7, blank=True, default='')
+    # Root: an Orda house belongs to exactly one school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='school_groups',
+        on_delete=models.PROTECT,
+    )
 
     def __str__(self):
         return self.name
@@ -92,7 +136,31 @@ class CustomUser(AbstractUser):
         default='avatars/default/default-user.jpeg',
         validators=[validate_avatar_size]
     )
-    school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
+    # Legacy free-text school label. Superseded by the `school` FK below and
+    # dropped once nothing reads it (Phase 7). Kept only so the conversion is
+    # reversible — do not read it.
+    legacy_school = models.CharField(
+        max_length=20, choices=SCHOOL_CHOICES,
+        default='muzafar_alimbayev', editable=False,
+    )
+    school = models.ForeignKey(
+        'authentication.School',
+        related_name='users',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        help_text="The tenant this user belongs to. Exactly one, except superusers.",
+    )
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            # Every user belongs to exactly one school. Superusers are the sole
+            # exception — they span all schools, and `createsuperuser` has no way
+            # to supply one, so NULL is permitted only for them.
+            models.CheckConstraint(
+                condition=models.Q(school__isnull=False) | models.Q(is_superuser=True),
+                name='user_has_school_unless_superuser',
+            ),
+        ]
 
     def __str__(self):
         return self.first_name + " " + self.last_name
@@ -313,10 +381,19 @@ class ClubManager(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
-class PsychologicalState(models.Model):
+class PsychologicalState(SchoolDerivedMixin, models.Model):
+    SCHOOL_DERIVED_FROM = ('student__user', 'added_by')
+
     name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
+    # `student` is nullable, so it carries its own school rather than
+    # reaching one by join — a NULL student would otherwise make the row
+    # invisible to every school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='psychological_states',
+        on_delete=models.PROTECT,
+    )
 
     score = models.PositiveIntegerField(
         default=1,
@@ -343,6 +420,13 @@ class PsychologicalState(models.Model):
 class PsychologicalStateTemplates(models.Model):
     name = models.CharField(max_length=100, unique=True)
     comment = models.TextField(blank=True, null=True)
+    # Root: templates are per-school. The global unique on `name` is
+    # relaxed to unique(school, name) in Phase 6, or school #2 could never
+    # reuse a name school #1 already took.
+    school = models.ForeignKey(
+        'authentication.School', related_name='psychological_state_templates',
+        on_delete=models.PROTECT,
+    )
 
     def __str__(self):
         return self.name

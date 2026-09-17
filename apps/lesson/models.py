@@ -6,7 +6,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.authentication.models import CustomUser
 from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
-from core.models import SoftDeleteMixin
+from core.models import SchoolDerivedMixin, SoftDeleteMixin
 
 
 class Lesson(SoftDeleteMixin, models.Model):
@@ -239,7 +239,15 @@ class TopicGrade(models.Model):
         ]
 
 
-class MergedLessonComment(models.Model):
+class MergedLessonComment(SchoolDerivedMixin, models.Model):
+    SCHOOL_DERIVED_FROM = ('lesson__offering', 'student__user')
+
+    # `lesson` and `student` are both nullable, so there is no reliable join
+    # path to a school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='merged_lesson_comments',
+        on_delete=models.PROTECT,
+    )
     lesson = models.ForeignKey(
         Lesson,
         related_name='lesson_comment',
@@ -310,7 +318,16 @@ class QuarterGradeSnapshot(models.Model):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
 
 
-class SubjectSchedule(models.Model):
+class SubjectSchedule(SchoolDerivedMixin, models.Model):
+    SCHOOL_DERIVED_FROM = ('offering', 'class_group')
+
+    # Both `offering` and `class_group` are nullable — school-wide schedules
+    # have neither. 8 such rows exist today; scoping by join would make them
+    # invisible to every school, so the row carries its own tenant key.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subject_schedules',
+        on_delete=models.PROTECT,
+    )
     SUBJECT_CHOICE = 'subject'
     OTHER_CHOICE   = 'other'
     SCHEDULE_CHOICES = [

@@ -9,7 +9,7 @@ from django.db import models
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
-from core.models import SoftDeleteMixin
+from core.models import SchoolDerivedMixin, SoftDeleteMixin
 
 MAX_ATTACHMENT_SIZE_MB = 10
 MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
@@ -53,13 +53,22 @@ def validate_attachment_format(file):
         file.seek(0)
 
 
-class Attachment(models.Model):
+class Attachment(SchoolDerivedMixin, models.Model):
+    SCHOOL_DERIVED_FROM = ('uploaded_by',)
+
     FILE_TYPE_CHOICES = [
         ('image', 'Image'),
         ('document', 'Document'),
         ('certificate', 'Certificate'),
         ('other', 'Other'),
     ]
+
+    # A GenericForeignKey has no lookup path, so no join can reach a school —
+    # the attachment carries its own tenant key.
+    school = models.ForeignKey(
+        'authentication.School', related_name='attachments',
+        on_delete=models.PROTECT,
+    )
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()

@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from apps.authentication.models import (
     CustomUser, Student, Teacher, Parent, Supervisor, ClubManager,
-    SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
+    School, SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
     MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
 )
 
@@ -111,7 +111,10 @@ class RegisterSerializer(serializers.Serializer):
     password2 = serializers.CharField(write_only=True)
     # Server-assigned from the creating admin — see create(). Only a superuser
     # may name a school, so an admin of one school cannot mint users in another.
-    school = serializers.ChoiceField(choices=CustomUser.SCHOOL_CHOICES, required=False)
+    # Accepts a School uuid; the pk is never exposed over the wire.
+    school = serializers.SlugRelatedField(
+        slug_field='uuid', queryset=School.objects.all(), required=False,
+    )
     role = serializers.ChoiceField(choices=CustomUser.GROUP_CHOICES)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)

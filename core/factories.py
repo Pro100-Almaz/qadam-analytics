@@ -7,6 +7,7 @@ from factory.django import DjangoModelFactory
 from apps.achievement.models import Club, ClubAttendance, ClubSession
 from apps.authentication.models import (
     ClubManager,
+    School,
     CustomUser,
     Parent,
     SchoolGroup,
@@ -44,17 +45,37 @@ class GroupFactory(DjangoModelFactory):
     name = 'Student'
 
 
+class SchoolFactory(DjangoModelFactory):
+    """The default tenant.
+
+    `django_get_or_create` on the slug means every factory that needs a school
+    lands on the *same* row unless a test deliberately asks for another — so a
+    LessonFactory's offering, class group, academic year and subject all end up
+    in one school instead of four. Pass an explicit slug for a second tenant:
+    `SchoolFactory(slug='school_b')`.
+    """
+
+    class Meta:
+        model = School
+        django_get_or_create = ('slug',)
+
+    slug = 'test_school'
+    name = factory.LazyAttribute(lambda o: o.slug.replace('_', ' ').title())
+
+
 class SchoolGroupFactory(DjangoModelFactory):
     class Meta:
         model = SchoolGroup
 
-    name = factory.Sequence(lambda n: f'School {n}')
+    school = factory.SubFactory(SchoolFactory)
+    name = factory.Sequence(lambda n: f'Orda {n}')
 
 
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = CustomUser
 
+    school = factory.SubFactory(SchoolFactory)
     username = factory.Sequence(lambda n: f'user_{n}')
     email = factory.LazyAttribute(lambda o: f'{o.username}@test.kz')
     first_name = factory.Faker('first_name')
@@ -130,6 +151,7 @@ class AcademicYearFactory(DjangoModelFactory):
     class Meta:
         model = AcademicYear
 
+    school = factory.SubFactory(SchoolFactory)
     year = factory.Sequence(lambda n: f'202{n}/202{n + 1}')
     is_active = True
     archived = False
@@ -146,6 +168,7 @@ class ClassGroupFactory(DjangoModelFactory):
     class Meta:
         model = ClassGroup
 
+    school = factory.SubFactory(SchoolFactory)
     academic_year = factory.SubFactory(AcademicYearFactory)
     grade_level = factory.SubFactory(GradeLevelFactory)
     letter = 'A'
@@ -240,6 +263,7 @@ class SubjectFactory(DjangoModelFactory):
     class Meta:
         model = Subject
 
+    school = factory.SubFactory(SchoolFactory)
     name = factory.Sequence(lambda n: f'Subject {n}')
     status = 'active'
     language_group = 'kaz'
@@ -249,6 +273,7 @@ class SubjectOfferingFactory(DjangoModelFactory):
     class Meta:
         model = SubjectOffering
 
+    school = factory.SubFactory(SchoolFactory)
     subject = factory.SubFactory(SubjectFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
     max_points = 100

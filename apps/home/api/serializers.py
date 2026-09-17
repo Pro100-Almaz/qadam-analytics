@@ -392,7 +392,15 @@ class SubjectCreateSerializer(serializers.Serializer):
         class_groups = validated_data.pop('class_groups', [])
         user = self.context['request'].user
 
-        subject = Subject.objects.create(added_by=user, **validated_data)
+        # Subject is a tenant root — it cannot derive a school from a parent,
+        # so it takes the creator's. Superusers have none, in which case the
+        # school is inferred from the classes the subject is being offered to.
+        school_id = user.school_id
+        if school_id is None and class_groups:
+            school_id = class_groups[0].school_id
+        subject = Subject.objects.create(
+            added_by=user, school_id=school_id, **validated_data
+        )
 
         offerings_created = 0
         if academic_year and class_groups:

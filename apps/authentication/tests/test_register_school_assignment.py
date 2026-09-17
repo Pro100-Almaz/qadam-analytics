@@ -8,11 +8,14 @@ creating admin; only a superuser may name a school explicitly.
 import pytest
 
 from apps.authentication.models import CustomUser
-from core.factories import AdminUserFactory
+from core.factories import AdminUserFactory, SchoolFactory
 
 URL = '/api/v1/auth/register/'
-OTHER = 'bukhar_zhyrau'
-OWN = 'muzafar_alimbayev'
+
+
+@pytest.fixture
+def schools(db):
+    return SchoolFactory(slug='school_a'), SchoolFactory(slug='school_b')
 
 
 def _payload(**over):
@@ -27,30 +30,27 @@ def _payload(**over):
 
 
 @pytest.mark.django_db
-def test_admin_cannot_register_user_into_another_school(authenticated_client):
-    admin = AdminUserFactory()
-    admin.school = OWN
-    admin.save(update_fields=['school'])
+def test_admin_cannot_register_user_into_another_school(authenticated_client, schools):
+    own, other = schools
+    admin = AdminUserFactory(school=own)
 
     response = authenticated_client(admin).post(
-        URL, _payload(school=OTHER), format='multipart',
+        URL, _payload(school=str(other.uuid)), format='multipart',
     )
 
     assert response.status_code == 201
     created = CustomUser.objects.get(email='new.user@test.kz')
-    assert created.school == OWN, 'client-supplied school was honoured'
+    assert created.school_id == own.pk, 'client-supplied school was honoured'
 
 
 @pytest.mark.django_db
-def test_superuser_may_name_the_school(authenticated_client):
-    root = AdminUserFactory()
-    root.is_superuser = True
-    root.school = OWN
-    root.save(update_fields=['is_superuser', 'school'])
+def test_superuser_may_name_the_school(authenticated_client, schools):
+    own, other = schools
+    root = AdminUserFactory(school=own, is_superuser=True)
 
     response = authenticated_client(root).post(
-        URL, _payload(school=OTHER), format='multipart',
+        URL, _payload(school=str(other.uuid)), format='multipart',
     )
 
     assert response.status_code == 201
-    assert CustomUser.objects.get(email='new.user@test.kz').school == OTHER
+    assert CustomUser.objects.get(email='new.user@test.kz').school_id == other.pk
