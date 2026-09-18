@@ -1,16 +1,38 @@
 from django.db import models
 from django.utils import timezone
 
+from core.tenancy import (
+    SchoolDerivationError, SchoolScopedManager, SchoolScopedManagerMixin,
+    apply_school_scope,
+)
+
 
 class SoftDeleteManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
 
-    def all_with_deleted(self):
+    def _unfiltered(self):
+        """Every row, soft-deleted included.
+
+        A hook rather than a direct `super().get_queryset()` in each caller:
+        those bypass any `get_queryset` override, so the school filter would be
+        skipped by exactly the two methods below. ScopedSoftDeleteManager
+        overrides this one method to close that.
+        """
         return super().get_queryset()
 
+    def all_with_deleted(self):
+        return self._unfiltered()
+
     def deleted_only(self):
-        return super().get_queryset().filter(is_deleted=True)
+        return self._unfiltered().filter(is_deleted=True)
+
+
+class ScopedSoftDeleteManager(SchoolScopedManagerMixin, SoftDeleteManager):
+    """Soft-delete filtering and school scoping, composed."""
+
+    def _unfiltered(self):
+        return apply_school_scope(super()._unfiltered(), self.model)
 
 
 class SoftDeleteMixin(models.Model):
@@ -24,8 +46,13 @@ class SoftDeleteMixin(models.Model):
         related_name='+',
     )
 
-    objects = SoftDeleteManager()
-    all_objects = models.Manager()
+    # `objects` first: Django takes the first declared manager as the default,
+    # and the default manager is what reverse FKs, M2M and the admin go through.
+    objects = ScopedSoftDeleteManager()
+    #: Soft-deleted rows included, still school-scoped.
+    all_objects = SchoolScopedManager()
+    #: Neither filter. Last resort — one word, and greppable.
+    unscoped = models.Manager()
 
     class Meta:
         abstract = True
@@ -43,6 +70,37 @@ class SoftDeleteMixin(models.Model):
         self.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
 
 
+def school_id_of(obj):
+    """The school a related object belongs to, or None.
+
+    Two ways an object reaches a school, and both have to work here: it carries
+    its own `school` column, or it declares a `SCHOOL_PATH` to one. Only
+    checking for `school_id` was the bug behind an Attachment on a Club — Club
+    is scoped by `academic_year__school` and has no column of its own, so the
+    attribute lookup came back None and the derivation fell through.
+
+    The walk goes through forward FKs, which Django resolves via `_base_manager`
+    — unscoped by design. That is what we want: this is working out *which*
+    tenant owns a row, so it must not be filtered by the tenant already active.
+    """
+    if obj is None:
+        return None
+    school_id = getattr(obj, 'school_id', None)
+    if school_id:
+        return school_id
+    path = getattr(obj, 'SCHOOL_PATH', None)
+    if not path:
+        return None
+    parts = path.split('__')
+    if parts[-1] != 'school':
+        return None
+    for part in parts[:-1]:
+        obj = getattr(obj, part, None)
+        if obj is None:
+            return None
+    return getattr(obj, 'school_id', None)
+
+
 class SchoolDerivedMixin(models.Model):
     """Fills a denormalised `school` from a related object when not set explicitly.
 
@@ -53,8 +111,16 @@ class SchoolDerivedMixin(models.Model):
     each model names where it can be derived from and this fills it in on save.
 
     `SCHOOL_DERIVED_FROM` is a tuple of lookup paths tried in order; the first
-    one that resolves to something with a school wins. If none do, the caller
-    must supply `school` explicitly — the NOT NULL constraint will say so.
+    one that resolves to a school wins. Order them by authority, not by
+    convenience: the row the record actually belongs to comes before whoever
+    happened to create it.
+
+    **A user is never a reliable source.** `CustomUser.school` is nullable so
+    that `createsuperuser` works, and superusers legitimately have none — so any
+    tuple whose only entry is an actor FK has a hole in it exactly when a
+    superuser acts. That is a NOT NULL IntegrityError, i.e. a 500, on a routed
+    endpoint. Every list here must either end in a source that cannot be NULL,
+    or the caller must pass `school` explicitly.
     """
 
     SCHOOL_DERIVED_FROM: tuple = ()
@@ -69,18 +135,23 @@ class SchoolDerivedMixin(models.Model):
                 obj = getattr(obj, part, None)
                 if obj is None:
                     break
-            if obj is not None:
-                school_id = getattr(obj, 'school_id', None)
-                if school_id:
-                    return school_id
+            school_id = school_id_of(obj)
+            if school_id:
+                return school_id
         return None
 
     def save(self, *args, **kwargs):
         if self.school_id is None:
             derived = self._derive_school_id()
-            if derived is not None:
-                self.school_id = derived
-                update_fields = kwargs.get('update_fields')
-                if update_fields is not None and 'school' not in update_fields:
-                    kwargs['update_fields'] = list(update_fields) + ['school']
+            if derived is None:
+                raise SchoolDerivationError(
+                    f'{type(self).__name__}.school is not set and could not be '
+                    f'derived from {self.SCHOOL_DERIVED_FROM or "()"}. Pass '
+                    f'school=... explicitly. (Deriving from a user fails for '
+                    f'superusers, who have no school by design.)'
+                )
+            self.school_id = derived
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'school' not in update_fields:
+                kwargs['update_fields'] = list(update_fields) + ['school']
         return super().save(*args, **kwargs)

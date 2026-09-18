@@ -349,3 +349,11 @@ LOGGING = {
         },
     },
 }
+
+# ── Multi-school (tenant) isolation ──
+#
+# The rollout ramp for core.tenancy: 'off' | 'warn' | 'enforce'. See the module
+# docstring there. It stays 'off' while the managers and SCHOOL_PATH
+# declarations land, so the change is inert; 'warn' is deployed next and its
+# ERROR log drained before 'enforce'. Keep this env var live as the rollback.
+SCHOOL_SCOPE_MODE = config('SCHOOL_SCOPE_MODE', default='off')

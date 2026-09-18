@@ -1,8 +1,10 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.authentication.models import School
 from apps.home.models import AcademicYear, ClassGroup, GradeLevel, Enrollment
+from core.tenancy import school_scope
 
 
 class Command(BaseCommand):
@@ -11,14 +13,28 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('new_year_name', type=str, help='e.g., 2026-2027')
         parser.add_argument('--dry-run', action='store_true', help='Preview without saving')
+        parser.add_argument(
+            '--school', required=True,
+            help=(
+                'Slug of the school to roll over. Required, not inferred: an '
+                'academic year is per-school, so "the active year" is ambiguous '
+                'once a second school exists.'
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         new_year_name = options['new_year_name']
 
         try:
-            with transaction.atomic():
-                summary = self._rollover(new_year_name)
+            school = School.objects.get(slug=options['school'])
+        except School.DoesNotExist:
+            known = ', '.join(School.objects.values_list('slug', flat=True))
+            raise CommandError(f'No school with slug {options["school"]!r}. Known: {known}')
+
+        try:
+            with transaction.atomic(), school_scope(school):
+                summary = self._rollover(new_year_name, school)
 
                 for line in summary:
                     self.stdout.write(line)
@@ -32,16 +48,22 @@ class Command(BaseCommand):
         except _DryRunRollback:
             pass
 
-    def _rollover(self, new_year_name):
+    def _rollover(self, new_year_name, school):
         summary = []
 
-        current_year = AcademicYear.objects.filter(is_active=True).first()
+        current_year = AcademicYear.objects.filter(
+            is_active=True, school=school,
+        ).first()
         if not current_year:
-            self.stderr.write(self.style.ERROR('No active academic year found.'))
+            self.stderr.write(self.style.ERROR(
+                f'No active academic year for {school.slug}.'))
             return []
 
+        # `school` is passed explicitly: the column is NOT NULL and
+        # get_or_create cannot infer it from the ambient scope.
         new_year, created = AcademicYear.objects.get_or_create(
             year=new_year_name,
+            school=school,
             defaults={'is_active': True, 'archived': False},
         )
         if not created:
@@ -67,11 +89,16 @@ class Command(BaseCommand):
             next_grade_number = old_cg.grade_level.number + 1
             next_grade, _ = GradeLevel.objects.get_or_create(number=next_grade_number)
 
+            # ClassGroup derives its school from academic_year via
+            # SchoolDerivedMixin, so it needs no explicit school here — but it
+            # does need one in the lookup, or get_or_create would match another
+            # school's identically-named group.
             new_cg, _ = ClassGroup.objects.get_or_create(
                 academic_year=new_year,
                 grade_level=next_grade,
                 letter=old_cg.letter,
                 category=ClassGroup.MAJOR_CHOICE,
+                school=school,
             )
             group_mapping[old_cg.id] = new_cg
 

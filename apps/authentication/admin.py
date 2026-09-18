@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.admin import ModelAdmin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.utils.html import format_html
 from django import forms
 from django.contrib import messages
@@ -13,8 +14,40 @@ from apps.home.admin_forms import class_group_formfield
 from apps.home.models import Enrollment, ClassGroup, AcademicYear
 
 
+class SchoolRequiredMixin:
+    """Mirrors the `user_has_school_unless_superuser` DB constraint in the form.
+
+    Without this the admin writes school=NULL on a non-superuser and Postgres
+    rejects it with an IntegrityError — a 500 where the user should simply be
+    told the field is required.
+
+    `is_superuser` is absent from the add form, which is correct: a user created
+    there is never a superuser, so the school is unconditionally required.
+    """
+
+    def clean(self):
+        cleaned = super().clean()
+        if 'school' not in self.fields:
+            return cleaned
+        if not cleaned.get('is_superuser') and not cleaned.get('school'):
+            self.add_error('school', 'Every user belongs to a school. Only superusers may have none.')
+        return cleaned
+
+
+class CustomUserCreationForm(SchoolRequiredMixin, UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = CustomUser
+
+
+class CustomUserChangeForm(SchoolRequiredMixin, UserChangeForm):
+    class Meta(UserChangeForm.Meta):
+        model = CustomUser
+
+
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
+    add_form = CustomUserCreationForm
+    form = CustomUserChangeForm
     model = CustomUser
     list_display = ("username", "email", "get_groups", "avatar_preview_small", "is_staff")
     search_fields = ("username", "email", "first_name", "last_name")
@@ -35,7 +68,7 @@ class CustomUserAdmin(UserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("username", "email", "password1", "password2", "first_name", "last_name", "avatar", "groups"),
+            "fields": ("username", "email", "password1", "password2", "first_name", "last_name", "avatar", "school", "groups"),
         }),
     )
 

@@ -5,9 +5,13 @@ from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
 from core.models import SchoolDerivedMixin
+from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
 
 
 class AcademicYear(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     # Root: each school runs its own years and quarter dates.
     school = models.ForeignKey(
         'authentication.School', related_name='academic_years',
@@ -62,6 +66,9 @@ class GradeLevel(models.Model):
 
 
 class ClassGroup(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     # `academic_year` is nullable, which is why the school column exists at all —
     # but when a year *is* set it is a reliable source, so derive from it and let
     # callers supply the school only for year-less groups.
@@ -119,8 +126,12 @@ class ClassGroup(SchoolDerivedMixin, models.Model):
         return self.category == self.MINOR_CHOICE
 
 
-class MinorClassGroupManager(models.Manager):
-    """Restricts every query — and every create — to the minor category."""
+class MinorClassGroupManager(SchoolScopedManagerMixin, models.Manager):
+    """Restricts every query — and every create — to the minor category.
+
+    The scope mixin goes first so the school filter composes on top of the
+    category filter rather than replacing it.
+    """
 
     def get_queryset(self):
         return super().get_queryset().filter(category=ClassGroup.MINOR_CHOICE)
@@ -137,6 +148,11 @@ class MinorClassGroup(ClassGroup):
     own queries while sharing the model, enrollments and subject offerings of
     regular (major) classes.
     """
+
+    # Declared again rather than inherited: core.checks walks concrete and proxy
+    # models alike, and an explicit path is what it reports against.
+    SCHOOL_PATH = 'school'
+
     objects = MinorClassGroupManager()
 
     class Meta:
@@ -157,6 +173,10 @@ class ClassGroupCollection(models.Model):
     place, ready to be filled again. Subgroups are shared rather than owned:
     «English Advanced» can sit in 7A's constellation and 7B's at the same time.
     """
+
+    SCHOOL_PATH = 'major__school'
+    objects = SchoolScopedManager()
+
     major = models.OneToOneField(
         ClassGroup,
         on_delete=models.CASCADE,
@@ -221,6 +241,9 @@ class ClassGroupCollection(models.Model):
 
 
 class Subject(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     STATUS_CHOICES = (
         ('active', 'Active'),
         ('planned', 'Planned'),
@@ -256,14 +279,17 @@ class Subject(models.Model):
 
 
 class SubjectOffering(SchoolDerivedMixin, models.Model):
-    SCHOOL_DERIVED_FROM = ('class_group',)
-
     """
     The central entity: "Math for 7A in 2025/2026"
 
     Ties together: Subject, ClassGroup, AcademicYear, teachers, lessons, grades.
     Everything on a subject page filters by this offering.
     """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('class_group',)
+    objects = SchoolScopedManager()
+
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -331,6 +357,10 @@ class SubjectOffering(SchoolDerivedMixin, models.Model):
 
 class TeachingAssignment(models.Model):
     """Assigns teachers to a SubjectOffering with specific roles."""
+
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     ROLE_CHOICES = [
         ('primary', 'Primary Teacher'),
         ('assistant', 'Assistant Teacher'),
@@ -358,6 +388,10 @@ class TeachingAssignment(models.Model):
 
 class HomeroomTeacherAssignment(models.Model):
     """Links a homeroom teacher to a class group for an academic year."""
+
+    SCHOOL_PATH = 'class_group__school'
+    objects = SchoolScopedManager()
+
     teacher = models.ForeignKey(
         Teacher,
         on_delete=models.CASCADE,
@@ -391,6 +425,10 @@ class Enrollment(models.Model):
     A student may hold at most one active enrollment in a *major* class group
     per academic year, but any number of active *minor* group enrollments.
     """
+
+    SCHOOL_PATH = 'class_group__school'
+    objects = SchoolScopedManager()
+
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('transferred', 'Transferred'),
@@ -546,6 +584,9 @@ class Enrollment(models.Model):
 
 
 class QuarterGrader(models.Model):
+    SCHOOL_PATH = 'subject__school'
+    objects = SchoolScopedManager()
+
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
     quarter = models.PositiveSmallIntegerField()
     average_points = models.PositiveIntegerField(default=0)
@@ -560,6 +601,9 @@ class QuarterGrader(models.Model):
 
 
 class SubjectAssignment(models.Model):
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     CATEGORY_CHOICES = (
         ('lesson', 'Lesson'),
         ('exam', 'Exam'),
@@ -576,6 +620,9 @@ class SubjectAssignment(models.Model):
 
 
 class SubjectGrade(models.Model):
+    SCHOOL_PATH = 'assignment__offering__school'
+    objects = SchoolScopedManager()
+
     assignment = models.ForeignKey(SubjectAssignment, on_delete=models.CASCADE, related_name="grades")
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grades")
     grade = models.PositiveIntegerField(null=True, blank=True)
@@ -589,6 +636,9 @@ class SubjectGrade(models.Model):
 
 
 class QuarterGrade(models.Model):
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     grade = models.PositiveIntegerField(validators=[MinValueValidator(2), MaxValueValidator(5)])
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
 

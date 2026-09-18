@@ -145,10 +145,17 @@ class PsychologicalStateCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # PsychologicalStateTemplates is a tenant root with a NOT NULL school and
+        # no parent to derive one from, so it has to be supplied here. The state
+        # is about the student, so the student's school owns the template; the
+        # actor's school is the fallback for the (data-defect) case of a student
+        # without one. `name` alone still gates the lookup because the column is
+        # globally unique until Phase 6 relaxes it to unique(school, name).
         if not PsychologicalStateTemplates.objects.filter(name=data['state_name']).exists():
             PsychologicalStateTemplates.objects.create(
                 name=data['state_name'],
                 comment=data.get('comment', ''),
+                school_id=student.user.school_id or request.user.school_id,
             )
 
         state = PsychologicalState.objects.create(

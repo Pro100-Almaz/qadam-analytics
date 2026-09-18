@@ -10,6 +10,7 @@ from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
 from core.models import SchoolDerivedMixin, SoftDeleteMixin
+from core.tenancy import SchoolScopedManager
 
 MAX_ATTACHMENT_SIZE_MB = 10
 MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
@@ -54,7 +55,24 @@ def validate_attachment_format(file):
 
 
 class Attachment(SchoolDerivedMixin, models.Model):
-    SCHOOL_DERIVED_FROM = ('uploaded_by',)
+    """A file hung off any model by GenericForeignKey.
+
+    `content_object` comes first and `uploaded_by` second, deliberately. The
+    attachment belongs to the row it is attached to, so that row is the
+    authority on which school owns it; the uploader is only a fallback for a
+    content_object whose target has since been deleted.
+
+    Deriving from the uploader *alone* was a live 500: `uploaded_by` is
+    SET_NULL, and a superuser has no school by design, so every upload by a
+    superuser through the club, achievement or homework endpoints hit the NOT
+    NULL constraint. Ordering it this way also closes the milder case — a
+    school-A user attaching to a school-B row no longer files the attachment
+    under school A, where nobody looking at the row would ever see it.
+    """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('content_object', 'uploaded_by')
+    objects = SchoolScopedManager()
 
     FILE_TYPE_CHOICES = [
         ('image', 'Image'),
@@ -99,6 +117,8 @@ class Attachment(SchoolDerivedMixin, models.Model):
 
 
 class Achievement(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'academic_year__school'
+
     CATEGORY_CHOICES = [
         ('olympiad', 'Subject Olympiad'),
         ('additional_education', 'Additional Education'),
@@ -173,6 +193,8 @@ class Achievement(SoftDeleteMixin, models.Model):
 
 
 class ReadingEntry(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'academic_year__school'
+
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -210,6 +232,8 @@ class ReadingEntry(SoftDeleteMixin, models.Model):
 
 
 class ClubEntry(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'academic_year__school'
+
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -241,6 +265,8 @@ class ClubEntry(SoftDeleteMixin, models.Model):
 
 
 class Club(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'academic_year__school'
+
     CLUB_STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('active', 'Active'),
@@ -298,6 +324,8 @@ class Club(SoftDeleteMixin, models.Model):
 
 
 class ClubSession(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'club__academic_year__school'
+
     WEEKDAY_CHOICES = (
         ('monday', 'Monday'),
         ('tuesday', 'Tuesday'),
@@ -332,6 +360,8 @@ class ClubSession(SoftDeleteMixin, models.Model):
 
 
 class ClubAttendance(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'session__club__academic_year__school'
+
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),
         ('absent', 'Absent'),

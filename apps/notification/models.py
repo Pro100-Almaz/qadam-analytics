@@ -1,8 +1,13 @@
 from django.conf import settings
 from django.db import models
 
+from core.tenancy import SchoolScopedManager
+
 
 class Notification(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     class NotificationType(models.TextChoices):
         REGISTER = 'register', 'Registration'
         LOGIN = 'login', 'Login'

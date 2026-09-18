@@ -7,9 +7,12 @@ from simple_history.models import HistoricalRecords
 from apps.authentication.models import CustomUser
 from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
 from core.models import SchoolDerivedMixin, SoftDeleteMixin
+from core.tenancy import SchoolScopedManager
 
 
 class Lesson(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'offering__school'
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('completed', 'Completed'),
@@ -161,6 +164,9 @@ class Lesson(SoftDeleteMixin, models.Model):
 
 
 class Topic(models.Model):
+    SCHOOL_PATH = 'lesson__offering__school'
+    objects = SchoolScopedManager()
+
     lesson = models.ForeignKey(
         Lesson,
         related_name='topics',
@@ -225,6 +231,9 @@ class Topic(models.Model):
 
 
 class TopicGrade(models.Model):
+    SCHOOL_PATH = 'topic__lesson__offering__school'
+    objects = SchoolScopedManager()
+
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
     grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
@@ -240,7 +249,9 @@ class TopicGrade(models.Model):
 
 
 class MergedLessonComment(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('lesson__offering', 'student__user')
+    objects = SchoolScopedManager()
 
     # `lesson` and `student` are both nullable, so there is no reliable join
     # path to a school.
@@ -271,6 +282,9 @@ class MergedLessonComment(SchoolDerivedMixin, models.Model):
 
 
 class QuarterGradeSnapshot(models.Model):
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     student = models.ForeignKey(
         'authentication.Student', on_delete=models.PROTECT,
         related_name='grade_snapshots',
@@ -319,7 +333,9 @@ class QuarterGradeSnapshot(models.Model):
 
 
 class SubjectSchedule(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('offering', 'class_group')
+    objects = SchoolScopedManager()
 
     # Both `offering` and `class_group` are nullable — school-wide schedules
     # have neither. 8 such rows exist today; scoping by join would make them
@@ -360,6 +376,9 @@ class SubjectSchedule(SchoolDerivedMixin, models.Model):
 
 
 class ScheduleSession(models.Model):
+    SCHOOL_PATH = 'schedule__school'
+    objects = SchoolScopedManager()
+
     schedule = models.ForeignKey(
         SubjectSchedule,
         on_delete=models.CASCADE,
@@ -376,6 +395,9 @@ class ScheduleSession(models.Model):
 
 
 class ScheduleAttendance(models.Model):
+    SCHOOL_PATH = 'session__schedule__school'
+    objects = SchoolScopedManager()
+
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),
         ('absent', 'Absent'),
@@ -397,6 +419,9 @@ class ScheduleAttendance(models.Model):
 
 
 class Homework(models.Model):
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     description = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
     teaching_assignment = models.ForeignKey(TeachingAssignment, on_delete=models.CASCADE, related_name='homeworks')
@@ -417,6 +442,9 @@ class Homework(models.Model):
 
 
 class HomeworkGrade(models.Model):
+    SCHOOL_PATH = 'homework__offering__school'
+    objects = SchoolScopedManager()
+
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
     grade = models.PositiveIntegerField(null=True, blank=True)

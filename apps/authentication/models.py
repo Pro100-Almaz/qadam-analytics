@@ -1,6 +1,6 @@
 import uuid
 
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -13,6 +13,7 @@ from django.utils.html import strip_tags
 from simple_history.models import HistoricalRecords
 
 from core.models import SchoolDerivedMixin
+from core.tenancy import SchoolScopedManager
 from core import settings
 
 
@@ -72,6 +73,9 @@ class School(models.Model):
 
 
 class SchoolGroup(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
     color = models.CharField(max_length=7, blank=True, default='')
@@ -86,6 +90,19 @@ class SchoolGroup(models.Model):
 
 
 class CustomUser(AbstractUser):
+    SCHOOL_PATH = 'school'
+
+    #: Identity lookups must be global, so the DEFAULT manager is unscoped.
+    #: `ModelBackend.authenticate` calls `_default_manager.get_by_natural_key()`
+    #: before anyone knows who the user is — a fail-closed default manager makes
+    #: login itself raise. Same for JWTAuthentication.get_user, PasswordResetForm,
+    #: createsuperuser and the admin login. Person-level isolation is enforced
+    #: through the five profile models instead, each SCHOOL_PATH='user__school',
+    #: which is what the API actually lists.
+    objects = UserManager()
+    #: Scoped, for listings, pickers and the admin.
+    in_school = SchoolScopedManager()
+
     # Group name constants (used for consistency across the codebase)
     GROUP_PARENT = 'Parent'
     GROUP_TEACHER = 'Teacher'
@@ -255,6 +272,9 @@ class CustomUser(AbstractUser):
 
 
 class Student(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     subjects = models.ManyToManyField(
@@ -320,31 +340,51 @@ class Student(models.Model):
 
 @receiver(pre_save, sender=Student)
 def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign student's academic year before save if not set."""
+    """Auto-assign the student's academic year before save if not set.
+
+    Resolved from the student's OWN school rather than from ambient scope, so
+    this behaves identically in a request, a script, the shell and a Celery
+    worker — none of which share a scope.
+
+    The blanket `except Exception: pass` this replaces was the worst failure
+    mode the tenancy design can produce. It fires on every Student save, and
+    under fail-closed scoping it would have swallowed SchoolScopeError and
+    written academic_year=None silently, with no log line — inverting the
+    fail-closed guarantee into a quiet data defect.
+    """
     if instance.academic_year_id:
         return
+    if not instance.user_id:
+        return
 
-    try:
-        from apps.home.models import AcademicYear
-        # Use the active academic year, or fallback to latest
-        active_year = AcademicYear.objects.filter(is_active=True).first()
-        if active_year:
-            instance.academic_year = active_year
-        else:
-            latest_year = AcademicYear.objects.order_by('-year').first()
-            if latest_year:
-                instance.academic_year = latest_year
-    except Exception:
-        pass
+    from apps.home.models import AcademicYear
+    from core.tenancy import all_schools
+
+    school_id = instance.user.school_id
+    if school_id is None:          # a superuser; they have no single school
+        return
+
+    with all_schools():
+        years = AcademicYear.objects.filter(school_id=school_id)
+        instance.academic_year = (
+            years.filter(is_active=True).first()
+            or years.order_by('-year').first()
+        )
 
 
 class Parent(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     students = models.ManyToManyField(Student, blank=True, related_name="parent")
 
 
 class Teacher(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     #identification
@@ -374,22 +414,38 @@ class Teacher(models.Model):
 
 
 class Supervisor(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
 class ClubManager(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
 class PsychologicalState(SchoolDerivedMixin, models.Model):
+    """A psychologist's note about a student.
+
+    `student` is nullable, so the row carries its own school rather than
+    reaching one by join. Neither source below is guaranteed: a note with no
+    student has no student to ask, and `added_by` is a superuser's row with no
+    school of its own. Every live creation site passes a student, so the caller
+    must supply `school` explicitly for the school-wide case — which
+    SchoolDerivedMixin.save() now says in as many words instead of raising a
+    bare NOT NULL IntegrityError.
+    """
+
+    SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('student__user', 'added_by')
+    objects = SchoolScopedManager()
 
     name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
-    # `student` is nullable, so it carries its own school rather than
-    # reaching one by join — a NULL student would otherwise make the row
-    # invisible to every school.
     school = models.ForeignKey(
         'authentication.School', related_name='psychological_states',
         on_delete=models.PROTECT,
@@ -418,6 +474,9 @@ class PsychologicalState(SchoolDerivedMixin, models.Model):
 
 
 class PsychologicalStateTemplates(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     name = models.CharField(max_length=100, unique=True)
     comment = models.TextField(blank=True, null=True)
     # Root: templates are per-school. The global unique on `name` is

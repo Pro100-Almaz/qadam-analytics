@@ -54,3 +54,21 @@ def test_superuser_may_name_the_school(authenticated_client, schools):
 
     assert response.status_code == 201
     assert CustomUser.objects.get(email='new.user@test.kz').school_id == other.pk
+
+
+@pytest.mark.django_db
+def test_superuser_without_a_school_gets_400_not_500(authenticated_client, schools):
+    """A superuser has no school to inherit, so they must name one.
+
+    Leaving it out used to write school=NULL on a non-superuser and trip the
+    `user_has_school_unless_superuser` check constraint — an IntegrityError
+    surfacing as a 500.
+    """
+    own, _ = schools
+    root = AdminUserFactory(school=own, is_superuser=True)
+
+    response = authenticated_client(root).post(URL, _payload(), format='multipart')
+
+    assert response.status_code == 400
+    assert 'school' in response.data
+    assert not CustomUser.objects.filter(email='new.user@test.kz').exists()

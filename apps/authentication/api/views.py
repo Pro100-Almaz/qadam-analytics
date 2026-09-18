@@ -129,7 +129,11 @@ class ForgetPasswordAPIView(APIView):
     def post(self, request):
         serializer = ForgetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        username = serializer.validated_data['username']
+        # The serializer's field is `identifier` — reading 'username' here was a
+        # KeyError, i.e. a 500, on the only payload the serializer accepts, so
+        # password reset was broken outright. Commit 62184ed renamed both sides;
+        # 5c35cf7 reverted this line alone.
+        username = serializer.validated_data['identifier']
 
         user = CustomUser.objects.filter(username=username).first()
         if not user:
