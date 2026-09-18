@@ -6,6 +6,7 @@ from django.utils.text import Truncator
 from apps.achievement.models import Attachment
 
 from apps.lesson.models import Homework, HomeworkGrade, Topic, TopicGrade, MergedLessonComment
+from core.admin_mixins import SchoolScopedAdminMixin
 
 
 class SubtopicInline(admin.TabularInline):
@@ -55,7 +56,7 @@ class TopicGradeAdmin(admin.ModelAdmin):
 
 
 @admin.register(MergedLessonComment)
-class MergedLessonCommentAdmin(admin.ModelAdmin):
+class MergedLessonCommentAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ('lesson', 'student', 'comment_text', 'is_merged')
     list_filter = ('lesson',)
     search_fields = ('comment_text', 'student__user__first_name')

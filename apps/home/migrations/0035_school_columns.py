@@ -5,19 +5,46 @@ from django.db import migrations, models
 
 
 def backfill(apps, schema_editor):
-    """All existing academic data belongs to school #1.
+    """Stamp the roots, then let everything below derive from them.
 
-    Order matters: the roots are stamped first, then SubjectOffering derives its
-    school from the class group it already points at — so the denormalised hub
-    column agrees with its parent from the moment it exists.
+    `ClassGroup` is **derived from its enrollments**, not defaulted. The two
+    live schools split cleanly — of 126 class groups with enrollments, 119 are
+    purely school A's students and 7 purely school B's, with no group mixing
+    the two — so the enrolled students name the owner unambiguously.
+
+    Defaulting it instead would be quietly destructive: `Enrollment` is scoped
+    through `class_group__school`, so putting school B's 7 groups in school A
+    leaves 99 students able to see no class group and no enrollment at all,
+    while school A gains 7 groups full of students it cannot read.
+
+    `Subject` and `AcademicYear` keep the flat default. Subjects are ambiguous
+    by nature — two of them (ids 4 and 44, Kazakh and Kazakh Literature) are
+    already offered by both schools — so they land on the default tenant and
+    get sorted out in the admin. `AcademicYear.school` is removed again in
+    `home/0037` anyway, since years became shared.
     """
     School = apps.get_model('authentication', 'School')
     school = School.objects.filter(slug='muzafar_alimbayev').first()
     if school is None:
         return
 
-    for model in ('AcademicYear', 'ClassGroup', 'Subject'):
+    for model in ('AcademicYear', 'Subject'):
         apps.get_model('home', model).objects.update(school=school)
+
+    # ClassGroup: the school of whoever is enrolled in it.
+    Enrollment = apps.get_model('home', 'Enrollment')
+    owner = {}
+    for cg_id, school_id in Enrollment.objects.values_list(
+        'class_group_id', 'student__user__school_id',
+    ).distinct():
+        if cg_id and school_id:
+            owner.setdefault(cg_id, school_id)
+
+    ClassGroup = apps.get_model('home', 'ClassGroup')
+    ClassGroup.objects.update(school=school)
+    for cg_id, school_id in owner.items():
+        if school_id != school.pk:
+            ClassGroup.objects.filter(pk=cg_id).update(school_id=school_id)
 
     SubjectOffering = apps.get_model('home', 'SubjectOffering')
     for offering in SubjectOffering.objects.select_related('class_group').iterator():
@@ -25,6 +52,14 @@ def backfill(apps, schema_editor):
             offering.class_group.school_id if offering.class_group_id else school.pk
         )
         offering.save(update_fields=['school'])
+
+    # Django queues the new FKs' index creation as deferred SQL and runs it when
+    # the migration's schema_editor exits — i.e. AFTER this function. The row
+    # updates above leave pending deferred-FK trigger events on the same tables,
+    # and Postgres refuses `CREATE INDEX` while any are outstanding
+    # ("cannot CREATE INDEX ... because it has pending trigger events").
+    # Flushing them here lets the deferred index creation proceed.
+    schema_editor.execute('SET CONSTRAINTS ALL IMMEDIATE')
 
 
 def unbackfill(apps, schema_editor):

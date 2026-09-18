@@ -177,9 +177,18 @@ class CustomUser(AbstractUser):
         default='avatars/default/default-user.jpeg',
         validators=[validate_avatar_size]
     )
-    # Legacy free-text school label. Superseded by the `school` FK below and
-    # dropped once nothing reads it (Phase 7). Kept only so the conversion is
-    # reversible — do not read it.
+    # Legacy free-text school label, superseded by the `school` FK below.
+    #
+    # KEPT PERMANENTLY — do not add a RemoveField for this. It is the input the
+    # phase-1 backfill read to decide each user's tenant (authentication/0038),
+    # and therefore the only independent record of that decision. If a user
+    # turns out to be in the wrong school, this column is what a manual
+    # recovery reads to put them back. Retention was an explicit condition of
+    # approving the tenant split; an earlier draft of the plan dropped it in
+    # phase 7, and that instruction has been reversed.
+    #
+    # `editable=False` and written by nothing, so it cannot drift. Do not read
+    # it at runtime either — `school` is the live field.
     legacy_school = models.CharField(
         max_length=20, choices=SCHOOL_CHOICES,
         default='muzafar_alimbayev', editable=False,
@@ -364,36 +373,30 @@ class Student(models.Model):
 
 @receiver(pre_save, sender=Student)
 def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign the student's academic year before save if not set.
+    """Auto-assign the active academic year before save if not set.
 
-    Resolved from the student's OWN school rather than from ambient scope, so
-    this behaves identically in a request, a script, the shell and a Celery
-    worker — none of which share a scope.
+    Since §1a, AcademicYear is shared across schools and unscoped — so "the
+    active year" is an unambiguous global singleton. There is no school to read
+    off the user and no scope to enter, which is why this is now a plain
+    lookup: it behaves identically in a request, a script, the shell and a
+    Celery worker.
 
     The blanket `except Exception: pass` this replaces was the worst failure
     mode the tenancy design can produce. It fires on every Student save, and
     under fail-closed scoping it would have swallowed SchoolScopeError and
     written academic_year=None silently, with no log line — inverting the
-    fail-closed guarantee into a quiet data defect.
+    fail-closed guarantee into a quiet data defect. There is deliberately no
+    handler here.
     """
     if instance.academic_year_id:
         return
-    if not instance.user_id:
-        return
 
     from apps.home.models import AcademicYear
-    from core.tenancy import all_schools
 
-    school_id = instance.user.school_id
-    if school_id is None:          # a superuser; they have no single school
-        return
-
-    with all_schools():
-        years = AcademicYear.objects.filter(school_id=school_id)
-        instance.academic_year = (
-            years.filter(is_active=True).first()
-            or years.order_by('-year').first()
-        )
+    instance.academic_year = (
+        AcademicYear.objects.filter(is_active=True).first()
+        or AcademicYear.objects.order_by('-year').first()
+    )
 
 
 class Parent(models.Model):

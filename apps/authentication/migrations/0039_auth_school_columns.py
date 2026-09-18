@@ -5,13 +5,35 @@ from django.db import migrations, models
 
 
 def backfill(apps, schema_editor):
-    """All existing rows belong to school #1 — the second school is not live."""
+    """SchoolGroup and the templates default; PsychologicalState is derived.
+
+    A psychological state is a per-student record and `student` reaches a
+    school directly, so it is derived rather than defaulted. Defaulting it
+    would put school B's students' records inside school A — and because this
+    model carries its own `school` column, they would be *readable* there, not
+    merely misfiled. That is the one row type here where a wrong tenant is a
+    disclosure rather than an inconvenience. Rows with no student (the column
+    is nullable) fall back to the default tenant.
+
+    SchoolGroup (the Orda houses) and PsychologicalStateTemplates have no link
+    to a user at all, so they land on the default tenant and are re-pointed in
+    the admin.
+    """
     School = apps.get_model('authentication', 'School')
     school = School.objects.filter(slug='muzafar_alimbayev').first()
     if school is None:
         return
-    for model in ('SchoolGroup', 'PsychologicalStateTemplates', 'PsychologicalState'):
+
+    for model in ('SchoolGroup', 'PsychologicalStateTemplates'):
         apps.get_model('authentication', model).objects.update(school=school)
+
+    PsychologicalState = apps.get_model('authentication', 'PsychologicalState')
+    PsychologicalState.objects.update(school=school)
+    for pk, school_id in PsychologicalState.objects.values_list(
+        'pk', 'student__user__school_id',
+    ):
+        if school_id and school_id != school.pk:
+            PsychologicalState.objects.filter(pk=pk).update(school_id=school_id)
 
 
 def unbackfill(apps, schema_editor):

@@ -117,7 +117,7 @@ class Attachment(SchoolDerivedMixin, models.Model):
 
 
 class Achievement(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'academic_year__school'
+    SCHOOL_PATH = 'student__user__school'
 
     CATEGORY_CHOICES = [
         ('olympiad', 'Subject Olympiad'),
@@ -193,7 +193,7 @@ class Achievement(SoftDeleteMixin, models.Model):
 
 
 class ReadingEntry(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'academic_year__school'
+    SCHOOL_PATH = 'student__user__school'
 
     student = models.ForeignKey(
         'authentication.Student',
@@ -232,7 +232,7 @@ class ReadingEntry(SoftDeleteMixin, models.Model):
 
 
 class ClubEntry(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'academic_year__school'
+    SCHOOL_PATH = 'student__user__school'
 
     student = models.ForeignKey(
         'authentication.Student',
@@ -264,8 +264,23 @@ class ClubEntry(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.club_name} ({self.month}/{self.academic_year})"
 
 
-class Club(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'academic_year__school'
+class Club(SchoolDerivedMixin, SoftDeleteMixin, models.Model):
+    """A club. Carries its own school column.
+
+    Since §1a made AcademicYear shared, `academic_year__school` no longer
+    reaches a tenant — and `manager` is the only other FK, which is SET_NULL.
+    A nullable link in a SCHOOL_PATH becomes an INNER JOIN that drops every
+    manager-less club from every school's queryset, so the column is the only
+    correct answer.
+    """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('manager__user',)
+
+    school = models.ForeignKey(
+        'authentication.School', related_name='clubs',
+        on_delete=models.PROTECT,
+    )
 
     CLUB_STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -324,7 +339,7 @@ class Club(SoftDeleteMixin, models.Model):
 
 
 class ClubSession(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'club__academic_year__school'
+    SCHOOL_PATH = 'club__school'
 
     WEEKDAY_CHOICES = (
         ('monday', 'Monday'),
@@ -360,7 +375,7 @@ class ClubSession(SoftDeleteMixin, models.Model):
 
 
 class ClubAttendance(SoftDeleteMixin, models.Model):
-    SCHOOL_PATH = 'session__club__academic_year__school'
+    SCHOOL_PATH = 'session__club__school'
 
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),

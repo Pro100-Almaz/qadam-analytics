@@ -9,14 +9,18 @@ from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
 
 
 class AcademicYear(models.Model):
-    SCHOOL_PATH = 'school'
-    objects = SchoolScopedManager()
+    """A school year and its quarter boundaries. SHARED across all schools.
 
-    # Root: each school runs its own years and quarter dates.
-    school = models.ForeignKey(
-        'authentication.School', related_name='academic_years',
-        on_delete=models.PROTECT,
-    )
+    Not scoped, and carries no `school` column. Both schools follow the same
+    national calendar, so one 2025/2026 row serves both — which also makes
+    `filter(is_active=True).first()` a correct global singleton rather than the
+    ambiguous one the per-school design would have left.
+
+    The assumption this rests on, stated so it is findable: identical quarter
+    dates and a shared rollover day. If the two schools ever diverge, the fix
+    is per-school quarter overrides, not re-adding this column.
+    """
+
     year = models.CharField(max_length=40)  # 2024/2025
     is_active = models.BooleanField(default=False)
     archived = models.BooleanField(default=True)
@@ -69,10 +73,10 @@ class ClassGroup(SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     objects = SchoolScopedManager()
 
-    # `academic_year` is nullable, which is why the school column exists at all —
-    # but when a year *is* set it is a reliable source, so derive from it and let
-    # callers supply the school only for year-less groups.
-    SCHOOL_DERIVED_FROM = ('academic_year',)
+    # No SCHOOL_DERIVED_FROM: `academic_year` is shared and carries no school,
+    # and `grade_level` is shared too — so there is nothing to derive from.
+    # Every creation site must pass `school=` explicitly; SchoolDerivationError
+    # says so by name if one forgets.
 
     MAJOR_CHOICE = 'major'
     MINOR_CHOICE = 'minor'

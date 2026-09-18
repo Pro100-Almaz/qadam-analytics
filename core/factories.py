@@ -148,10 +148,11 @@ class ClubManagerUserFactory(UserFactory):
 
 
 class AcademicYearFactory(DjangoModelFactory):
+    """Shared across schools since §1a — no `school`, and none accepted."""
+
     class Meta:
         model = AcademicYear
 
-    school = factory.SubFactory(SchoolFactory)
     year = factory.Sequence(lambda n: f'202{n}/202{n + 1}')
     is_active = True
     archived = False
@@ -226,6 +227,8 @@ class ClubManagerFactory(DjangoModelFactory):
 
 
 class ClubFactory(DjangoModelFactory):
+    """`school` is derived from the manager on save, or passed explicitly."""
+
     class Meta:
         model = Club
 

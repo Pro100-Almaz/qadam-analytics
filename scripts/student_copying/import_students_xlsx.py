@@ -47,6 +47,8 @@ import django  # noqa: E402
 
 django.setup()
 
+from scripts.utils.bootstrap import add_school_argument, resolve_school  # noqa: E402
+
 from django.contrib.auth.models import Group  # noqa: E402
 from django.db import transaction  # noqa: E402
 from django.db.models import signals  # noqa: E402
@@ -217,7 +219,7 @@ def get_academic_year(year_value):
     return AcademicYear.objects.create(year=year_value, is_active=False, archived=False), True
 
 
-def get_or_create_class_group(academic_year, grade, letter, cache, report):
+def get_or_create_class_group(academic_year, grade, letter, cache, report, school):
     key = (grade, letter.lower())
     if key in cache:
         return cache[key]
@@ -227,16 +229,21 @@ def get_or_create_class_group(academic_year, grade, letter, cache, report):
         grade_level = GradeLevel.objects.create(number=grade)
         report['grade_levels_created'].append(grade)
 
+    # `school` is both the tenant key and part of the lookup: ClassGroup can no
+    # longer derive it (§1a made AcademicYear shared, and GradeLevel always was),
+    # and without it in the filter this would match another school's 8A.
     class_group = ClassGroup.objects.filter(
         academic_year=academic_year,
         grade_level=grade_level,
         letter__iexact=letter,
+        school=school,
     ).first()
     if class_group is None:
         class_group = ClassGroup.objects.create(
             academic_year=academic_year,
             grade_level=grade_level,
             letter=letter,
+            school=school,
         )
         report['class_groups_created'].append(class_label(grade, letter))
 
@@ -289,7 +296,7 @@ def sync_enrollment(student, class_group, academic_year):
 # Import
 # ---------------------------------------------------------------------------
 
-def process_row(row, mapping, sheet_name, academic_year, student_group, class_cache, report):
+def process_row(row, mapping, sheet_name, academic_year, student_group, class_cache, report, school):
     first_name = cell(row, mapping, 'first_name')
     last_name = cell(row, mapping, 'last_name')
     email = cell(row, mapping, 'email')
@@ -300,7 +307,8 @@ def process_row(row, mapping, sheet_name, academic_year, student_group, class_ca
         raise ValueError('missing first name or last name')
 
     grade, letter = parse_class_name(raw_class)
-    class_group = get_or_create_class_group(academic_year, grade, letter, class_cache, report)
+    class_group = get_or_create_class_group(
+        academic_year, grade, letter, class_cache, report, school)
 
     user = find_user(first_name, last_name)
     changes = []
@@ -359,7 +367,7 @@ def process_row(row, mapping, sheet_name, academic_year, student_group, class_ca
     return user, changes
 
 
-def import_workbook(path, academic_year, only_sheets, verbose):
+def import_workbook(path, academic_year, only_sheets, verbose, school):
     report = {
         'users_created': 0,
         'users_updated': 0,
@@ -409,7 +417,8 @@ def import_workbook(path, academic_year, only_sheets, verbose):
             try:
                 with transaction.atomic():
                     user, changes = process_row(
-                        row, mapping, sheet_name, academic_year, student_group, class_cache, report,
+                        row, mapping, sheet_name, academic_year, student_group, class_cache,
+                        report, school,
                     )
             except Exception as exc:  # noqa: BLE001 - one bad row must not stop the import
                 message = f'sheet "{sheet_name}", row {offset}: {exc}'
@@ -433,7 +442,9 @@ def main():
     parser.add_argument('--sheets', default='', help='comma separated list of sheet names to import (default: all)')
     parser.add_argument('--apply', action='store_true', help='write to the database (otherwise everything is rolled back)')
     parser.add_argument('--verbose', action='store_true', help='also print rows that needed no change')
+    add_school_argument(parser)
     args = parser.parse_args()
+    school = resolve_school(args.school)
 
     if not os.path.exists(args.file):
         parser.error(f'workbook not found: {args.file}')
@@ -444,6 +455,7 @@ def main():
     signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
 
     print(f'Workbook      : {args.file}')
+    print(f'School        : {school.slug}')
     print(f'Academic year : {args.year}')
     print(f'Mode          : {"APPLY (writing to the database)" if args.apply else "DRY RUN (nothing is saved)"}')
 
@@ -456,7 +468,8 @@ def main():
             academic_year, created = get_academic_year(args.year)
             if created:
                 print(f'   + created academic year {academic_year.year}')
-            report = import_workbook(args.file, academic_year, only_sheets, args.verbose)
+            report = import_workbook(
+                args.file, academic_year, only_sheets, args.verbose, school)
             if not args.apply:
                 raise Rollback
     except Rollback:

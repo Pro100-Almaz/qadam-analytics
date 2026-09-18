@@ -38,7 +38,7 @@ pytest apps/home/tests/test_permissions.py::TestAdminAndSupervisorAccess::test_s
 
 # Tenancy gates (both also run in CI — see .github/workflows/ci.yml)
 python manage.py check              # includes the tenancy.E00x system checks
-python -m core.tenancy_lint         # import-time queryset lint
+SCHOOL_SCOPE_MODE=enforce python manage.py check   # import-time queryset gate
 
 # Static files (for production/Docker)
 python manage.py collectstatic --noinput

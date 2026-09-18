@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -84,12 +85,20 @@ class StudentProfileUpdateAPIView(APIView):
                 setattr(user, field, data[field])
         user.save()
 
+        # Each of the three lookups below used to `except DoesNotExist: pass`,
+        # which returned 200 with the change silently discarded — indistinguishable
+        # from success to the client. Once scoping is enforced they would swallow a
+        # *cross-school* id the same way, so a school-A admin could send school B's
+        # class_group and be told it worked. A supplied id that does not resolve is
+        # a validation error.
         if 'school_group' in data and data['school_group']:
             from apps.authentication.models import SchoolGroup
             try:
                 student.school_group = SchoolGroup.objects.get(id=data['school_group'])
             except SchoolGroup.DoesNotExist:
-                pass
+                raise ValidationError(
+                    {'school_group': [f"Invalid pk \"{data['school_group']}\" - object does not exist."]}
+                )
 
         if 'medical_features' in data:
             student.medical_features = data['medical_features']
@@ -98,19 +107,24 @@ class StudentProfileUpdateAPIView(APIView):
             try:
                 student.academic_year = AcademicYear.objects.get(id=data['academic_year'])
             except AcademicYear.DoesNotExist:
-                pass
+                raise ValidationError(
+                    {'academic_year': [f"Invalid pk \"{data['academic_year']}\" - object does not exist."]}
+                )
 
         if 'class_group' in data and data['class_group']:
             try:
                 class_group = ClassGroup.objects.get(id=data['class_group'])
+            except ClassGroup.DoesNotExist:
+                raise ValidationError(
+                    {'class_group': [f"Invalid pk \"{data['class_group']}\" - object does not exist."]}
+                )
+            try:
                 academic_year = (
                     student.academic_year
                     or AcademicYear.objects.filter(is_active=True).first()
                 )
                 if academic_year:
                     Enrollment.enroll_student(student, class_group, academic_year)
-            except ClassGroup.DoesNotExist:
-                pass
             except DjangoValidationError as exc:
                 return Response(
                     {'detail': '; '.join(exc.messages)},
@@ -194,13 +208,17 @@ class PsychologicalStateDeleteAPIView(APIView):
 
 
 class PsychologicalStateTemplateListAPIView(ListAPIView):
-    queryset = PsychologicalStateTemplates.objects.all()
     serializer_class = PsychologicalStateTemplateSerializer
     # CanAccessStudent only defines has_object_permission, which a ListAPIView
     # never invokes — it was a no-op here. These templates populate the
     # psychological-state creation form, so they match that view's audience.
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor | IsPsychologist]
     pagination_class = None
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return PsychologicalStateTemplates.objects.all()
 
 
 # ── Student Self-Service ──

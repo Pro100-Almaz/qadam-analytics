@@ -93,6 +93,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # After AuthenticationMiddleware (it needs request.user) and before
+    # HistoryRequestMiddleware. See core/middleware.py for why ALL is tied
+    # to the admin path rather than to is_superuser.
+    'core.middleware.SchoolScopeMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
@@ -273,7 +277,9 @@ CORS_ALLOW_CREDENTIALS = True
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Subclass of JWTAuthentication that also enters the school scope once
+        # the signature is verified and the user row is loaded.
+        'apps.authentication.api.authentication.SchoolScopedJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [

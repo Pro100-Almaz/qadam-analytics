@@ -231,9 +231,29 @@ def supervisor(db):
 
 @pytest.fixture
 def authenticated_client(api_client):
-    """Returns a function that authenticates the client as a given user."""
+    """Authenticate as a user with a real JWT, exercising the real auth path.
+
+    NOT `force_authenticate`. That sets `request._force_auth_user`, which
+    `APIView.perform_authentication` honours *instead of* running the
+    authentication classes — so `SchoolScopedJWTAuthentication` never runs and
+    never enters the school scope. The middleware cannot cover for it either: it
+    runs before DRF and sees AnonymousUser on a tokenless request, so it sets
+    UNSET. Under 'enforce' every scoped query in the view then raises, and the
+    tests fail for a reason that does not exist in production.
+
+    Minting a real token instead means the tests go through the same code a
+    browser does — claim included — so the wiring is covered rather than
+    bypassed.
+    """
+    from rest_framework_simplejwt.tokens import RefreshToken
+
+    from apps.authentication.school_cache import uuid_for_school_pk
+
     def _auth(user):
-        api_client.force_authenticate(user=user)
+        refresh = RefreshToken.for_user(user)
+        if user.school_id:
+            refresh['school_uuid'] = uuid_for_school_pk(user.school_id)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
         return api_client
     return _auth
 

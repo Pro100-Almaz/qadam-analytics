@@ -1,15 +1,12 @@
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 
 from core.decorators import role_required
 from core.permissions import can_modify_subject, can_access_subject, permission_denied_response
-from apps.home.forms import SubjectForm
 from apps.lesson.models import Lesson
 from apps.home.models import Subject, SubjectOffering, TeachingAssignment, AcademicYear, Enrollment
-from apps.authentication.models import CustomUser, Student, Teacher
+from apps.authentication.models import Teacher
 
 
 def get_students_for_offering(offering):
@@ -31,60 +28,6 @@ def get_students_count_for_subject(subject, academic_year=None):
     for offering in offerings:
         total += get_students_for_offering(offering)
     return total
-
-
-@role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher')
-def subject_create(request):
-    if request.method == "POST":
-        form = SubjectForm(request.POST)
-        if form.is_valid():
-            subject = form.save(commit=False)
-            subject.added_by = request.user
-            subject.save()
-
-            # Create SubjectOfferings for selected class groups
-            academic_year = form.cleaned_data.get('academic_year')
-            class_groups = form.cleaned_data.get('class_groups')
-
-            if academic_year and class_groups:
-                offerings_created = 0
-                for class_group in class_groups:
-                    # Create SubjectOffering if it doesn't exist
-                    offering, created = SubjectOffering.objects.get_or_create(
-                        subject=subject,
-                        class_group=class_group,
-                    )
-                    if created:
-                        offerings_created += 1
-
-                        # If the creator is a teacher, assign them to the offering
-                        if request.user.is_teacher():
-                            try:
-                                teacher = Teacher.objects.get(user=request.user)
-                                TeachingAssignment.objects.get_or_create(
-                                    offering=offering,
-                                    teacher=teacher,
-                                    defaults={'role': 'primary'}
-                                )
-                            except Teacher.DoesNotExist:
-                                pass
-
-                messages.success(
-                    request,
-                    f"Предмет '{subject.name}' создан и добавлен в {offerings_created} класс(ов)!"
-                )
-            else:
-                messages.success(request, f"Предмет '{subject.name}' создан!")
-
-            return redirect("subjects")
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{field}: {error}")
-    else:
-        form = SubjectForm()
-
-    return render(request, "home/new_subject.html", {"form": form})
 
 
 @role_required('teacher', 'admin', 'supervisor', 'homeroom_teacher', 'principal', 'parent')

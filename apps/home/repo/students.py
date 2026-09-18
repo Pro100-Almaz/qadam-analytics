@@ -1,14 +1,11 @@
 import json
 
-from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 
 from apps.home.component_functions.show_alert_modal import show_alert_modal
 from core.decorators import role_required
-from core.permissions import can_access_student, permission_denied_response
-from apps.authentication.forms import UserUpdateForm
+from core.permissions import can_access_student
 from apps.home.models import AcademicYear, ClassGroup, Enrollment
 from apps.authentication.models import PsychologicalStateTemplates, PsychologicalState, Student
 from apps.lesson.models import Lesson
@@ -251,71 +248,6 @@ def student_details(request, pk):
         'last_updated': last_updated,
     }
     return render(request, 'home/student_details.html', context)
-
-
-@role_required('admin', 'supervisor')
-def student_profile_update(request, pk):
-    if request.method == "POST":
-        student = get_object_or_404(Student, id=pk)
-        user = student.user
-
-        # Update basic user information
-        form = UserUpdateForm(request.POST, instance=user)
-        if form.is_valid():
-            form.save()
-
-        birth_date = request.POST.get('date_of_birth')
-        if birth_date:
-            user.date_of_birth = birth_date
-
-        # Update school group if provided
-        school_group_id = request.POST.get('school_group')
-        if school_group_id:
-            from apps.authentication.models import SchoolGroup
-            try:
-                student.school_group = SchoolGroup.objects.get(id=school_group_id)
-            except SchoolGroup.DoesNotExist:
-                pass
-
-        # Update medical features if provided
-        medical_features = request.POST.get('medical_features')
-        if medical_features is not None:
-            student.medical_features = medical_features
-
-        # Update academic year if provided
-        academic_year_id = request.POST.get('academic_year')
-        if academic_year_id:
-            try:
-                student.academic_year = AcademicYear.objects.get(id=academic_year_id)
-            except AcademicYear.DoesNotExist:
-                pass
-
-        # Handle class group change via Enrollment
-        class_group_id = request.POST.get('class_group')
-        if class_group_id:
-            try:
-                class_group = ClassGroup.objects.get(id=class_group_id)
-                academic_year = student.academic_year or AcademicYear.objects.filter(is_active=True).first()
-                if academic_year:
-                    Enrollment.enroll_student(student, class_group, academic_year)
-            except ClassGroup.DoesNotExist:
-                pass
-            except ValidationError as e:
-                messages.error(request, '; '.join(e.messages))
-                return redirect('student_details', pk=student.user.id)
-
-        # Handle avatar upload
-        if 'avatar' in request.FILES:
-            user.avatar = request.FILES['avatar']
-
-        try:
-            user.save()
-            student.save()
-            messages.success(request, f"Profile for {student.user.get_full_name()} updated successfully!")
-        except Exception as e:
-            messages.error(request, f"Error updating profile: {str(e)}")
-
-    return redirect('student_details', pk=student.user.id)
 
 
 def get_student(student_id : int):

@@ -11,7 +11,8 @@ from apps.authentication.models import (
     Teacher, Parent, Student,
 )
 from apps.home.admin_forms import class_group_formfield
-from apps.home.models import Enrollment, ClassGroup, AcademicYear
+from apps.home.models import Enrollment, ClassGroup, AcademicYear, Subject
+from core.admin_mixins import SchoolScopedAdminMixin
 
 
 class SchoolRequiredMixin:
@@ -45,7 +46,7 @@ class CustomUserChangeForm(SchoolRequiredMixin, UserChangeForm):
 
 
 @admin.register(CustomUser)
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(SchoolScopedAdminMixin, UserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = CustomUser
@@ -119,11 +120,22 @@ class EnrollmentInline(admin.TabularInline):
 class StudentAdminForm(forms.ModelForm):
     """Custom form for Student admin with class group selection."""
     class_group = forms.ModelChoiceField(
-        queryset=ClassGroup.objects.none(),
+        # None, not `.objects.none()`: a class body runs at import, where
+        # there is no request and so no school scope. `__init__` below
+        # sets the real queryset per form instance, inside the scope.
+        queryset=None,
         required=False,
         label="Класс (для зачисления)",
         help_text="Выберите класс для автоматического зачисления студента"
     )
+
+    # Declared, not left to `fields = '__all__'`: ModelFormMetaclass resolves an
+    # auto-generated FK field's queryset at *class definition*, before any
+    # request exists. Declaring them makes fields_for_model skip them;
+    # __init__ supplies the real querysets per instance.
+    school_group = forms.ModelChoiceField(queryset=None, required=False)
+    academic_year = forms.ModelChoiceField(queryset=None, required=False)
+    subjects = forms.ModelMultipleChoiceField(queryset=None, required=False)
 
     class Meta:
         model = Student
@@ -131,15 +143,21 @@ class StudentAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Get active academic year
+        self.fields['school_group'].queryset = SchoolGroup.objects.all()
+        self.fields['academic_year'].queryset = AcademicYear.objects.order_by('-year')
+        self.fields['subjects'].queryset = Subject.objects.all()
+
+        # Always give class_group a queryset. The class body can no longer build
+        # one, so leaving it unset when there is no active year would make the
+        # widget raise instead of rendering an empty dropdown.
+        majors = ClassGroup.objects.filter(
+            category=ClassGroup.MAJOR_CHOICE,
+        ).select_related('grade_level').order_by('grade_level__number', 'letter')
         active_year = AcademicYear.objects.filter(is_active=True).first()
         if active_year:
-            # Only major groups — this field sets the student's own class.
-            self.fields['class_group'].queryset = ClassGroup.objects.filter(
-                academic_year=active_year,
-                category=ClassGroup.MAJOR_CHOICE,
-            ).select_related('grade_level').order_by('grade_level__number', 'letter')
+            majors = majors.filter(academic_year=active_year)
             self.fields['class_group'].label = f"Класс ({active_year.year})"
+        self.fields['class_group'].queryset = majors
 
         # Pre-fill class_group if editing existing student
         if self.instance and self.instance.pk:
@@ -315,14 +333,17 @@ class StudentAdmin(ModelAdmin):
 
 class ParentAdminForm(forms.ModelForm):
     students = forms.ModelMultipleChoiceField(
-        queryset=Student.objects.all(),
+        # queryset=None, resolved in __init__: a class body runs at import,
+        # where there is no request and so no school scope.
+        queryset=None,
         widget=admin.widgets.FilteredSelectMultiple('Students', is_stacked=False),
         required=False,
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['students'].label_from_instance = lambda obj : obj.get_admin_label()
+        self.fields['students'].queryset = Student.objects.all()
+        self.fields['students'].label_from_instance = lambda obj: obj.get_admin_label()
 
     class Meta:
         model = Parent
@@ -378,5 +399,11 @@ class TeacherAdmin(ModelAdmin):
 admin.site.register(Supervisor)
 admin.site.register(ClubManager)
 
-admin.site.register(SchoolGroup)
-admin.site.register(PsychologicalState)
+@admin.register(SchoolGroup)
+class SchoolGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+    """Orda houses. Per-school, so new ones are stamped on save."""
+
+
+@admin.register(PsychologicalState)
+class PsychologicalStateAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+    """Derives its school from the student; stamped when there is none."""

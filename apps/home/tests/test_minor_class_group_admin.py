@@ -19,8 +19,16 @@ from core.factories import (
 
 
 @pytest.fixture
-def superuser(db):
-    return UserFactory(is_staff=True, is_superuser=True)
+def school(db):
+    from core.factories import SchoolFactory
+    return SchoolFactory()
+
+
+@pytest.fixture
+def superuser(school):
+    # A school of their own: the admin stamps new rows from the acting user's
+    # school, since a superuser's scope names none.
+    return UserFactory(is_staff=True, is_superuser=True, school=school)
 
 
 @pytest.fixture
@@ -58,16 +66,19 @@ def test_manager_only_sees_minor_groups(major_a, subgroup):
     assert set(ClassGroup.objects.values_list('id', flat=True)) == {major_a.id, subgroup.id}
 
 
-def test_saving_a_subgroup_forces_the_minor_category(academic_year):
-    group = MinorClassGroup(academic_year=academic_year, letter='Шахматы')
+def test_saving_a_subgroup_forces_the_minor_category(academic_year, school):
+    # `school=` is explicit now: §1a made AcademicYear shared, so a class group
+    # has nothing left to derive its school from.
+    group = MinorClassGroup(academic_year=academic_year, letter='Шахматы', school=school)
     group.category = ClassGroup.MAJOR_CHOICE
     group.save()
 
     assert ClassGroup.objects.get(pk=group.pk).category == ClassGroup.MINOR_CHOICE
 
 
-def test_creating_through_the_manager_forces_the_minor_category(academic_year):
-    group = MinorClassGroup.objects.create(academic_year=academic_year, letter='Хор')
+def test_creating_through_the_manager_forces_the_minor_category(academic_year, school):
+    group = MinorClassGroup.objects.create(
+        academic_year=academic_year, letter='Хор', school=school)
 
     assert group.is_minor
 

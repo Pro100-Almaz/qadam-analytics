@@ -15,6 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.authentication.api.permissions import IsAdminRole
 from apps.authentication.models import CustomUser, SchoolGroup
+from apps.authentication.school_cache import uuid_for_school_pk
 from apps.authentication.services import AccountService
 from core.error_messages import (
     USER_NOT_FOUND, REFRESH_TOKEN_REQUIRED, LOGOUT_FAILED,
@@ -39,7 +40,21 @@ from apps.authentication.api.serializers import (
 
 
 def _get_tokens_for_user(user):
+    """Mint a token pair carrying the user's school as a signed claim.
+
+    The claim goes on the **refresh** token, before `.access_token` is read:
+
+    * `RefreshToken.access_token` copies every claim except `no_copy_claims`
+      (token type, exp, jti), so it propagates to the access token for free.
+    * `TokenRefreshView` with ROTATE_REFRESH_TOKENS re-signs the *same payload*,
+      changing only jti/exp/iat — so it survives rotation.
+
+    Set it on the access token instead and the first refresh drops it silently,
+    30 minutes after login.
+    """
     refresh = RefreshToken.for_user(user)
+    if user.school_id:
+        refresh['school_uuid'] = uuid_for_school_pk(user.school_id)
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
@@ -58,6 +73,16 @@ class LoginAPIView(APIView):
         return Response({
             'tokens': tokens,
             'user': UserSerializer(user).data,
+            # For the frontend to store and display. The server never reads it
+            # back from the client — the token claim is the carrier.
+            'school': (
+                {
+                    'uuid': str(user.school.uuid),
+                    'name': user.school.name,
+                    'short_name': user.school.short_name,
+                }
+                if user.school_id else None
+            ),
         })
 
 
@@ -265,13 +290,24 @@ class ResetPasswordAPIView(APIView):
 
 
 class SchoolGroupListAPIView(ListAPIView):
-    permission_classes = [AllowAny]
-    queryset = SchoolGroup.objects.all()
+    # NOT AllowAny. SchoolGroup is tenant data, so an unauthenticated listing
+    # would have to run unscoped — making every school's Orda houses publicly
+    # enumerable with no token at all.
+    permission_classes = [IsAuthenticated]
     serializer_class = PublicSchoolGroupSerializer
     pagination_class = None
 
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return SchoolGroup.objects.all()
+
 
 class SchoolGroupDetailAPIView(RetrieveAPIView):
-    permission_classes = [AllowAny]
-    queryset = SchoolGroup.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = PublicSchoolGroupSerializer
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return SchoolGroup.objects.all()

@@ -16,9 +16,10 @@ class Command(BaseCommand):
         parser.add_argument(
             '--school', required=True,
             help=(
-                'Slug of the school to roll over. Required, not inferred: an '
-                'academic year is per-school, so "the active year" is ambiguous '
-                'once a second school exists.'
+                'Slug of the school whose class groups and enrollments to roll '
+                'over. Required, not inferred: the academic year itself is '
+                'shared (§1a) and is created once, but class groups and '
+                'enrollments are per-school, so this has to run once per school.'
             ),
         )
 
@@ -51,29 +52,29 @@ class Command(BaseCommand):
     def _rollover(self, new_year_name, school):
         summary = []
 
-        current_year = AcademicYear.objects.filter(
-            is_active=True, school=school,
-        ).first()
+        # AcademicYear is shared (§1a), so there is no `school=` here and the
+        # year half of a rollover happens once no matter how many schools run
+        # it. Running this a second time for another school finds the year
+        # already created and only does that school's class groups.
+        current_year = AcademicYear.objects.filter(is_active=True).first()
         if not current_year:
-            self.stderr.write(self.style.ERROR(
-                f'No active academic year for {school.slug}.'))
+            self.stderr.write(self.style.ERROR('No active academic year.'))
             return []
 
-        # `school` is passed explicitly: the column is NOT NULL and
-        # get_or_create cannot infer it from the ambient scope.
         new_year, created = AcademicYear.objects.get_or_create(
             year=new_year_name,
-            school=school,
             defaults={'is_active': True, 'archived': False},
         )
-        if not created:
-            self.stderr.write(self.style.ERROR(f'Academic year {new_year_name} already exists.'))
-            return []
-
-        current_year.is_active = False
-        current_year.archived = True
-        current_year.save(update_fields=['is_active', 'archived'])
-        summary.append(f'Archived {current_year.year}, created {new_year_name}')
+        if created:
+            current_year.is_active = False
+            current_year.archived = True
+            current_year.save(update_fields=['is_active', 'archived'])
+            summary.append(f'Archived {current_year.year}, created {new_year_name}')
+        else:
+            summary.append(
+                f'Academic year {new_year_name} already exists (shared) — '
+                f'rolling over {school.slug} into it'
+            )
 
         # Only major class groups are promoted — minor groups are re-formed each year.
         old_class_groups = ClassGroup.objects.filter(
@@ -89,10 +90,10 @@ class Command(BaseCommand):
             next_grade_number = old_cg.grade_level.number + 1
             next_grade, _ = GradeLevel.objects.get_or_create(number=next_grade_number)
 
-            # ClassGroup derives its school from academic_year via
-            # SchoolDerivedMixin, so it needs no explicit school here — but it
-            # does need one in the lookup, or get_or_create would match another
-            # school's identically-named group.
+            # `school` is both the tenant key and part of the lookup: the
+            # column is NOT NULL and ClassGroup can no longer derive it (§1a
+            # removed the year it used to derive from), and without it in the
+            # lookup get_or_create would match another school's 7A.
             new_cg, _ = ClassGroup.objects.get_or_create(
                 academic_year=new_year,
                 grade_level=next_grade,

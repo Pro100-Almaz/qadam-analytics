@@ -113,7 +113,7 @@ class RegisterSerializer(serializers.Serializer):
     # may name a school, so an admin of one school cannot mint users in another.
     # Accepts a School uuid; the pk is never exposed over the wire.
     school = serializers.SlugRelatedField(
-        slug_field='uuid', queryset=School.objects.all(), required=False,
+        slug_field='uuid', queryset=School.objects, required=False,
     )
     role = serializers.ChoiceField(choices=CustomUser.GROUP_CHOICES)
     phone_number = serializers.CharField(required=False, allow_blank=True)
@@ -131,7 +131,7 @@ class RegisterSerializer(serializers.Serializer):
 
     # Student-specific
     school_group = serializers.PrimaryKeyRelatedField(
-        queryset=SchoolGroup.objects.all(), required=False, allow_null=True
+        queryset=SchoolGroup.objects, required=False, allow_null=True
     )
     medical_features = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
@@ -226,11 +226,17 @@ class RegisterSerializer(serializers.Serializer):
         elif group_name == CustomUser.GROUP_PARENT:
             parent = Parent.objects.create(user=user)
             if student_id:
+                # A client-supplied id, so an unresolvable one is a validation
+                # error rather than a silent no-op — otherwise a parent could be
+                # created 201 OK with no child attached, or (once scoping is on)
+                # with another school's child silently dropped.
                 try:
                     student = Student.objects.get(pk=student_id)
-                    parent.students.add(student)
                 except Student.DoesNotExist:
-                    pass
+                    raise serializers.ValidationError(
+                        {'student_id': [f'Invalid pk "{student_id}" - object does not exist.']}
+                    )
+                parent.students.add(student)
         elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
             Supervisor.objects.create(user=user)
         elif group_name == CustomUser.GROUP_CLUB_MANAGER:

@@ -78,7 +78,9 @@ class GenerateReportView(GenericAPIView):
         )
 
         from apps.student_report.tasks import generate_report_task
-        generate_report_task.delay(report.pk)
+        # The school travels with the task: a worker starts with no scope, and
+        # deriving it inside would mean querying before one exists.
+        generate_report_task.delay(report.pk, report.student.user.school_id)
 
         report = StudentReport.objects.select_related(
             'student__user', 'student__school_group',
@@ -94,10 +96,14 @@ class GenerateReportView(GenericAPIView):
 class ReportDetailView(RetrieveAPIView):
     permission_classes = [IsTeacherAdminOrSupervisor]
     serializer_class = StudentReportSerializer
-    queryset = StudentReport.objects.select_related(
-        'student__user', 'student__school_group',
-        'academic_year', 'generated_by',
-    )
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return StudentReport.objects.select_related(
+            'student__user', 'student__school_group',
+            'academic_year', 'generated_by',
+        )
 
 
 class StudentReportListView(ListAPIView):

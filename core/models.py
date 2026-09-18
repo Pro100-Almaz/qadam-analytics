@@ -75,9 +75,11 @@ def school_id_of(obj):
 
     Two ways an object reaches a school, and both have to work here: it carries
     its own `school` column, or it declares a `SCHOOL_PATH` to one. Only
-    checking for `school_id` was the bug behind an Attachment on a Club — Club
-    is scoped by `academic_year__school` and has no column of its own, so the
-    attribute lookup came back None and the derivation fell through.
+    checking for `school_id` was the bug behind an Attachment on a Club — at the
+    time Club was scoped by `academic_year__school` and had no column of its
+    own, so the attribute lookup came back None and the derivation fell through.
+    Club has since gained a column (§1a), but Achievement, Homework and every
+    other attachment target still reach their school by path.
 
     The walk goes through forward FKs, which Django resolves via `_base_manager`
     — unscoped by design. That is what we want: this is working out *which*

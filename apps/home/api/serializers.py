@@ -12,6 +12,7 @@ from apps.home.models import (
     SubjectAssignment, SubjectGrade, QuarterGrade,
 )
 from apps.lesson.models import Lesson, TopicGrade, Topic
+from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
 
 class AcademicYearSerializer(serializers.ModelSerializer):
@@ -381,10 +382,10 @@ class SubjectCreateSerializer(serializers.Serializer):
     language_group = serializers.ChoiceField(choices=Subject.LANGUAGE_CHOICES)
     status = serializers.ChoiceField(choices=Subject.STATUS_CHOICES, default='active')
     academic_year = serializers.PrimaryKeyRelatedField(
-        queryset=AcademicYear.objects.all(), required=False, allow_null=True
+        queryset=AcademicYear.objects, required=False, allow_null=True
     )
     class_groups = serializers.PrimaryKeyRelatedField(
-        queryset=ClassGroup.objects.all(), many=True, required=False
+        queryset=ClassGroup.objects, many=True, required=False
     )
 
     def create(self, validated_data):
@@ -420,6 +421,11 @@ class SubjectCreateSerializer(serializers.Serializer):
                                 defaults={'role': 'primary'},
                             )
                         except Teacher.DoesNotExist:
+                            # Deliberately silent, unlike the other four: `user`
+                            # here is request.user, not a client-supplied id, so
+                            # this cannot be a cross-school lookup. A Teacher-group
+                            # user without a Teacher profile is a data defect that
+                            # must not block creating the subject.
                             pass
 
         subject._offerings_created = offerings_created
@@ -803,10 +809,9 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     TeachingAssignment in the view — a serializer has no business deciding
     whose subject this is.
     """
-    offering = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
-        ),
+    offering = ScopedPrimaryKeyRelatedField(
+        SubjectOffering,
+        select_related=('subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',),
     )
     title = serializers.CharField()
     max_grade = serializers.IntegerField(min_value=1)
@@ -886,8 +891,9 @@ class SubjectGradeWriteSerializer(serializers.ModelSerializer):
     placeholder for a student who has not been marked. Sending `null` clears a
     value that was set before.
     """
-    student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.select_related('user'),
+    student = ScopedPrimaryKeyRelatedField(
+        Student,
+        select_related=('user',),
         help_text='Student profile id of the student being graded.',
     )
     grade = serializers.IntegerField(
@@ -999,13 +1005,13 @@ class QuarterGradeCreateSerializer(serializers.ModelSerializer):
     TeachingAssignment in the view; here we only check that the student belongs
     to that offering's class and that the quarter is not already graded.
     """
-    offering = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
-        ),
+    offering = ScopedPrimaryKeyRelatedField(
+        SubjectOffering,
+        select_related=('subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',),
     )
-    student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.select_related('user'),
+    student = ScopedPrimaryKeyRelatedField(
+        Student,
+        select_related=('user',),
         help_text='Student profile id of the student being graded.',
     )
     quarter = serializers.IntegerField(min_value=1, max_value=4)

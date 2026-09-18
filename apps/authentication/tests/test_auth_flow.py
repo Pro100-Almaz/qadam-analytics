@@ -246,9 +246,23 @@ class TestCurrentUser:
 @pytest.mark.django_db
 class TestSchoolGroups:
 
-    def test_school_groups_list_returns_only_id_and_name(self, api_client):
+    def test_school_groups_list_requires_authentication(self, api_client):
+        """SchoolGroup is tenant data, so this endpoint cannot be AllowAny.
+
+        Unauthenticated it would have to run unscoped, which would make every
+        school's Orda houses publicly enumerable with no token at all.
+        """
         SchoolGroupFactory(name='Group A', color='#FF0000')
         response = api_client.get(reverse('auth-api:school-groups'))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_school_groups_list_returns_only_id_and_name(
+        self, authenticated_client, admin_user,
+    ):
+        SchoolGroupFactory(name='Group A', color='#FF0000')
+        response = authenticated_client(admin_user).get(
+            reverse('auth-api:school-groups')
+        )
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         item = response.data[0]

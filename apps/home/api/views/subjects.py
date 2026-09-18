@@ -127,7 +127,11 @@ class SubjectCreateAPIView(CreateAPIView):
 
 class SubjectDetailAPIView(RetrieveAPIView):
     serializer_class = SubjectDetailSerializer
-    queryset = Subject.objects.select_related('added_by')
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return Subject.objects.select_related('added_by')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
@@ -179,8 +183,12 @@ class SubjectStatusAPIView(APIView):
 
 
 class SubjectDeleteAPIView(DestroyAPIView):
-    queryset = Subject.objects.all()
     permission_classes = [IsAuthenticated, IsAdminOrSupervisor]
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return Subject.objects.all()
 
 
 class MySubjectsListAPIView(ListAPIView):

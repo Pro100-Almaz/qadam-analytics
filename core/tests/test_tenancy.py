@@ -189,11 +189,13 @@ def test_minor_class_group_manager_keeps_both_filters(two_schools):
     from apps.home.models import ClassGroup, MinorClassGroup
     a, b = two_schools
     with all_schools():
-        year_a = AcademicYearFactory(school=a)
-        MinorClassGroup.objects.create(academic_year=year_a, letter='Хор')
-        ClassGroup.objects.create(academic_year=year_a, letter='7A', school=a)
+        # One shared year since §1a — the school comes from the group's own
+        # column, which is the whole reason ClassGroup carries one.
+        year = AcademicYearFactory()
+        MinorClassGroup.objects.create(academic_year=year, letter='Хор', school=a)
+        ClassGroup.objects.create(academic_year=year, letter='7A', school=a)
         MinorClassGroup.objects.create(
-            academic_year=AcademicYearFactory(school=b), letter='Шахматы')
+            academic_year=year, letter='Шахматы', school=b)
 
     with school_scope(a):
         assert [g.letter for g in MinorClassGroup.objects.all()] == ['Хор']
@@ -226,14 +228,22 @@ def test_apply_school_scope_is_idempotent_under_all(two_schools):
 
 
 @ENFORCE
-def test_academic_year_singleton_resolves_per_school(two_schools):
-    """The 20 `filter(is_active=True).first()` call sites become correct here."""
+def test_academic_year_is_shared_and_the_singleton_is_global(two_schools):
+    """§1a: years are shared, so the 24 `filter(is_active=True).first()` sites
+    resolve to the same row from either school — correct by definition rather
+    than by scoping. The column is gone, so there is nothing to disagree about.
+    """
     a, b = two_schools
     with all_schools():
-        AcademicYearFactory(school=a, year='2026/2027', is_active=True)
-        AcademicYearFactory(school=b, year='2026/2027', is_active=True)
+        AcademicYearFactory(year='2026/2027', is_active=True)
 
+    assert not hasattr(AcademicYear, 'school')
     with school_scope(a):
-        assert AcademicYear.objects.filter(is_active=True).first().school_id == a.pk
+        from_a = AcademicYear.objects.filter(is_active=True).first()
     with school_scope(b):
-        assert AcademicYear.objects.filter(is_active=True).first().school_id == b.pk
+        from_b = AcademicYear.objects.filter(is_active=True).first()
+    assert from_a is not None and from_a.pk == from_b.pk
+
+    # and it is reachable with no scope at all, being a shared model
+    with no_school_scope():
+        assert AcademicYear.objects.filter(is_active=True).exists()

@@ -22,9 +22,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.achievement.models import Attachment
 from apps.authentication.models import PsychologicalState
+from apps.home.models import Enrollment
 from core.factories import (
-    AdminUserFactory, ClubFactory, SchoolFactory, StudentFactory,
-    StudentUserFactory, UserFactory,
+    AdminUserFactory, ClassGroupFactory, ClubFactory, EnrollmentFactory,
+    SchoolFactory, StudentFactory, StudentUserFactory, UserFactory,
 )
 from core.models import school_id_of
 from core.tenancy import SchoolDerivationError
@@ -61,7 +62,7 @@ def _attach(target, uploaded_by):
 @pytest.mark.django_db
 def test_superuser_upload_lands_in_the_targets_school(school, superuser):
     """The regression: this raised IntegrityError before content_object was a source."""
-    club = ClubFactory(academic_year__school=school)
+    club = ClubFactory(school=school)
 
     attachment = _attach(club, superuser)
 
@@ -72,7 +73,7 @@ def test_superuser_upload_lands_in_the_targets_school(school, superuser):
 def test_attachment_follows_the_target_not_the_uploader(school):
     """A cross-school upload files under the row's school, not the actor's."""
     other = SchoolFactory(slug='school_b')
-    club = ClubFactory(academic_year__school=school)
+    club = ClubFactory(school=school)
     uploader = AdminUserFactory(school=other)
 
     attachment = _attach(club, uploader)
@@ -99,14 +100,29 @@ def test_uploader_is_the_fallback_when_the_target_is_gone(school):
 
 @pytest.mark.django_db
 def test_school_id_of_walks_the_targets_own_school_path(school):
-    """Club has no `school` column — it is scoped by academic_year__school.
+    """Most tenant models have no `school` column and reach one by path.
 
     Only looking for a `school_id` attribute is what made the Attachment
-    derivation fall through to the uploader in the first place.
+    derivation fall through to the uploader in the first place. Enrollment is
+    the example here because §1a gave Club a column of its own, which makes it
+    the *easy* case rather than the interesting one.
     """
-    club = ClubFactory(academic_year__school=school)
+    enrollment = EnrollmentFactory(
+        student=StudentFactory(user=StudentUserFactory(school=school)),
+        class_group=ClassGroupFactory(school=school),
+    )
 
-    assert not hasattr(club, 'school_id')
+    assert not hasattr(enrollment, 'school_id')
+    assert Enrollment.SCHOOL_PATH == 'class_group__school'
+    assert school_id_of(enrollment) == school.pk
+
+
+@pytest.mark.django_db
+def test_school_id_of_reads_a_direct_column_when_there_is_one(school):
+    """Club gained its own column in §1a — the no-join branch."""
+    club = ClubFactory(school=school)
+
+    assert club.school_id == school.pk
     assert school_id_of(club) == school.pk
 
 

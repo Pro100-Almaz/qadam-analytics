@@ -3,6 +3,7 @@ from django.contrib import admin
 from apps.achievement.models import (
     Achievement, Club, ClubAttendance, ClubEntry, ClubSession, ReadingEntry,
 )
+from core.admin_mixins import SchoolScopedAdminMixin
 
 
 @admin.register(Achievement)
@@ -39,7 +40,7 @@ class ClubSessionInline(admin.TabularInline):
 
 
 @admin.register(Club)
-class ClubAdmin(admin.ModelAdmin):
+class ClubAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ['name', 'manager', 'academic_year', 'start_date', 'end_date']
     list_filter = ['academic_year']
     search_fields = ['name', 'manager__user__first_name', 'manager__user__last_name']

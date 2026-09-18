@@ -5,7 +5,7 @@ from core.tenancy import SchoolScopedManager
 
 
 class StudentReport(models.Model):
-    SCHOOL_PATH = 'academic_year__school'
+    SCHOOL_PATH = 'student__user__school'
     objects = SchoolScopedManager()
 
     class Language(models.TextChoices):

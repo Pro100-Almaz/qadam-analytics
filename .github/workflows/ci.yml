@@ -79,17 +79,32 @@ jobs:
       - name: System checks (includes the tenancy checks)
         run: python manage.py check
 
-      - name: Import-time queryset lint
-        # Runs after `check` so Django is known to boot. Guards the two ways a
-        # queryset can be built in a class body — at import, with no request and
-        # no school scope. Under 'enforce' that crashes django.setup(); under
-        # 'off'/'warn', which is where phases 2-4 live, it silently bakes an
-        # UNSCOPED queryset that every school then sees. Neither the tenancy
-        # system checks nor the isolation tests catch the second case.
+      - name: The app boots under enforce
+        # The import-time-queryset gate. A queryset built in a CLASS BODY is
+        # evaluated at import, with no request and no school scope:
         #
-        # The tree's existing sites are baselined; this fails only on new ones,
-        # and on baselined sites that were fixed without updating the file.
-        run: python -m core.tenancy_lint
+        #   * under 'enforce' it raises during django.setup(), which is what
+        #     this step turns into a red build — with the offending file and
+        #     line in the traceback;
+        #   * under the 'off'/'warn' the app actually runs on during phases
+        #     2-4, it silently bakes an UNSCOPED queryset that every school
+        #     then sees for the life of the process, because DRF re-chains a
+        #     QuerySet instead of re-entering the manager. Neither the tenancy
+        #     system checks nor the isolation tests catch that.
+        #
+        # Two shapes cause it, and both fail here. Fixes:
+        #   queryset=Model.objects.all()  ->  queryset=Model.objects
+        #       (DRF calls .all() on a Manager per request, re-entering scope)
+        #   a ModelForm naming a tenant FK in Meta.fields  ->  DECLARE the
+        #       field (x = forms.ModelChoiceField(queryset=None, ...)) and set
+        #       its queryset in __init__. Assigning in __init__ alone does not
+        #       work — ModelFormMetaclass has already resolved the manager.
+        #
+        # This also tracks phase-5 readiness continuously: the flip to
+        # 'enforce' is exactly this step being green.
+        env:
+          SCHOOL_SCOPE_MODE: enforce
+        run: python manage.py check
 
       - name: Migrations are complete
         run: python manage.py makemigrations --check --dry-run

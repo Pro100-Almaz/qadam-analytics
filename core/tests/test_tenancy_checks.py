@@ -82,10 +82,16 @@ def test_the_customuser_exemption_is_narrow(monkeypatch):
         'authentication.CustomUser.school'
     ]
     monkeypatch.setattr(tenancy_checks, 'NULLABLE_LINK_EXEMPTIONS', {})
-    # Without it: CustomUser itself, the five profile models, and Notification.
     errors = check_no_nullable_link_in_school_path()
+
+    # Asserted as a property rather than a count: §1a rerouted four models onto
+    # `student__user__school`, and a hardcoded number would have to be edited
+    # every time a path changes — which teaches people to edit it rather than
+    # read it. What matters is that CustomUser.school is the ONLY nullable link
+    # the tree relies on.
+    assert errors, 'the exemption is load-bearing; removing it must fail things'
     assert {e.id for e in errors} == {'tenancy.E005'}
-    assert len(errors) == 7, [e.msg for e in errors]
+    assert all('CustomUser.school' in e.msg for e in errors), [e.msg for e in errors]
 
 
 def test_school_itself_is_never_scoped():

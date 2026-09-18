@@ -4,22 +4,51 @@ import uuid
 from django.db import migrations, models
 
 
-SCHOOLS = [
-    ('muzafar_alimbayev', 'Muzafar Alimbayev 21'),
-    ('bukhar_zhyrau', 'Bukhar Zhyrau 19/1'),
-]
+# Display names for the slugs that exist today. Anything else found in the
+# legacy column gets a title-cased placeholder — rename it in the admin.
+KNOWN_NAMES = {
+    'muzafar_alimbayev': 'Muzafar Alimbayev 21',
+    'bukhar_zhyrau': 'Bukhar Zhyrau 19/1',
+}
+
+DEFAULT_SLUG = 'muzafar_alimbayev'
 
 
 def seed_schools(apps, schema_editor):
-    """Create the two tenants, keyed by the legacy CustomUser.school choices."""
+    """Create one tenant per distinct value of the legacy CustomUser.school.
+
+    Originally this seeded two hardcoded rows, because the Sep 2 dump had 217
+    users on 'muzafar_alimbayev' and a single anomalous 'bukhar_zhyrau' row.
+    That is no longer the shape of the data: production now carries 290 and 120
+    users across the two, with 99 enrolled students, 18 teachers and 7 class
+    groups on the second — a live school, not an import artifact.
+
+    So the set of tenants is read from the data rather than hardcoded, and a
+    third value appearing in the column creates a third school instead of being
+    silently merged into the first.
+
+    `DEFAULT_SLUG` is always created even on an empty database, because the
+    downstream backfills fall back to it for rows that reach no user.
+    """
     School = apps.get_model('authentication', 'School')
-    for slug, name in SCHOOLS:
-        School.objects.get_or_create(slug=slug, defaults={'name': name})
+    CustomUser = apps.get_model('authentication', 'CustomUser')
+
+    slugs = {
+        slug for slug in
+        CustomUser.objects.values_list('school', flat=True).distinct()
+        if slug
+    }
+    slugs.add(DEFAULT_SLUG)
+
+    for slug in sorted(slugs):
+        School.objects.get_or_create(
+            slug=slug,
+            defaults={'name': KNOWN_NAMES.get(slug, slug.replace('_', ' ').title())},
+        )
 
 
 def unseed_schools(apps, schema_editor):
-    School = apps.get_model('authentication', 'School')
-    School.objects.filter(slug__in=[s for s, _ in SCHOOLS]).delete()
+    apps.get_model('authentication', 'School').objects.all().delete()
 
 
 class Migration(migrations.Migration):
