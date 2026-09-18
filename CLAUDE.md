@@ -24,10 +24,21 @@ python manage.py runserver
 python manage.py makemigrations
 python manage.py migrate
 
-# Run tests
-python manage.py test
-python manage.py test apps.home          # single app
-python manage.py test apps.home.tests.TestClassName.test_method  # single test
+# Run tests (pytest, not `manage.py test` — the suite is pytest-native:
+# conftest.py fixtures, @pytest.mark.django_db, plain `def test_*` functions
+# that Django's unittest runner would not collect. Tests need the dev DB up;
+# media is swapped for InMemoryStorage by an autouse fixture, so MinIO is not
+# required. Test layout is one `tests/` package per app — never a `tests.py`
+# beside it, which the package shadows and which then silently never runs.)
+pytest
+pytest apps/home                                                  # single app
+pytest apps/home/tests/test_permissions.py                        # single module
+pytest apps/lesson/tests/test_calendar_lessons_api.py::test_teacher_list_is_deterministically_ordered
+pytest apps/home/tests/test_permissions.py::TestAdminAndSupervisorAccess::test_supervisor_can_list_enrollments
+
+# Tenancy gates (both also run in CI — see .github/workflows/ci.yml)
+python manage.py check              # includes the tenancy.E00x system checks
+python -m core.tenancy_lint         # import-time queryset lint
 
 # Static files (for production/Docker)
 python manage.py collectstatic --noinput

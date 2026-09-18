@@ -79,6 +79,18 @@ jobs:
       - name: System checks (includes the tenancy checks)
         run: python manage.py check
 
+      - name: Import-time queryset lint
+        # Runs after `check` so Django is known to boot. Guards the two ways a
+        # queryset can be built in a class body — at import, with no request and
+        # no school scope. Under 'enforce' that crashes django.setup(); under
+        # 'off'/'warn', which is where phases 2-4 live, it silently bakes an
+        # UNSCOPED queryset that every school then sees. Neither the tenancy
+        # system checks nor the isolation tests catch the second case.
+        #
+        # The tree's existing sites are baselined; this fails only on new ones,
+        # and on baselined sites that were fixed without updating the file.
+        run: python -m core.tenancy_lint
+
       - name: Migrations are complete
         run: python manage.py makemigrations --check --dry-run
 

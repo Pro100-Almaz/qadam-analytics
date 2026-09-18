@@ -16,7 +16,11 @@ from core.factories import (
 
 @pytest.fixture
 def school(db):
-    return SchoolFactory(slug='school_a')
+    # The default slug, deliberately: conftest's autouse `_default_scope`
+    # enters this school, and these tests go through the API — so data built
+    # under a different slug is invisible to the view once scoping is on, and
+    # the endpoint answers 404 instead of exercising what the test is about.
+    return SchoolFactory()
 
 
 @pytest.mark.django_db

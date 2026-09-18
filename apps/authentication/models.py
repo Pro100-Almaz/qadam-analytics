@@ -37,12 +37,36 @@ def user_avatar_upload_path(instance, filename):
     return f'avatars/{filename}'
 
 
+class SchoolVisibleManager(models.Manager):
+    """Schools an API may list. NOT a substitute for an authorization check.
+
+    This expresses one half of "visible": the school is live. It cannot express
+    the other half — visible *to whom* — because a manager has no user. For any
+    non-superuser the only school they may see is their own, and since
+    `School.objects` is unscoped by design, an endpoint that lists this
+    queryset without also narrowing by the requesting user lets anyone
+    enumerate every tenant. Narrow it in the view.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
 class School(models.Model):
     """A tenant. Every school-owned row reaches exactly one of these.
 
     Not to be confused with SchoolGroup below, which is an Orda house
     (Aq Orda, Uly Orda, ...) — a cohort *inside* a school, not a school.
     """
+
+    #: Declared first and explicitly, because Django takes the FIRST manager as
+    #: the default and the default is what forward FKs, the admin and
+    #: migrations resolve through. Leaving it implicit would make `visible`
+    #: below the default and silently hide deactivated schools from all of
+    #: them. It is a plain Manager: the tenant root cannot be scoped by itself.
+    objects = models.Manager()
+    #: For API listings only — see SchoolVisibleManager.
+    visible = SchoolVisibleManager()
 
     uuid = models.UUIDField(
         default=uuid.uuid4, unique=True, editable=False, db_index=True,

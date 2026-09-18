@@ -36,10 +36,16 @@ def two_schools():
 
 # ── the contextvar ──
 
+# These two assert what the ContextVar looks like with nothing entered, so
+# they are precisely what `no_auto_scope` exists for: conftest's autouse
+# `_default_scope` enters school A for every other test in the suite.
+
+@pytest.mark.no_auto_scope
 def test_scope_is_unset_by_default():
     assert get_active_school() is UNSET
 
 
+@pytest.mark.no_auto_scope
 def test_school_scope_sets_and_restores():
     school = SchoolFactory(slug='school_a')
     with school_scope(school):
