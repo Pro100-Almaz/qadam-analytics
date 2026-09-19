@@ -7,6 +7,7 @@ from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from core.factories import (
+    DEFAULT_TEST_SCHOOL_SLUG,
     UserFactory, StudentFactory, TeacherFactory, ParentFactory,
     SupervisorFactory, AdminUserFactory, AcademicYearFactory,
     ClassGroupFactory, SchoolGroupFactory, EnrollmentFactory,
@@ -50,10 +51,6 @@ def _scope_mode_override(settings):
     yield
 
 
-#: The tenant every test runs inside unless it opts out. Matches
-#: SchoolFactory's default slug, so factory-built rows and the ambient scope
-#: agree instead of straddling two schools.
-DEFAULT_TEST_SCHOOL_SLUG = 'test_school'
 
 
 def _test_touches_the_db(request):

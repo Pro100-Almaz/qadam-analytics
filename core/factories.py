@@ -45,13 +45,17 @@ class GroupFactory(DjangoModelFactory):
     name = 'Student'
 
 
-class SchoolFactory(DjangoModelFactory):
-    """The default tenant.
+#: The tenant every test runs inside unless it opts out. conftest's autouse
+#: `_default_scope` fixture enters this school, and `_current_school()` falls
+#: back to it, so factory-built rows and the ambient scope always agree.
+DEFAULT_TEST_SCHOOL_SLUG = 'test_school'
 
-    `django_get_or_create` on the slug means every factory that needs a school
-    lands on the *same* row unless a test deliberately asks for another — so a
-    LessonFactory's offering, class group, academic year and subject all end up
-    in one school instead of four. Pass an explicit slug for a second tenant:
+
+class SchoolFactory(DjangoModelFactory):
+    """A tenant.
+
+    `django_get_or_create` on the slug means asking twice returns the same row
+    rather than a second school. Pass an explicit slug for a second tenant:
     `SchoolFactory(slug='school_b')`.
     """
 
@@ -59,15 +63,52 @@ class SchoolFactory(DjangoModelFactory):
         model = School
         django_get_or_create = ('slug',)
 
-    slug = 'test_school'
+    slug = DEFAULT_TEST_SCHOOL_SLUG
     name = factory.LazyAttribute(lambda o: o.slug.replace('_', ' ').title())
+
+
+def _current_school():
+    """The school the surrounding test is scoped to.
+
+    Every factory that owns a `school` column reads this, so **one**
+    `school_scope(...)` at the top of a test puts the entire object graph in
+    that school — offering, subject, class group, users, at any depth.
+
+    Passing `school=` to the outermost factory instead would reach only that
+    one object: its SubFactories each resolve their own school independently,
+    fall back to the default, and quietly build a graph whose offering is in
+    school B while its subject and class group are in school A. That is the
+    exact shape of the bug the isolation tests exist to catch, so a world built
+    that way would let them pass while measuring nothing. Reading the ambient
+    scope removes the chance to forget a branch.
+
+    Deliberate mismatches are still one keyword away, because an explicit
+    argument beats this default — `SubjectOfferingFactory(school=b,
+    subject__school=a)` is how you write the negative test.
+
+    Falls back to the default test school when there is no usable scope: a
+    `no_auto_scope` test, or `all_schools()`. That is the same row conftest
+    enters, so this is a no-op for every test that does not ask for a second
+    tenant.
+    """
+    from core.tenancy import ALL, UNSET, get_active_school
+
+    scope = get_active_school()
+    if scope is UNSET or scope is ALL:
+        school, _ = School.objects.get_or_create(
+            slug=DEFAULT_TEST_SCHOOL_SLUG,
+            defaults={'name': 'Test School'},
+        )
+        return school
+    # School.objects is unscoped by design — you cannot scope the tenant root.
+    return School.objects.get(pk=scope)
 
 
 class SchoolGroupFactory(DjangoModelFactory):
     class Meta:
         model = SchoolGroup
 
-    school = factory.SubFactory(SchoolFactory)
+    school = factory.LazyFunction(_current_school)
     name = factory.Sequence(lambda n: f'Orda {n}')
 
 
@@ -75,7 +116,7 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = CustomUser
 
-    school = factory.SubFactory(SchoolFactory)
+    school = factory.LazyFunction(_current_school)
     username = factory.Sequence(lambda n: f'user_{n}')
     email = factory.LazyAttribute(lambda o: f'{o.username}@test.kz')
     first_name = factory.Faker('first_name')
@@ -158,6 +199,26 @@ class AcademicYearFactory(DjangoModelFactory):
     archived = False
 
 
+def _active_academic_year():
+    """The active year, created if this test has not made one yet.
+
+    Was `AcademicYear.objects.filter(is_active=True).first()`, which silently
+    returns `None` when no test fixture happened to create an active year — so
+    the Student came out with no year at all and the failure surfaced somewhere
+    far away, as a missing enrollment or an empty grade list.
+
+    Since §1a the year is shared across schools, so a single global active row
+    is correct by definition; there is no tenancy question here, only the None.
+    `SubFactory(AcademicYearFactory)` would be wrong in the other direction —
+    it mints a *new* year per student, so two students in one test end up in
+    different years.
+    """
+    year = AcademicYear.objects.filter(is_active=True).first()
+    if year is not None:
+        return year
+    return AcademicYearFactory(is_active=True)
+
+
 class GradeLevelFactory(DjangoModelFactory):
     class Meta:
         model = GradeLevel
@@ -169,7 +230,7 @@ class ClassGroupFactory(DjangoModelFactory):
     class Meta:
         model = ClassGroup
 
-    school = factory.SubFactory(SchoolFactory)
+    school = factory.LazyFunction(_current_school)
     academic_year = factory.SubFactory(AcademicYearFactory)
     grade_level = factory.SubFactory(GradeLevelFactory)
     letter = 'A'
@@ -193,7 +254,7 @@ class StudentFactory(DjangoModelFactory):
 
     user = factory.SubFactory(StudentUserFactory)
     school_group = factory.SubFactory(SchoolGroupFactory)
-    academic_year = factory.LazyAttribute(lambda o: AcademicYear.objects.filter(is_active=True).first())
+    academic_year = factory.LazyFunction(lambda: _active_academic_year())
 
 
 class TeacherFactory(DjangoModelFactory):
@@ -266,7 +327,7 @@ class SubjectFactory(DjangoModelFactory):
     class Meta:
         model = Subject
 
-    school = factory.SubFactory(SchoolFactory)
+    school = factory.LazyFunction(_current_school)
     name = factory.Sequence(lambda n: f'Subject {n}')
     status = 'active'
     language_group = 'kaz'
@@ -276,7 +337,7 @@ class SubjectOfferingFactory(DjangoModelFactory):
     class Meta:
         model = SubjectOffering
 
-    school = factory.SubFactory(SchoolFactory)
+    school = factory.LazyFunction(_current_school)
     subject = factory.SubFactory(SubjectFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
     max_points = 100

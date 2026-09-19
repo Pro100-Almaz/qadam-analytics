@@ -11,6 +11,7 @@ from PIL import Image, UnidentifiedImageError
 
 from core.models import SchoolDerivedMixin, SoftDeleteMixin
 from core.tenancy import SchoolScopedManager
+from core.validators import is_stored_file
 
 MAX_ATTACHMENT_SIZE_MB = 10
 MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
@@ -24,6 +25,8 @@ IMAGE_ATTACHMENT_EXTENSIONS = {
 
 
 def validate_attachment_size(file):
+    if is_stored_file(file):
+        return
     if file.size > MAX_ATTACHMENT_SIZE_BYTES:
         raise ValidationError(
             f'File size must not exceed {MAX_ATTACHMENT_SIZE_MB}MB. '
@@ -32,7 +35,16 @@ def validate_attachment_size(file):
 
 
 def validate_attachment_format(file):
-    """Allow PDFs and verified browser-safe images only."""
+    """Allow PDFs and verified browser-safe images only.
+
+    Only an upload is inspected. Reopening a stored file to re-verify it is a
+    GetObject that raises when the object is gone — see
+    `core.validators.is_stored_file`. The extension check below could run on a
+    stored name safely, but the two halves belong together: a file that passed
+    once has nothing new to prove.
+    """
+    if is_stored_file(file):
+        return
     extension = os.path.splitext(file.name)[1].lower()
     if extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
         allowed = ', '.join(sorted(ALLOWED_ATTACHMENT_EXTENSIONS))

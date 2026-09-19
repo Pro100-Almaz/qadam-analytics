@@ -44,12 +44,12 @@ jobs:
       S3_BUCKET_NAME: qadam-test
       S3_ACCESS_KEY: ci
       S3_SECRET_KEY: ci-secret
-      # Matches the settings default while Phase 2-3 land inert. The tenancy
-      # tests force 'enforce' per-test with override_settings, so they are
-      # strict regardless. This flips to 'enforce' suite-wide in Phase 5, once
-      # conftest's autouse scope fixture lands and the existing ~6k lines of
-      # tests have a school to run inside.
-      SCHOOL_SCOPE_MODE: 'off'
+      # Matches the settings default, so CI runs the mode production runs.
+      # Phase 4: 'warn'. The tenancy tests force 'enforce' per-test with
+      # override_settings, so they are strict regardless, and the whole suite
+      # is verified green under 'off', 'warn' and 'enforce' alike. This flips
+      # to 'enforce' suite-wide in Phase 5, together with the settings default.
+      SCHOOL_SCOPE_MODE: 'warn'
 
     steps:
       - uses: actions/checkout@v4

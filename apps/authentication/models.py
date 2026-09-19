@@ -14,6 +14,7 @@ from simple_history.models import HistoricalRecords
 
 from core.models import SchoolDerivedMixin
 from core.tenancy import SchoolScopedManager
+from core.validators import is_stored_file
 from core import settings
 
 
@@ -22,7 +23,14 @@ MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024
 
 
 def validate_avatar_size(file):
-    """Validate that avatar file size doesn't exceed the maximum allowed size."""
+    """Validate that an avatar *upload* does not exceed the maximum size.
+
+    Skips a file that is already in storage: reading its size is a HeadObject
+    against S3, and a missing object made every save of that row a 500. See
+    `core.validators.is_stored_file`.
+    """
+    if is_stored_file(file):
+        return
     if file.size > MAX_AVATAR_SIZE_BYTES:
         raise ValidationError(
             f'Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. '
