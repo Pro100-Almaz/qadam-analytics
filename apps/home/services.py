@@ -1,10 +1,11 @@
 from datetime import timedelta
 
+from django.db.models import Case, IntegerField, Value, When
 from django.utils import timezone
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import (
-    AcademicYear, SubjectOffering, Enrollment, TeachingAssignment,
+    AcademicYear, ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
 )
 from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
@@ -21,15 +22,35 @@ def get_dashboard_stats():
     }
 
 
+# A student holds at most one active enrollment in a major class group but any
+# number of minor (подгруппа) ones, so the major enrollment is the one that
+# says which class the student is in.
+MAJOR_GROUP_FIRST = Case(
+    When(class_group__category=ClassGroup.MAJOR_CHOICE, then=Value(0)),
+    default=Value(1),
+    output_field=IntegerField(),
+)
+
+
+def _primary_enrollment(student):
+    """The student's active enrollment, preferring their major class group."""
+    return (
+        Enrollment.objects
+        .filter(student=student, status='active')
+        .select_related('class_group')
+        .annotate(major_group_first=MAJOR_GROUP_FIRST)
+        .order_by('major_group_first', '-class_group__academic_year__year')
+        .first()
+    )
+
+
 def get_students_for_role(user, year_id=None, class_group_id=None):
     from core.permissions import is_admin_role, is_teacher_role
 
     if user.is_student():
         try:
             student = Student.objects.select_related('user').get(user=user)
-            enrollment = Enrollment.objects.filter(
-                student=student, status='active',
-            ).select_related('class_group').first()
+            enrollment = _primary_enrollment(student)
             if enrollment:
                 student.classroom = enrollment.class_group
                 return [student]
@@ -43,9 +64,7 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
             children = parent.students.select_related('user').all()
             result = []
             for child in children:
-                enrollment = Enrollment.objects.filter(
-                    student=child, status='active',
-                ).select_related('class_group').first()
+                enrollment = _primary_enrollment(child)
                 if enrollment:
                     child.classroom = enrollment.class_group
                     result.append(child)
@@ -69,8 +88,18 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
     if class_group_id:
         enrollments = enrollments.filter(class_group_id=class_group_id)
 
+    # Major groups first, so a student enrolled in подгруппы as well as their
+    # class is listed once, under their class.
+    enrollments = enrollments.annotate(
+        major_group_first=MAJOR_GROUP_FIRST,
+    ).order_by('major_group_first', 'class_group_id', 'student_id')
+
     students = []
+    seen = set()
     for e in enrollments:
+        if e.student_id in seen:
+            continue
+        seen.add(e.student_id)
         e.student.classroom = e.class_group
         students.append(e.student)
     return students

@@ -205,23 +205,17 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class ForgetPasswordSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    identifier = serializers.CharField()
 
 
 class VerificationCodeSerializer(serializers.Serializer):
     username = serializers.CharField()
-    verification_code = serializers.CharField()
+    code = serializers.CharField()
 
 
 class PasswordChangeSerializer(serializers.Serializer):
     token = serializers.CharField()
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        if attrs['password1'] != attrs['password2']:
-            raise serializers.ValidationError({"password2": "Пароли не совпадают."})
-        return attrs
+    new_password = serializers.CharField(write_only=True)
 
 
 class ResetPasswordSerializer(serializers.Serializer):

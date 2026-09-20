@@ -157,10 +157,8 @@ class AccountService:
         signed_code = self.send_verification_code(user)
         return redirect("verification_code", username=user.username, signed_code=signed_code)
 
-    def change_password_with_code(self, user: User, pw1: str, pw2: str) -> Tuple[bool, Optional[str]]:
-        if pw1 != pw2:
-            return False, "Пароли не совпадают."
-        self.set_new_password(user, pw1)
+    def change_password_with_code(self, user: User, pw: str) -> Tuple[bool, Optional[str]]:
+        self.set_new_password(user, pw)
         return True, None
 
     @staticmethod
