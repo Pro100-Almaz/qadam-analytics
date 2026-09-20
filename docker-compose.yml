@@ -58,7 +58,7 @@ services:
       # Tenant isolation ramp: off | warn | enforce (core/settings.py).
       # Named here so the rollback is one line in .env plus a restart, and so
       # the worker can never run a different mode than the web container.
-      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-warn}
+      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
     depends_on:
       db:
         condition: service_healthy
@@ -93,7 +93,7 @@ services:
       # Tenant isolation ramp: off | warn | enforce (core/settings.py).
       # Named here so the rollback is one line in .env plus a restart, and so
       # the worker can never run a different mode than the web container.
-      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-warn}
+      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
     command: celery -A core worker -l info --concurrency=2
     depends_on:
       db:

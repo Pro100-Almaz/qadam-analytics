@@ -45,11 +45,10 @@ jobs:
       S3_ACCESS_KEY: ci
       S3_SECRET_KEY: ci-secret
       # Matches the settings default, so CI runs the mode production runs.
-      # Phase 4: 'warn'. The tenancy tests force 'enforce' per-test with
-      # override_settings, so they are strict regardless, and the whole suite
-      # is verified green under 'off', 'warn' and 'enforce' alike. This flips
-      # to 'enforce' suite-wide in Phase 5, together with the settings default.
-      SCHOOL_SCOPE_MODE: 'warn'
+      # Phase 5: 'enforce'. The suite is verified green under 'off', 'warn' and
+      # 'enforce' alike; running it fail-closed here is what stops a new
+      # unscoped call site from reaching a deploy.
+      SCHOOL_SCOPE_MODE: 'enforce'
 
     steps:
       - uses: actions/checkout@v4

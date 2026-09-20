@@ -361,14 +361,18 @@ LOGGING = {
 # The rollout ramp for core.tenancy: 'off' | 'warn' | 'enforce'. See the module
 # docstring there.
 #
-# Phase 4 (2026-09-19): 'warn'. Read what this does and does not soften before
-# deploying it — 'warn' is NOT a dry run. It softens only the UNSET case: a
-# query with no active scope logs an ERROR with a stack trace instead of
-# raising. Whenever a scope IS active — which is every authenticated request,
-# because SchoolScopedJWTAuthentication enters one — the filter applies in
-# full. So this deploy is real tenant isolation for real users, and the
-# question "is each school ready to stand alone" has to be answered now, not
-# at 'enforce'.
+# Phase 5 (2026-09-19): 'enforce'. A query made with no active scope now
+# RAISES SchoolScopeError instead of logging and returning unfiltered rows.
+#
+# Note what did NOT change at this flip. The filter itself has applied in full
+# since phase 4 — whenever a scope is active, which is every authenticated
+# request, because SchoolScopedJWTAuthentication enters one. 'enforce' only
+# closes the UNSET case, and no request path can reach UNSET: the five
+# AllowAny endpoints touch none of the scoped models, the one streaming
+# response holds no ORM handle, and nothing spawns a thread. So for the API
+# this is close to a no-op; what it changes is scripts, `manage.py shell` and
+# any future Celery task, which now fail loudly instead of reading every
+# school's rows.
 #
 # Drain the ERROR log before phase 5:
 #   docker logs appseed_app 2>&1 | grep -o '[a-zA-Z_]*\.[A-Za-z]* queried outside a school scope' \
@@ -379,4 +383,4 @@ LOGGING = {
 #
 # Rollback is this one env var: set SCHOOL_SCOPE_MODE=off in .env and restart.
 # Keep it live for a month past the 'enforce' flip.
-SCHOOL_SCOPE_MODE = config('SCHOOL_SCOPE_MODE', default='warn')
+SCHOOL_SCOPE_MODE = config('SCHOOL_SCOPE_MODE', default='enforce')

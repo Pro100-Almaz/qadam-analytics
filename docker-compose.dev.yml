@@ -12,9 +12,8 @@ x-django-env: &django-env
     DB_PORT: 5432
     REDIS_URL: redis://redis:6379/1
     # Tenant isolation ramp: off | warn | enforce (core/settings.py).
-    # Phase 4 is 'warn'; phase 5 flips this and the settings default to
-    # 'enforce'. Rollback is this one var plus a restart.
-    SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-warn}
+    # Phase 5: 'enforce'. Rollback is this one var plus a restart.
+    SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
     # 'warn' logs an ERROR with a stack trace for every query made with no
     # active scope. Root logs to console at LOG_LEVEL, so the drain is
     # `docker logs <container>`.
@@ -36,7 +35,7 @@ services:
 #      DB_PASSWORD: ${DB_PASSWORD:-qadam}
 #      DB_HOST: db
 #      DB_PORT: 5432
-#      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-warn}
+#      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
 #      LOG_LEVEL: ${LOG_LEVEL:-INFO}
 #      SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
 #    command: python manage.py runserver 0.0.0.0:8000
@@ -71,7 +70,7 @@ services:
       # from its school_id argument; anything that does not shows up here as a
       # 'queried outside a school scope' ERROR under 'warn', and 500s under
       # 'enforce'. This container is the cheapest place to find those.
-      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-warn}
+      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     command: celery -A core worker -l info --concurrency=1
     depends_on: [db, redis]
