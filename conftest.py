@@ -128,6 +128,31 @@ def clear_school_uuid_cache():
 
 
 @pytest.fixture(autouse=True)
+def no_ssl_redirect(settings):
+    """Let the test client speak http, the only thing it can speak.
+
+    `SECURE_SSL_REDIRECT` is on whenever DEBUG is false, and CI runs with
+    DEBUG=False on purpose — that is the configuration production boots with,
+    and the point of running the suite under it. But SecurityMiddleware sits in
+    front of everything, and Django's test client always issues http requests,
+    so every single request in the suite came back as a 301 to the https URL
+    before reaching a view: 338 of the 340 CI failures were `assert 301 == 200`
+    and `'HttpResponsePermanentRedirect' object has no attribute 'data'`.
+
+    Locally the suite passed only because .env carries DEBUG=True, which is
+    exactly the kind of gap CI exists to close — so the fix belongs here rather
+    than in the workflow, which must keep DEBUG=False.
+
+    The redirect itself is transport configuration, not application behaviour,
+    and nothing in the suite asserts on it; anything that wants to should turn
+    it back on with @override_settings and use `client.get(..., secure=True)`
+    for the rest.
+    """
+    settings.SECURE_SSL_REDIRECT = False
+    yield
+
+
+@pytest.fixture(autouse=True)
 def in_memory_media_storage(settings):
     """Keep file uploads out of S3 — and out of the network entirely.
 

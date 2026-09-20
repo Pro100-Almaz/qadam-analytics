@@ -53,7 +53,6 @@ making the tenant invisible and silently falling through to UNSET.
 import uuid as uuid_module
 
 from django.db.models.signals import post_delete, post_save
-from django.dispatch import receiver
 
 _pk_by_uuid: dict[str, int] = {}
 _uuid_by_pk: dict[int, str] = {}
@@ -126,19 +125,34 @@ def clear_school_cache():
     _uuid_by_pk.clear()
 
 
+def _invalidate(sender, **kwargs):
+    clear_school_cache()
+
+
 def _register_invalidation():
     """Connect the receivers. Called from AuthenticationConfig.ready().
 
     Registered from ready() rather than on import so it happens in every
     process, including management commands that never load the URLconf and so
     never import whatever ends up calling the lookups.
+
+    weak=False, and `_invalidate` lives at module level rather than in here.
+    Both matter: a receiver defined inside this function has no reference left
+    once it returns, and Signal.connect stores only a weakref by default, so
+    the connection dies the moment the function object is collected. Under
+    DEBUG the connection happened to survive — Django's `func_accepts_kwargs`
+    check runs only then, and its lru_cache was what held the reference — so
+    this looked correct everywhere except the configuration production runs:
+    with DEBUG=False, renaming or deleting a School left every worker serving
+    the stale uuid->pk map for the life of the process.
     """
     from apps.authentication.models import School
 
-    @receiver(post_save, sender=School, dispatch_uid='school_cache_invalidate_save')
-    def _on_save(sender, **kwargs):
-        clear_school_cache()
-
-    @receiver(post_delete, sender=School, dispatch_uid='school_cache_invalidate_delete')
-    def _on_delete(sender, **kwargs):
-        clear_school_cache()
+    post_save.connect(
+        _invalidate, sender=School, weak=False,
+        dispatch_uid='school_cache_invalidate_save',
+    )
+    post_delete.connect(
+        _invalidate, sender=School, weak=False,
+        dispatch_uid='school_cache_invalidate_delete',
+    )
