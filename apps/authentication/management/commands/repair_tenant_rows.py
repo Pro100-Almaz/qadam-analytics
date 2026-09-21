@@ -41,8 +41,11 @@ Anything that fits none of those is reported and left alone. Exits 1 when
 findings remain, so it can gate a deploy.
 """
 
+from django.core.exceptions import FieldDoesNotExist
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import F, IntegerField
+from django.db.models.functions import Coalesce
 
 from core.checks import _tenant_models
 from core.models import school_id_of, school_id_through
@@ -156,23 +159,150 @@ class Command(BaseCommand):
     # ── scanning ────────────────────────────────────────────────────────────
 
     def _scan(self, model):
-        """Every row whose declared FKs or own column disagree with its tenant."""
+        """Every row whose declared FKs or own column disagree with its tenant.
+
+        Set-based, and it has to be. The first version asked the question one
+        row at a time — one or more queries per row, which is invisible on a
+        dev database and, on 50k grades over a container network, looks exactly
+        like a hang. Here each check is a single query with the comparison in
+        the WHERE clause, so a model costs one round trip rather than one per
+        row, and only the rows that *are* findings are ever loaded.
+
+        `_base_manager`: unscoped and unfiltered, so soft-deleted rows are
+        included. A deleted row still holds a FK the composite constraint will
+        check, so skipping it would let the deploy fail on something this
+        command reported as clean.
+        """
         declared = tuple(getattr(model, 'SCHOOL_CONSISTENT_FIELDS', ()))
         derived_from = tuple(getattr(model, 'SCHOOL_DERIVED_FROM', ()))
         if not declared and not derived_from:
             return []
 
+        home = self._home_expression(model, derived_from)
+        if home is None:
+            # Nothing expressible as a join — a GenericForeignKey source, which
+            # only Attachment has. Small table, and correctness beats speed.
+            return self._scan_row_by_row(model, declared, derived_from)
+
+        base = model._base_manager.annotate(_home=home)
         findings = []
-        # `_base_manager`: unscoped and unfiltered, so soft-deleted rows are
-        # included. A deleted row still holds a FK the composite constraint
-        # will check, so skipping it would let the deploy fail on something
-        # this command reported as clean.
+
+        findings += [
+            Finding(obj, '(row)', None, None, 'manual',
+                    'reaches no school at all — its derivation and its '
+                    'SCHOOL_PATH both resolve to NULL')
+            for obj in base.filter(_home__isnull=True)
+        ]
+
+        if any(f.name == 'school' for f in model._meta.fields):
+            # A stale denormalised column: it disagrees with the parent it is
+            # a copy of. `exclude` rather than a `!=` filter because NULL on
+            # either side is not a disagreement, it is a different finding.
+            findings += [
+                Finding(obj, 'school', obj._home, obj.school_id, 'stamp')
+                for obj in base.filter(
+                    _home__isnull=False, school__isnull=False,
+                ).exclude(school=F('_home'))
+            ]
+
+        for field in declared:
+            path = self._field_school_path(model, field)
+            if path is None:
+                continue
+            rows = (
+                base.annotate(_other=F(path))
+                .filter(_home__isnull=False, _other__isnull=False)
+                .exclude(_other=F('_home'))
+            )
+            findings += [
+                Finding(obj, field, obj._home, obj._other, 'repoint')
+                for obj in rows
+            ]
+        return findings
+
+    @staticmethod
+    def _school_path_of(model):
+        """The lookup from `model` to its school, or None."""
+        path = getattr(model, 'SCHOOL_PATH', None)
+        if not path or not path.split('__')[-1] == 'school':
+            return None
+        return path
+
+    @classmethod
+    def _field_school_path(cls, model, field_name):
+        """The lookup from `model` to the school of one declared field.
+
+        `Student.school_group` + `SchoolGroup.SCHOOL_PATH = 'school'` gives
+        `school_group__school`. A GenericForeignKey has no such path and comes
+        back None — the caller falls back to walking rows.
+        """
+        try:
+            field = model._meta.get_field(field_name)
+        except FieldDoesNotExist:
+            return None
+        if not (field.is_relation and field.concrete and field.related_model):
+            return None
+        target = cls._school_path_of(field.related_model)
+        return f'{field_name}__{target}' if target else None
+
+    @classmethod
+    def _home_expression(cls, model, derived_from):
+        """Which school this row belongs to, as something SQL can evaluate.
+
+        `Coalesce` is the ORM's version of "the first source that resolves
+        wins", which is precisely `SchoolDerivedMixin`'s rule — so the
+        expression and the mixin cannot drift apart. The model's own
+        SCHOOL_PATH goes last, as the fallback for a root or for a row whose
+        every derivation source is empty.
+        """
+        paths = []
+        for source in derived_from:
+            try:
+                related = model
+                for part in source.split('__'):
+                    related = related._meta.get_field(part).related_model
+            except Exception:
+                return None      # GenericForeignKey, or an unresolvable path
+            target = cls._school_path_of(related)
+            if target is None:
+                return None
+            paths.append(f'{source}__{target}')
+
+        own = cls._school_path_of(model)
+        if own:
+            paths.append(own)
+        if not paths:
+            return None
+        if len(paths) == 1:
+            return F(paths[0])
+        return Coalesce(*[F(p) for p in paths], output_field=IntegerField())
+
+    @staticmethod
+    def _home_school(obj, derived_from):
+        """The row-by-row twin of `_home_expression`. Same authority order.
+
+        The derivation source outranks the denormalised column, because that is
+        `SchoolDerivedMixin`'s own rule: the column is a cache of the parent,
+        and a cache that disagrees with its source is the thing that is stale.
+        Reading the column first would invert that and blame every parent of a
+        row whose column had gone bad — which is the commoner residue, since
+        the column is what phase 1 had to guess at.
+        """
+        if derived_from:
+            derived = obj._derive_school_id()
+            if derived is not None:
+                return derived
+        return school_id_of(obj)
+
+    def _scan_row_by_row(self, model, declared, derived_from):
+        """The fallback for a model whose sources are not joinable."""
+        findings = []
         for obj in model._base_manager.all().iterator(chunk_size=500):
             home = self._home_school(obj, derived_from)
             if home is None:
                 findings.append(Finding(
                     obj, '(row)', None, None, 'manual',
-                    'reaches no school at all — its SCHOOL_PATH resolves to None',
+                    'reaches no school at all',
                 ))
                 continue
             own = getattr(obj, 'school_id', None)
@@ -183,26 +313,6 @@ class Command(BaseCommand):
                 if other is not None and other != home:
                     findings.append(Finding(obj, field, home, other, 'repoint'))
         return findings
-
-    @staticmethod
-    def _home_school(obj, derived_from):
-        """The one school this row belongs to — exactly one authority, always.
-
-        The derivation source outranks the denormalised column, because that is
-        `SchoolDerivedMixin`'s own rule: the column is a cache of the parent,
-        and a cache that disagrees with its source is the thing that is stale.
-        Reading the column first would invert that and blame every parent of a
-        row whose column had gone bad — which is the commoner residue, since
-        the column is what phase 1 had to guess at.
-
-        Only when the model cannot derive (it is a root, or its sources are all
-        empty) does the column stand as the answer.
-        """
-        if derived_from:
-            derived = obj._derive_school_id()
-            if derived is not None:
-                return derived
-        return school_id_of(obj)
 
     # ── reporting ───────────────────────────────────────────────────────────
 
