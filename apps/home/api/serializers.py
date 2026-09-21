@@ -112,7 +112,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'user', 'school_group', 'academic_year',
+            'id', 'user', 'school_group', 'intake_year',
             'medical_features', 'current_class_group',
         ]
 
@@ -140,7 +140,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'user', 'school_group', 'academic_year',
+            'id', 'user', 'school_group', 'intake_year',
             'medical_features', 'current_class_group', 'offerings',
             'subject_quarter_grades', 'total_quarter_grades',
             'cumulative_subject_grades', 'student_total_grade',
@@ -311,7 +311,6 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     school_group = serializers.IntegerField(required=False, allow_null=True)
-    academic_year = serializers.IntegerField(required=False, allow_null=True)
     class_group = serializers.IntegerField(required=False, allow_null=True)
     medical_features = serializers.CharField(
         required=False, allow_blank=True, allow_null=True

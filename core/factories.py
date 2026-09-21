@@ -279,8 +279,17 @@ class StudentFactory(DjangoModelFactory):
     school_group = factory.LazyAttribute(
         lambda o: SchoolGroupFactory(school=o.user.school)
     )
-    academic_year = factory.LazyAttribute(
-        lambda o: _active_academic_year(o.user.school)
+    class Params:
+        #: A convenience, not a model field. `Student` has no year FK since
+        #: `authentication/0043` — `intake_year` is a label — but "a student of
+        #: year X" is what three dozen fixtures mean when they pass one, so the
+        #: AcademicYear is accepted here and its name is what gets stored.
+        academic_year = None
+
+    #: Left blank by default, which lets the `pre_save` signal stamp the
+    #: student's own school's active year — the same path production takes.
+    intake_year = factory.LazyAttribute(
+        lambda o: o.academic_year.year if o.academic_year else ''
     )
 
 

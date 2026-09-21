@@ -319,9 +319,10 @@ class Student(SchoolConsistentModel):
     SCHOOL_PATH = 'user__school'
     objects = SchoolScopedManager()
     #: `user` is the student's own school, so this reads as: an Orda house
-    #: and an academic year from a school the student does not attend are
-    #: a cross-tenant write, not a stray FK.
-    SCHOOL_CONSISTENT_FIELDS = ('user', 'school_group', 'academic_year')
+    #: from a school the student does not attend is a cross-tenant write, not
+    #: a stray FK. `intake_year` is absent because it is no longer a relation —
+    #: see the field below.
+    SCHOOL_CONSISTENT_FIELDS = ('user', 'school_group')
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
@@ -331,13 +332,27 @@ class Student(SchoolConsistentModel):
         related_name="students"
     )
     school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True, blank=True)
-    academic_year = models.ForeignKey(
-        'home.AcademicYear',
-        related_name='students',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        help_text='Enrollment year for this student'
+    #: The year this student first appeared, as a label: "2025/2026".
+    #:
+    #: It was a FK to AcademicYear, and that was wrong in three ways. It read
+    #: as the student's *current* year but was assigned once at creation and
+    #: never advanced — `rollover_academic_year` writes class groups and
+    #: enrollments, never this — so after one rollover it named a past year
+    #: while the student was enrolled in the present one. The real year-by-year
+    #: record is Enrollment -> ClassGroup -> AcademicYear, which is multi-year
+    #: and which a single FK could never express anyway. And because years are
+    #: per-school since §1b, the FK made this a tenancy-coupled field: it had
+    #: to be re-pointed whenever a student changed school, or their profile
+    #: failed its own consistency check.
+    #:
+    #: As a plain string it is what it always meant — when this student entered
+    #: — and it survives a school move untouched, needs no re-pointing, and is
+    #: out of SCHOOL_CONSISTENT_FIELDS entirely. Nothing used the reverse
+    #: relation `AcademicYear.students`, so the FK bought nothing it cost.
+    intake_year = models.CharField(
+        max_length=40, blank=True, default='',
+        help_text='Academic year this student entered, e.g. "2025/2026". '
+                  'Set once on creation; history, not a live pointer.',
     )
     medical_features = models.TextField(null=True, blank=True)
     history = HistoricalRecords()
@@ -387,46 +402,50 @@ class Student(SchoolConsistentModel):
 
 
 @receiver(pre_save, sender=Student)
-def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign the student's school's active academic year, if not set.
+def assign_intake_year_for_student(sender, instance: 'Student', **kwargs):
+    """Stamp the student's school's active year on creation, and never again.
 
-    Years are per-school again, so "the active year" is only meaningful next to
-    a school — and the right school here is the **student's own**, read off
-    `user.school`, not whatever scope the caller happens to be in. Those are
-    normally the same; when they are not, the student's own school is the one
-    that cannot be wrong.
+    "The active year" is only meaningful next to a school — years are
+    per-school since §1b — and the right school here is the **student's own**,
+    read off `user.school`, not whatever scope the caller happens to be in.
+    Those are normally the same; when they are not, the student's own school is
+    the one that cannot be wrong.
 
     That is also why this reads `_base_manager` rather than the scoped
     `objects`: the school is already named in the filter, so narrowing it a
-    second time by the ambient scope could only ever subtract. It keeps the
-    property the shared-year version had of behaving identically in a request,
-    a script, the shell and a Celery worker — without being a global singleton
-    any more.
+    second time by the ambient scope could only ever subtract. It behaves
+    identically in a request, a script, the shell and a Celery worker.
 
-    The blanket `except Exception: pass` this replaces was the worst failure
-    mode the tenancy design can produce. It fires on every Student save, and
+    Only the year *string* is kept. The row it came from belongs to one school
+    and will be superseded at the next rollover; the label will still be true
+    in ten years, which is the whole point of the field.
+
+    The blanket `except Exception: pass` this replaced was the worst failure
+    mode the tenancy design can produce. It fired on every Student save, and
     under fail-closed scoping it would have swallowed SchoolScopeError and
-    written academic_year=None silently, with no log line — inverting the
+    written an empty year silently, with no log line — inverting the
     fail-closed guarantee into a quiet data defect. There is deliberately no
     handler here.
     """
-    if instance.academic_year_id:
+    if instance.intake_year:
         return
 
     from apps.home.models import AcademicYear
 
     school_id = instance.user.school_id if instance.user_id else None
     if school_id is None:
-        # A student with no school cannot have a year picked for them. The FK
-        # is nullable, and the `user_has_school_unless_superuser` constraint
-        # means this is not a state a real student reaches.
+        # A student with no school cannot have a year picked for them. The
+        # `user_has_school_unless_superuser` constraint means this is not a
+        # state a real student reaches.
         return
 
     years = AcademicYear._base_manager.filter(school_id=school_id)
-    instance.academic_year = (
+    year = (
         years.filter(is_active=True).first()
         or years.order_by('-year').first()
     )
+    if year is not None:
+        instance.intake_year = year.year
 
 
 class Parent(models.Model):

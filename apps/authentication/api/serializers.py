@@ -274,7 +274,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'school_group', 'academic_year']
+        fields = ['id', 'user', 'school_group', 'intake_year']
 
 
 class TeacherProfileSerializer(serializers.ModelSerializer):

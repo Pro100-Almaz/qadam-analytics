@@ -92,7 +92,7 @@ class Command(BaseCommand):
             help=(
                 'Academic year to create and activate, e.g. 2026/2027. Since '
                 'years went back to being per-school, a tenant without one '
-                'cannot enrol a student: assign_academic_year_for_student '
+                'cannot enrol a student: assign_intake_year_for_student '
                 'reads the active year off the user\'s own school.'
             ),
         )

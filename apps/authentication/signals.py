@@ -13,7 +13,7 @@ def show_role_message(sender, user, request, **kwargs):
     UNSET. Under fail-closed scoping that made every admin login 500 on the
     `Notification.objects.create()` below.
 
-    Same rule as `assign_academic_year_for_student`: derive the tenant from the
+    Same rule as `assign_intake_year_for_student`: derive the tenant from the
     object you are writing, so the code works in a request, a script, the shell
     and a Celery worker alike.
     """

@@ -222,7 +222,6 @@ class StudentAdminForm(forms.ModelForm):
     # request exists. Declaring them makes fields_for_model skip them;
     # __init__ supplies the real querysets per instance.
     school_group = forms.ModelChoiceField(queryset=None, required=False)
-    academic_year = forms.ModelChoiceField(queryset=None, required=False)
     subjects = forms.ModelMultipleChoiceField(queryset=None, required=False)
 
     class Meta:
@@ -232,7 +231,6 @@ class StudentAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['school_group'].queryset = SchoolGroup.objects.all()
-        self.fields['academic_year'].queryset = AcademicYear.objects.order_by('-year')
         self.fields['subjects'].queryset = Subject.objects.all()
 
         # Always give class_group a queryset. The class body can no longer build
@@ -277,11 +275,11 @@ class StudentAdmin(ModelAdmin):
     list_display = (
         "avatar_thumbnail", "full_name", "email", "phone",
         "current_class_group", "current_minor_class_groups", "enrollment_status",
-        "academic_year", "school_group"
+        "intake_year", "school_group"
     )
     list_display_links = ("full_name",)
     search_fields = ("user__first_name", "user__last_name", "user__username", "user__email")
-    list_filter = ("academic_year", "school_group", "enrollments__status", "enrollments__class_group")
+    list_filter = ("intake_year", "school_group", "enrollments__status", "enrollments__class_group")
     ordering = ("user__last_name", "user__first_name")
     inlines = [EnrollmentInline]
     list_per_page = 25
@@ -292,7 +290,7 @@ class StudentAdmin(ModelAdmin):
             "fields": ("user", "class_group")
         }),
         ("Дополнительно", {
-            "fields": ("school_group", "academic_year", "medical_features", "subjects"),
+            "fields": ("school_group", "intake_year", "medical_features", "subjects"),
             "classes": ("collapse",)
         }),
     )

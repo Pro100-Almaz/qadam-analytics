@@ -12,6 +12,7 @@ import pytest
 from django.test import override_settings
 
 from apps.authentication.models import School
+from apps.home.models import AcademicYear
 from apps.lesson.models import Lesson
 from core.factories import (
     DEFAULT_TEST_SCHOOL_SLUG,
@@ -109,11 +110,33 @@ def test_under_all_schools_it_falls_back_too():
 
 @pytest.mark.django_db
 def test_students_get_one_shared_active_year_not_one_each():
-    from core.factories import StudentFactory
+    """One active year per school, however many students are built.
+
+    This guarded `StudentFactory`'s old `SubFactory(AcademicYearFactory)`,
+    which minted a new *active* year per student and so violated
+    `academicyear_one_active_per_school` on the second one. Student no longer
+    holds a year at all, but the property it was really about — the factories
+    converging on the school's single active year rather than each making one
+    — still has to hold, and `_active_academic_year` is now where that lives.
+    """
+    from core.factories import (
+        ClassGroupFactory, StudentFactory, _active_academic_year,
+    )
+
+    # Made explicitly: building a student no longer conjures a year as a side
+    # effect, which is the production behaviour — a school with no active year
+    # simply leaves the intake label blank.
+    _active_academic_year(_current_school())
 
     first = StudentFactory()
     second = StudentFactory()
-    assert first.academic_year is not None
-    assert first.academic_year == second.academic_year
+
+    # The label they were stamped with comes from that one year.
+    assert first.intake_year
+    assert first.intake_year == second.intake_year
     with all_schools():
         assert School.objects.filter(slug='test_school').count() == 1
+        assert AcademicYear.objects.filter(is_active=True).count() == 1
+        # And the same row serves anything else built in this school.
+        assert ClassGroupFactory().academic_year == (
+            AcademicYear.objects.get(is_active=True))

@@ -20,7 +20,7 @@ modules are already imported — which is what this module pins.
 def test_the_admin_forms_declare_their_tenant_fks():
     """Regression guard on the sites that used to crash `django.setup()`.
 
-    `MajorClassGroupForm.academic_year` and `StudentAdminForm`'s three FKs were
+    `MajorClassGroupForm.academic_year` and `StudentAdminForm`'s tenant FKs were
     left to `Meta.fields`, so ModelFormMetaclass resolved their managers at
     class definition — under 'enforce' that raised before any system check
     could run. Assigning `self.fields[...].queryset` in `__init__` does **not**
@@ -32,7 +32,10 @@ def test_the_admin_forms_declare_their_tenant_fks():
     from apps.home.admin import MajorClassGroupForm
 
     assert 'academic_year' in MajorClassGroupForm.declared_fields
-    for name in ('school_group', 'academic_year', 'subjects', 'class_group'):
+    # `academic_year` used to be in this list. It is no longer a relation on
+    # Student — `authentication/0043` made it the `intake_year` label — so
+    # there is no manager for the metaclass to resolve and nothing to declare.
+    for name in ('school_group', 'subjects', 'class_group'):
         assert name in StudentAdminForm.declared_fields, name
     assert 'students' in ParentAdminForm.declared_fields
 

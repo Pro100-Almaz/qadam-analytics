@@ -352,13 +352,14 @@ def process_row(row, mapping, sheet_name, academic_year, student_group, class_ca
 
     student = Student.objects.filter(user=user).first()
     if student is None:
-        student = Student.objects.create(user=user, academic_year=academic_year)
+        student = Student.objects.create(
+            user=user, intake_year=academic_year.year)
         changes.append('created student profile')
         report['profiles_created'] += 1
-    elif student.academic_year_id != academic_year.id:
-        student.academic_year = academic_year
-        student.save(update_fields=['academic_year'])
-        changes.append(f'academic year -> {academic_year.year}')
+    # An existing student's intake year is deliberately left alone. It records
+    # when they entered, so re-importing a roster for a later year must not
+    # overwrite it — which is exactly what the old FK version did on every run.
+    # The year they are *in* is their enrollment, synced just below.
 
     enrollment_state = sync_enrollment(student, class_group, academic_year)
     if enrollment_state == 'enrolled':

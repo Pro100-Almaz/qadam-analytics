@@ -103,14 +103,6 @@ class StudentProfileUpdateAPIView(APIView):
         if 'medical_features' in data:
             student.medical_features = data['medical_features']
 
-        if 'academic_year' in data and data['academic_year']:
-            try:
-                student.academic_year = AcademicYear.objects.get(id=data['academic_year'])
-            except AcademicYear.DoesNotExist:
-                raise ValidationError(
-                    {'academic_year': [f"Invalid pk \"{data['academic_year']}\" - object does not exist."]}
-                )
-
         if 'class_group' in data and data['class_group']:
             try:
                 class_group = ClassGroup.objects.get(id=data['class_group'])
@@ -119,8 +111,13 @@ class StudentProfileUpdateAPIView(APIView):
                     {'class_group': [f"Invalid pk \"{data['class_group']}\" - object does not exist."]}
                 )
             try:
+                # The class group's own year, not the student's: enrollment is
+                # what binds a student to a year, and the group already names
+                # one. Falling back to the school's active year covers a group
+                # with none — the manager is scoped, so "active" here can only
+                # mean this school's.
                 academic_year = (
-                    student.academic_year
+                    class_group.academic_year
                     or AcademicYear.objects.filter(is_active=True).first()
                 )
                 if academic_year:

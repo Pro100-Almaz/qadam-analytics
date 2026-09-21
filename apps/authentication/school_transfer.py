@@ -30,7 +30,6 @@ timetable and stays. That rule needs no maintenance when a model is added.
 """
 
 from core.checks import ACTOR_FIELDS
-from apps.home.models import AcademicYear
 
 
 def _profiles(user):
@@ -132,41 +131,10 @@ def realign_profile(user):
                    else 'cleared — the new school has no house of that name')
             )
 
-    if student.academic_year_id is not None:
-        old_year = student.academic_year
-        if old_year.school_id != user.school_id:
-            # The new school's *active* year, not the same year string: year
-            # rows are per-school since §1b, and "active" is what every other
-            # code path means by the current one.
-            replacement = AcademicYear._base_manager.filter(
-                school_id=user.school_id, is_active=True).first()
-            student.academic_year = replacement
-            updated.append('academic_year')
-            changes.append(
-                f'academic year "{old_year.year}" → '
-                + _year_change_wording(old_year, replacement)
-            )
+    # `intake_year` needs nothing here. It is a label, not a relation — it
+    # survives a change of school untouched and is out of
+    # SCHOOL_CONSISTENT_FIELDS, which is exactly why it stopped being a FK.
 
     if updated:
         student.save(update_fields=updated)
     return changes
-
-
-def _year_change_wording(old_year, replacement):
-    """Say what changed, when the two rows are usually named the same thing.
-
-    Years are per-school since §1b, and both schools follow the same national
-    calendar — so the overwhelmingly common case is re-pointing "2026/2027" at
-    a *different row also called* "2026/2027". Printing both names produced
-    `2026/2027 → 2026/2027`, which reads as a bug rather than as the tenancy
-    fix it is. Name the row, not just the string.
-    """
-    if replacement is None:
-        return 'cleared — the new school has no active year'
-    if replacement.year == old_year.year:
-        return (
-            f'the new school\'s own "{replacement.year}" (a different row, '
-            f'#{replacement.pk} — each school keeps its own year, so a student '
-            f'must point at their own school\'s copy)'
-        )
-    return f'"{replacement.year}", the new school\'s active year'
