@@ -6,7 +6,9 @@ from simple_history.models import HistoricalRecords
 
 from apps.authentication.models import CustomUser
 from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
-from core.models import SchoolDerivedMixin, SoftDeleteMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
+)
 from core.tenancy import SchoolScopedManager
 
 
@@ -163,8 +165,9 @@ class Lesson(SoftDeleteMixin, models.Model):
         return results
 
 
-class Topic(models.Model):
+class Topic(SchoolConsistentModel):
     SCHOOL_PATH = 'lesson__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('lesson', 'parent')
     objects = SchoolScopedManager()
 
     lesson = models.ForeignKey(
@@ -230,8 +233,9 @@ class Topic(models.Model):
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
 
-class TopicGrade(models.Model):
+class TopicGrade(SchoolConsistentModel):
     SCHOOL_PATH = 'topic__lesson__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('topic', 'student')
     objects = SchoolScopedManager()
 
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
@@ -251,6 +255,7 @@ class TopicGrade(models.Model):
 class MergedLessonComment(SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('lesson__offering', 'student__user')
+    SCHOOL_CONSISTENT_FIELDS = ('lesson', 'student')
     objects = SchoolScopedManager()
 
     # `lesson` and `student` are both nullable, so there is no reliable join
@@ -281,8 +286,9 @@ class MergedLessonComment(SchoolDerivedMixin, models.Model):
         return f"{self.student} - {self.lesson}: {self.comment_text[:30]}"
 
 
-class QuarterGradeSnapshot(models.Model):
+class QuarterGradeSnapshot(SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'offering')
     objects = SchoolScopedManager()
 
     student = models.ForeignKey(
@@ -335,6 +341,9 @@ class QuarterGradeSnapshot(models.Model):
 class SubjectSchedule(SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('offering', 'class_group')
+    #: Both are nullable — a school-wide schedule has neither, which the
+    #: skip-None rule allows. Only a *disagreement* is rejected.
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'class_group')
     objects = SchoolScopedManager()
 
     # Both `offering` and `class_group` are nullable — school-wide schedules
@@ -394,8 +403,9 @@ class ScheduleSession(models.Model):
         ordering        = ['schedule', 'weekday', 'time_start', 'time_end']
 
 
-class ScheduleAttendance(models.Model):
+class ScheduleAttendance(SchoolConsistentModel):
     SCHOOL_PATH = 'session__schedule__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'session')
     objects = SchoolScopedManager()
 
     ATTENDANCE_CHOICES = (
@@ -418,8 +428,9 @@ class ScheduleAttendance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class Homework(models.Model):
+class Homework(SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'teaching_assignment')
     objects = SchoolScopedManager()
 
     description = models.TextField()
@@ -441,8 +452,9 @@ class Homework(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class HomeworkGrade(models.Model):
+class HomeworkGrade(SchoolConsistentModel):
     SCHOOL_PATH = 'homework__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('homework', 'student')
     objects = SchoolScopedManager()
 
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')

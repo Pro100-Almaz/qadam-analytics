@@ -9,7 +9,9 @@ from django.db import models
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
-from core.models import SchoolDerivedMixin, SoftDeleteMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
+)
 from core.tenancy import SchoolScopedManager
 from core.validators import is_stored_file
 
@@ -84,6 +86,10 @@ class Attachment(SchoolDerivedMixin, models.Model):
 
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('content_object', 'uploaded_by')
+    #: `uploaded_by` is deliberately absent: an admin acting in another
+    #: school from the §9a switcher is legitimate, a file filed under the
+    #: wrong tenant is not.
+    SCHOOL_CONSISTENT_FIELDS = ('content_object',)
     objects = SchoolScopedManager()
 
     FILE_TYPE_CHOICES = [
@@ -128,8 +134,9 @@ class Attachment(SchoolDerivedMixin, models.Model):
         return f"{self.original_name} ({self.file_type})"
 
 
-class Achievement(SoftDeleteMixin, models.Model):
+class Achievement(SchoolConsistentModel, SoftDeleteMixin):
     SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year', 'subject')
 
     CATEGORY_CHOICES = [
         ('olympiad', 'Subject Olympiad'),
@@ -204,8 +211,9 @@ class Achievement(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.get_category_display()} ({self.academic_year})"
 
 
-class ReadingEntry(SoftDeleteMixin, models.Model):
+class ReadingEntry(SchoolConsistentModel, SoftDeleteMixin):
     SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year')
 
     student = models.ForeignKey(
         'authentication.Student',
@@ -243,8 +251,9 @@ class ReadingEntry(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.title}"
 
 
-class ClubEntry(SoftDeleteMixin, models.Model):
+class ClubEntry(SchoolConsistentModel, SoftDeleteMixin):
     SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year')
 
     student = models.ForeignKey(
         'authentication.Student',
@@ -289,6 +298,7 @@ class Club(SchoolDerivedMixin, SoftDeleteMixin, models.Model):
 
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('manager__user',)
+    SCHOOL_CONSISTENT_FIELDS = ('manager', 'academic_year')
 
     school = models.ForeignKey(
         'authentication.School', related_name='clubs',
@@ -387,8 +397,9 @@ class ClubSession(SoftDeleteMixin, models.Model):
         return f"{self.club.name}: {self.weekday} {self.start_time}-{self.end_time}"
 
 
-class ClubAttendance(SoftDeleteMixin, models.Model):
+class ClubAttendance(SchoolConsistentModel, SoftDeleteMixin):
     SCHOOL_PATH = 'session__club__school'
+    SCHOOL_CONSISTENT_FIELDS = ('session', 'student')
 
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),

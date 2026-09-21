@@ -25,6 +25,19 @@ from core.tenancy import school_scope
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def _enforce(settings):
+    """Pin the mode for this module, the way test_tenant_isolation does.
+
+    Four of these assert that a changelist does *not* show the other school.
+    Under SCHOOL_SCOPE_MODE='off' the filter is switched off wholesale, so they
+    fail — correctly, and uninformatively: they are testing the switcher, not
+    the ramp setting. Pinning 'enforce' is what lets the suite stay green under
+    all three modes while these keep measuring something.
+    """
+    settings.SCHOOL_SCOPE_MODE = 'enforce'
+
+
 @pytest.fixture
 def school_a(db):
     return SchoolFactory(slug='school_a', name='Alpha School')

@@ -1,11 +1,13 @@
 from django.conf import settings
 from django.db import models
 
+from core.models import SchoolConsistentModel
 from core.tenancy import SchoolScopedManager
 
 
-class StudentReport(models.Model):
+class StudentReport(SchoolConsistentModel):
     SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year')
     objects = SchoolScopedManager()
 
     class Language(models.TextChoices):

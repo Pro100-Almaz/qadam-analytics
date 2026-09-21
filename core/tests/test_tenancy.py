@@ -191,13 +191,16 @@ def test_minor_class_group_manager_keeps_both_filters(two_schools):
     a, b = two_schools
     with all_schools():
         # The group's school comes from its own column, not from the year —
-        # which is the whole reason ClassGroup carries one. Pinned by passing a
-        # school A year to a school B group below.
-        year = AcademicYearFactory(school=a)
-        MinorClassGroup.objects.create(academic_year=year, letter='Хор', school=a)
-        ClassGroup.objects.create(academic_year=year, letter='7A', school=a)
+        # which is the whole reason ClassGroup carries one. This used to be
+        # pinned by handing a school A year to a school B group; §7 makes that
+        # a CrossSchoolWriteError, so each school gets its own year and the
+        # column is what the assertion below still turns on.
+        year_a = AcademicYearFactory(school=a)
+        year_b = AcademicYearFactory(school=b)
+        MinorClassGroup.objects.create(academic_year=year_a, letter='Хор', school=a)
+        ClassGroup.objects.create(academic_year=year_a, letter='7A', school=a)
         MinorClassGroup.objects.create(
-            academic_year=year, letter='Шахматы', school=b)
+            academic_year=year_b, letter='Шахматы', school=b)
 
     with school_scope(a):
         assert [g.letter for g in MinorClassGroup.objects.all()] == ['Хор']

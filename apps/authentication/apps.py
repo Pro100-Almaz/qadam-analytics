@@ -17,3 +17,9 @@ class AuthenticationConfig(AppConfig):
         # calls the lookups.
         from apps.authentication.school_cache import _register_invalidation
         _register_invalidation()
+
+        # Same reason: the m2m cross-school guard has to be connected in every
+        # process, and it deliberately has no sender, so there is no model
+        # module that would naturally own it.
+        from core.tenancy_guards import register_m2m_guard
+        register_m2m_guard()

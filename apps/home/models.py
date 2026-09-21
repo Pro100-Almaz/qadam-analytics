@@ -4,7 +4,7 @@ from django.db import models
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
-from core.models import SchoolDerivedMixin
+from core.models import SchoolConsistentModel, SchoolDerivedMixin
 from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
 
 
@@ -68,6 +68,15 @@ class AcademicYear(models.Model):
                 condition=models.Q(is_active=True),
                 name='academicyear_one_active_per_school',
             ),
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='academicyear_id_school_unique',
+            ),
         ]
         verbose_name = 'Учебный год'
         verbose_name_plural = 'Учебные годы'
@@ -109,6 +118,9 @@ class GradeLevel(models.Model):
 
 class ClassGroup(SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
+    #: A class group in one school cannot sit in another school's year —
+    #: which is exactly what the §1b split had to unpick by hand.
+    SCHOOL_CONSISTENT_FIELDS = ('academic_year',)
     objects = SchoolScopedManager()
 
     # No SCHOOL_DERIVED_FROM: `academic_year` is shared and carries no school,
@@ -146,6 +158,17 @@ class ClassGroup(SchoolDerivedMixin, models.Model):
     )
 
     class Meta:
+        constraints = [
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='classgroup_id_school_unique',
+            ),
+        ]
         verbose_name = "Класс"
         verbose_name_plural = "Классы"
 
@@ -316,6 +339,19 @@ class Subject(models.Model):
         help_text="User who added this subject"
     )
 
+    class Meta:
+        constraints = [
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='subject_id_school_unique',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.name}"
 
@@ -330,6 +366,10 @@ class SubjectOffering(SchoolDerivedMixin, models.Model):
 
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('class_group',)
+    #: The hub, and the one place cross-tenant mixing actually happens:
+    #: school A's Subject offered to school B's ClassGroup. Also the
+    #: composite FK pair in the database (§7 layer 3).
+    SCHOOL_CONSISTENT_FIELDS = ('subject', 'class_group')
     objects = SchoolScopedManager()
 
     subject = models.ForeignKey(
@@ -397,10 +437,11 @@ class SubjectOffering(SchoolDerivedMixin, models.Model):
         return assignment.teacher if assignment else None
 
 
-class TeachingAssignment(models.Model):
+class TeachingAssignment(SchoolConsistentModel):
     """Assigns teachers to a SubjectOffering with specific roles."""
 
     SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'teacher')
     objects = SchoolScopedManager()
 
     ROLE_CHOICES = [
@@ -428,10 +469,11 @@ class TeachingAssignment(models.Model):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
 
 
-class HomeroomTeacherAssignment(models.Model):
+class HomeroomTeacherAssignment(SchoolConsistentModel):
     """Links a homeroom teacher to a class group for an academic year."""
 
     SCHOOL_PATH = 'class_group__school'
+    SCHOOL_CONSISTENT_FIELDS = ('teacher', 'class_group')
     objects = SchoolScopedManager()
 
     teacher = models.ForeignKey(
@@ -461,7 +503,7 @@ class HomeroomTeacherAssignment(models.Model):
         return f"{self.teacher} → {self.class_group} ({self.academic_year})"
 
 
-class Enrollment(models.Model):
+class Enrollment(SchoolConsistentModel):
     """Tracks which class a student belongs to in a given academic year.
 
     A student may hold at most one active enrollment in a *major* class group
@@ -469,6 +511,7 @@ class Enrollment(models.Model):
     """
 
     SCHOOL_PATH = 'class_group__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'class_group')
     objects = SchoolScopedManager()
 
     STATUS_CHOICES = [
@@ -661,8 +704,9 @@ class SubjectAssignment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class SubjectGrade(models.Model):
+class SubjectGrade(SchoolConsistentModel):
     SCHOOL_PATH = 'assignment__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('assignment', 'student')
     objects = SchoolScopedManager()
 
     assignment = models.ForeignKey(SubjectAssignment, on_delete=models.CASCADE, related_name="grades")
@@ -677,8 +721,9 @@ class SubjectGrade(models.Model):
         ordering = ['student']
 
 
-class QuarterGrade(models.Model):
+class QuarterGrade(SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'offering')
     objects = SchoolScopedManager()
 
     grade = models.PositiveIntegerField(validators=[MinValueValidator(2), MaxValueValidator(5)])

@@ -273,7 +273,12 @@ class StudentFactory(DjangoModelFactory):
         model = Student
 
     user = factory.SubFactory(StudentUserFactory)
-    school_group = factory.SubFactory(SchoolGroupFactory)
+    #: The Orda house follows the student, not the ambient scope. Since §7 a
+    #: house from another school is a CrossSchoolWriteError, and a test placing
+    #: a student in school B while scoped to A is an ordinary isolation test.
+    school_group = factory.LazyAttribute(
+        lambda o: SchoolGroupFactory(school=o.user.school)
+    )
     academic_year = factory.LazyAttribute(
         lambda o: _active_academic_year(o.user.school)
     )
@@ -310,15 +315,27 @@ class ClubManagerFactory(DjangoModelFactory):
 
 
 class ClubFactory(DjangoModelFactory):
-    """`school` is derived from the manager on save, or passed explicitly."""
+    """`school` is derived from the manager on save, or passed explicitly.
+
+    An explicit `school` has to reach the manager and the year too. Since §7 a
+    club whose manager or year sits in another school is a CrossSchoolWriteError
+    rather than merely untidy fixture data, and `ClubFactory(school=other)` is
+    what an isolation test writes when it wants a club *in* that school — not a
+    club stitched across two.
+    """
 
     class Meta:
         model = Club
 
-    manager = factory.SubFactory(ClubManagerFactory)
+    manager = factory.LazyAttribute(
+        lambda o: ClubManagerFactory(
+            user__school=getattr(o, 'school', None) or _current_school()
+        )
+    )
     academic_year = factory.LazyAttribute(
         lambda o: _active_academic_year(
-            o.manager.user.school if o.manager else None
+            getattr(o, 'school', None)
+            or (o.manager.user.school if o.manager else None)
         )
     )
     start_date = factory.Faker('date_object')

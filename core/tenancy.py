@@ -51,6 +51,23 @@ class SchoolDerivationError(RuntimeError):
     """
 
 
+class CrossSchoolWriteError(RuntimeError):
+    """A single row was about to reference two different schools.
+
+    The row is not saved. This is the last in-Python layer of the three in §7:
+    the scoped manager stops a cross-tenant id from being *found*, this stops
+    one that was found anyway (a `_base_manager` lookup, an admin form, a
+    script) from being *written*, and the composite FKs in Postgres stop a raw
+    UPDATE.
+
+    It is a RuntimeError rather than a ValidationError on purpose. By the time
+    save() runs, a client-supplied cross-school id should already have been
+    turned into a 400 by the serializer; reaching here means something skipped
+    that path, and an unhandled 500 with this name in the traceback is the
+    honest answer. Never catch it to paper over a write.
+    """
+
+
 class _Sentinel:
     __slots__ = ('_name',)
 

@@ -12,7 +12,7 @@ from django.utils.html import strip_tags
 
 from simple_history.models import HistoricalRecords
 
-from core.models import SchoolDerivedMixin
+from core.models import SchoolConsistentModel, SchoolDerivedMixin
 from core.tenancy import SchoolScopedManager
 from core.validators import is_stored_file
 from core import settings
@@ -312,9 +312,13 @@ class CustomUser(AbstractUser):
 
 
 
-class Student(models.Model):
+class Student(SchoolConsistentModel):
     SCHOOL_PATH = 'user__school'
     objects = SchoolScopedManager()
+    #: `user` is the student's own school, so this reads as: an Orda house
+    #: and an academic year from a school the student does not attend are
+    #: a cross-tenant write, not a stray FK.
+    SCHOOL_CONSISTENT_FIELDS = ('user', 'school_group', 'academic_year')
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
@@ -491,6 +495,10 @@ class PsychologicalState(SchoolDerivedMixin, models.Model):
 
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('student__user', 'added_by')
+    #: One field, and still worth declaring: it is the column-vs-parent
+    #: check that stops a sensitive record being filed under the wrong
+    #: tenant, which here is a disclosure rather than a misfile.
+    SCHOOL_CONSISTENT_FIELDS = ('student',)
     objects = SchoolScopedManager()
 
     name = models.CharField(max_length=100)
@@ -527,15 +535,26 @@ class PsychologicalStateTemplates(models.Model):
     SCHOOL_PATH = 'school'
     objects = SchoolScopedManager()
 
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
-    # Root: templates are per-school. The global unique on `name` is
-    # relaxed to unique(school, name) in Phase 6, or school #2 could never
-    # reuse a name school #1 already took.
+    # Root: templates are per-school.
     school = models.ForeignKey(
         'authentication.School', related_name='psychological_state_templates',
         on_delete=models.PROTECT,
     )
+
+    class Meta:
+        constraints = [
+            # §7, and the one constraint tenancy actually *requires*: `name`
+            # was globally unique, so school #2 could never create a template
+            # whose name school #1 had already taken — a tenant blocking a
+            # tenant it cannot see. Relaxing a unique constraint can never
+            # fail on existing data.
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                name='psychstatetemplate_unique_name_per_school',
+            ),
+        ]
 
     def __str__(self):
         return self.name

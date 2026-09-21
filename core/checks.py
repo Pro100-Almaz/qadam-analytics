@@ -45,6 +45,21 @@ UNSCOPED_DEFAULT_MANAGER = {
         '`CustomUser.in_school` is the scoped manager for listings and pickers.',
 }
 
+#: FK names that record *who acted*, not what the row is about. They are
+#: excluded from the cross-tenant consistency check: since §9a a superuser
+#: legitimately administers any one school from the header switcher, so the
+#: actor's own school routinely differs from the row's and requiring a match
+#: would break exactly the feature the switcher exists to provide.
+ACTOR_FIELDS = frozenset({
+    'added_by', 'created_by', 'deleted_by', 'frozen_by', 'generated_by',
+    'updated_by', 'uploaded_by',
+})
+
+#: Join models allowed to skip SCHOOL_CONSISTENT_FIELDS, each with the reason.
+#: Empty, and worth keeping that way — every entry is a pair of tenant FKs
+#: nothing checks against each other.
+UNGUARDED_JOIN_MODELS = {}
+
 #: Nullable links that the second check tolerates, each with the reason it is
 #: safe. Keep this list at zero entries wherever possible — every entry is a
 #: place where a row *could* become visible to no school at all.
@@ -252,3 +267,71 @@ def check_school_scope_mode_is_valid(app_configs=None, **kwargs):
         ),
         id='tenancy.E007',
     )]
+
+
+def _domain_tenant_fks(model):
+    """Concrete FKs to another tenant model, actors excluded."""
+    for field in model._meta.fields:
+        if not field.is_relation or field.related_model is None:
+            continue
+        if field.name in ACTOR_FIELDS:
+            continue
+        related = field.related_model
+        if related._meta.label == 'authentication.School':
+            continue
+        if not getattr(related, 'SCHOOL_PATH', None):
+            continue
+        yield field
+
+
+@register(Tags.models)
+def check_join_models_validate_school_consistency(app_configs=None, **kwargs):
+    """A model with two tenant FKs declares which of them must agree.
+
+    The scoped manager stops a cross-tenant id from being *found*; it does
+    nothing about one that arrives anyway — from `_base_manager`, an admin
+    form, a script, or a serializer that looked the object up before the scope
+    was entered. `SCHOOL_CONSISTENT_FIELDS` is the save-time half, and this
+    check is what makes it non-optional: a new join model fails the build until
+    someone says which of its FKs belong to the same tenant.
+    """
+    from core.models import SchoolConsistentModel
+
+    errors = []
+    for model in _tenant_models():
+        label = model._meta.label
+        if label in UNGUARDED_JOIN_MODELS or model._meta.proxy:
+            continue
+        declared = tuple(getattr(model, 'SCHOOL_CONSISTENT_FIELDS', ()))
+        fks = [f.name for f in _domain_tenant_fks(model)]
+        if len(fks) >= 2 and not declared:
+            errors.append(Error(
+                f'{label} has tenant FKs {fks} but declares no '
+                f'SCHOOL_CONSISTENT_FIELDS, so nothing stops a row pointing '
+                f'at two schools at once.',
+                hint=(
+                    'Inherit core.models.SchoolConsistentModel and add '
+                    'SCHOOL_CONSISTENT_FIELDS = (...) naming the FKs that must '
+                    'resolve to the same school — or list the model in '
+                    'core.checks.UNGUARDED_JOIN_MODELS with the reason it is '
+                    'exempt.'
+                ),
+                id='tenancy.E008',
+            ))
+            continue
+        if declared and not issubclass(model, SchoolConsistentModel):
+            errors.append(Error(
+                f'{label} declares SCHOOL_CONSISTENT_FIELDS but does not '
+                f'inherit SchoolConsistentModel, so nothing reads it.',
+                id='tenancy.E009',
+            ))
+        for path in declared:
+            try:
+                list(_walk(model, path))
+            except LookupError as exc:
+                errors.append(Error(
+                    f'{label}.SCHOOL_CONSISTENT_FIELDS names {path!r}, which '
+                    f'does not resolve: {exc}',
+                    id='tenancy.E010',
+                ))
+    return errors
