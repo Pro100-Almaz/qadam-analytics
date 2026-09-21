@@ -15,7 +15,6 @@ from scripts.users.get_admin import get_admin_id
 from scripts.users.generate_password import generate_password
 from scripts.users.generate_username import generate_username
 
-from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
 from scripts.writing_data import get_writable_sheet
 from scripts.utils.logging_config import logger
@@ -72,7 +71,11 @@ dfs = get_sheets_data(only_sheets=STUDENT_IMPORT_SHEETS)
 admin_id = 0
 
 def main():
-    prefill_school_groups()
+    # Orda houses used to be seeded from here, by a raw INSERT that has been
+    # failing on `school_id` NOT NULL since phase 1 — so this importer crashed
+    # on its first line on every run. Seeding them is `manage.py create_school`
+    # now: it belongs to standing a tenant up, not to importing a roster into
+    # one that already exists.
     global admin_id
     admin_id = get_admin_id()
 

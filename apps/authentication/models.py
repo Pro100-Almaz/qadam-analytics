@@ -172,11 +172,6 @@ class CustomUser(AbstractUser):
         GROUP_CLUB_MANAGER: 'Club Manager',
     }
 
-    SCHOOL_CHOICES = [
-        ('muzafar_alimbayev', 'Muzafar Alimbayev 21'),
-        ('bukhar_zhyrau', 'Bukhar Zhyrau 19/1'),
-    ]
-
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
@@ -197,9 +192,17 @@ class CustomUser(AbstractUser):
     #
     # `editable=False` and written by nothing, so it cannot drift. Do not read
     # it at runtime either — `school` is the live field.
+    #
+    # Phase 7 dropped two things from it. `choices` named exactly the two
+    # hardcoded schools the whole plan exists to generalise away from, and a
+    # third tenant would have made this column invalid for its users while
+    # meaning nothing to them. The `'muzafar_alimbayev'` default was worse: it
+    # wrote school #1's name onto every user created *after* the split,
+    # including school #2's, filling the one column kept as the recovery record
+    # with an assertion nobody had made. Blank is the honest value — this user
+    # predates nothing.
     legacy_school = models.CharField(
-        max_length=20, choices=SCHOOL_CHOICES,
-        default='muzafar_alimbayev', editable=False,
+        max_length=20, blank=True, default='', editable=False,
     )
     school = models.ForeignKey(
         'authentication.School',

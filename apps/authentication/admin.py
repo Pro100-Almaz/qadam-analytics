@@ -7,8 +7,8 @@ from django import forms
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from apps.authentication.models import (
-    ClubManager, CustomUser, SchoolGroup, PsychologicalState, Supervisor,
-    Teacher, Parent, Student,
+    ClubManager, CustomUser, School, SchoolGroup, PsychologicalState,
+    Supervisor, Teacher, Parent, Student,
 )
 from apps.home.admin_forms import class_group_formfield
 from apps.home.models import Enrollment, ClassGroup, AcademicYear, Subject
@@ -398,6 +398,73 @@ class TeacherAdmin(ModelAdmin):
 
 admin.site.register(Supervisor)
 admin.site.register(ClubManager)
+
+@admin.register(School)
+class SchoolAdmin(admin.ModelAdmin):
+    """The tenant list. The one admin page that is deliberately NOT scoped.
+
+    Everything else on this site narrows to the school in the header; this
+    cannot, because it *is* the thing the header chooses from. `School` carries
+    no `school` column and no SCHOOL_PATH, so the mixin the site injects into
+    every registration is a no-op here — nothing to stamp, nothing to filter.
+
+    Superuser-only, and not because the data is sensitive: creating a tenant is
+    the one action on this site that changes what every other page can mean.
+    `selectable_schools` already limits the switcher to superusers, so a staff
+    member who could add a School here would create one nobody can switch into.
+
+    `slug` is read-only after creation. It is the stable internal key — every
+    script's `--school` flag, every migration that names a tenant, and the
+    `create_school` command all resolve through it — so renaming it in a form
+    silently breaks callers that have no idea this page exists. `uuid` is
+    already `editable=False`; it is shown because it is what crosses the
+    network, and support questions start with it.
+    """
+
+    list_display = ('name', 'slug', 'short_name', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'slug', 'short_name', 'contact_email')
+    readonly_fields = ('uuid', 'created_at')
+    fieldsets = (
+        (None, {'fields': ('name', 'short_name', 'slug', 'is_active')}),
+        ('Контакты', {'fields': ('address', 'contact_phone', 'contact_email')}),
+        ('Служебное', {
+            'fields': ('uuid', 'timezone', 'created_at'),
+            'description': (
+                'uuid is the public identifier — it is what the API and the '
+                'JWT claim carry, never the numeric id.'
+            ),
+        }),
+    )
+
+    def has_module_permission(self, request):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_view_permission(self, request, obj=None):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_add_permission(self, request):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_change_permission(self, request, obj=None):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_delete_permission(self, request, obj=None):
+        """Never. A tenant is deactivated, not deleted.
+
+        Every school FK is PROTECT, so a populated tenant cannot be deleted
+        anyway — the button would only ever produce a wall of protected-object
+        errors. An empty one deleted by mistake is worse: any user, token or
+        bookmark still naming it breaks, and `is_active=False` already means
+        "no longer served" without taking the rows with it.
+        """
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        return self.readonly_fields + ('slug',)
+
 
 @admin.register(SchoolGroup)
 class SchoolGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
