@@ -10,20 +10,29 @@ thing that runs.
 That split is what implements the §4 decision rather than merely coexisting
 with it:
 
-    /admin/, superuser, session auth   ->  ALL          (cross-school lives here)
+    /admin/, superuser, session auth   ->  the school the switcher names
     everything else                    ->  the user's own school
     anonymous                          ->  UNSET        (fail closed)
 
-`ALL` is deliberately tied to the admin path rather than to `is_superuser`
-alone. A superuser hitting the DRF API — with a token, or with an admin session
-cookie still in the jar — gets their own school like anyone else, so a mistyped
-cross-school id 404s instead of silently landing in another tenant. Cross-school
-work happens on the one surface where the actor can see what they are touching.
+**No request ever resolves to `ALL`.** A superuser in the admin sees exactly
+one school at a time — their own by default, any other by picking it from the
+header switcher, which writes `session['active_school_id']`. That is a view
+selector and not a permission (a superuser may still pick any school), but it
+means every admin page has an unambiguous answer to "which tenant am I in",
+which is what `save_model` stamping and the active-academic-year lookups need.
+`core.tenancy.all_schools()` still exists for migrations, scripts and the
+shell — cross-school work belongs where it is written down, not where it is
+the silent default.
+
+A superuser hitting the DRF API — with a token, or with an admin session cookie
+still in the jar — gets their own school like anyone else, so a mistyped
+cross-school id 404s instead of silently landing in another tenant.
 """
 
 from django.urls import reverse
 
-from core.tenancy import ALL, UNSET, reset_active_school, set_active_school
+from apps.authentication.school_selection import resolve_admin_school
+from core.tenancy import UNSET, reset_active_school, set_active_school
 
 
 class SchoolScopeMiddleware:
@@ -58,23 +67,21 @@ class SchoolScopeMiddleware:
             return UNSET
 
         if user.is_superuser and request.path.startswith(self.admin_prefix):
-            # The phase-7 switcher writes this; until then a superuser in the
-            # admin simply sees every school.
-            chosen = (request.session or {}).get('active_school_id')
-            return chosen if chosen else ALL
+            # Exactly one school, always — the switcher's choice if the session
+            # names one this user may still select, else their own, else the
+            # first school that exists. See apps.authentication.school_selection
+            # for why each fallback is where it is.
+            chosen = resolve_admin_school(request, user)
+            return chosen if chosen is not None else UNSET
 
         if user.school_id is None:
-            # Only reachable for a superuser created by `createsuperuser`, who
-            # has no school to scope to — so the cross-school sentinel is the
-            # only workable answer, and `resolve_scope` in the DRF auth class
-            # says the same. This is the one exception to "superusers get their
-            # own school outside /admin/": give such an account a school and
-            # the exception stops applying to it.
-            #
-            # Anyone else with no school fails closed. The phase-1 check
-            # constraint `user_has_school_unless_superuser` means there is no
-            # such user, but the branch does not depend on that holding.
-            return ALL if user.is_superuser else UNSET
+            # A `createsuperuser` account with no school yet. It has no tenant
+            # to act in outside the admin, and there is no sentinel to widen to
+            # any more, so it fails closed here like anyone else — the admin
+            # (above) is where it goes to give itself a school. Everyone else
+            # with no school is barred by the `user_has_school_unless_superuser`
+            # check constraint, but this branch does not rely on that holding.
+            return UNSET
 
         return user.school_id
 

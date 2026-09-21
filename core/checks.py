@@ -32,12 +32,6 @@ SHARED_MODELS = {
     'home.GradeLevel':
         'Grades 1-11 are universal, not per-school; rollover_academic_year does '
         'get_or_create(number=n) against a single shared table.',
-    'home.AcademicYear':
-        'Shared across all schools (§1a): both follow the same national '
-        'calendar, so one 2025/2026 row with one set of quarter dates serves '
-        'both. This also makes filter(is_active=True).first() a correct global '
-        'singleton. If the schools ever need different term dates the answer is '
-        'per-school quarter overrides, not re-scoping this model.',
 }
 
 #: Models whose DEFAULT manager is deliberately unscoped, with the reason.

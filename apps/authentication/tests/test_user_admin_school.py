@@ -21,7 +21,14 @@ from core.factories import SchoolFactory, UserFactory
 
 @pytest.fixture
 def school(db):
-    return SchoolFactory(slug='school_a')
+    """The school the surrounding scope names.
+
+    Not a second tenant: since the admin switcher landed, the `school` picker
+    is pinned to the active school, so a form offered another school's pk now
+    correctly refuses it — see `test_the_form_refuses_another_schools_pk`.
+    """
+    from core.factories import DEFAULT_TEST_SCHOOL_SLUG
+    return SchoolFactory(slug=DEFAULT_TEST_SCHOOL_SLUG)
 
 
 @pytest.fixture
@@ -66,6 +73,24 @@ def test_add_form_accepts_a_user_with_a_school(user_admin, request_, school):
 
     assert form.is_valid(), form.errors
     assert form.save().school_id == school.pk
+
+
+@pytest.mark.django_db
+def test_the_form_refuses_another_schools_pk(user_admin, request_, school):
+    """The picker is pinned to the active school, so this is not a valid choice.
+
+    Belt and braces with the switcher: even a hand-crafted POST naming another
+    tenant is a field error rather than a cross-school write.
+    """
+    elsewhere = SchoolFactory(slug='school_elsewhere')
+    form = _form_class(user_admin, request_)(data={
+        'username': 'somebody@test.kz',
+        'password1': 'Qadam2026*', 'password2': 'Qadam2026*',
+        'school': elsewhere.pk,
+    })
+
+    assert not form.is_valid()
+    assert 'school' in form.errors
 
 
 def _change_data(user, **over):

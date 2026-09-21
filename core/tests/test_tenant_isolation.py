@@ -132,7 +132,14 @@ def build_world(school, marker):
     created = {}
 
     with school_scope(school):
-        year = AcademicYear.objects.filter(is_active=True).first() or f.AcademicYearFactory(is_active=True)
+        # Per-school again, so the year is itself one of the scoped models the
+        # sweep has to cover — and the marker goes in its name, since the year
+        # string is rendered in plenty of serializers.
+        year = (
+            AcademicYear.objects.filter(is_active=True).first()
+            or f.AcademicYearFactory(is_active=True, year=f'20{marker}0/20{marker}1')
+        )
+        created[AcademicYear] = year
 
         created[SchoolGroup] = f.SchoolGroupFactory(name=f'Orda {marker}')
         created[CustomUser] = f.UserFactory(

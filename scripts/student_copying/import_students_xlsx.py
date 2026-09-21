@@ -47,7 +47,9 @@ import django  # noqa: E402
 
 django.setup()
 
-from scripts.utils.bootstrap import add_school_argument, resolve_school  # noqa: E402
+from scripts.utils.bootstrap import (  # noqa: E402
+    active_school, add_school_argument, resolve_school,
+)
 
 from django.contrib.auth.models import Group  # noqa: E402
 from django.db import transaction  # noqa: E402
@@ -216,7 +218,9 @@ def get_academic_year(year_value):
     academic_year = AcademicYear.objects.filter(year=year_value).first()
     if academic_year:
         return academic_year, False
-    return AcademicYear.objects.create(year=year_value, is_active=False, archived=False), True
+    return AcademicYear.objects.create(
+        year=year_value, school=active_school(), is_active=False, archived=False,
+    ), True
 
 
 def get_or_create_class_group(academic_year, grade, letter, cache, report, school):

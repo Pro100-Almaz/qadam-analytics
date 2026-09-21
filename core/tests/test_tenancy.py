@@ -8,6 +8,7 @@ manager composition.
 import logging
 
 import pytest
+from django.db.utils import IntegrityError
 from django.test import override_settings
 
 from apps.home.models import AcademicYear, Subject
@@ -189,9 +190,10 @@ def test_minor_class_group_manager_keeps_both_filters(two_schools):
     from apps.home.models import ClassGroup, MinorClassGroup
     a, b = two_schools
     with all_schools():
-        # One shared year since §1a — the school comes from the group's own
-        # column, which is the whole reason ClassGroup carries one.
-        year = AcademicYearFactory()
+        # The group's school comes from its own column, not from the year —
+        # which is the whole reason ClassGroup carries one. Pinned by passing a
+        # school A year to a school B group below.
+        year = AcademicYearFactory(school=a)
         MinorClassGroup.objects.create(academic_year=year, letter='Хор', school=a)
         ClassGroup.objects.create(academic_year=year, letter='7A', school=a)
         MinorClassGroup.objects.create(
@@ -228,22 +230,61 @@ def test_apply_school_scope_is_idempotent_under_all(two_schools):
 
 
 @ENFORCE
-def test_academic_year_is_shared_and_the_singleton_is_global(two_schools):
-    """§1a: years are shared, so the 24 `filter(is_active=True).first()` sites
-    resolve to the same row from either school — correct by definition rather
-    than by scoping. The column is gone, so there is nothing to disagree about.
+def test_academic_year_is_per_school_and_the_singleton_is_scoped(two_schools):
+    """Years are per-school again, reversing §1a.
+
+    The ~24 `filter(is_active=True).first()` sites are now correct *because of*
+    the scope rather than by definition: each school sees its own active row,
+    and the two never collide. Both schools may name the same year — that is
+    what `unique(school, year)` allows and `unique(year)` did not.
     """
     a, b = two_schools
-    with all_schools():
-        AcademicYearFactory(year='2026/2027', is_active=True)
+    with school_scope(a):
+        year_a = AcademicYearFactory(year='2026/2027', is_active=True)
+    with school_scope(b):
+        year_b = AcademicYearFactory(year='2026/2027', is_active=True)
 
-    assert not hasattr(AcademicYear, 'school')
+    assert year_a.pk != year_b.pk
+
     with school_scope(a):
         from_a = AcademicYear.objects.filter(is_active=True).first()
     with school_scope(b):
         from_b = AcademicYear.objects.filter(is_active=True).first()
-    assert from_a is not None and from_a.pk == from_b.pk
 
-    # and it is reachable with no scope at all, being a shared model
+    assert from_a.pk == year_a.pk
+    assert from_b.pk == year_b.pk
+    assert from_a.school_id == a.pk and from_b.school_id == b.pk
+
+
+@ENFORCE
+def test_the_active_year_singleton_fails_closed_outside_a_scope():
+    """The cost of splitting, pinned: it is no longer a global singleton.
+
+    Under `enforce` an unscoped lookup raises instead of picking a tenant's
+    year at random — which is why the /admin/ switcher (§9a) had to land first.
+    """
     with no_school_scope():
-        assert AcademicYear.objects.filter(is_active=True).exists()
+        with pytest.raises(SchoolScopeError):
+            AcademicYear.objects.filter(is_active=True).first()
+
+
+@ENFORCE
+def test_a_school_cannot_have_two_active_years(two_schools):
+    """`academicyear_one_active_per_school` — otherwise `.first()` is a coin toss."""
+    a, _ = two_schools
+    with school_scope(a):
+        AcademicYearFactory(year='2026/2027', is_active=True)
+        with pytest.raises(IntegrityError):
+            AcademicYearFactory(year='2027/2028', is_active=True)
+
+
+@ENFORCE
+def test_a_school_cannot_have_the_same_year_twice(two_schools):
+    """`academicyear_unique_year_per_school`."""
+    a, _ = two_schools
+    with school_scope(a):
+        AcademicYearFactory(year='2026/2027', is_active=False)
+        with pytest.raises(IntegrityError):
+            AcademicYear.objects.create(
+                year='2026/2027', school=a, is_active=False,
+            )

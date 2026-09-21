@@ -1,9 +1,10 @@
 """How a request gets its school: the middleware and the DRF auth class.
 
-These two are the whole of phase 3's isolation wiring, and between them they
-implement the §4 decision that cross-school access lives in `/admin/` and
-nowhere else. That decision is a security boundary, so it is pinned from both
-sides — what each surface grants, and what it refuses.
+These two are the whole of phase 3's isolation wiring. Between them they
+implement the rule that **no request ever resolves to `ALL`**: in `/admin/` a
+superuser acts in the one school the header switcher names, and everywhere else
+every user gets their own. That is a security boundary, so it is pinned from
+both sides — what each surface grants, and what it refuses.
 """
 
 import jwt
@@ -17,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.authentication.api.authentication import resolve_scope
 from core.factories import AdminUserFactory, SchoolFactory, UserFactory
 from core.middleware import SchoolScopeMiddleware
-from core.tenancy import ALL, UNSET, get_active_school
+from core.tenancy import UNSET, get_active_school
 
 pytestmark = pytest.mark.django_db
 
@@ -59,9 +60,14 @@ def test_a_regular_user_gets_their_own_school(school_a):
     assert _scope_for(user) == school_a.pk
 
 
-def test_a_superuser_in_the_admin_sees_every_school(school_a):
+def test_a_superuser_in_the_admin_gets_one_school_not_every_school(school_a, school_b):
+    """The switcher's whole point: /admin/ names a tenant, it never unions them.
+
+    `ALL` used to be the answer here, which made every changelist a mix of both
+    schools and left `save_model` with no school to stamp on a new row.
+    """
     user = UserFactory(school=school_a, is_superuser=True, is_staff=True)
-    assert _scope_for(user, path='/admin/home/subject/') is ALL
+    assert _scope_for(user, path='/admin/home/subject/') == school_a.pk
 
 
 def test_a_superuser_outside_the_admin_gets_only_their_own_school(school_a):
@@ -75,8 +81,8 @@ def test_a_superuser_outside_the_admin_gets_only_their_own_school(school_a):
     assert _scope_for(user, path='/api/v1/students/') == school_a.pk
 
 
-def test_the_admin_switcher_hook_narrows_a_superuser(school_a, school_b):
-    """Phase 7 writes this session key; the middleware already honours it."""
+def test_the_admin_switcher_narrows_a_superuser_to_the_chosen_school(school_a, school_b):
+    """The session key the header switcher writes."""
     user = UserFactory(school=school_a, is_superuser=True, is_staff=True)
     scope = _scope_for(
         user, path='/admin/', session={'active_school_id': school_b.pk},
@@ -84,10 +90,69 @@ def test_the_admin_switcher_hook_narrows_a_superuser(school_a, school_b):
     assert scope == school_b.pk
 
 
-def test_a_schoolless_superuser_outside_the_admin_still_gets_all():
-    """`createsuperuser` leaves no school; there is nothing to scope to."""
+def test_a_stale_session_choice_falls_back_instead_of_resolving(school_a):
+    """Validated on read, not only on the POST that set it.
+
+    A session outlives the school it names — deleted, or the account demoted
+    out of being able to select it. The value must not resolve into a scope
+    just because it is present.
+    """
+    user = UserFactory(school=school_a, is_superuser=True, is_staff=True)
+    gone = SchoolFactory(slug='school_gone')
+    gone_pk = gone.pk
+    gone.delete()
+
+    assert _scope_for(
+        user, path='/admin/', session={'active_school_id': gone_pk},
+    ) == school_a.pk
+
+
+def test_a_junk_session_choice_falls_back_instead_of_raising(school_a):
+    user = UserFactory(school=school_a, is_superuser=True, is_staff=True)
+    assert _scope_for(
+        user, path='/admin/', session={'active_school_id': 'not-a-pk'},
+    ) == school_a.pk
+
+
+def test_a_non_superuser_cannot_switch_school_through_the_session(school_a, school_b):
+    """The session key is only read for superusers — the switcher is not a grant."""
+    user = AdminUserFactory(school=school_a)
+    scope = _scope_for(
+        user, path='/admin/', session={'active_school_id': school_b.pk},
+    )
+    assert scope == school_a.pk
+
+
+def test_a_schoolless_superuser_in_the_admin_lands_on_a_real_school(school_a):
+    """`createsuperuser` leaves no school, and the admin is where they fix it.
+
+    Failing closed here would lock the only account able to assign itself a
+    school out of the page that assigns it. *Which* school it lands on is
+    deliberately not asserted — it is the first by name, which depends on what
+    rows exist — only that it is one concrete tenant rather than no scope.
+    """
+    from apps.authentication.models import School
+
     user = UserFactory(school=None, is_superuser=True, is_staff=True)
-    assert _scope_for(user, path='/api/v1/students/') is ALL
+    scope = _scope_for(user, path='/admin/')
+
+    assert scope is not UNSET
+    assert scope in set(School.objects.values_list('pk', flat=True))
+
+
+def test_a_schoolless_superuser_can_still_switch(school_a):
+    """And the switcher gets them out of whichever one they landed on."""
+    user = UserFactory(school=None, is_superuser=True, is_staff=True)
+    scope = _scope_for(
+        user, path='/admin/', session={'active_school_id': school_a.pk},
+    )
+    assert scope == school_a.pk
+
+
+def test_a_schoolless_superuser_outside_the_admin_fails_closed():
+    """The last path that used to widen to ALL. It no longer does."""
+    user = UserFactory(school=None, is_superuser=True, is_staff=True)
+    assert _scope_for(user, path='/api/v1/students/') is UNSET
 
 
 def test_the_scope_is_reset_after_the_response(school_a):
@@ -142,9 +207,16 @@ def test_a_mismatched_claim_is_rejected(school_a, school_b):
 
 
 def test_a_superuser_over_the_api_is_not_special(school_a):
-    """ALL is reached through /admin/ only — never through a token."""
+    """No token resolves to anything wider than the user's own school."""
     user = UserFactory(school=school_a, is_superuser=True, is_staff=True)
     assert resolve_scope(user, None) == school_a.pk
+
+
+def test_a_schoolless_superuser_is_refused_over_the_api():
+    """The DRF half of the ALL removal: no account reads two tenants by token."""
+    user = UserFactory(school=None, is_superuser=True, is_staff=True)
+    with pytest.raises(AuthenticationFailed, match='no school'):
+        resolve_scope(user, None)
 
 
 def test_a_forged_claim_for_another_school_does_not_grant_it(school_a, school_b):

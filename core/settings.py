@@ -60,7 +60,9 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # Replaces 'django.contrib.admin' so `admin.site` is QadamAdminSite —
+    # the school switcher in the header needs its own `each_context`.
+    'core.admin_config.QadamAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',

@@ -17,15 +17,17 @@ move a user between schools or offboard them and a token minted beforehand
 would otherwise assert the old school for up to REFRESH_TOKEN_LIFETIME (7 days).
 
 Superusers are **not** special here. Over the API they are scoped to their own
-school like anyone else; `ALL` is reached only through `/admin/` on session
-auth (see core.middleware). A mistyped cross-school id therefore 404s rather
-than silently landing in another tenant.
+school like anyone else, so a mistyped cross-school id 404s rather than
+silently landing in another tenant. There is no cross-school sentinel on the
+request path at all any more — in `/admin/` a superuser picks one school from
+the header switcher (see core.middleware), and everywhere else the only
+cross-school access is an explicit `all_schools()` in code.
 """
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.authentication.school_cache import uuid_for_school_pk
-from core.tenancy import ALL, set_active_school
+from core.tenancy import set_active_school
 
 
 class SchoolScopedJWTAuthentication(JWTAuthentication):
@@ -43,10 +45,13 @@ def resolve_scope(user, claim_uuid):
     from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
     if user.school_id is None:
-        # Only a `createsuperuser` account reaches this. There is no school to
-        # scope to, so the cross-school sentinel is the only workable answer.
-        if user.is_superuser:
-            return ALL
+        # Only a `createsuperuser` account reaches this — every other user is
+        # held to a school by the `user_has_school_unless_superuser` check
+        # constraint. It used to resolve to the cross-school sentinel, which
+        # made a schoolless superuser the one account that could read both
+        # tenants over the API. It fails closed instead: such an account signs
+        # into /admin/, where it lands on a concrete school, and gives itself
+        # one. Nothing else in the system needs it to be able to call the API.
         raise AuthenticationFailed('User has no school.')
 
     if claim_uuid and str(claim_uuid) != uuid_for_school_pk(user.school_id):

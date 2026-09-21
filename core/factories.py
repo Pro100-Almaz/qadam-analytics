@@ -189,34 +189,52 @@ class ClubManagerUserFactory(UserFactory):
 
 
 class AcademicYearFactory(DjangoModelFactory):
-    """Shared across schools since §1a — no `school`, and none accepted."""
+    """Per-school again — `school` defaults to the surrounding scope.
+
+    `django_get_or_create` on (school, year) matches the unique constraint, so
+    two factories naming the same year in one school return the same row rather
+    than tripping an IntegrityError.
+    """
 
     class Meta:
         model = AcademicYear
+        django_get_or_create = ('school', 'year')
 
+    school = factory.LazyFunction(_current_school)
     year = factory.Sequence(lambda n: f'202{n}/202{n + 1}')
     is_active = True
     archived = False
 
 
-def _active_academic_year():
-    """The active year, created if this test has not made one yet.
+def _active_academic_year(school=None):
+    """That school's active year, created if this test has not made one yet.
 
     Was `AcademicYear.objects.filter(is_active=True).first()`, which silently
     returns `None` when no test fixture happened to create an active year — so
     the Student came out with no year at all and the failure surfaced somewhere
     far away, as a missing enrollment or an empty grade list.
 
-    Since §1a the year is shared across schools, so a single global active row
-    is correct by definition; there is no tenancy question here, only the None.
-    `SubFactory(AcademicYearFactory)` would be wrong in the other direction —
-    it mints a *new* year per student, so two students in one test end up in
-    different years.
+    **`SubFactory(AcademicYearFactory)` is wrong here, and is now wrong loudly.**
+    It mints a *new* year per object, so two students in one test used to end up
+    in different years. Since years went back to being per-school that is no
+    longer merely untidy: `AcademicYearFactory` defaults to `is_active=True`, so
+    the second one in a school violates `academicyear_one_active_per_school`.
+    Reusing the school's active row is both the correct fixture and the only one
+    the constraint permits.
+
+    `_base_manager`, not `objects`: the school is named explicitly here, so the
+    lookup must not also be narrowed by whatever scope the test happens to be
+    in. `ClassGroupFactory(school=b)` inside `school_scope(a)` is a legitimate
+    thing for an isolation test to do, and a scoped lookup would hand it a's
+    year.
     """
-    year = AcademicYear.objects.filter(is_active=True).first()
+    school = school or _current_school()
+    year = AcademicYear._base_manager.filter(
+        school=school, is_active=True,
+    ).first()
     if year is not None:
         return year
-    return AcademicYearFactory(is_active=True)
+    return AcademicYearFactory(school=school, is_active=True)
 
 
 class GradeLevelFactory(DjangoModelFactory):
@@ -231,7 +249,9 @@ class ClassGroupFactory(DjangoModelFactory):
         model = ClassGroup
 
     school = factory.LazyFunction(_current_school)
-    academic_year = factory.SubFactory(AcademicYearFactory)
+    academic_year = factory.LazyAttribute(
+        lambda o: _active_academic_year(o.school)
+    )
     grade_level = factory.SubFactory(GradeLevelFactory)
     letter = 'A'
     category = ClassGroup.MAJOR_CHOICE
@@ -254,7 +274,9 @@ class StudentFactory(DjangoModelFactory):
 
     user = factory.SubFactory(StudentUserFactory)
     school_group = factory.SubFactory(SchoolGroupFactory)
-    academic_year = factory.LazyFunction(lambda: _active_academic_year())
+    academic_year = factory.LazyAttribute(
+        lambda o: _active_academic_year(o.user.school)
+    )
 
 
 class TeacherFactory(DjangoModelFactory):
@@ -294,7 +316,11 @@ class ClubFactory(DjangoModelFactory):
         model = Club
 
     manager = factory.SubFactory(ClubManagerFactory)
-    academic_year = factory.SubFactory(AcademicYearFactory)
+    academic_year = factory.LazyAttribute(
+        lambda o: _active_academic_year(
+            o.manager.user.school if o.manager else None
+        )
+    )
     start_date = factory.Faker('date_object')
     end_date = factory.LazyAttribute(
         lambda obj: obj.start_date + timedelta(days=240)

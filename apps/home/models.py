@@ -9,18 +9,34 @@ from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
 
 
 class AcademicYear(models.Model):
-    """A school year and its quarter boundaries. SHARED across all schools.
+    """A school year and its quarter boundaries. One row PER SCHOOL.
 
-    Not scoped, and carries no `school` column. Both schools follow the same
-    national calendar, so one 2025/2026 row serves both — which also makes
-    `filter(is_active=True).first()` a correct global singleton rather than the
-    ambiguous one the per-school design would have left.
+    §1a briefly made this shared — one 2025/2026 row for everybody — on the
+    grounds that both schools follow the same national calendar. Reversed
+    2026-09-21: sharing the row also shares `q1_start … q4_end`, `is_active`
+    and the rollover day, so the two schools could never diverge on term dates
+    without undoing it, and it is cheaper to split while school #2 has almost
+    no data than after a year of grades hangs off the shared row.
 
-    The assumption this rests on, stated so it is findable: identical quarter
-    dates and a shared rollover day. If the two schools ever diverge, the fix
-    is per-school quarter overrides, not re-adding this column.
+    What that costs, stated so it is findable: `filter(is_active=True).first()`
+    is no longer a global singleton. Inside a request it is correct — the
+    scoped manager narrows it to one school — and outside one it raises under
+    `SCHOOL_SCOPE_MODE=enforce` rather than silently picking a tenant. The
+    `/admin/` case is what made this safe to do at all: since §9a a superuser
+    is scoped to exactly one school there, so the seven admin call sites see
+    one candidate row, not four.
     """
 
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
+    #: Root: a year belongs to its school directly. PROTECT, never CASCADE —
+    #: deleting a tenant must not silently take its calendar and every grade
+    #: that hangs off it.
+    school = models.ForeignKey(
+        'authentication.School', related_name='academic_years',
+        on_delete=models.PROTECT,
+    )
     year = models.CharField(max_length=40)  # 2024/2025
     is_active = models.BooleanField(default=False)
     archived = models.BooleanField(default=True)
@@ -33,6 +49,28 @@ class AcademicYear(models.Model):
     q3_end = models.DateField(null=True, blank=True)
     q4_start = models.DateField(null=True, blank=True)
     q4_end = models.DateField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            # §7: one `2025/2026` per school. Was a plain `unique(year)` while
+            # the row was shared; the school column is what lets both tenants
+            # name the same year again.
+            models.UniqueConstraint(
+                fields=['school', 'year'],
+                name='academicyear_unique_year_per_school',
+            ),
+            # `filter(is_active=True).first()` is used as a per-school
+            # singleton in ~24 places. Without this it is nondeterministic the
+            # moment a rollover leaves two rows active, and the failure is a
+            # silently wrong year rather than an error.
+            models.UniqueConstraint(
+                fields=['school'],
+                condition=models.Q(is_active=True),
+                name='academicyear_one_active_per_school',
+            ),
+        ]
+        verbose_name = 'Учебный год'
+        verbose_name_plural = 'Учебные годы'
 
     @property
     def current_quarter(self):

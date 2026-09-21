@@ -26,8 +26,9 @@ def school(db):
 
 @pytest.fixture
 def superuser(school):
-    # A school of their own: the admin stamps new rows from the acting user's
-    # school, since a superuser's scope names none.
+    # A school of their own: /admin/ scopes a superuser to the school the
+    # header switcher names, which defaults to theirs, and that is the school
+    # new rows are stamped with.
     return UserFactory(is_staff=True, is_superuser=True, school=school)
 
 
@@ -67,8 +68,8 @@ def test_manager_only_sees_minor_groups(major_a, subgroup):
 
 
 def test_saving_a_subgroup_forces_the_minor_category(academic_year, school):
-    # `school=` is explicit now: §1a made AcademicYear shared, so a class group
-    # has nothing left to derive its school from.
+    # `school=` is explicit: ClassGroup declares no SCHOOL_DERIVED_FROM, since
+    # `academic_year` is SET_NULL and `grade_level` is a shared model.
     group = MinorClassGroup(academic_year=academic_year, letter='Шахматы', school=school)
     group.category = ClassGroup.MAJOR_CHOICE
     group.save()

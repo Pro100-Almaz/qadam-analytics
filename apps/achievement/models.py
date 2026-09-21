@@ -279,11 +279,12 @@ class ClubEntry(SoftDeleteMixin, models.Model):
 class Club(SchoolDerivedMixin, SoftDeleteMixin, models.Model):
     """A club. Carries its own school column.
 
-    Since §1a made AcademicYear shared, `academic_year__school` no longer
-    reaches a tenant — and `manager` is the only other FK, which is SET_NULL.
-    A nullable link in a SCHOOL_PATH becomes an INNER JOIN that drops every
-    manager-less club from every school's queryset, so the column is the only
-    correct answer.
+    `manager` is SET_NULL, and a nullable link in a SCHOOL_PATH becomes an
+    INNER JOIN that drops every manager-less club from every school's queryset.
+    `academic_year__school` does reach a tenant again now that years are
+    per-school, but the column is kept: it is one fewer join on the path every
+    club query takes, and it is what the `SchoolDerivedMixin` fills, so the
+    value is maintained either way.
     """
 
     SCHOOL_PATH = 'school'

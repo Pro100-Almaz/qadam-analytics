@@ -74,3 +74,28 @@ def school_from_argv(description, configure=None):
         configure(parser)
     args = parser.parse_args()
     return resolve_school(args.school), args
+
+
+def active_school():
+    """The School the surrounding `school_scope(...)` names.
+
+    For write sites. Reads narrow by themselves — `Model.objects` is scoped —
+    but a `create()` still has to put a value in a NOT NULL `school` column,
+    and threading the School object down through every helper in a script that
+    predates tenancy is a lot of signature churn for one value that is already
+    in the context.
+
+    Fails loudly outside a scope rather than returning None: a script that
+    forgot `with school_scope(school):` would otherwise write rows with no
+    tenant, which is exactly the class of bug `--school` exists to prevent.
+    """
+    from apps.authentication.models import School
+    from core.tenancy import get_active_school
+
+    scope = get_active_school()
+    if not isinstance(scope, int):
+        sys.exit(
+            'No active school scope. Wrap the work in '
+            '`with school_scope(school):` — see school_from_argv().'
+        )
+    return School.objects.get(pk=scope)

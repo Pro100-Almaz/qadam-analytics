@@ -16,10 +16,10 @@ class Command(BaseCommand):
         parser.add_argument(
             '--school', required=True,
             help=(
-                'Slug of the school whose class groups and enrollments to roll '
-                'over. Required, not inferred: the academic year itself is '
-                'shared (§1a) and is created once, but class groups and '
-                'enrollments are per-school, so this has to run once per school.'
+                'Slug of the school to roll over. Required, not inferred: '
+                'everything a rollover touches — the academic year itself, its '
+                'class groups and its enrollments — is per-school, so this runs '
+                'once per school and the two need not happen on the same day.'
             ),
         )
 
@@ -52,28 +52,41 @@ class Command(BaseCommand):
     def _rollover(self, new_year_name, school):
         summary = []
 
-        # AcademicYear is shared (§1a), so there is no `school=` here and the
-        # year half of a rollover happens once no matter how many schools run
-        # it. Running this a second time for another school finds the year
-        # already created and only does that school's class groups.
+        # Years are per-school again, so a rollover is wholly per-school: each
+        # run creates that school's own new year and archives that school's own
+        # current one. Two schools means two independent rollovers, which is
+        # the point — they can now happen on different days.
+        #
+        # `AcademicYear.objects` is scoped, and the caller has entered
+        # `school_scope(school)`, so this can only see and create rows here.
         current_year = AcademicYear.objects.filter(is_active=True).first()
         if not current_year:
-            self.stderr.write(self.style.ERROR('No active academic year.'))
+            self.stderr.write(
+                self.style.ERROR(f'No active academic year for {school.slug}.')
+            )
             return []
 
+        # `is_active` is deliberately NOT in defaults: the partial unique index
+        # `academicyear_one_active_per_school` allows exactly one active row
+        # per school, so the new year is created dormant and activated below,
+        # after the current one has been stood down. Creating it active first
+        # would violate the constraint inside this transaction.
         new_year, created = AcademicYear.objects.get_or_create(
             year=new_year_name,
-            defaults={'is_active': True, 'archived': False},
+            school=school,
+            defaults={'is_active': False, 'archived': False},
         )
         if created:
             current_year.is_active = False
             current_year.archived = True
             current_year.save(update_fields=['is_active', 'archived'])
+            new_year.is_active = True
+            new_year.save(update_fields=['is_active'])
             summary.append(f'Archived {current_year.year}, created {new_year_name}')
         else:
             summary.append(
-                f'Academic year {new_year_name} already exists (shared) — '
-                f'rolling over {school.slug} into it'
+                f'Academic year {new_year_name} already exists for '
+                f'{school.slug} — rolling its class groups over into it'
             )
 
         # Only major class groups are promoted — minor groups are re-formed each year.
@@ -90,10 +103,11 @@ class Command(BaseCommand):
             next_grade_number = old_cg.grade_level.number + 1
             next_grade, _ = GradeLevel.objects.get_or_create(number=next_grade_number)
 
-            # `school` is both the tenant key and part of the lookup: the
-            # column is NOT NULL and ClassGroup can no longer derive it (§1a
-            # removed the year it used to derive from), and without it in the
-            # lookup get_or_create would match another school's 7A.
+            # `school` stays explicit even though the year now carries one
+            # again: ClassGroup declares no SCHOOL_DERIVED_FROM, its column is
+            # NOT NULL, and a year belongs to one school anyway — so passing it
+            # is both required and a second assertion that this is the right
+            # tenant.
             new_cg, _ = ClassGroup.objects.get_or_create(
                 academic_year=new_year,
                 grade_level=next_grade,

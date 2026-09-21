@@ -381,13 +381,20 @@ class Student(models.Model):
 
 @receiver(pre_save, sender=Student)
 def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign the active academic year before save if not set.
+    """Auto-assign the student's school's active academic year, if not set.
 
-    Since §1a, AcademicYear is shared across schools and unscoped — so "the
-    active year" is an unambiguous global singleton. There is no school to read
-    off the user and no scope to enter, which is why this is now a plain
-    lookup: it behaves identically in a request, a script, the shell and a
-    Celery worker.
+    Years are per-school again, so "the active year" is only meaningful next to
+    a school — and the right school here is the **student's own**, read off
+    `user.school`, not whatever scope the caller happens to be in. Those are
+    normally the same; when they are not, the student's own school is the one
+    that cannot be wrong.
+
+    That is also why this reads `_base_manager` rather than the scoped
+    `objects`: the school is already named in the filter, so narrowing it a
+    second time by the ambient scope could only ever subtract. It keeps the
+    property the shared-year version had of behaving identically in a request,
+    a script, the shell and a Celery worker — without being a global singleton
+    any more.
 
     The blanket `except Exception: pass` this replaces was the worst failure
     mode the tenancy design can produce. It fires on every Student save, and
@@ -401,9 +408,17 @@ def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
 
     from apps.home.models import AcademicYear
 
+    school_id = instance.user.school_id if instance.user_id else None
+    if school_id is None:
+        # A student with no school cannot have a year picked for them. The FK
+        # is nullable, and the `user_has_school_unless_superuser` constraint
+        # means this is not a state a real student reaches.
+        return
+
+    years = AcademicYear._base_manager.filter(school_id=school_id)
     instance.academic_year = (
-        AcademicYear.objects.filter(is_active=True).first()
-        or AcademicYear.objects.order_by('-year').first()
+        years.filter(is_active=True).first()
+        or years.order_by('-year').first()
     )
 
 

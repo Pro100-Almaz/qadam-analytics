@@ -36,6 +36,12 @@ pytest apps/home/tests/test_permissions.py                        # single modul
 pytest apps/lesson/tests/test_calendar_lessons_api.py::test_teacher_list_is_deterministically_ordered
 pytest apps/home/tests/test_permissions.py::TestAdminAndSupervisorAccess::test_supervisor_can_list_enrollments
 
+# macOS (Apple Silicon): weasyprint loads pango/glib through cffi's dlopen, which
+# does not search /opt/homebrew/lib. Without this most of the suite fails to even
+# collect, with `OSError: cannot load library 'gobject-2.0-0'` — even though
+# `brew list` shows pango installed. Nothing to install; it is only the path.
+DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib pytest
+
 # Tenancy gates (both also run in CI — see .github/workflows/ci.yml)
 python manage.py check              # includes the tenancy.E00x system checks
 SCHOOL_SCOPE_MODE=enforce python manage.py check   # import-time queryset gate
