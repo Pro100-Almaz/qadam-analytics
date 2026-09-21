@@ -168,7 +168,7 @@ class TestPasswordResetFlow:
         user = UserFactory()
         mock_send.return_value = 'signed:code'
         response = api_client.post(reverse('auth-api:forget-password'), {
-            'username': user.username,
+            'identifier': user.username,
         })
         assert response.status_code == status.HTTP_200_OK
         assert 'signed_code' not in response.data
@@ -177,7 +177,7 @@ class TestPasswordResetFlow:
 
     def test_forget_password_unknown_user(self, api_client):
         response = api_client.post(reverse('auth-api:forget-password'), {
-            'username': 'nonexistent',
+            'identifier': 'nonexistent',
         })
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -190,7 +190,7 @@ class TestPasswordResetFlow:
 
         response = api_client.post(reverse('auth-api:verify-code'), {
             'username': user.username,
-            'verification_code': '000000',
+            'code': '000000',
         })
         assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
@@ -203,12 +203,12 @@ class TestPasswordResetFlow:
         mock_check.return_value = (True, None)
 
         api_client.post(reverse('auth-api:forget-password'), {
-            'username': user.username,
+            'identifier': user.username,
         })
 
         response = api_client.post(reverse('auth-api:verify-code'), {
             'username': user.username,
-            'verification_code': '123456',
+            'code': '123456',
         })
         assert response.status_code == status.HTTP_200_OK
         assert response.data['verified'] is True
@@ -216,16 +216,14 @@ class TestPasswordResetFlow:
 
         response = api_client.post(reverse('auth-api:change-password'), {
             'token': token,
-            'password1': 'NewStr0ng!Pass',
-            'password2': 'NewStr0ng!Pass',
+            'new_password': 'NewStr0ng!Pass',
         })
         assert response.status_code == status.HTTP_200_OK
 
     def test_change_password_invalid_token(self, api_client):
         response = api_client.post(reverse('auth-api:change-password'), {
             'token': 'bogus:token',
-            'password1': 'NewStr0ng!Pass',
-            'password2': 'NewStr0ng!Pass',
+            'new_password': 'NewStr0ng!Pass',
         })
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -248,9 +246,23 @@ class TestCurrentUser:
 @pytest.mark.django_db
 class TestSchoolGroups:
 
-    def test_school_groups_list_returns_only_id_and_name(self, api_client):
+    def test_school_groups_list_requires_authentication(self, api_client):
+        """SchoolGroup is tenant data, so this endpoint cannot be AllowAny.
+
+        Unauthenticated it would have to run unscoped, which would make every
+        school's Orda houses publicly enumerable with no token at all.
+        """
         SchoolGroupFactory(name='Group A', color='#FF0000')
         response = api_client.get(reverse('auth-api:school-groups'))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_school_groups_list_returns_only_id_and_name(
+        self, authenticated_client, admin_user,
+    ):
+        SchoolGroupFactory(name='Group A', color='#FF0000')
+        response = authenticated_client(admin_user).get(
+            reverse('auth-api:school-groups')
+        )
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         item = response.data[0]

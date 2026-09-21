@@ -60,7 +60,9 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # Replaces 'django.contrib.admin' so `admin.site` is QadamAdminSite —
+    # the school switcher in the header needs its own `each_context`.
+    'core.admin_config.QadamAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -93,6 +95,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # After AuthenticationMiddleware (it needs request.user) and before
+    # HistoryRequestMiddleware. See core/middleware.py for why ALL is tied
+    # to the admin path rather than to is_superuser.
+    'core.middleware.SchoolScopeMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
@@ -273,7 +279,9 @@ CORS_ALLOW_CREDENTIALS = True
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Subclass of JWTAuthentication that also enters the school scope once
+        # the signature is verified and the user row is loaded.
+        'apps.authentication.api.authentication.SchoolScopedJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -349,3 +357,32 @@ LOGGING = {
         },
     },
 }
+
+# ── Multi-school (tenant) isolation ──
+#
+# The rollout ramp for core.tenancy: 'off' | 'warn' | 'enforce'. See the module
+# docstring there.
+#
+# Phase 5 (2026-09-19): 'enforce'. A query made with no active scope now
+# RAISES SchoolScopeError instead of logging and returning unfiltered rows.
+#
+# Note what did NOT change at this flip. The filter itself has applied in full
+# since phase 4 — whenever a scope is active, which is every authenticated
+# request, because SchoolScopedJWTAuthentication enters one. 'enforce' only
+# closes the UNSET case, and no request path can reach UNSET: the five
+# AllowAny endpoints touch none of the scoped models, the one streaming
+# response holds no ORM handle, and nothing spawns a thread. So for the API
+# this is close to a no-op; what it changes is scripts, `manage.py shell` and
+# any future Celery task, which now fail loudly instead of reading every
+# school's rows.
+#
+# Drain the ERROR log before phase 5:
+#   docker logs appseed_app 2>&1 | grep -o '[a-zA-Z_]*\.[A-Za-z]* queried outside a school scope' \
+#     | sort | uniq -c | sort -rn
+# Anything that appears is a code path running with no scope — a script, a
+# Celery task, an admin page, a signal — and would be a hard 500 under
+# 'enforce'.
+#
+# Rollback is this one env var: set SCHOOL_SCOPE_MODE=off in .env and restart.
+# Keep it live for a month past the 'enforce' flip.
+SCHOOL_SCOPE_MODE = config('SCHOOL_SCOPE_MODE', default='enforce')

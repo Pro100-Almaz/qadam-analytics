@@ -13,6 +13,12 @@ from core.factories import (
 )
 
 
+# Every test here hits the database. Most reached it only transitively, through
+# the `schedule_data` fixture's chain down to `db` — so the two that build their
+# own factories instead failed with "Database access not allowed" rather than
+# testing anything.
+pytestmark = pytest.mark.django_db
+
 CALENDAR_SUBJECTS_URL = reverse('lesson-api:calendar-subjects')
 SUBJECT_SCHEDULES_URL = reverse('lesson-api:subject-schedule-list-create')
 TEACHERS_URL = reverse('home-api:teacher-list')

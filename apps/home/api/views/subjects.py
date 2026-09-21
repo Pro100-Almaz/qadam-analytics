@@ -1,4 +1,5 @@
 from rest_framework import status
+from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, DestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -127,7 +128,11 @@ class SubjectCreateAPIView(CreateAPIView):
 
 class SubjectDetailAPIView(RetrieveAPIView):
     serializer_class = SubjectDetailSerializer
-    queryset = Subject.objects.select_related('added_by')
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return Subject.objects.select_related('added_by')
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
@@ -141,7 +146,10 @@ class SubjectGradesAPIView(APIView):
     def get(self, request, pk):
         quarter = int(request.query_params.get('quarter', 1))
         class_group_id = int(request.query_params.get('class_group_id', 0))
-        subject = Subject.objects.get(pk=pk)
+        # 404, not DoesNotExist: `Subject.objects` is school-scoped, so a pk
+        # belonging to another school simply is not there. Uncaught, that was
+        # a 500 on every subject a caller cannot see.
+        subject = get_object_or_404(Subject, pk=pk)
 
         result = get_subject_grades(subject, request.user, quarter, class_group_id)
         if result is None:
@@ -157,7 +165,7 @@ class SubjectStatusAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
 
     def post(self, request, pk):
-        subject = Subject.objects.get(pk=pk)
+        subject = get_object_or_404(Subject, pk=pk)
         if not can_modify_subject(request.user, subject):
             return Response(
                 {'detail': NO_MODIFY_SUBJECT},
@@ -179,8 +187,12 @@ class SubjectStatusAPIView(APIView):
 
 
 class SubjectDeleteAPIView(DestroyAPIView):
-    queryset = Subject.objects.all()
     permission_classes = [IsAuthenticated, IsAdminOrSupervisor]
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return Subject.objects.all()
 
 
 class MySubjectsListAPIView(ListAPIView):

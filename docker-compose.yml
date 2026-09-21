@@ -55,6 +55,10 @@ services:
       SERVICE_ACCOUNT_FILE_INTERNAL: /app/core/credentials/qadam_sheet_access.json
       S3_ENDPOINT_URL: https://${NGINX_SERVER_NAME:-api.qadam.edu.kz}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-qadam-media}
+      # Tenant isolation ramp: off | warn | enforce (core/settings.py).
+      # Named here so the rollback is one line in .env plus a restart, and so
+      # the worker can never run a different mode than the web container.
+      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
     depends_on:
       db:
         condition: service_healthy
@@ -86,6 +90,10 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       S3_ENDPOINT_URL: https://${NGINX_SERVER_NAME:-api.qadam.edu.kz}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-qadam-media}
+      # Tenant isolation ramp: off | warn | enforce (core/settings.py).
+      # Named here so the rollback is one line in .env plus a restart, and so
+      # the worker can never run a different mode than the web container.
+      SCHOOL_SCOPE_MODE: ${SCHOOL_SCOPE_MODE:-enforce}
     command: celery -A core worker -l info --concurrency=2
     depends_on:
       db:

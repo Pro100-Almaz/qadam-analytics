@@ -10,7 +10,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.utils.html import format_html
-from apps.home.forms import ClassGroupMultipleChoiceField, class_group_formfield
+from apps.home.admin_forms import ClassGroupMultipleChoiceField, class_group_formfield
 from apps.home.models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, ClassGroupCollection,
     MinorClassGroup, Enrollment, SubjectOffering, TeachingAssignment,
@@ -19,6 +19,7 @@ from apps.home.models import (
 
 from apps.lesson.models import Lesson
 from apps.authentication.models import Teacher
+from core.admin_mixins import SchoolScopedAdminMixin
 
 
 admin.site.register(GradeLevel)
@@ -39,7 +40,7 @@ class ClassGroupCategoryMixin:
 
 
 @admin.register(Subject)
-class SubjectAdmin(admin.ModelAdmin):
+class SubjectAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ("name", "language_group", "status")
     list_filter = ("status", "language_group")
     search_fields = ("name",)
@@ -58,7 +59,7 @@ class LessonInline(admin.TabularInline):
 
 
 @admin.register(SubjectOffering)
-class SubjectOfferingAdmin(ClassGroupCategoryMixin, admin.ModelAdmin):
+class SubjectOfferingAdmin(SchoolScopedAdminMixin, ClassGroupCategoryMixin, admin.ModelAdmin):
     list_display = (
         "__str__", "subject", "class_group", "class_group_category",
         "academic_year", "get_primary_teacher",
@@ -187,7 +188,7 @@ class ClassGroupEnrollmentInline(admin.TabularInline):
         return super().get_queryset(request).select_related("student__user")
 
 
-class BaseClassGroupAdmin(admin.ModelAdmin):
+class BaseClassGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
     """CRUD shared by classes and Подгруппы; subclasses pin one category."""
     category = None
 
@@ -230,7 +231,10 @@ class MajorClassGroupForm(forms.ModelForm):
     change_form template renders it below the enrollment inline instead.
     """
     minor_groups = ClassGroupMultipleChoiceField(
-        queryset=ClassGroup.objects.none(),
+        # None, not `.objects.none()`: a class body runs at import, where
+        # there is no request and so no school scope. `__init__` below
+        # sets the real queryset per form instance, inside the scope.
+        queryset=None,
         required=False,
         label="Подгруппы",
         widget=FilteredSelectMultiple("подгруппы", is_stacked=False),
@@ -240,12 +244,23 @@ class MajorClassGroupForm(forms.ModelForm):
         ),
     )
 
+    academic_year = forms.ModelChoiceField(
+        # Declared, not left to Meta.fields: ModelFormMetaclass resolves an
+        # auto-generated FK field's queryset at *class definition*, which is
+        # before any request exists. Declaring it makes fields_for_model skip
+        # the field entirely; __init__ below supplies the real queryset.
+        queryset=None,
+        required=False,
+        label="Учебный год",
+    )
+
     class Meta:
         model = ClassGroup
         fields = ("grade_level", "letter", "academic_year")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["academic_year"].queryset = AcademicYear.objects.order_by("-year")
         available = MinorClassGroup.objects.select_related("grade_level", "academic_year")
         if self.instance.academic_year_id:
             available = available.filter(academic_year_id=self.instance.academic_year_id)
@@ -457,7 +472,6 @@ class EnrollmentAdmin(ClassGroupCategoryMixin, admin.ModelAdmin):
     @admin.action(description="Массовое зачисление студентов")
     def bulk_create_enrollments(self, request, queryset):
         """Redirect to bulk enrollment page."""
-        from django.contrib import messages
         from django.http import HttpResponseRedirect
         from django.urls import reverse
 

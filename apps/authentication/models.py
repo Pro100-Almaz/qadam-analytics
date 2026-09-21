@@ -1,4 +1,6 @@
-from django.contrib.auth.models import AbstractUser
+import uuid
+
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -9,6 +11,10 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from simple_history.models import HistoricalRecords
+
+from core.models import SchoolConsistentModel, SchoolDerivedMixin
+from core.tenancy import SchoolScopedManager
+from core.validators import is_stored_file
 from core import settings
 
 
@@ -17,7 +23,14 @@ MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_MB * 1024 * 1024
 
 
 def validate_avatar_size(file):
-    """Validate that avatar file size doesn't exceed the maximum allowed size."""
+    """Validate that an avatar *upload* does not exceed the maximum size.
+
+    Skips a file that is already in storage: reading its size is a HeadObject
+    against S3, and a missing object made every save of that row a 500. See
+    `core.validators.is_stored_file`.
+    """
+    if is_stored_file(file):
+        return
     if file.size > MAX_AVATAR_SIZE_BYTES:
         raise ValidationError(
             f'Avatar file size must be less than {MAX_AVATAR_SIZE_MB}MB. '
@@ -32,16 +45,96 @@ def user_avatar_upload_path(instance, filename):
     return f'avatars/{filename}'
 
 
+class SchoolVisibleManager(models.Manager):
+    """Schools an API may list. NOT a substitute for an authorization check.
+
+    This expresses one half of "visible": the school is live. It cannot express
+    the other half — visible *to whom* — because a manager has no user. For any
+    non-superuser the only school they may see is their own, and since
+    `School.objects` is unscoped by design, an endpoint that lists this
+    queryset without also narrowing by the requesting user lets anyone
+    enumerate every tenant. Narrow it in the view.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+
+class School(models.Model):
+    """A tenant. Every school-owned row reaches exactly one of these.
+
+    Not to be confused with SchoolGroup below, which is an Orda house
+    (Aq Orda, Uly Orda, ...) — a cohort *inside* a school, not a school.
+    """
+
+    #: Declared first and explicitly, because Django takes the FIRST manager as
+    #: the default and the default is what forward FKs, the admin and
+    #: migrations resolve through. Leaving it implicit would make `visible`
+    #: below the default and silently hide deactivated schools from all of
+    #: them. It is a plain Manager: the tenant root cannot be scoped by itself.
+    objects = models.Manager()
+    #: For API listings only — see SchoolVisibleManager.
+    visible = SchoolVisibleManager()
+
+    uuid = models.UUIDField(
+        default=uuid.uuid4, unique=True, editable=False, db_index=True,
+        help_text="Public identifier — this is what crosses the network, never the pk.",
+    )
+    slug = models.SlugField(
+        max_length=50, unique=True,
+        help_text="Stable internal key used by migrations and script --school flags.",
+    )
+    name = models.CharField(max_length=200)
+    short_name = models.CharField(max_length=50, blank=True, default='')
+
+    address = models.TextField(blank=True, default='')
+    contact_phone = models.CharField(max_length=20, blank=True, default='')
+    contact_email = models.EmailField(blank=True, default='')
+
+    timezone = models.CharField(max_length=64, default='Asia/Almaty')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Школа'
+        verbose_name_plural = 'Школы'
+
+    def __str__(self):
+        return self.name
+
+
 class SchoolGroup(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     name = models.CharField(max_length=100)
     avatar = models.FileField(upload_to='school_group/', blank=True, null=True)
     color = models.CharField(max_length=7, blank=True, default='')
+    # Root: an Orda house belongs to exactly one school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='school_groups',
+        on_delete=models.PROTECT,
+    )
 
     def __str__(self):
         return self.name
 
 
 class CustomUser(AbstractUser):
+    SCHOOL_PATH = 'school'
+
+    #: Identity lookups must be global, so the DEFAULT manager is unscoped.
+    #: `ModelBackend.authenticate` calls `_default_manager.get_by_natural_key()`
+    #: before anyone knows who the user is — a fail-closed default manager makes
+    #: login itself raise. Same for JWTAuthentication.get_user, PasswordResetForm,
+    #: createsuperuser and the admin login. Person-level isolation is enforced
+    #: through the five profile models instead, each SCHOOL_PATH='user__school',
+    #: which is what the API actually lists.
+    objects = UserManager()
+    #: Scoped, for listings, pickers and the admin.
+    in_school = SchoolScopedManager()
+
     # Group name constants (used for consistency across the codebase)
     GROUP_PARENT = 'Parent'
     GROUP_TEACHER = 'Teacher'
@@ -79,11 +172,6 @@ class CustomUser(AbstractUser):
         GROUP_CLUB_MANAGER: 'Club Manager',
     }
 
-    SCHOOL_CHOICES = [
-        ('muzafar_alimbayev', 'Muzafar Alimbayev 21'),
-        ('bukhar_zhyrau', 'Bukhar Zhyrau 19/1'),
-    ]
-
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
@@ -92,7 +180,48 @@ class CustomUser(AbstractUser):
         default='avatars/default/default-user.jpeg',
         validators=[validate_avatar_size]
     )
-    school = models.CharField(max_length=20, choices=SCHOOL_CHOICES, default='muzafar_alimbayev')
+    # Legacy free-text school label, superseded by the `school` FK below.
+    #
+    # KEPT PERMANENTLY — do not add a RemoveField for this. It is the input the
+    # phase-1 backfill read to decide each user's tenant (authentication/0038),
+    # and therefore the only independent record of that decision. If a user
+    # turns out to be in the wrong school, this column is what a manual
+    # recovery reads to put them back. Retention was an explicit condition of
+    # approving the tenant split; an earlier draft of the plan dropped it in
+    # phase 7, and that instruction has been reversed.
+    #
+    # `editable=False` and written by nothing, so it cannot drift. Do not read
+    # it at runtime either — `school` is the live field.
+    #
+    # Phase 7 dropped two things from it. `choices` named exactly the two
+    # hardcoded schools the whole plan exists to generalise away from, and a
+    # third tenant would have made this column invalid for its users while
+    # meaning nothing to them. The `'muzafar_alimbayev'` default was worse: it
+    # wrote school #1's name onto every user created *after* the split,
+    # including school #2's, filling the one column kept as the recovery record
+    # with an assertion nobody had made. Blank is the honest value — this user
+    # predates nothing.
+    legacy_school = models.CharField(
+        max_length=20, blank=True, default='', editable=False,
+    )
+    school = models.ForeignKey(
+        'authentication.School',
+        related_name='users',
+        on_delete=models.PROTECT,
+        null=True, blank=True,
+        help_text="The tenant this user belongs to. Exactly one, except superusers.",
+    )
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            # Every user belongs to exactly one school. Superusers are the sole
+            # exception — they span all schools, and `createsuperuser` has no way
+            # to supply one, so NULL is permitted only for them.
+            models.CheckConstraint(
+                condition=models.Q(school__isnull=False) | models.Q(is_superuser=True),
+                name='user_has_school_unless_superuser',
+            ),
+        ]
 
     def __str__(self):
         return self.first_name + " " + self.last_name
@@ -186,7 +315,15 @@ class CustomUser(AbstractUser):
 
 
 
-class Student(models.Model):
+class Student(SchoolConsistentModel):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+    #: `user` is the student's own school, so this reads as: an Orda house
+    #: from a school the student does not attend is a cross-tenant write, not
+    #: a stray FK. `intake_year` is absent because it is no longer a relation —
+    #: see the field below.
+    SCHOOL_CONSISTENT_FIELDS = ('user', 'school_group')
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     subjects = models.ManyToManyField(
@@ -195,13 +332,27 @@ class Student(models.Model):
         related_name="students"
     )
     school_group = models.ForeignKey(SchoolGroup, on_delete=models.SET_NULL, null=True, blank=True)
-    academic_year = models.ForeignKey(
-        'home.AcademicYear',
-        related_name='students',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        help_text='Enrollment year for this student'
+    #: The year this student first appeared, as a label: "2025/2026".
+    #:
+    #: It was a FK to AcademicYear, and that was wrong in three ways. It read
+    #: as the student's *current* year but was assigned once at creation and
+    #: never advanced — `rollover_academic_year` writes class groups and
+    #: enrollments, never this — so after one rollover it named a past year
+    #: while the student was enrolled in the present one. The real year-by-year
+    #: record is Enrollment -> ClassGroup -> AcademicYear, which is multi-year
+    #: and which a single FK could never express anyway. And because years are
+    #: per-school since §1b, the FK made this a tenancy-coupled field: it had
+    #: to be re-pointed whenever a student changed school, or their profile
+    #: failed its own consistency check.
+    #:
+    #: As a plain string it is what it always meant — when this student entered
+    #: — and it survives a school move untouched, needs no re-pointing, and is
+    #: out of SCHOOL_CONSISTENT_FIELDS entirely. Nothing used the reverse
+    #: relation `AcademicYear.students`, so the FK bought nothing it cost.
+    intake_year = models.CharField(
+        max_length=40, blank=True, default='',
+        help_text='Academic year this student entered, e.g. "2025/2026". '
+                  'Set once on creation; history, not a live pointer.',
     )
     medical_features = models.TextField(null=True, blank=True)
     history = HistoricalRecords()
@@ -251,32 +402,65 @@ class Student(models.Model):
 
 
 @receiver(pre_save, sender=Student)
-def assign_academic_year_for_student(sender, instance: 'Student', **kwargs):
-    """Auto-assign student's academic year before save if not set."""
-    if instance.academic_year_id:
+def assign_intake_year_for_student(sender, instance: 'Student', **kwargs):
+    """Stamp the student's school's active year on creation, and never again.
+
+    "The active year" is only meaningful next to a school — years are
+    per-school since §1b — and the right school here is the **student's own**,
+    read off `user.school`, not whatever scope the caller happens to be in.
+    Those are normally the same; when they are not, the student's own school is
+    the one that cannot be wrong.
+
+    That is also why this reads `_base_manager` rather than the scoped
+    `objects`: the school is already named in the filter, so narrowing it a
+    second time by the ambient scope could only ever subtract. It behaves
+    identically in a request, a script, the shell and a Celery worker.
+
+    Only the year *string* is kept. The row it came from belongs to one school
+    and will be superseded at the next rollover; the label will still be true
+    in ten years, which is the whole point of the field.
+
+    The blanket `except Exception: pass` this replaced was the worst failure
+    mode the tenancy design can produce. It fired on every Student save, and
+    under fail-closed scoping it would have swallowed SchoolScopeError and
+    written an empty year silently, with no log line — inverting the
+    fail-closed guarantee into a quiet data defect. There is deliberately no
+    handler here.
+    """
+    if instance.intake_year:
         return
 
-    try:
-        from apps.home.models import AcademicYear
-        # Use the active academic year, or fallback to latest
-        active_year = AcademicYear.objects.filter(is_active=True).first()
-        if active_year:
-            instance.academic_year = active_year
-        else:
-            latest_year = AcademicYear.objects.order_by('-year').first()
-            if latest_year:
-                instance.academic_year = latest_year
-    except Exception:
-        pass
+    from apps.home.models import AcademicYear
+
+    school_id = instance.user.school_id if instance.user_id else None
+    if school_id is None:
+        # A student with no school cannot have a year picked for them. The
+        # `user_has_school_unless_superuser` constraint means this is not a
+        # state a real student reaches.
+        return
+
+    years = AcademicYear._base_manager.filter(school_id=school_id)
+    year = (
+        years.filter(is_active=True).first()
+        or years.order_by('-year').first()
+    )
+    if year is not None:
+        instance.intake_year = year.year
 
 
 class Parent(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     students = models.ManyToManyField(Student, blank=True, related_name="parent")
 
 
 class Teacher(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     #identification
@@ -306,17 +490,46 @@ class Teacher(models.Model):
 
 
 class Supervisor(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
 class ClubManager(models.Model):
+    SCHOOL_PATH = 'user__school'
+    objects = SchoolScopedManager()
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
-class PsychologicalState(models.Model):
+class PsychologicalState(SchoolDerivedMixin, models.Model):
+    """A psychologist's note about a student.
+
+    `student` is nullable, so the row carries its own school rather than
+    reaching one by join. Neither source below is guaranteed: a note with no
+    student has no student to ask, and `added_by` is a superuser's row with no
+    school of its own. Every live creation site passes a student, so the caller
+    must supply `school` explicitly for the school-wide case — which
+    SchoolDerivedMixin.save() now says in as many words instead of raising a
+    bare NOT NULL IntegrityError.
+    """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('student__user', 'added_by')
+    #: One field, and still worth declaring: it is the column-vs-parent
+    #: check that stops a sensitive record being filed under the wrong
+    #: tenant, which here is a disclosure rather than a misfile.
+    SCHOOL_CONSISTENT_FIELDS = ('student',)
+    objects = SchoolScopedManager()
+
     name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
+    school = models.ForeignKey(
+        'authentication.School', related_name='psychological_states',
+        on_delete=models.PROTECT,
+    )
 
     score = models.PositiveIntegerField(
         default=1,
@@ -341,8 +554,29 @@ class PsychologicalState(models.Model):
 
 
 class PsychologicalStateTemplates(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
+    name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)
+    # Root: templates are per-school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='psychological_state_templates',
+        on_delete=models.PROTECT,
+    )
+
+    class Meta:
+        constraints = [
+            # §7, and the one constraint tenancy actually *requires*: `name`
+            # was globally unique, so school #2 could never create a template
+            # whose name school #1 had already taken — a tenant blocking a
+            # tenant it cannot see. Relaxing a unique constraint can never
+            # fail on existing data.
+            models.UniqueConstraint(
+                fields=['school', 'name'],
+                name='psychstatetemplate_unique_name_per_school',
+            ),
+        ]
 
     def __str__(self):
         return self.name

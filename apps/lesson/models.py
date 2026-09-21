@@ -6,10 +6,15 @@ from simple_history.models import HistoricalRecords
 
 from apps.authentication.models import CustomUser
 from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
-from core.models import SoftDeleteMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
+)
+from core.tenancy import SchoolScopedManager
 
 
 class Lesson(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'offering__school'
+
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('completed', 'Completed'),
@@ -160,7 +165,11 @@ class Lesson(SoftDeleteMixin, models.Model):
         return results
 
 
-class Topic(models.Model):
+class Topic(SchoolConsistentModel):
+    SCHOOL_PATH = 'lesson__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('lesson', 'parent')
+    objects = SchoolScopedManager()
+
     lesson = models.ForeignKey(
         Lesson,
         related_name='topics',
@@ -224,7 +233,11 @@ class Topic(models.Model):
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
 
-class TopicGrade(models.Model):
+class TopicGrade(SchoolConsistentModel):
+    SCHOOL_PATH = 'topic__lesson__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('topic', 'student')
+    objects = SchoolScopedManager()
+
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
     grade = models.FloatField(default=0, help_text="Percent or points scored in this topic (0-100)")
@@ -239,7 +252,18 @@ class TopicGrade(models.Model):
         ]
 
 
-class MergedLessonComment(models.Model):
+class MergedLessonComment(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('lesson__offering', 'student__user')
+    SCHOOL_CONSISTENT_FIELDS = ('lesson', 'student')
+    objects = SchoolScopedManager()
+
+    # `lesson` and `student` are both nullable, so there is no reliable join
+    # path to a school.
+    school = models.ForeignKey(
+        'authentication.School', related_name='merged_lesson_comments',
+        on_delete=models.PROTECT,
+    )
     lesson = models.ForeignKey(
         Lesson,
         related_name='lesson_comment',
@@ -262,7 +286,11 @@ class MergedLessonComment(models.Model):
         return f"{self.student} - {self.lesson}: {self.comment_text[:30]}"
 
 
-class QuarterGradeSnapshot(models.Model):
+class QuarterGradeSnapshot(SchoolConsistentModel):
+    SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'offering')
+    objects = SchoolScopedManager()
+
     student = models.ForeignKey(
         'authentication.Student', on_delete=models.PROTECT,
         related_name='grade_snapshots',
@@ -310,7 +338,21 @@ class QuarterGradeSnapshot(models.Model):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
 
 
-class   SubjectSchedule(models.Model):
+class SubjectSchedule(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('offering', 'class_group')
+    #: Both are nullable — a school-wide schedule has neither, which the
+    #: skip-None rule allows. Only a *disagreement* is rejected.
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'class_group')
+    objects = SchoolScopedManager()
+
+    # Both `offering` and `class_group` are nullable — school-wide schedules
+    # have neither. 8 such rows exist today; scoping by join would make them
+    # invisible to every school, so the row carries its own tenant key.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subject_schedules',
+        on_delete=models.PROTECT,
+    )
     SUBJECT_CHOICE = 'subject'
     OTHER_CHOICE   = 'other'
     SCHEDULE_CHOICES = [
@@ -343,6 +385,9 @@ class   SubjectSchedule(models.Model):
 
 
 class ScheduleSession(models.Model):
+    SCHOOL_PATH = 'schedule__school'
+    objects = SchoolScopedManager()
+
     schedule = models.ForeignKey(
         SubjectSchedule,
         on_delete=models.CASCADE,
@@ -358,7 +403,11 @@ class ScheduleSession(models.Model):
         ordering        = ['schedule', 'weekday', 'time_start', 'time_end']
 
 
-class ScheduleAttendance(models.Model):
+class ScheduleAttendance(SchoolConsistentModel):
+    SCHOOL_PATH = 'session__schedule__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'session')
+    objects = SchoolScopedManager()
+
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),
         ('absent', 'Absent'),
@@ -379,7 +428,11 @@ class ScheduleAttendance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class Homework(models.Model):
+class Homework(SchoolConsistentModel):
+    SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'teaching_assignment')
+    objects = SchoolScopedManager()
+
     description = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
     teaching_assignment = models.ForeignKey(TeachingAssignment, on_delete=models.CASCADE, related_name='homeworks')
@@ -399,7 +452,11 @@ class Homework(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class HomeworkGrade(models.Model):
+class HomeworkGrade(SchoolConsistentModel):
+    SCHOOL_PATH = 'homework__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('homework', 'student')
+    objects = SchoolScopedManager()
+
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
     grade = models.PositiveIntegerField(null=True, blank=True)

@@ -18,6 +18,7 @@ from apps.home.models import (
     ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
 )
 from apps.authentication.models import Student
+from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
 
 # ── Calendar serializer ──
@@ -238,8 +239,9 @@ class LessonDetailSerializer(serializers.ModelSerializer):
 
 
 class LessonCreateSerializer(serializers.ModelSerializer):
-    offering = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related('subject', 'class_group', 'class_group__academic_year')
+    offering = ScopedPrimaryKeyRelatedField(
+        SubjectOffering,
+        select_related=('subject', 'class_group', 'class_group__academic_year'),
     )
 
     class Meta:
@@ -280,7 +282,7 @@ class TopicUpdateSerializer(serializers.ModelSerializer):
 # ── Subtopic serializers ──
 
 class SubtopicCreateSerializer(serializers.Serializer):
-    parent = serializers.PrimaryKeyRelatedField(queryset=Topic.objects.all())
+    parent = serializers.PrimaryKeyRelatedField(queryset=Topic.objects)
     title = serializers.CharField(max_length=255)
 
     def validate_parent(self, parent):
@@ -688,15 +690,15 @@ class TeachingAssignmentListSerializer(serializers.ModelSerializer):
 
 
 class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
-    offering = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__academic_year'
-        ),
+    offering = ScopedPrimaryKeyRelatedField(
+        SubjectOffering,
+        select_related=('subject', 'class_group', 'class_group__academic_year',),
         required=False,
         allow_null=True,
     )
-    class_group = serializers.PrimaryKeyRelatedField(
-        queryset=ClassGroup.objects.select_related('grade_level', 'academic_year'),
+    class_group = ScopedPrimaryKeyRelatedField(
+        ClassGroup,
+        select_related=('grade_level', 'academic_year',),
     )
 
     class Meta:
@@ -792,9 +794,7 @@ class ScheduleAttendanceSerializer(serializers.ModelSerializer):
 
 
 class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
-    student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.select_related('user')
-    )
+    student = ScopedPrimaryKeyRelatedField(Student, select_related=('user',))
 
     class Meta:
         model = ScheduleAttendance
@@ -916,10 +916,9 @@ class HomeworkCreateSerializer(serializers.Serializer):
     `offerings` is a list so a teacher can hand the same task to every class
     they teach in a single request; one Homework row is created per offering.
     """
-    offerings = serializers.PrimaryKeyRelatedField(
-        queryset=SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'class_group__academic_year',
-        ),
+    offerings = ScopedPrimaryKeyRelatedField(
+        SubjectOffering,
+        select_related=('subject', 'class_group', 'class_group__academic_year',),
         many=True,
         allow_empty=False,
         write_only=True,
@@ -1044,8 +1043,9 @@ class HomeworkGradeWriteSerializer(serializers.ModelSerializer):
     placeholder for a student who has not handed anything in. Sending `null`
     clears a value that was set before.
     """
-    student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.select_related('user'),
+    student = ScopedPrimaryKeyRelatedField(
+        Student,
+        select_related=('user',),
         help_text='Student profile id of the student being graded.',
     )
     grade = serializers.IntegerField(

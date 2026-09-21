@@ -1,12 +1,16 @@
 import os
 import sys
-import django
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-django.setup()
+from scripts.utils.bootstrap import school_from_argv, setup_django
+
+setup_django()
+
+# One school per run. See scripts/utils/bootstrap for why this is a required
+# flag rather than something read out of the spreadsheet.
+school, _args = school_from_argv(__doc__ or 'Import data into ONE school.')
 
 from scripts.reading_data import get_sheets_data
 from scripts.writing_data import get_writable_sheet
@@ -16,6 +20,9 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from apps.authentication.models import PsychologicalState
+from core.tenancy import set_active_school
+
+set_active_school(school)
 from apps.authentication.models import Student, CustomUser
 
 dfs = get_sheets_data()

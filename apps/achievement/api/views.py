@@ -159,23 +159,26 @@ class AchievementDownloadAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        file_path = achievement.certificate.path
-        if not os.path.exists(file_path):
+        # Media lives in S3/MinIO, where there is no local path to stat or
+        # open: `.path` raises NotImplementedError. Go through the storage
+        # backend with the stored `.name` instead.
+        certificate = achievement.certificate
+        if not certificate.storage.exists(certificate.name):
             return Response(
                 {'detail': CERTIFICATE_NOT_FOUND},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        content_type, _ = mimetypes.guess_type(file_path)
+        filename = os.path.basename(certificate.name)
+        content_type, _ = mimetypes.guess_type(filename)
         content_type = content_type or 'application/octet-stream'
-        filename = os.path.basename(file_path)
 
-        response = FileResponse(
-            open(file_path, 'rb'),
+        return FileResponse(
+            certificate.storage.open(certificate.name, 'rb'),
             content_type=content_type,
+            as_attachment=True,
+            filename=filename,
         )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
 
 
 # ── Reading Entries ──
