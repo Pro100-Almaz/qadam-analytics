@@ -113,10 +113,17 @@ class CustomUserAdmin(SchoolScopedAdminMixin, UserAdmin):
     )
 
     def get_form(self, request, obj=None, **kwargs):
-        """Remember which object is being edited, for the picker below."""
-        form = super().get_form(request, obj, **kwargs)
+        """Remember which object is being edited, for the picker below.
+
+        **Before** `super()`, not after. `ModelAdmin.get_form` builds every
+        field inside `modelform_factory`, through a `formfield_for_dbfield`
+        callback — so `formfield_for_foreignkey` has already run and already
+        chosen the school queryset by the time this returns. Setting the marker
+        afterwards leaves the picker showing one school, which is the bug this
+        comment exists to stop someone reintroducing.
+        """
         request._editing_user = obj
-        return form
+        return super().get_form(request, obj, **kwargs)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Offer every school on the CHANGE form, one school on the ADD form.

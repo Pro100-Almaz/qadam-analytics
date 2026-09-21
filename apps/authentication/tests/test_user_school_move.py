@@ -100,6 +100,59 @@ def test_being_the_actor_on_someone_elses_row_is_not_a_blocker(two_schools):
     assert stranded_by_move(admin_user) == {}
 
 
+# ── the picker the admin actually renders ───────────────────────────────────
+
+def _admin_form_for(user, acting_as):
+    """The form the change page builds, through the real admin machinery.
+
+    Calling `CustomUserChangeForm` directly is not a substitute: the school
+    queryset is chosen by `formfield_for_foreignkey` during `get_form`, so a
+    test that skips `get_form` cannot see what the page will show. That gap is
+    how the picker shipped still pinned to one school.
+    """
+    from django.contrib import admin as django_admin
+    from django.test import RequestFactory
+
+    request = RequestFactory().get('/admin/')
+    request.user = acting_as
+    model_admin = django_admin.site._registry[type(user)]
+    return model_admin.get_form(request, user)
+
+
+def test_the_change_page_offers_every_school(two_schools):
+    a, b = two_schools
+    with school_scope(a):
+        user = f.TeacherUserFactory(school=a)
+        superuser = f.UserFactory(school=a, is_superuser=True, is_staff=True)
+
+        schools = _admin_form_for(user, superuser).base_fields['school'].queryset
+
+    # A superset, not an equality: `authentication/0037` seeds the two original
+    # schools, so the test database holds more than this fixture made. What
+    # matters is that a school the user is *not* in is offered at all.
+    offered = set(schools.values_list('pk', flat=True))
+    assert {a.pk, b.pk} <= offered
+    assert offered != {a.pk}
+
+
+def test_the_add_page_stays_pinned_to_the_active_school(two_schools):
+    """The original lock, and it is still right: a new row goes where you are."""
+    from django.contrib import admin as django_admin
+    from django.test import RequestFactory
+
+    a, b = two_schools
+    with school_scope(a):
+        superuser = f.UserFactory(school=a, is_superuser=True, is_staff=True)
+        request = RequestFactory().get('/admin/')
+        request.user = superuser
+        model_admin = django_admin.site._registry[type(superuser)]
+
+        schools = model_admin.get_form(
+            request, None).base_fields['school'].queryset
+
+    assert set(schools.values_list('pk', flat=True)) == {a.pk}
+
+
 # ── the form gate ───────────────────────────────────────────────────────────
 
 def test_the_form_allows_a_clean_move(two_schools):
