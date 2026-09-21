@@ -55,7 +55,7 @@ def _collect_grades(student, academic_year, quarter: int) -> dict:
 
     offerings = list(SubjectOffering.objects.filter(
         class_group=enrollment.class_group,
-        academic_year=enrollment.academic_year,
+        class_group__academic_year=enrollment.academic_year,
     ).select_related('subject'))
 
     lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -156,7 +156,7 @@ def _collect_class_averages(student, academic_year, quarter: int) -> dict:
     class_group = enrollment.class_group
     offerings = list(SubjectOffering.objects.filter(
         class_group=class_group,
-        academic_year=academic_year,
+        class_group__academic_year=academic_year,
     ).select_related('subject'))
 
     if not offerings:
@@ -164,7 +164,7 @@ def _collect_class_averages(student, academic_year, quarter: int) -> dict:
 
     classmate_enrollments = Enrollment.objects.filter(
         class_group=class_group,
-        academic_year=academic_year,
+        class_group__academic_year=academic_year,
         status='active',
     ).select_related('student')
 

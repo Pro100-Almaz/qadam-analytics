@@ -13,7 +13,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import IsAdminRole
+from apps.authentication.api.permissions import IsAdminRole
 from apps.authentication.models import CustomUser, SchoolGroup
 from apps.authentication.services import AccountService
 from core.error_messages import (
@@ -23,7 +23,7 @@ from core.error_messages import (
     PASSWORD_CHANGED, GENERIC_ERROR,
 )
 
-from .serializers import (
+from apps.authentication.api.serializers import (
     LoginSerializer,
     RegisterSerializer,
     UserSerializer,
@@ -140,7 +140,7 @@ class ForgetPasswordAPIView(APIView):
         signed_code = service.send_verification_code(user)
 
         cache.set(
-            f'pwd_reset:{username}',
+            f'pwd_reset:{user.username}',
             {'signed_code': signed_code, 'attempts': 0},
             timeout=600,
         )
@@ -158,7 +158,7 @@ class VerificationCodeAPIView(APIView):
         serializer = VerificationCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         username = serializer.validated_data['username']
-        entered = serializer.validated_data['verification_code']
+        entered = serializer.validated_data['code']
 
         cache_key = f'pwd_reset:{username}'
         reset_data = cache.get(cache_key)
@@ -228,9 +228,8 @@ class PasswordChangeAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        pw1 = serializer.validated_data['password1']
-        pw2 = serializer.validated_data['password2']
-        ok, error = AccountService().change_password_with_code(user, pw1, pw2)
+        pw = serializer.validated_data['new_password']
+        ok, error = AccountService().change_password_with_code(user, pw)
         if not ok:
             return Response(
                 {'detail': error or GENERIC_ERROR},

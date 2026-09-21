@@ -1,15 +1,39 @@
-import factory
-from factory.django import DjangoModelFactory
-from django.contrib.auth.models import Group
+from datetime import time, timedelta
 
+import factory
+from django.contrib.auth.models import Group
+from factory.django import DjangoModelFactory
+
+from apps.achievement.models import Club, ClubAttendance, ClubSession
 from apps.authentication.models import (
-    CustomUser, Student, Teacher, Parent, Supervisor, SchoolGroup,
+    ClubManager,
+    CustomUser,
+    Parent,
+    SchoolGroup,
+    Student,
+    Supervisor,
+    Teacher,
 )
 from apps.home.models import (
-    AcademicYear, GradeLevel, ClassGroup, Subject, SubjectOffering,
-    TeachingAssignment, Enrollment,
+    AcademicYear,
+    ClassGroup,
+    Enrollment,
+    GradeLevel,
+    MinorClassGroup,
+    Subject,
+    SubjectAssignment,
+    SubjectGrade,
+    SubjectOffering,
+    TeachingAssignment,
 )
-from apps.lesson.models import Lesson, Topic, TopicGrade
+from apps.lesson.models import (
+    Lesson,
+    ScheduleAttendance,
+    ScheduleSession,
+    SubjectSchedule,
+    Topic,
+    TopicGrade,
+)
 
 
 class GroupFactory(DjangoModelFactory):
@@ -93,6 +117,15 @@ class ParentUserFactory(UserFactory):
         self.groups.add(group)
 
 
+class ClubManagerUserFactory(UserFactory):
+    @factory.post_generation
+    def group_name(self, create, extracted, **kwargs):
+        if not create:
+            return
+        group, _ = Group.objects.get_or_create(name=CustomUser.GROUP_CLUB_MANAGER)
+        self.groups.add(group)
+
+
 class AcademicYearFactory(DjangoModelFactory):
     class Meta:
         model = AcademicYear
@@ -116,6 +149,18 @@ class ClassGroupFactory(DjangoModelFactory):
     academic_year = factory.SubFactory(AcademicYearFactory)
     grade_level = factory.SubFactory(GradeLevelFactory)
     letter = 'A'
+    category = ClassGroup.MAJOR_CHOICE
+
+
+class MinorClassGroupFactory(ClassGroupFactory):
+    """A подгруппа — named, and not tied to a grade level by default."""
+
+    class Meta:
+        model = MinorClassGroup
+
+    grade_level = None
+    letter = factory.Sequence(lambda n: f'Subgroup {n}')
+    category = ClassGroup.MINOR_CHOICE
 
 
 class StudentFactory(DjangoModelFactory):
@@ -150,6 +195,47 @@ class SupervisorFactory(DjangoModelFactory):
     user = factory.SubFactory(SupervisorUserFactory)
 
 
+class ClubManagerFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubManager
+
+    user = factory.SubFactory(ClubManagerUserFactory)
+
+
+class ClubFactory(DjangoModelFactory):
+    class Meta:
+        model = Club
+
+    manager = factory.SubFactory(ClubManagerFactory)
+    academic_year = factory.SubFactory(AcademicYearFactory)
+    start_date = factory.Faker('date_object')
+    end_date = factory.LazyAttribute(
+        lambda obj: obj.start_date + timedelta(days=240)
+    )
+    name = factory.Sequence(lambda n: f'Club {n}')
+
+
+class ClubSessionFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubSession
+
+    club = factory.SubFactory(ClubFactory)
+    weekday = 'monday'
+    start_time = '15:30'
+    end_time = '16:30'
+    location = 'Room 204'
+
+
+class ClubAttendanceFactory(DjangoModelFactory):
+    class Meta:
+        model = ClubAttendance
+
+    session = factory.SubFactory(ClubSessionFactory)
+    student = factory.SubFactory(StudentFactory)
+    date = factory.Faker('date_object')
+    status = 'present'
+
+
 class SubjectFactory(DjangoModelFactory):
     class Meta:
         model = Subject
@@ -165,7 +251,6 @@ class SubjectOfferingFactory(DjangoModelFactory):
 
     subject = factory.SubFactory(SubjectFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
-    academic_year = factory.LazyAttribute(lambda o: o.class_group.academic_year)
     max_points = 100
     grading_strategy = 'average'
 
@@ -185,7 +270,6 @@ class EnrollmentFactory(DjangoModelFactory):
 
     student = factory.SubFactory(StudentFactory)
     class_group = factory.SubFactory(ClassGroupFactory)
-    academic_year = factory.LazyAttribute(lambda o: o.class_group.academic_year)
     status = 'active'
 
 
@@ -223,3 +307,56 @@ class TopicGradeFactory(DjangoModelFactory):
     topic = factory.SubFactory(TopicFactory)
     student = factory.SubFactory(StudentFactory)
     grade = 0
+
+
+class SubjectAssignmentFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectAssignment
+
+    offering = factory.SubFactory(SubjectOfferingFactory)
+    title = factory.Sequence(lambda n: f'Assignment {n}')
+    max_grade = 100
+    category = 'lesson'
+    date = factory.Faker('date_object')
+
+
+class SubjectGradeFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectGrade
+
+    assignment = factory.SubFactory(SubjectAssignmentFactory)
+    student = factory.SubFactory(StudentFactory)
+    grade = None
+
+
+class SubjectScheduleFactory(DjangoModelFactory):
+    class Meta:
+        model = SubjectSchedule
+
+    offering = factory.SubFactory(SubjectOfferingFactory)
+    # Follows the offering, as the API does; pass it explicitly for a schedule
+    # that has no offering of its own.
+    class_group = factory.LazyAttribute(
+        lambda o: o.offering.class_group if o.offering else None
+    )
+    quarter = 1
+
+
+class ScheduleSessionFactory(DjangoModelFactory):
+    class Meta:
+        model = ScheduleSession
+
+    schedule = factory.SubFactory(SubjectScheduleFactory)
+    weekday = 0
+    time_start = time(9, 0)
+    time_end = time(9, 45)
+
+
+class ScheduleAttendanceFactory(DjangoModelFactory):
+    class Meta:
+        model = ScheduleAttendance
+
+    session = factory.SubFactory(ScheduleSessionFactory)
+    student = factory.SubFactory(StudentFactory)
+    date = factory.Faker('date_object')
+    status = 'present'

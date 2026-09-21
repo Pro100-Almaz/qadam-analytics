@@ -7,6 +7,7 @@ Use these in views after the role_required decorator has verified the user's rol
 
 from django.http import HttpResponseForbidden
 
+from apps.home.models import AcademicYear, ClassGroup, HomeroomTeacherAssignment
 
 # Group names for admin-level roles (bypass object-level checks)
 ADMIN_GROUPS = ('Admin', 'Supervisor', 'Principal')
@@ -17,6 +18,10 @@ TEACHER_GROUPS = ('Teacher', 'HomeroomTeacher')
 # All staff that work with students (teachers + psychologists)
 STAFF_GROUPS = ('Teacher', 'HomeroomTeacher', 'Psychologist')
 
+# Roles allowed to use the club-management API. ClubManager access is further
+# limited to assigned clubs at the queryset/object level.
+CLUB_MANAGEMENT_GROUPS = ('ClubManager',) + ADMIN_GROUPS
+
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
@@ -26,6 +31,16 @@ def is_admin_role(user):
 def is_teacher_role(user):
     """Check if user has a teacher role (teacher or homeroom_teacher)."""
     return user.groups.filter(name__in=TEACHER_GROUPS).exists()
+
+
+def is_staff_role(user):
+    """Check if user has a staff role that bypasses object permissions."""
+    return user.groups.filter(name__in=STAFF_GROUPS).exists()
+
+
+def is_club_management_role(user):
+    """Check whether a user can enter the club-management API."""
+    return user.groups.filter(name__in=CLUB_MANAGEMENT_GROUPS).exists()
 
 
 def _teacher_teaches_subject(teacher, subject):
@@ -52,9 +67,90 @@ def _student_enrolled_in_offering(student, offering):
     return Enrollment.objects.filter(
         student=student,
         class_group=offering.class_group,
-        academic_year=offering.academic_year,
+        class_group__academic_year_id=offering.academic_year_id,
         status='active'
     ).exists()
+
+
+def teacher_homeroom_class_group_ids(teacher):
+    """Class group ids where the teacher is homeroom teacher for the active year."""
+    academic_year = AcademicYear.objects.filter(is_active=True).first()
+    assignments = HomeroomTeacherAssignment.objects.filter(teacher=teacher)
+    if academic_year:
+        assignments = assignments.filter(class_group__academic_year=academic_year)
+    return list(assignments.values_list('class_group_id', flat=True))
+
+
+def teacher_homeroom_class_group_ids_with_subgroups(teacher):
+    """Homeroom class group ids, widened with the подгруппы bound to them.
+
+    A subgroup has no homeroom teacher of its own — it inherits the one of the
+    class whose constellation it sits in, so the homeroom teacher of 7A reaches
+    7A's subgroups as well. Used by the attendance side (schedules, sessions
+    and attendance rows); the plain homeroom list is unchanged.
+    """
+    homeroom_ids = teacher_homeroom_class_group_ids(teacher)
+    if not homeroom_ids:
+        return homeroom_ids
+
+    subgroup_ids = ClassGroup.objects.filter(
+        collections__major_id__in=homeroom_ids,
+    ).values_list('id', flat=True)
+    return homeroom_ids + list(subgroup_ids)
+
+
+def can_manage_offering_schedule(user, offering):
+    """
+    Check if user can create/modify schedules, sessions and attendance for an offering.
+
+    Returns True if:
+    - User is admin/supervisor/principal — any subject, any class
+    - User is a teacher assigned to the offering — their own subjects only
+    - User is the homeroom teacher of the offering's class group — any subject
+      taught to their students, in the class itself or in one of its подгруппы
+    """
+    if is_admin_role(user):
+        return True
+
+    if not is_teacher_role(user):
+        return False
+
+    from apps.authentication.models import Teacher
+    try:
+        teacher = Teacher.objects.get(user=user)
+    except Teacher.DoesNotExist:
+        return False
+
+    if _teacher_teaches_offering(teacher, offering):
+        return True
+
+    return offering.class_group_id in teacher_homeroom_class_group_ids_with_subgroups(teacher)
+
+
+def can_manage_class_group_schedule(user, class_group_id):
+    """
+    Check if user can create/modify a class group's timetable entries that
+    belong to no offering — breaks, assemblies, club slots.
+
+    There is no subject to derive ownership from, so only the roles that own the
+    class group itself qualify:
+    - User is admin/supervisor/principal — any class group
+    - User is the homeroom teacher of that class group, or of the class whose
+      constellation the подгруппа belongs to
+    """
+    if is_admin_role(user):
+        return True
+
+    if not is_teacher_role(user):
+        return False
+
+    from apps.authentication.models import Teacher
+    try:
+        teacher = Teacher.objects.get(user=user)
+    except Teacher.DoesNotExist:
+        return False
+
+    return class_group_id in teacher_homeroom_class_group_ids_with_subgroups(teacher)
 
 
 def can_access_subject(user, subject):
@@ -84,19 +180,17 @@ def can_access_subject(user, subject):
         from apps.home.models import Enrollment, SubjectOffering
         try:
             student = Student.objects.get(user=user)
-            # Check if student is enrolled in any class where this subject is offered
-            student_enrollments = Enrollment.objects.filter(
+            # Check if student is enrolled in any class where this subject is
+            # offered. The class group pins the academic year on its own, so
+            # there is nothing to match year by year.
+            class_group_ids = Enrollment.objects.filter(
                 student=student, status='active'
-            ).values_list('class_group_id', 'academic_year_id')
+            ).values_list('class_group_id', flat=True)
 
-            for class_group_id, academic_year_id in student_enrollments:
-                if SubjectOffering.objects.filter(
-                    subject=subject,
-                    class_group_id=class_group_id,
-                    academic_year_id=academic_year_id
-                ).exists():
-                    return True
-            return False
+            return SubjectOffering.objects.filter(
+                subject=subject,
+                class_group_id__in=class_group_ids,
+            ).exists()
         except Student.DoesNotExist:
             return False
 
@@ -187,12 +281,22 @@ def can_access_student(user, student):
         from apps.home.models import TeachingAssignment, Enrollment
         try:
             teacher = Teacher.objects.get(user=user)
-            # Get class groups where teacher has assignments
+            academic_year = AcademicYear.objects.filter(is_active=True).first()
+            homeroom = HomeroomTeacherAssignment.objects.filter(
+                teacher=teacher, class_group__academic_year=academic_year
+            ).first()
+            if homeroom:
+                # A student with no active major enrollment in the active year
+                # has no current enrollment at all — unenrolled, graduated, or
+                # only in подгруппы — so there is nothing to compare against.
+                enrollment = student.get_current_enrollment()
+                if enrollment and enrollment.class_group_id == homeroom.class_group_id:
+                    return True
+
             teacher_class_groups = TeachingAssignment.objects.filter(
                 teacher=teacher
             ).values_list('offering__class_group_id', flat=True)
 
-            # Check if student is enrolled in any of those class groups
             return Enrollment.objects.filter(
                 student=student,
                 class_group_id__in=teacher_class_groups,
@@ -209,6 +313,9 @@ def can_access_student(user, student):
             return parent.students.filter(pk=student.pk).exists()
         except Parent.DoesNotExist:
             return False
+
+    if user.is_psychologist():
+        return True
 
     return False
 
@@ -343,6 +450,13 @@ class IsStudent(BasePermission):
         return request.user.is_student()
 
 
+class IsNotStudent(BasePermission):
+    """Any authenticated role except students (staff, teachers, parents)."""
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and not user.is_student())
+
+
 class CanAccessStudent(BasePermission):
     def has_object_permission(self, request, view, obj):
         return can_access_student(request.user, obj)
@@ -401,3 +515,10 @@ class IsStaffOrAdmin(BasePermission):
             is_admin_role(request.user)
             or request.user.groups.filter(name__in=STAFF_GROUPS).exists()
         )
+
+
+class IsClubManagementRole(BasePermission):
+    """ClubManager, Admin, Supervisor, or Principal."""
+
+    def has_permission(self, request, view):
+        return is_club_management_role(request.user)

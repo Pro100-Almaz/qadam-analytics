@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.authentication.models import (
-    CustomUser, Student, Teacher, Parent, Supervisor,
+    CustomUser, Student, Teacher, Parent, Supervisor, ClubManager,
     SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
     MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
 )
@@ -13,7 +13,7 @@ from apps.authentication.models import (
 class PublicSchoolGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = SchoolGroup
-        fields = ['id', 'name', 'avatar', 'color']
+        fields = ['id', 'name']
 
 
 class SchoolGroupSerializer(serializers.ModelSerializer):
@@ -23,7 +23,7 @@ class SchoolGroupSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    role = serializers.CharField(read_only=True)
+    roles = serializers.SerializerMethodField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     primary_group = serializers.CharField(read_only=True)
     profile_id = serializers.SerializerMethodField()
@@ -34,12 +34,12 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'phone_number', 'date_of_birth', 'address', 'avatar',
-            'school', 'role', 'role_display', 'primary_group', 'profile_id',
+            'school', 'roles', 'role_display', 'primary_group', 'profile_id',
         ]
         read_only_fields = ['id', 'username']
 
     def get_profile_id(self, obj):
-        for attr in ('student', 'teacher', 'parent', 'supervisor'):
+        for attr in ('student', 'teacher', 'parent', 'supervisor', 'clubmanager'):
             profile = getattr(obj, attr, None)
             if profile is not None:
                 return profile.pk
@@ -50,6 +50,12 @@ class UserSerializer(serializers.ModelSerializer):
         if request and obj.avatar:
             return request.build_absolute_uri(obj.avatar.url)
         return None
+
+    def get_roles(self, obj):
+        groups = [group.name.lower() for group in obj.groups.all()]
+        for i in range(len(groups)):
+            groups[i] = groups[i].replace('homeroomteacher', 'homeroom_teacher')
+        return groups
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -122,6 +128,9 @@ class RegisterSerializer(serializers.Serializer):
     school_group = serializers.PrimaryKeyRelatedField(
         queryset=SchoolGroup.objects.all(), required=False, allow_null=True
     )
+    medical_features = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
 
     # Parent-specific
     student_id = serializers.IntegerField(required=False, allow_null=True)
@@ -148,6 +157,7 @@ class RegisterSerializer(serializers.Serializer):
         employment_type = validated_data.pop('employment_type', None)
         occupation = validated_data.pop('occupation', None)
         school_group = validated_data.pop('school_group', None)
+        medical_features = validated_data.pop('medical_features', None)
         student_id = validated_data.pop('student_id', None)
 
         user = CustomUser(
@@ -173,7 +183,11 @@ class RegisterSerializer(serializers.Serializer):
                 occupation=occupation,
             )
         elif group_name == CustomUser.GROUP_STUDENT:
-            Student.objects.create(user=user, school_group=school_group)
+            Student.objects.create(
+                user=user,
+                school_group=school_group,
+                medical_features=medical_features,
+            )
         elif group_name == CustomUser.GROUP_PARENT:
             parent = Parent.objects.create(user=user)
             if student_id:
@@ -184,28 +198,24 @@ class RegisterSerializer(serializers.Serializer):
                     pass
         elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
             Supervisor.objects.create(user=user)
+        elif group_name == CustomUser.GROUP_CLUB_MANAGER:
+            ClubManager.objects.create(user=user)
 
         return user
 
 
 class ForgetPasswordSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    identifier = serializers.CharField()
 
 
 class VerificationCodeSerializer(serializers.Serializer):
     username = serializers.CharField()
-    verification_code = serializers.CharField()
+    code = serializers.CharField()
 
 
 class PasswordChangeSerializer(serializers.Serializer):
     token = serializers.CharField()
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        if attrs['password1'] != attrs['password2']:
-            raise serializers.ValidationError({"password2": "Пароли не совпадают."})
-        return attrs
+    new_password = serializers.CharField(write_only=True)
 
 
 class ResetPasswordSerializer(serializers.Serializer):

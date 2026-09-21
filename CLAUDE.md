@@ -12,7 +12,12 @@ Qadam Analytics is a school management and grading platform built with Django 5.
 # Start dev database (PostgreSQL on port 5433)
 docker compose -f docker-compose.dev.yml up -d db
 
-# Run Django dev server locally (requires .env with DB_NAME, DB_USER, DB_PASSWORD, DB_HOST=localhost, DB_PORT=5433)
+# Start dev object storage (MinIO: S3 API on 9000, console on 9001)
+# minio-init creates the private bucket; required — media storage is always S3
+docker compose -f docker-compose.dev.yml up -d minio minio-init
+
+# Run Django dev server locally (requires .env with DB_NAME, DB_USER, DB_PASSWORD, DB_HOST=localhost,
+# DB_PORT=5433, S3_ENDPOINT_URL=http://localhost:9000, S3_ACCESS_KEY, S3_SECRET_KEY; MinIO must be up)
 python manage.py runserver
 
 # Migrations
@@ -76,6 +81,14 @@ make push
 - Database: PostgreSQL (env vars: DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT)
 - Timezone: Asia/Almaty
 - Static files served by WhiteNoise middleware; in Docker served from `/vol/static` via Nginx
+- Media files: always S3/MinIO — there is no local-disk mode. `S3_ENDPOINT_URL` is
+  required and settings raise `ImproperlyConfigured` at startup without it, so MinIO
+  must be running before Django will start (env vars: S3_ENDPOINT_URL, S3_BUCKET_NAME,
+  S3_ACCESS_KEY, S3_SECRET_KEY, S3_REGION, S3_URL_EXPIRE).
+  The bucket is private — `FileField.url` returns a presigned link valid for
+  `S3_URL_EXPIRE` seconds, signed against the public origin that Nginx proxies
+  to the `minio` container at `/<bucket>/`. Note that `.path` is unavailable on
+  S3 storage; use `.name` plus `storage.exists()` instead.
 
 ### Scripts (`scripts/`)
 

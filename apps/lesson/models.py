@@ -1,8 +1,11 @@
 from django.db import models
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.validators import MinValueValidator, MaxValueValidator
 from simple_history.models import HistoricalRecords
 
+from apps.authentication.models import CustomUser
+from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
 from core.models import SoftDeleteMixin
 
 
@@ -271,9 +274,6 @@ class QuarterGradeSnapshot(models.Model):
     quarter = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
     )
-    academic_year = models.ForeignKey(
-        'home.AcademicYear', on_delete=models.PROTECT,
-    )
     final_grade = models.DecimalField(max_digits=5, decimal_places=2)
     percentage = models.DecimalField(max_digits=5, decimal_places=2)
     letter_grade = models.CharField(max_length=2, blank=True)
@@ -286,11 +286,20 @@ class QuarterGradeSnapshot(models.Model):
     )
 
     class Meta:
-        unique_together = ['student', 'offering', 'quarter', 'academic_year']
+        unique_together = ['student', 'offering', 'quarter']
         indexes = [
-            models.Index(fields=['student', 'academic_year']),
+            models.Index(fields=['student', 'offering']),
             models.Index(fields=['offering', 'quarter']),
         ]
+
+    @property
+    def academic_year(self):
+        """Derived from the offering — a snapshot belongs to its offering's year."""
+        return self.offering.academic_year
+
+    @property
+    def academic_year_id(self):
+        return self.offering.academic_year_id
 
     def save(self, *args, **kwargs):
         if self.pk:
@@ -299,3 +308,104 @@ class QuarterGradeSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
+
+
+class   SubjectSchedule(models.Model):
+    SUBJECT_CHOICE = 'subject'
+    OTHER_CHOICE   = 'other'
+    SCHEDULE_CHOICES = [
+        (SUBJECT_CHOICE, "Subject"),
+        (OTHER_CHOICE, "Other"),
+    ]
+    offering = models.ForeignKey(
+        SubjectOffering,
+        on_delete=models.CASCADE,
+        related_name='schedules',
+        null=True,
+        blank=True
+    )
+    class_group = models.ForeignKey(
+        ClassGroup,
+        on_delete=models.CASCADE,
+        related_name='schedules',
+        null=True,
+    )
+    description = models.TextField(blank=True, null=True)
+    quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
+
+    class Meta:
+        unique_together = ['offering', 'quarter']
+
+    def __str__(self):
+        if self.offering:
+            return f"{self.offering} - {self.quarter}"
+        return f"{self.description} - {self.quarter}"
+
+
+class ScheduleSession(models.Model):
+    schedule = models.ForeignKey(
+        SubjectSchedule,
+        on_delete=models.CASCADE,
+        related_name='sessions',
+    )
+    time_start = models.TimeField()
+    time_end = models.TimeField()
+
+    weekday = models.PositiveSmallIntegerField(validators=[MinValueValidator(0), MaxValueValidator(6)])
+
+    class Meta:
+        unique_together = ['schedule', 'time_start', 'time_end', 'weekday']
+        ordering        = ['schedule', 'weekday', 'time_start', 'time_end']
+
+
+class ScheduleAttendance(models.Model):
+    ATTENDANCE_CHOICES = (
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+    )
+
+    student = models.ForeignKey(
+        'authentication.Student',
+        on_delete=models.CASCADE,
+        related_name='attendances',
+    )
+    session = models.ForeignKey(
+        ScheduleSession,
+        on_delete=models.CASCADE,
+        related_name='attendances',
+    )
+    date = models.DateField()
+    status = models.CharField(choices=ATTENDANCE_CHOICES, max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Homework(models.Model):
+    description = models.TextField()
+    offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
+    teaching_assignment = models.ForeignKey(TeachingAssignment, on_delete=models.CASCADE, related_name='homeworks')
+    max_grade = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
+    due_date = models.DateField()
+    is_active = models.BooleanField(default=False)
+
+    attachments = GenericRelation(
+        'achievement.Attachment',
+        content_type_field='content_type',
+        object_id_field='object_id',
+        related_query_name='homework',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class HomeworkGrade(models.Model):
+    homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
+    student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
+    grade = models.PositiveIntegerField(null=True, blank=True)
+    comments = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('homework', 'student')

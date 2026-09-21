@@ -1,11 +1,27 @@
+from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from rest_framework import serializers, status
+from rest_framework.response import Response
 
+from apps.achievement.models import (
+    Attachment, validate_attachment_format, validate_attachment_size,
+)
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
+from apps.lesson.models import (
+    Homework, Lesson, Topic, TopicGrade, MergedLessonComment,
+    QuarterGradeSnapshot, SubjectSchedule,
+)
+from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import is_admin_role, is_teacher_role
 
 GRADE_CACHE_TTL = 300
+
+# How many files one homework may carry. Keeps a single request bounded — the
+# per-file size cap lives in apps.achievement.models.
+MAX_HOMEWORK_ATTACHMENTS = 10
 
 
 def invalidate_lesson_grade_cache(lesson_id):
@@ -74,7 +90,7 @@ def get_available_offerings(user):
     """Return the SubjectOffering queryset available to the requesting user."""
     if is_admin_role(user):
         return SubjectOffering.objects.select_related(
-            'subject', 'class_group', 'academic_year'
+            'subject', 'class_group', 'class_group__academic_year'
         )
     if is_teacher_role(user):
         try:
@@ -84,7 +100,7 @@ def get_available_offerings(user):
             ).values_list('offering_id', flat=True)
             return SubjectOffering.objects.filter(
                 id__in=offering_ids
-            ).select_related('subject', 'class_group', 'academic_year')
+            ).select_related('subject', 'class_group', 'class_group__academic_year')
         except Teacher.DoesNotExist:
             return SubjectOffering.objects.none()
     return SubjectOffering.objects.none()
@@ -235,17 +251,17 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
     from apps.home.repo.students import grade_identifier
 
     offering = SubjectOffering.objects.select_related(
-        'class_group', 'academic_year',
+        'class_group', 'class_group__academic_year',
     ).get(id=offering_id)
 
     if QuarterGradeSnapshot.objects.filter(
-        offering=offering, quarter=quarter, academic_year=offering.academic_year,
+        offering=offering, quarter=quarter,
     ).exists():
         raise ValueError(f"Quarter {quarter} is already frozen for this offering.")
 
     enrollments = Enrollment.objects.filter(
         class_group=offering.class_group,
-        academic_year=offering.academic_year,
+        class_group__academic_year_id=offering.academic_year_id,
         status='active',
     ).select_related('student')
     students = [e.student for e in enrollments]
@@ -265,7 +281,6 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
             student=student,
             offering=offering,
             quarter=quarter,
-            academic_year=offering.academic_year,
             final_grade=round(avg, 2),
             percentage=round(avg, 2),
             letter_grade=grade_identifier(avg) or '',
@@ -276,3 +291,156 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
 
     QuarterGradeSnapshot.objects.bulk_create(snapshots)
     return len(snapshots)
+
+
+def build_other_sessions_map(schedules):
+    """
+    Build {schedule_id: [ScheduleSession, ...]} of the rest of the class group's
+    timetable.
+
+    "Other" sessions are every session of the same class group and quarter that
+    belongs to a different schedule — i.e. the slots taken by other subjects,
+    which the client renders read-only next to the schedule's own sessions.
+
+    Schedules without an offering (breaks, assemblies) carry a class group of
+    their own, so they take part on exactly the same terms: they see the class
+    group's subject slots and the subjects see them. The class group already
+    pins the academic year, so the key needs only (class_group, quarter).
+    """
+    from apps.lesson.models import ScheduleSession
+
+    schedules = list(schedules)
+    if not schedules:
+        return {}
+
+    def key_for(schedule):
+        return (schedule.class_group_id, schedule.quarter)
+
+    wanted_keys = {key_for(s) for s in schedules}
+
+    sessions = ScheduleSession.objects.filter(
+        schedule__class_group_id__in={k[0] for k in wanted_keys},
+        schedule__quarter__in={k[1] for k in wanted_keys},
+    ).select_related(
+        'schedule', 'schedule__offering', 'schedule__offering__subject',
+    )
+
+    sessions_by_key = {}
+    for session in sessions:
+        key = key_for(session.schedule)
+        if key in wanted_keys:
+            sessions_by_key.setdefault(key, []).append(session)
+
+    result = {}
+    for schedule in schedules:
+        pool = sessions_by_key.get(key_for(schedule), [])
+        result[schedule.id] = sorted(
+            (s for s in pool if s.schedule_id != schedule.id),
+            key=lambda s: (s.weekday, s.time_start, s.time_end),
+        )
+    return result
+
+
+# ── Homework attachments ──
+#
+# Homework files live in the generic apps.achievement.Attachment table, reached
+# through the Homework.attachments GenericRelation. Nothing here is specific to
+# achievements — the model is simply the project's shared attachment store.
+
+def homework_content_type():
+    return ContentType.objects.get_for_model(Homework)
+
+
+def validate_homework_attachments(files, existing_count=0):
+    """
+    Check an upload batch before anything is written.
+
+    Size and format come from the shared attachment validators (10MB, PDFs and
+    browser-safe images); the count cap is per homework, so an edit that adds
+    files has to account for the ones already there.
+    """
+    if not files:
+        return
+
+    if existing_count + len(files) > MAX_HOMEWORK_ATTACHMENTS:
+        raise serializers.ValidationError({
+            'attachments': [
+                f'A homework may have at most {MAX_HOMEWORK_ATTACHMENTS} '
+                f'attachments ({existing_count} already attached).'
+            ]
+        })
+
+    for uploaded_file in files:
+        try:
+            validate_attachment_size(uploaded_file)
+            validate_attachment_format(uploaded_file)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({
+                'attachments': [f'{uploaded_file.name}: {message}' for message in exc.messages]
+            })
+
+
+def attach_files_to_homeworks(homeworks, files, user):
+    """
+    Store every file on every homework — one Attachment row and one stored copy
+    per homework.
+
+    A single POST can create the same task for several classes at once; each
+    class gets its own copy so that deleting one class's attachment (or the
+    homework itself) never disturbs another's.
+    """
+    from apps.achievement.api.views import _detect_file_type
+
+    if not homeworks or not files:
+        return []
+
+    content_type = homework_content_type()
+    created = []
+    with transaction.atomic():
+        for homework in homeworks:
+            for uploaded_file in files:
+                # The same upload object is written once per homework; rewind it
+                # so the second and later copies are not truncated.
+                uploaded_file.seek(0)
+                created.append(Attachment.objects.create(
+                    content_type=content_type,
+                    object_id=homework.pk,
+                    file=uploaded_file,
+                    file_type=_detect_file_type(uploaded_file.name),
+                    original_name=uploaded_file.name,
+                    uploaded_by=user,
+                ))
+    return created
+
+
+def homework_attachments(homework):
+    """Attachments of one homework, oldest first."""
+    return homework.attachments.order_by('created_at', 'id')
+
+
+def delete_homework_attachments(homework, attachment_ids):
+    """
+    Remove the given attachments from a homework, file and row.
+
+    Ids that do not belong to this homework are rejected rather than ignored —
+    a typo in the payload should not pass silently as a successful edit.
+    """
+    if not attachment_ids:
+        return 0
+
+    ids = set(attachment_ids)
+    rows = list(homework.attachments.filter(pk__in=ids))
+    missing = ids - {row.pk for row in rows}
+    if missing:
+        raise serializers.ValidationError({
+            'remove_attachments': [
+                'These attachments do not belong to this homework: '
+                + ', '.join(str(pk) for pk in sorted(missing))
+            ]
+        })
+
+    with transaction.atomic():
+        for row in rows:
+            row.file.delete(save=False)
+            row.delete()
+    return len(rows)

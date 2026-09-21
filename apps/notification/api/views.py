@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.notification.models import Notification
-from .serializers import NotificationSerializer
+from apps.notification.api.serializers import NotificationSerializer
 
 
 class NotificationListAPIView(ListAPIView):

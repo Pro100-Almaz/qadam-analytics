@@ -1,4 +1,5 @@
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from core.factories import (
@@ -8,6 +9,20 @@ from core.factories import (
     SubjectFactory, SubjectOfferingFactory, TeachingAssignmentFactory,
     LessonFactory, TopicFactory,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_test_cache(settings):
+    """Keep cache-backed throttles and reset tokens isolated between tests."""
+    settings.CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'qadam-pytest-cache',
+        },
+    }
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture
@@ -77,7 +92,6 @@ def offering(class_group, subject):
     return SubjectOfferingFactory(
         subject=subject,
         class_group=class_group,
-        academic_year=class_group.academic_year,
     )
 
 
@@ -86,7 +100,6 @@ def enrollment(student, class_group):
     return EnrollmentFactory(
         student=student,
         class_group=class_group,
-        academic_year=class_group.academic_year,
     )
 
 

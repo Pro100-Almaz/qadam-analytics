@@ -133,6 +133,7 @@ class TeacherClassStudentsAPIView(APIView):
         show_all = request.query_params.get('all_subjects', '').lower() == 'true'
         data = get_class_students(
             class_group_id,
+            request=request,
             teacher=None if (is_admin_role(request.user) or show_all) else teacher,
         )
         return Response(data)

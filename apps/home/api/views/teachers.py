@@ -23,7 +23,9 @@ class TeacherListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
 
     def get_queryset(self):
-        return Teacher.objects.select_related('user').all()
+        return Teacher.objects.select_related('user').order_by(
+            'user__last_name', 'user__first_name', 'id',
+        )
 
 
 class TeacherDetailAPIView(RetrieveAPIView):
@@ -90,17 +92,20 @@ class ParentTeacherListAPIView(ListAPIView):
         students = parent.students.all()
 
         enrollments = Enrollment.objects.filter(
-            student__in=students, status='active', academic_year__is_active=True,
+            student__in=students, status='active',
+            class_group__academic_year__is_active=True,
         ).select_related('class_group')
         class_groups = [e.class_group for e in enrollments]
 
         assignments = TeachingAssignment.objects.filter(
             offering__class_group__in=class_groups,
-            offering__academic_year__is_active=True,
+            offering__class_group__academic_year__is_active=True,
         ).select_related('teacher', 'teacher__user', 'offering__subject')
 
         teacher_ids = set()
         for a in assignments:
             teacher_ids.add(a.teacher_id)
 
-        return Teacher.objects.filter(id__in=teacher_ids).select_related('user')
+        return Teacher.objects.filter(id__in=teacher_ids).select_related('user').order_by(
+            'user__last_name', 'user__first_name', 'id',
+        )

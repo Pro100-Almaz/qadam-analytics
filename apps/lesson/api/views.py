@@ -29,8 +29,8 @@ from apps.lesson.services import (
     freeze_quarter_grades,
 )
 
-from .permissions import IsTeacherAdminOrSupervisor
-from .serializers import (
+from apps.lesson.api.permissions import IsTeacherAdminOrSupervisor
+from apps.lesson.api.serializers import (
     LessonListSerializer,
     LessonDetailSerializer,
     LessonCreateSerializer,
@@ -64,7 +64,7 @@ class LessonListCreateAPIView(APIView):
 
         lessons = Lesson.objects.select_related(
             'offering', 'offering__subject', 'offering__class_group',
-            'offering__academic_year',
+            'offering__class_group__academic_year',
         )
 
         user = request.user
@@ -160,7 +160,7 @@ class LessonDetailGetDeleteAPIView(APIView):
         lesson = get_object_or_404(
             Lesson.objects.select_related(
                 'offering', 'offering__subject',
-                'offering__class_group', 'offering__academic_year',
+                'offering__class_group', 'offering__class_group__academic_year',
             ),
             pk=pk,
         )
@@ -298,7 +298,7 @@ class TopicCreateAPIView(APIView):
         recalculate_topic_weights(lesson)
         topic.refresh_from_db()
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         return Response(
             TopicSerializer(topic).data,
             status=status.HTTP_201_CREATED,
@@ -325,7 +325,7 @@ class TopicUpdateDeleteAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         # Re-fetch with subtopics
         topic.refresh_from_db()
         return Response(TopicSerializer(topic).data)
@@ -370,7 +370,7 @@ class TopicDistributeWeightsAPIView(APIView):
 
         recalculate_topic_weights(lesson)
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         updated = Topic.objects.filter(lesson=lesson, parent__isnull=True).prefetch_related('subtopics')
         return Response(TopicSerializer(updated, many=True).data)
 
@@ -427,7 +427,7 @@ class SubtopicCreateAPIView(APIView):
         distribute_subtopic_weights(lesson)
         subtopic.refresh_from_db()
 
-        from .serializers import SubtopicSerializer
+        from apps.lesson.api.serializers import SubtopicSerializer
         return Response(
             SubtopicSerializer(subtopic).data,
             status=status.HTTP_201_CREATED,
@@ -463,7 +463,7 @@ class SubtopicUpdateDeleteAPIView(APIView):
         serializer.save()
         subtopic.refresh_from_db()
 
-        from .serializers import SubtopicSerializer
+        from apps.lesson.api.serializers import SubtopicSerializer
         return Response(SubtopicSerializer(subtopic).data)
 
     def delete(self, request, pk):
@@ -511,7 +511,7 @@ class SubtopicDistributeWeightsAPIView(APIView):
 
         distribute_subtopic_weights(lesson)
 
-        from .serializers import TopicSerializer
+        from apps.lesson.api.serializers import TopicSerializer
         parent_topics = Topic.objects.filter(
             lesson=lesson, parent__isnull=True
         ).prefetch_related('subtopics')
@@ -532,7 +532,7 @@ class GradingAPIView(APIView):
         lesson = get_object_or_404(
             Lesson.objects.select_related(
                 'offering', 'offering__subject',
-                'offering__class_group', 'offering__academic_year',
+                'offering__class_group', 'offering__class_group__academic_year',
             ),
             pk=lesson_id,
         )
@@ -553,6 +553,12 @@ class GradingAPIView(APIView):
 
     def _handle_grade_submit(self, request, lesson_id):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
+
+        if not can_modify_lesson(request.user, lesson):
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = GradeSubmitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -651,8 +657,8 @@ class CalendarLessonListAPIView(APIView):
         lessons = Lesson.objects.select_related(
             'offering', 'offering__subject',
             'offering__class_group', 'offering__class_group__grade_level',
-            'offering__academic_year',
-        ).filter(date__gte=start_date, date__lte=end_date)
+            'offering__class_group__academic_year',
+        ).filter(date__gte=start_dt, date__lte=end_dt)
 
         user = request.user
 
@@ -798,11 +804,11 @@ class StudentGradeHistoryAPIView(APIView):
         year_id = request.query_params.get('year')
         snapshots = QuarterGradeSnapshot.objects.filter(
             student=student,
-        ).select_related('offering__subject', 'academic_year').order_by(
-            '-academic_year__year', 'offering__subject__name', 'quarter',
+        ).select_related('offering__subject', 'offering__class_group__academic_year').order_by(
+            '-offering__class_group__academic_year__year', 'offering__subject__name', 'quarter',
         )
         if year_id:
-            snapshots = snapshots.filter(academic_year_id=year_id)
+            snapshots = snapshots.filter(offering__class_group__academic_year_id=year_id)
 
         data = []
         for s in snapshots:

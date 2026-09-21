@@ -51,6 +51,7 @@ class CustomUser(AbstractUser):
     GROUP_PRINCIPAL = 'Principal'
     GROUP_ADMIN = 'Admin'
     GROUP_PSYCHOLOGIST = 'Psychologist'
+    GROUP_CLUB_MANAGER = 'ClubManager'
 
     # Choices for forms - maps internal group name to display name
     GROUP_CHOICES = [
@@ -62,6 +63,7 @@ class CustomUser(AbstractUser):
         (GROUP_PRINCIPAL, 'Principal'),
         (GROUP_ADMIN, 'Admin'),
         (GROUP_PSYCHOLOGIST, 'Psychologist'),
+        (GROUP_CLUB_MANAGER, 'Club Manager'),
     ]
 
     # Display names for groups
@@ -74,6 +76,7 @@ class CustomUser(AbstractUser):
         GROUP_PRINCIPAL: 'Principal',
         GROUP_ADMIN: 'Admin',
         GROUP_PSYCHOLOGIST: 'Psychologist',
+        GROUP_CLUB_MANAGER: 'Club Manager',
     }
 
     SCHOOL_CHOICES = [
@@ -160,6 +163,10 @@ class CustomUser(AbstractUser):
         """Check if user is a student."""
         return self._has_group(self.GROUP_STUDENT)
 
+    def is_club_manager(self):
+        """Check if user is a club manager."""
+        return self._has_group(self.GROUP_CLUB_MANAGER)
+
     def get_students(self):
         """Get all students linked to this parent user."""
         if self.is_parent():
@@ -196,33 +203,46 @@ class Student(models.Model):
         blank=True,
         help_text='Enrollment year for this student'
     )
+    medical_features = models.TextField(null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
 
     def get_admin_label(self):
+        from apps.home.models import ClassGroup
         name = str(self)
-        enrollment = self.enrollments.filter(status='active').first()
+        enrollment = self.enrollments.filter(
+            status='active', class_group__category=ClassGroup.MAJOR_CHOICE
+        ).first()
         if enrollment and enrollment.class_group:
             return f'{name} ({enrollment.class_group.grade_level}{enrollment.class_group.letter})'
         return name
 
     def get_current_enrollment(self):
-        """Get current active enrollment."""
+        """Get current active enrollment in a major class group."""
         from apps.home.models import Enrollment
         return Enrollment.get_current_enrollment(self)
 
+    def get_current_minor_enrollments(self):
+        """Get current active enrollments in minor class groups."""
+        from apps.home.models import Enrollment
+        return Enrollment.get_current_minor_enrollments(self)
+
     def get_current_class_group(self):
-        """Get the class group from current enrollment."""
+        """Get the major class group from current enrollment."""
         enrollment = self.get_current_enrollment()
         return enrollment.class_group if enrollment else None
+
+    def get_current_minor_class_groups(self):
+        """Get the minor class groups the student is currently enrolled in."""
+        return [e.class_group for e in self.get_current_minor_enrollments()]
 
     def get_enrollment_history(self):
         """Get all enrollments ordered by year."""
         return self.enrollments.select_related(
-            'class_group', 'class_group__grade_level', 'academic_year'
-        ).order_by('-academic_year__year')
+            'class_group', 'class_group__grade_level', 'class_group__academic_year'
+        ).order_by('-class_group__academic_year__year')
 
     def enroll_in_class(self, class_group, academic_year, start_date=None):
         """Enroll student in a class group."""
@@ -286,6 +306,10 @@ class Teacher(models.Model):
 
 
 class Supervisor(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+
+
+class ClubManager(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 

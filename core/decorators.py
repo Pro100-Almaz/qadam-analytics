@@ -12,6 +12,7 @@ ROLE_TO_GROUP = {
     'supervisor': 'Supervisor',
     'principal': 'Principal',
     'parent': 'Parent',
+    'club_manager': 'ClubManager',
 }
 
 

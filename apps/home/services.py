@@ -1,14 +1,16 @@
 from datetime import timedelta
 
+from django.db.models import Case, IntegerField, Value, When
 from django.utils import timezone
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import (
-    AcademicYear, SubjectOffering, Enrollment, TeachingAssignment,
+    AcademicYear, ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
 )
 from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
 from apps.home.repo.students import grade_identifier
+from core.permissions import is_staff_role
 
 
 def get_dashboard_stats():
@@ -20,15 +22,35 @@ def get_dashboard_stats():
     }
 
 
+# A student holds at most one active enrollment in a major class group but any
+# number of minor (подгруппа) ones, so the major enrollment is the one that
+# says which class the student is in.
+MAJOR_GROUP_FIRST = Case(
+    When(class_group__category=ClassGroup.MAJOR_CHOICE, then=Value(0)),
+    default=Value(1),
+    output_field=IntegerField(),
+)
+
+
+def _primary_enrollment(student):
+    """The student's active enrollment, preferring their major class group."""
+    return (
+        Enrollment.objects
+        .filter(student=student, status='active')
+        .select_related('class_group')
+        .annotate(major_group_first=MAJOR_GROUP_FIRST)
+        .order_by('major_group_first', '-class_group__academic_year__year')
+        .first()
+    )
+
+
 def get_students_for_role(user, year_id=None, class_group_id=None):
     from core.permissions import is_admin_role, is_teacher_role
 
     if user.is_student():
         try:
             student = Student.objects.select_related('user').get(user=user)
-            enrollment = Enrollment.objects.filter(
-                student=student, status='active',
-            ).select_related('class_group').first()
+            enrollment = _primary_enrollment(student)
             if enrollment:
                 student.classroom = enrollment.class_group
                 return [student]
@@ -42,9 +64,7 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
             children = parent.students.select_related('user').all()
             result = []
             for child in children:
-                enrollment = Enrollment.objects.filter(
-                    student=child, status='active',
-                ).select_related('class_group').first()
+                enrollment = _primary_enrollment(child)
                 if enrollment:
                     child.classroom = enrollment.class_group
                     result.append(child)
@@ -52,7 +72,7 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
         except Parent.DoesNotExist:
             return []
 
-    if not (is_admin_role(user) or is_teacher_role(user)):
+    if not (is_admin_role(user) or is_teacher_role(user) or is_staff_role(user)):
         return []
 
     if not year_id:
@@ -62,14 +82,24 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
         return []
 
     enrollments = Enrollment.objects.filter(
-        academic_year_id=year_id, status='active'
+        class_group__academic_year_id=year_id, status='active'
     ).select_related('student', 'student__user', 'class_group')
 
     if class_group_id:
         enrollments = enrollments.filter(class_group_id=class_group_id)
 
+    # Major groups first, so a student enrolled in подгруппы as well as their
+    # class is listed once, under their class.
+    enrollments = enrollments.annotate(
+        major_group_first=MAJOR_GROUP_FIRST,
+    ).order_by('major_group_first', 'class_group_id', 'student_id')
+
     students = []
+    seen = set()
     for e in enrollments:
+        if e.student_id in seen:
+            continue
+        seen.add(e.student_id)
         e.student.classroom = e.class_group
         students.append(e.student)
     return students
@@ -79,7 +109,7 @@ def compute_child_grades(student, enrollment):
     """Compute grade summaries for a student — used by parent endpoints."""
     offerings = list(SubjectOffering.objects.filter(
         class_group=enrollment.class_group,
-        academic_year=enrollment.academic_year,
+        class_group__academic_year=enrollment.academic_year,
     ).select_related('subject'))
 
     lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -149,7 +179,7 @@ def get_subject_grades(subject, user, quarter=1, class_group_id=0):
 
     offerings = list(
         SubjectOffering.objects.filter(
-            subject=subject, academic_year=current_year
+            subject=subject, class_group__academic_year=current_year
         ).select_related('class_group')
     ) if current_year else []
 
@@ -168,7 +198,7 @@ def get_subject_grades(subject, user, quarter=1, class_group_id=0):
     class_group_ids = [o.class_group_id for o in offerings]
     enrollments = Enrollment.objects.filter(
         class_group_id__in=class_group_ids,
-        academic_year=current_year,
+        class_group__academic_year=current_year,
         status='active',
     ).select_related('student', 'student__user')
 
@@ -298,7 +328,7 @@ def get_teacher_workload(teacher, week_start=None, week_end=None):
     for a in assignments:
         count = Enrollment.objects.filter(
             class_group=a.offering.class_group,
-            academic_year=a.offering.academic_year,
+            class_group__academic_year_id=a.offering.academic_year_id,
             status='active',
         ).count()
         enrollment_counts[a.offering_id] = count

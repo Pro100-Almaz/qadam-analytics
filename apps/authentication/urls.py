@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import login_view, register_user, custom_logout_view, forget_password_view, \
+from apps.authentication.views import login_view, register_user, custom_logout_view, forget_password_view, \
     verification_code_check, password_change_final, reset_password_view
 
 app_name = 'authentication'

@@ -1,6 +1,12 @@
-from .dashboard import DashboardStatsAPIView, TeacherWorkloadAPIView
-from .academic import AcademicYearListAPIView, ClassGroupListAPIView, RolloverAcademicYearAPIView
-from .students import (
+from apps.home.api.views.dashboard import DashboardStatsAPIView, TeacherWorkloadAPIView
+from apps.home.api.views.academic import (
+    AcademicYearListAPIView,
+    ClassGroupListAPIView,
+    ClassGroupMinorGroupListAPIView,
+    ClassGroupStudentListAPIView,
+    RolloverAcademicYearAPIView,
+)
+from apps.home.api.views.students import (
     StudentListAPIView,
     StudentDetailAPIView,
     StudentProfileUpdateAPIView,
@@ -11,13 +17,13 @@ from .students import (
     StudentMyTeachersAPIView,
     StudentClassmatesAPIView,
 )
-from .teachers import (
+from apps.home.api.views.teachers import (
     TeacherListAPIView,
     TeacherDetailAPIView,
     TeacherProfileUpdateAPIView,
     ParentTeacherListAPIView,
 )
-from .subjects import (
+from apps.home.api.views.subjects import (
     SubjectListAPIView,
     SubjectCreateAPIView,
     SubjectDetailAPIView,
@@ -26,14 +32,28 @@ from .subjects import (
     SubjectDeleteAPIView,
     MySubjectsListAPIView,
 )
-from .enrollments import EnrollmentListAPIView
-from .parents import (
+from apps.home.api.views.enrollments import EnrollmentListAPIView
+from apps.home.api.views.parents import (
     ParentChildrenListAPIView,
     ParentChildDetailAPIView,
     ParentTeachersAPIView,
     ParentChildSubjectDetailAPIView,
 )
-from .teacher_dashboard import (
+from apps.home.api.views.assignments import (
+    SubjectAssignmentListCreateAPIView,
+    SubjectAssignmentDetailAPIView,
+    SubjectAssignmentGradeListCreateAPIView,
+    SubjectGradeListAPIView,
+    SubjectGradeDetailAPIView,
+    HomeroomSubjectAssignmentListAPIView,
+    HomeroomSubjectGradeListAPIView,
+)
+from apps.home.api.views.quarter_grades import (
+    QuarterGradeListCreateAPIView,
+    QuarterGradeDetailAPIView,
+    HomeroomQuarterGradeListAPIView,
+)
+from apps.home.api.views.teacher_dashboard import (
     TeacherRoleDashboardAPIView,
     HomeroomClassAPIView,
     PsychologistDashboardAPIView,
@@ -47,6 +67,8 @@ __all__ = [
     'TeacherWorkloadAPIView',
     'AcademicYearListAPIView',
     'ClassGroupListAPIView',
+    'ClassGroupMinorGroupListAPIView',
+    'ClassGroupStudentListAPIView',
     'StudentListAPIView',
     'StudentDetailAPIView',
     'StudentProfileUpdateAPIView',
@@ -78,4 +100,14 @@ __all__ = [
     'PsychologistStudentDetailAPIView',
     'TeacherMyClassesAPIView',
     'TeacherClassStudentsAPIView',
+    'SubjectAssignmentListCreateAPIView',
+    'SubjectAssignmentDetailAPIView',
+    'SubjectAssignmentGradeListCreateAPIView',
+    'SubjectGradeListAPIView',
+    'SubjectGradeDetailAPIView',
+    'HomeroomSubjectAssignmentListAPIView',
+    'HomeroomSubjectGradeListAPIView',
+    'QuarterGradeListCreateAPIView',
+    'QuarterGradeDetailAPIView',
+    'HomeroomQuarterGradeListAPIView',
 ]

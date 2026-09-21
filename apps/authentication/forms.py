@@ -1,7 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import CustomUser, SchoolGroup, Teacher, MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES
+from apps.authentication.models import (
+    CustomUser, SchoolGroup, Teacher, ClubManager,
+    MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
+)
 
 
 class LoginForm(forms.Form):
@@ -230,6 +233,15 @@ class SignUpForm(UserCreationForm):
             "id": "id_school_group"
         })
     )
+    medical_features = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            "placeholder": "Медицинские особенности",
+            "class": "form-control",
+            "id": "id_medical_features",
+            "rows": 3
+        })
+    )
 
 
     class Meta:
@@ -262,7 +274,7 @@ class SignUpForm(UserCreationForm):
 
             # Create role-specific profile based on selected group
             if group_name in (CustomUser.GROUP_TEACHER, CustomUser.GROUP_HOMEROOM_TEACHER):
-                from .models import Teacher
+                from apps.authentication.models import Teacher
                 Teacher.objects.create(
                     user=user,
                     occupation=self.cleaned_data.get('occupation'),
@@ -271,13 +283,14 @@ class SignUpForm(UserCreationForm):
                     employment_type=self.cleaned_data.get('employment_type'),
                 )
             elif group_name == CustomUser.GROUP_STUDENT:
-                from .models import Student
+                from apps.authentication.models import Student
                 Student.objects.create(
                     user=user,
                     school_group=self.cleaned_data.get('school_group'),
+                    medical_features=self.cleaned_data.get('medical_features'),
                 )
             elif group_name == CustomUser.GROUP_PARENT:
-                from .models import Parent, Student
+                from apps.authentication.models import Parent, Student
                 parent = Parent.objects.create(user=user)
                 # Link to student if student_id provided (ManyToMany relationship)
                 student_id = self.cleaned_data.get('student_id')
@@ -288,8 +301,10 @@ class SignUpForm(UserCreationForm):
                     except Student.DoesNotExist:
                         pass
             elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
-                from .models import Supervisor
+                from apps.authentication.models import Supervisor
                 Supervisor.objects.create(user=user)
+            elif group_name == CustomUser.GROUP_CLUB_MANAGER:
+                ClubManager.objects.create(user=user)
             # Admin group doesn't need a profile model
         return user
 

@@ -1,4 +1,5 @@
 import os
+from json import JSONDecodeError
 
 from decouple import config
 from google.oauth2.service_account import Credentials
@@ -13,16 +14,44 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly'
 ]
 
-credentials = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=SCOPES)
+if not CREDENTIALS_PATH:
+    raise RuntimeError(
+        "Google Sheets credentials path is not configured. Set "
+        "SERVICE_ACCOUNT_FILE or SERVICE_ACCOUNT_FILE_INTERNAL."
+    )
+
+if not os.path.exists(CREDENTIALS_PATH):
+    raise RuntimeError(
+        f"Google Sheets credentials file does not exist: {CREDENTIALS_PATH}"
+    )
+
+if os.path.getsize(CREDENTIALS_PATH) == 0:
+    raise RuntimeError(
+        f"Google Sheets credentials file is empty: {CREDENTIALS_PATH}"
+    )
+
+try:
+    credentials = Credentials.from_service_account_file(
+        CREDENTIALS_PATH, scopes=SCOPES,
+    )
+except JSONDecodeError as exc:
+    raise RuntimeError(
+        f"Google Sheets credentials file is not valid JSON: {CREDENTIALS_PATH}"
+    ) from exc
+
 client = gspread.authorize(credentials)
 
 SPREADSHEET_URL = config('SPREADSHEET_URL')
 
-def get_sheets_data():
+def get_sheets_data(only_sheets=None):
+    only_sheets = {name.lower() for name in only_sheets} if only_sheets else None
     sheet = client.open_by_url(SPREADSHEET_URL)
     all_sheets = {}
     for worksheet in sheet.worksheets():
         title = worksheet.title.lower()
+        if only_sheets is not None and title not in only_sheets:
+            continue
+
         if 'teacher' in title.lower():
             records = worksheet.get_all_records(expected_headers=[
                 "Nickname", "First Name", "Last Name", "Email", "Role", "School",

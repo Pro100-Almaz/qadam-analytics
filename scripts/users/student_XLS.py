@@ -19,6 +19,8 @@ from scripts.subjects.enrollment_script import add_enrollment
 from scripts.subjects.subject_offering_script import add_subject_offering
 from scripts.utils.logging_config import logger
 
+EMPTY_VALUES = {'', 'none', 'nan', 'null', '-'}
+
 '''
 current student model:
 Subjects already done
@@ -62,14 +64,18 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 'altyn': 4,
 
             }
-            school_group_value = row['School Group (Orda)'].lower().strip()
+            school_group_value = str(row.get('School Group (Orda)', '')).lower().strip()
 
-            if school_group_value not in school_group_map:
+            if school_group_value in EMPTY_VALUES:
+                school_group_id = None
+            elif school_group_value not in school_group_map:
                 print(
                     f"Invalid school group '{school_group_value}' in sheet {sheet_name}, row {idx + 2}. "
                     f"Expected one of: {list(school_group_map.keys())}"
                 )
-            school_group_id = school_group_map[school_group_value]
+                school_group_id = None
+            else:
+                school_group_id = school_group_map[school_group_value]
 
             # 3) creating the student
             student = Student.objects.update_or_create(
@@ -80,10 +86,12 @@ def process_student(sheet_name, row, idx, admin_id, user):
                 )
             )[0]
 
-            rs = row['Subjects']
-            raw_subjects = [s.strip() for s in rs.split('/') if s.strip()]
+            rs = str(row.get('Subjects', '')).strip()
+            raw_subjects = [
+                s.strip() for s in rs.split('/')
+                if s.strip() and s.strip().lower() not in EMPTY_VALUES
+            ]
             subjects_to_add = set()
-            print(raw_subjects)
 
             for sub in raw_subjects:
                 subject = Subject.objects.update_or_create(

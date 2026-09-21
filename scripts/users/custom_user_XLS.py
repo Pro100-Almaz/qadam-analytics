@@ -53,7 +53,23 @@ def assign_user_group(user, role):
         group, _ = Group.objects.get_or_create(name=group_name)
         user.groups.add(group)
 
-dfs = get_sheets_data()
+
+STUDENT_IMPORT_SHEETS = {
+    '0nb',
+    '1ak',
+    '1az',
+    '2as',
+    '2ol',
+    '3ai',
+    '4ab',
+}
+
+
+def is_empty_row(row):
+    return not any(str(value).strip() for value in row.values())
+
+
+dfs = get_sheets_data(only_sheets=STUDENT_IMPORT_SHEETS)
 
 admin_id = 0
 
@@ -78,6 +94,9 @@ user_dict = {} # first_name + . + last_name : how many times it appeared
 
 for sheet_name, rows in dfs.items():
     check = sheet_name.lower()
+    if check not in STUDENT_IMPORT_SHEETS:
+        continue
+
     if not ('subject' in check or 'lesson' in check or 'grad' in check or 'stat' in check or 'topic' in check):
         worksheet = get_writable_sheet(sheet_name)
         sheet_title = worksheet.title
@@ -93,6 +112,9 @@ for sheet_name, rows in dfs.items():
 
 
         for idx, row in enumerate(rows):
+            if is_empty_row(row):
+                continue
+
             try:
                 with transaction.atomic():
                     date_of_birth = row['Date of Birth']
@@ -131,10 +153,14 @@ for sheet_name, rows in dfs.items():
                         print(e)
 
                     try:
-                        first_name = row['First Name']
-                        last_name = row['Last Name']
+                        first_name = str(row['First Name']).strip()
+                        last_name = str(row['Last Name']).strip()
+                        role = str(row['Role']).strip().lower()
+                        if not first_name or not last_name:
+                            raise ValueError('First Name and Last Name are required')
+                        if role != 'student':
+                            raise ValueError(f"Expected Role='student', got '{role}'")
                         full_name = first_name.strip().lower() +"."+ last_name.strip().lower()
-                        role = row['Role']
                         username = generate_username(user_dict, full_name)
 
 
@@ -234,4 +260,3 @@ for sheet_name, rows in dfs.items():
                 "valueInputOption": "USER_ENTERED",
                 "data": status_updates
             })
-

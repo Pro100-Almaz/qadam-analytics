@@ -1,3 +1,4 @@
+from django.db.models import Max
 from rest_framework import serializers
 
 from apps.authentication.api.serializers import UserSerializer
@@ -8,6 +9,7 @@ from apps.authentication.models import (
 from apps.home.models import (
     AcademicYear, GradeLevel, ClassGroup,
     Subject, SubjectOffering, TeachingAssignment, Enrollment,
+    SubjectAssignment, SubjectGrade, QuarterGrade,
 )
 from apps.lesson.models import Lesson, TopicGrade, Topic
 
@@ -39,7 +41,24 @@ class ClassGroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClassGroup
-        fields = ['id', 'letter', 'grade_level', 'academic_year', 'display_name']
+        fields = ['id', 'letter', 'category', 'grade_level', 'academic_year', 'display_name']
+
+
+class ClassGroupStudentSerializer(serializers.ModelSerializer):
+    """One student on a class group's roster, read off their enrollment."""
+    id = serializers.IntegerField(source='student.id', read_only=True)
+    user = UserSerializer(source='student.user', read_only=True)
+    school_group = serializers.PrimaryKeyRelatedField(
+        source='student.school_group', read_only=True,
+    )
+    enrollment_id = serializers.IntegerField(source='id', read_only=True)
+
+    class Meta:
+        model = Enrollment
+        fields = [
+            'id', 'user', 'school_group',
+            'enrollment_id', 'status', 'start_date', 'end_date',
+        ]
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -91,7 +110,10 @@ class StudentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'school_group', 'academic_year', 'current_class_group']
+        fields = [
+            'id', 'user', 'school_group', 'academic_year',
+            'medical_features', 'current_class_group',
+        ]
 
     def get_current_class_group(self, obj):
         class_group = getattr(obj, 'classroom', None)
@@ -112,15 +134,16 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     cumulative_subject_grades = serializers.SerializerMethodField()
     student_total_grade = serializers.SerializerMethodField()
     psychological_states = serializers.SerializerMethodField()
+    parents = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
         fields = [
             'id', 'user', 'school_group', 'academic_year',
-            'current_class_group', 'offerings',
+            'medical_features', 'current_class_group', 'offerings',
             'subject_quarter_grades', 'total_quarter_grades',
             'cumulative_subject_grades', 'student_total_grade',
-            'psychological_states',
+            'psychological_states', 'parents',
         ]
 
     def _get_grade_context(self, student):
@@ -145,7 +168,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
 
         offerings = list(SubjectOffering.objects.filter(
             class_group=enrollment.class_group,
-            academic_year=enrollment.academic_year,
+            class_group__academic_year=enrollment.academic_year,
         ).select_related('subject'))
 
         lessons = list(Lesson.objects.filter(offering__in=offerings))
@@ -225,6 +248,18 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         ctx = self._get_grade_context(obj)
         return ctx['student_total_grade']
 
+    def get_parents(self, obj):
+        return [
+            {
+                'id': parent.id,
+                'user_id': parent.user_id,
+                'full_name': parent.user.get_full_name() or parent.user.username,
+                'phone_number': parent.user.phone_number,
+                'email': parent.user.email or None,
+            }
+            for parent in obj.parent.all()
+        ]
+
     def get_psychological_states(self, obj):
         states = PsychologicalState.objects.filter(
             student=obj
@@ -277,6 +312,9 @@ class StudentProfileUpdateSerializer(serializers.Serializer):
     school_group = serializers.IntegerField(required=False, allow_null=True)
     academic_year = serializers.IntegerField(required=False, allow_null=True)
     class_group = serializers.IntegerField(required=False, allow_null=True)
+    medical_features = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
 
 
 # ── Teacher serializers ──
@@ -362,7 +400,6 @@ class SubjectCreateSerializer(serializers.Serializer):
                 offering, created = SubjectOffering.objects.get_or_create(
                     subject=subject,
                     class_group=class_group,
-                    academic_year=academic_year,
                 )
                 if created:
                     offerings_created += 1
@@ -407,7 +444,7 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
 
         offerings = list(
             SubjectOffering.objects.filter(
-                subject=obj, academic_year=current_year
+                subject=obj, class_group__academic_year=current_year
             ).select_related('class_group')
         ) if current_year else []
 
@@ -416,7 +453,7 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
         for offering in offerings:
             enrollments = Enrollment.objects.filter(
                 class_group=offering.class_group,
-                academic_year=offering.academic_year,
+                class_group__academic_year_id=offering.academic_year_id,
                 status='active',
             ).select_related('student', 'student__user')
             for e in enrollments:
@@ -724,3 +761,293 @@ class ParentChildSubjectDetailSerializer(serializers.Serializer):
             for lesson in lessons
         ]
         return ParentChildLessonSerializer(data, many=True).data
+
+
+# ── Subject assignments & grades ──
+
+class SubjectAssignmentSerializer(serializers.ModelSerializer):
+    """Read payload for an assignment, flattened enough to render a list."""
+    offering_id = serializers.IntegerField(read_only=True)
+    subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
+    subject_name = serializers.CharField(source='offering.subject.name', read_only=True)
+    class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
+    class_group_name = serializers.SerializerMethodField()
+    academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+
+    class Meta:
+        model = SubjectAssignment
+        fields = [
+            'id', 'title', 'category', 'max_grade', 'date', 'offering_id',
+            'subject_id', 'subject_name',
+            'class_group_id', 'class_group_name',
+            'academic_year_id', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_class_group_name(self, obj):
+        class_group = obj.offering.class_group
+        return f"{class_group.grade_level}{class_group.letter}"
+
+
+class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
+    """
+    Create payload. `offering` is required and checked against the caller's
+    TeachingAssignment in the view — a serializer has no business deciding
+    whose subject this is.
+    """
+    offering = serializers.PrimaryKeyRelatedField(
+        queryset=SubjectOffering.objects.select_related(
+            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
+        ),
+    )
+    title = serializers.CharField()
+    max_grade = serializers.IntegerField(min_value=1)
+    category = serializers.ChoiceField(
+        choices=SubjectAssignment.CATEGORY_CHOICES,
+        required=False,
+        help_text='What kind of work this is. Defaults to "lesson".',
+    )
+    date = serializers.DateField(
+        help_text='The day this assignment took place, YYYY-MM-DD.',
+    )
+
+    class Meta:
+        model = SubjectAssignment
+        fields = ['offering', 'title', 'category', 'max_grade', 'date']
+
+
+class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
+    """
+    Update payload. The offering stays fixed: moving an assignment to another
+    class would silently invalidate the grades already hanging off it, so that
+    means creating it there instead.
+    """
+    title = serializers.CharField(required=False)
+    max_grade = serializers.IntegerField(min_value=1, required=False)
+    category = serializers.ChoiceField(
+        choices=SubjectAssignment.CATEGORY_CHOICES, required=False,
+    )
+    date = serializers.DateField(
+        required=False,
+        help_text='The day this assignment took place, YYYY-MM-DD.',
+    )
+
+    class Meta:
+        model = SubjectAssignment
+        fields = ['title', 'category', 'max_grade', 'date']
+
+    def validate_max_grade(self, max_grade):
+        """Lowering the ceiling under grades already given would corrupt them."""
+        if self.instance is None:
+            return max_grade
+        highest = self.instance.grades.aggregate(top=Max('grade'))['top']
+        if highest is not None and max_grade < highest:
+            raise serializers.ValidationError(
+                f'A grade of {highest} is already recorded for this assignment, '
+                f'so max_grade cannot drop below it.'
+            )
+        return max_grade
+
+
+class SubjectGradeSerializer(serializers.ModelSerializer):
+    """
+    A grade with enough of its assignment inlined that a client never has to
+    fetch the assignment separately to display the row.
+    """
+    student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
+    student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
+    assignment = SubjectAssignmentSerializer(read_only=True)
+
+    class Meta:
+        model = SubjectGrade
+        fields = [
+            'id', 'assignment', 'student', 'student_user_id', 'student_name',
+            'grade', 'comments', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class SubjectGradeWriteSerializer(serializers.ModelSerializer):
+    """
+    Create / update payload for a single grade. The assignment comes from the
+    URL, never the body, so a teacher cannot move a grade to someone else's
+    assignment by editing it.
+
+    Both `grade` and `comments` are optional and nullable: a row may carry a
+    mark with no comment, a comment with no mark yet, or neither — an empty
+    placeholder for a student who has not been marked. Sending `null` clears a
+    value that was set before.
+    """
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.select_related('user'),
+        help_text='Student profile id of the student being graded.',
+    )
+    grade = serializers.IntegerField(
+        min_value=0, required=False, allow_null=True,
+        help_text='Points awarded, or null for "not graded yet".',
+    )
+    comments = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True,
+        help_text='Free-text comment for the student.',
+    )
+
+    class Meta:
+        model = SubjectGrade
+        fields = ['student', 'grade', 'comments']
+
+    def validate_student(self, student):
+        """The student must be actively enrolled in the assignment's class group."""
+        offering = self.context['assignment'].offering
+        enrolled = Enrollment.objects.filter(
+            student=student,
+            class_group=offering.class_group,
+            class_group__academic_year_id=offering.academic_year_id,
+            status='active',
+        ).exists()
+        if not enrolled:
+            raise serializers.ValidationError(
+                'This student is not enrolled in the class group of this assignment.'
+            )
+        return student
+
+    def validate_grade(self, grade):
+        """
+        min_value on the field already rejects negatives; null means the work
+        is simply not marked yet, so there is no ceiling to check against.
+        """
+        assignment = self.context['assignment']
+        if grade is not None and grade > assignment.max_grade:
+            raise serializers.ValidationError(
+                f'Grade cannot exceed the maximum of {assignment.max_grade}.'
+            )
+        return grade
+
+    def validate(self, attrs):
+        """One grade per student per assignment."""
+        assignment = self.context['assignment']
+        student = attrs.get('student', getattr(self.instance, 'student', None))
+
+        duplicate = SubjectGrade.objects.filter(assignment=assignment, student=student)
+        if self.instance is not None:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError(
+                'This student is already graded for this assignment.'
+            )
+        return attrs
+
+
+# ── Quarter grades ──
+
+def _assert_enrolled(student, offering):
+    """A quarter grade only means something for a student who was in the class."""
+    enrolled = Enrollment.objects.filter(
+        student=student,
+        class_group=offering.class_group,
+        class_group__academic_year_id=offering.academic_year_id,
+        status='active',
+    ).exists()
+    if not enrolled:
+        raise serializers.ValidationError(
+            'This student is not enrolled in the class group of this offering.'
+        )
+
+
+class QuarterGradeSerializer(serializers.ModelSerializer):
+    """
+    Read payload for one student's final mark in one subject for one quarter.
+
+    The offering is flattened the same way assignments are, so a client can
+    render "Math 7A, Q2: 4" without a second request.
+    """
+    student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
+    student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
+    offering_id = serializers.IntegerField(read_only=True)
+    subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
+    subject_name = serializers.CharField(source='offering.subject.name', read_only=True)
+    class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
+    class_group_name = serializers.SerializerMethodField()
+    academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+
+    class Meta:
+        model = QuarterGrade
+        fields = [
+            'id', 'quarter', 'grade',
+            'student', 'student_user_id', 'student_name',
+            'offering_id', 'subject_id', 'subject_name',
+            'class_group_id', 'class_group_name',
+            'academic_year_id', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_class_group_name(self, obj):
+        class_group = obj.offering.class_group
+        return f"{class_group.grade_level}{class_group.letter}"
+
+
+class QuarterGradeCreateSerializer(serializers.ModelSerializer):
+    """
+    Create payload. `offering` is checked against the caller's
+    TeachingAssignment in the view; here we only check that the student belongs
+    to that offering's class and that the quarter is not already graded.
+    """
+    offering = serializers.PrimaryKeyRelatedField(
+        queryset=SubjectOffering.objects.select_related(
+            'subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',
+        ),
+    )
+    student = serializers.PrimaryKeyRelatedField(
+        queryset=Student.objects.select_related('user'),
+        help_text='Student profile id of the student being graded.',
+    )
+    quarter = serializers.IntegerField(min_value=1, max_value=4)
+    grade = serializers.IntegerField(min_value=2, max_value=5)
+
+    class Meta:
+        model = QuarterGrade
+        fields = ['offering', 'student', 'quarter', 'grade']
+        # The model's unique_together would add a validator with a generic
+        # message; validate() below says the same thing in words a teacher can act on.
+        validators = []
+
+    def validate(self, attrs):
+        offering = attrs['offering']
+        _assert_enrolled(attrs['student'], offering)
+
+        exists = QuarterGrade.objects.filter(
+            offering=offering, student=attrs['student'], quarter=attrs['quarter'],
+        ).exists()
+        if exists:
+            raise serializers.ValidationError(
+                f"This student already has a grade for quarter {attrs['quarter']} "
+                f'in this subject — change it with PATCH instead.'
+            )
+        return attrs
+
+
+class QuarterGradeWriteSerializer(serializers.ModelSerializer):
+    """
+    Update payload. Student and offering stay fixed: moving a quarter grade to
+    another student or another subject is a delete plus a create, and keeping
+    them fixed means the permission check made on the original row still holds.
+    """
+    quarter = serializers.IntegerField(min_value=1, max_value=4, required=False)
+    grade = serializers.IntegerField(min_value=2, max_value=5, required=False)
+
+    class Meta:
+        model = QuarterGrade
+        fields = ['quarter', 'grade']
+        validators = []
+
+    def validate_quarter(self, quarter):
+        """Moving to a quarter that already has a grade would break uniqueness."""
+        clash = QuarterGrade.objects.filter(
+            offering=self.instance.offering,
+            student=self.instance.student,
+            quarter=quarter,
+        ).exclude(pk=self.instance.pk).exists()
+        if clash:
+            raise serializers.ValidationError(
+                f'This student already has a grade for quarter {quarter} in this subject.'
+            )
+        return quarter

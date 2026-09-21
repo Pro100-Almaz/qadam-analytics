@@ -43,3 +43,6 @@ db.sqlite3
 
 core/credentials
 *.json
+
+# Database dumps
+backups/

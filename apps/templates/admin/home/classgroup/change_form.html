@@ -1,0 +1,17 @@
+{% extends "admin/change_form.html" %}
+
+{# The constellation of подгруппы, rendered right below the enrollment inline. #}
+{% block after_related_objects %}
+  {% with field=adminform.form.minor_groups %}
+    <fieldset class="module aligned">
+      <h2>Подгруппы</h2>
+      <div class="form-row field-minor_groups{% if field.errors %} errors{% endif %}">
+        {{ field.errors }}
+        <div class="flex-container">{{ field }}</div>
+        {% if field.help_text %}
+          <div class="help">{{ field.help_text }}</div>
+        {% endif %}
+      </div>
+    </fieldset>
+  {% endwith %}
+{% endblock %}
