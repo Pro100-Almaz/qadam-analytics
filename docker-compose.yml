@@ -16,13 +16,17 @@ services:
       - certbot_conf:/etc/letsencrypt:ro
     environment:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-api.qadam.edu.kz}
-    entrypoint: /bin/sh -c "envsubst '$$NGINX_SERVER_NAME' < /etc/nginx/conf.d/templates/django.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    # The reload loop picks up renewed certs: nginx loads certificates into
+    # memory at startup, so without a periodic `nginx -s reload` it keeps
+    # serving the old cert until the container restarts — and it expires live.
+    entrypoint: /bin/sh -c "envsubst '$$NGINX_SERVER_NAME' < /etc/nginx/conf.d/templates/django.conf > /etc/nginx/conf.d/default.conf && while :; do sleep 6h & wait $$!; nginx -s reload; done & nginx -g 'daemon off;'"
     depends_on: [appseed-app]
     networks: [app_network]
 
   certbot:
     container_name: certbot
     image: certbot/certbot:v2.11.0
+    restart: unless-stopped
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt
