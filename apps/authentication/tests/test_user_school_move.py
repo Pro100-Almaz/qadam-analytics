@@ -218,6 +218,35 @@ def test_the_profile_is_realigned_so_it_stays_saveable(two_schools):
         Student._base_manager.get(pk=student.pk).save()  # no longer raises
 
 
+def test_the_year_message_distinguishes_two_rows_of_the_same_name(two_schools):
+    """Both schools call it "2026/2027", so naming the string explains nothing.
+
+    Years are per-school since §1b and both schools follow the same national
+    calendar, so the usual case is re-pointing 2026/2027 at another row also
+    called 2026/2027. The message has to make clear that the row changed.
+    """
+    a, b = two_schools
+    with school_scope(a):
+        # The student factory already made school A's active year, and
+        # `academicyear_one_active_per_school` allows exactly one — so reuse
+        # its name rather than creating a second.
+        student = f.StudentFactory(user=f.StudentUserFactory(school=a))
+        shared_name = student.academic_year.year
+    with school_scope(b):
+        b_year = f.AcademicYearFactory(
+            school=b, year=shared_name, is_active=True)
+
+    student.user.school = b
+    student.user.save()
+    changes = realign_profile(student.user)
+
+    student.refresh_from_db()
+    assert student.academic_year_id == b_year.pk
+    message = next(line for line in changes if 'academic year' in line)
+    assert f'#{b_year.pk}' in message, message
+    assert f'"{shared_name}" → "{shared_name}"' not in message
+
+
 def test_realignment_clears_rather_than_guesses(two_schools):
     """No house of that name in the new school: cleared, and said so."""
     a, b = two_schools

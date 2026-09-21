@@ -144,11 +144,29 @@ def realign_profile(user):
             updated.append('academic_year')
             changes.append(
                 f'academic year "{old_year.year}" → '
-                + (f'"{replacement.year}", the new school\'s active year'
-                   if replacement
-                   else 'cleared — the new school has no active year')
+                + _year_change_wording(old_year, replacement)
             )
 
     if updated:
         student.save(update_fields=updated)
     return changes
+
+
+def _year_change_wording(old_year, replacement):
+    """Say what changed, when the two rows are usually named the same thing.
+
+    Years are per-school since §1b, and both schools follow the same national
+    calendar — so the overwhelmingly common case is re-pointing "2026/2027" at
+    a *different row also called* "2026/2027". Printing both names produced
+    `2026/2027 → 2026/2027`, which reads as a bug rather than as the tenancy
+    fix it is. Name the row, not just the string.
+    """
+    if replacement is None:
+        return 'cleared — the new school has no active year'
+    if replacement.year == old_year.year:
+        return (
+            f'the new school\'s own "{replacement.year}" (a different row, '
+            f'#{replacement.pk} — each school keeps its own year, so a student '
+            f'must point at their own school\'s copy)'
+        )
+    return f'"{replacement.year}", the new school\'s active year'
