@@ -12,6 +12,9 @@ from apps.authentication.models import (
 )
 from apps.home.admin_forms import class_group_formfield
 from apps.home.models import Enrollment, ClassGroup, AcademicYear, Subject
+from apps.authentication.school_transfer import (
+    realign_profile, stranded_by_move,
+)
 from core.admin_mixins import SchoolScopedAdminMixin
 
 
@@ -41,8 +44,44 @@ class CustomUserCreationForm(SchoolRequiredMixin, UserCreationForm):
 
 
 class CustomUserChangeForm(SchoolRequiredMixin, UserChangeForm):
+    """Also the gate on moving a user between schools.
+
+    The move is allowed only for a user with nothing to leave behind. See
+    `apps.authentication.school_transfer` for why: the person follows their
+    `school`, but enrollments, lessons and marks are anchored to the old
+    school's class groups and offerings and stay exactly where they are. The
+    result is a student in one tenant whose record is in another, and a profile
+    that fails its consistency check on every subsequent save.
+
+    A form error rather than a silent no-op or a 500: the person doing it gets
+    told what is in the way and can decide, which is the whole difference
+    between a refused edit and a mysterious one.
+    """
+
     class Meta(UserChangeForm.Meta):
         model = CustomUser
+
+    def clean_school(self):
+        school = self.cleaned_data.get('school')
+        if not self.instance.pk or school is None:
+            return school
+        if school.pk == self.instance.school_id:
+            return school
+
+        blockers = stranded_by_move(self.instance)
+        if blockers:
+            listed = ', '.join(
+                f'{count} {label}' for label, count in sorted(blockers.items()))
+            raise ValidationError(
+                f'{self.instance} cannot be moved to {school}: {listed} would '
+                f'stay behind in {self.instance.school}. That data is anchored '
+                f'to this school\'s class groups and offerings, not to the '
+                f'person, so the move would split their record across two '
+                f'schools and leave the profile uneditable. Moving a user with '
+                f'a record is a transfer, not a field change — move or close '
+                f'the rows above first.'
+            )
+        return school
 
 
 @admin.register(CustomUser)
@@ -72,6 +111,48 @@ class CustomUserAdmin(SchoolScopedAdminMixin, UserAdmin):
             "fields": ("username", "email", "password1", "password2", "first_name", "last_name", "avatar", "school", "groups"),
         }),
     )
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Remember which object is being edited, for the picker below."""
+        form = super().get_form(request, obj, **kwargs)
+        request._editing_user = obj
+        return form
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Offer every school on the CHANGE form, one school on the ADD form.
+
+        `SchoolScopedAdminMixin` pins the `school` picker to the active school
+        so that a superuser viewing school A cannot create a row in school B
+        while the header still says A. That is right for creation and wrong for
+        correction: it also made a misfiled user impossible to put back, which
+        is precisely what `legacy_school` is retained for.
+
+        So the pin is lifted here, for existing users only, and whether the move
+        is *allowed* is decided by `CustomUserChangeForm.clean_school` rather
+        than by hiding the option. Passing `queryset` explicitly is what opts
+        out of the mixin — it only pins when the caller named none.
+        """
+        if (
+            db_field.name == 'school'
+            and getattr(request, '_editing_user', None) is not None
+            and request.user.is_superuser
+        ):
+            kwargs['queryset'] = School.objects.all()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        """Save, then say what else had to move with the user.
+
+        `clean_school` has already refused anything with a record to strand, so
+        the only things left to fix are the two nullable `Student` fields that
+        still name the old school and would raise on the next save.
+        """
+        moved = change and 'school' in form.changed_data
+        super().save_model(request, obj, form, change)
+        if not moved:
+            return
+        for line in realign_profile(obj):
+            messages.warning(request, f'{obj}: {line}')
 
     def get_groups(self, obj):
         """Display user's groups as a comma-separated list."""
@@ -450,14 +531,44 @@ class SchoolAdmin(admin.ModelAdmin):
         return bool(request.user and request.user.is_superuser)
 
     def has_delete_permission(self, request, obj=None):
-        """Never. A tenant is deactivated, not deleted.
+        """Only an empty tenant, and only one at a time.
 
-        Every school FK is PROTECT, so a populated tenant cannot be deleted
-        anyway — the button would only ever produce a wall of protected-object
-        errors. An empty one deleted by mistake is worse: any user, token or
-        bookmark still naming it breaks, and `is_active=False` already means
-        "no longer served" without taking the rows with it.
+        A populated school must not be deleted: every school FK is PROTECT, so
+        the attempt could only ever produce a wall of protected-object errors,
+        and `is_active=False` already means "no longer served" without taking a
+        year of grades with it. Offering the button there is a promise the
+        database will refuse to keep.
+
+        A school with nothing pointing at it is the opposite case — a mistyped
+        slug, a test row — and refusing *that* sends you to a shell to undo a
+        typo you made in a form. So the button appears exactly when it would
+        work.
+
+        `obj is None` is the changelist, where returning False removes the bulk
+        "delete selected" action. Deleting tenants en masse from a list of
+        checkboxes is not a thing this site should make easy.
         """
+        if not (request.user and request.user.is_superuser):
+            return False
+        if obj is None:
+            return False
+        return not self._has_dependents(obj)
+
+    @staticmethod
+    def _has_dependents(school):
+        """Anything at all pointing at this school, in any tenant.
+
+        `_base_manager`, not the reverse accessor: reverse managers go through
+        the scoped default manager, so a school other than the active one would
+        report itself empty and offer a delete that then fails at the database.
+        """
+        for relation in school._meta.related_objects:
+            model = relation.related_model
+            if model._meta.proxy:
+                continue
+            if model._base_manager.filter(
+                    **{relation.field.name: school}).exists():
+                return True
         return False
 
     def get_readonly_fields(self, request, obj=None):
