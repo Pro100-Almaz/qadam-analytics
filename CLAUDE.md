@@ -42,6 +42,9 @@ pytest apps/home/tests/test_permissions.py::TestAdminAndSupervisorAccess::test_s
 # `brew list` shows pango installed. Nothing to install; it is only the path.
 DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib pytest
 
+# Spec validation (also runs in CI)
+python scripts/check_specs.py
+
 # Tenancy gates (both also run in CI — see .github/workflows/ci.yml)
 python manage.py check              # includes the tenancy.E00x system checks
 SCHOOL_SCOPE_MODE=enforce python manage.py check   # import-time queryset gate
@@ -109,12 +112,13 @@ make push
 
 ### Scripts (`scripts/`)
 
-Bulk data import utilities (XLS user imports, subject seeding, grading scripts, Google Sheets integration). Run as standalone Python scripts, not Django management commands.
+Bulk data import utilities (XLS user imports, subject seeding, grading scripts, Google Sheets integration). Run as standalone Python scripts, not Django management commands. `scripts/check_specs.py` is the spec validator (see below).
 
 ## Spec-Driven Development
 
 Feature work starts from a written spec in `specs/`, not from a prompt. See
-`specs/README.md` for the full workflow; the short version:
+`specs/README.md` for the full workflow. The slash commands live in
+`.claude/commands/spec-*.md`. In short:
 
 ```
 /spec-new <idea>   → specs/NNNN-slug/spec.md   (status: draft)
@@ -125,6 +129,23 @@ Feature work starts from a written spec in `specs/`, not from a prompt. See
 /spec-status       → overview of every spec
 ```
 
+Layout:
+
+```
+specs/
+  README.md          workflow and rules
+  templates/         spec.md, plan.md, tasks.md
+  backlog/           candidate work, not yet specs (security-roadmap.md)
+  NNNN-slug/         one directory per change: spec.md [+ plan.md, tasks.md]
+```
+
+Design docs, runbooks and roadmaps belong under `specs/`, not in the repo
+root. A runbook is the `plan.md` of the spec it implements (e.g.
+`0003-cloudflare-origin-protection/plan.md`). A backlog item graduates into a
+numbered spec when someone picks it up. The exception is a doc tied to one
+piece of code, which stays next to that code (e.g.
+`scripts/google_sheets/TEACHER_INSTRUCTIONS_RU.md`).
+
 Rules that bind agents working in this repo:
 
 - **Do not implement a spec whose `status:` is still `draft`.** The approval
@@ -133,11 +154,14 @@ Rules that bind agents working in this repo:
   spec is wrong, stop, fix the spec, get it re-approved, then continue.
 - **Non-goals are binding** — they record what was deliberately left out.
 - **Every acceptance criterion gets a test named after it.** An AC that no test
-  can fail on is not an AC.
+  can fail on is not an AC. Infrastructure specs, where an AC is a property of
+  DNS, TLS or the firewall, name a verification command for each AC instead.
+- **Keep `status:` and `updated:` current** when a spec's state changes.
 - Specs are numbered `NNNN-kebab-slug`, ids never reused. A change of direction
   gets a new spec with `supersedes: NNNN`, not an edit to the old one.
-- Validate with `python scripts/check_specs.py` (stdlib only).
+- Validate with `python scripts/check_specs.py` (stdlib only). CI runs it in
+  the `specs` job, so a malformed spec fails the build.
 
 Existing specs `0001` and `0002` predate this workflow and are marked as
-migrated; they lack explicit acceptance criteria. Add them before treating
+migrated. They lack explicit acceptance criteria. Add them before treating
 either as approved.

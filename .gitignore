@@ -46,3 +46,7 @@ core/credentials
 
 # Database dumps
 backups/
+
+# Agent tooling state (oh-my-claudecode, per-user Claude Code settings)
+.omc/
+.claude/settings.local.json
