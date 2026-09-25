@@ -93,3 +93,34 @@ make push
 ### Scripts (`scripts/`)
 
 Bulk data import utilities (XLS user imports, subject seeding, grading scripts, Google Sheets integration). Run as standalone Python scripts, not Django management commands.
+
+## Spec-Driven Development
+
+Feature work starts from a written spec in `specs/`, not from a prompt. See
+`specs/README.md` for the full workflow; the short version:
+
+```
+/spec-new <idea>   → specs/NNNN-slug/spec.md   (status: draft)
+   human review    → flip status to approved
+/spec-plan NNNN    → plan.md
+/spec-tasks NNNN   → tasks.md
+/spec-implement    → code, tests, status: shipped
+/spec-status       → overview of every spec
+```
+
+Rules that bind agents working in this repo:
+
+- **Do not implement a spec whose `status:` is still `draft`.** The approval
+  flip is the human review gate.
+- **Amend the spec rather than drifting from it.** If implementation shows the
+  spec is wrong, stop, fix the spec, get it re-approved, then continue.
+- **Non-goals are binding** — they record what was deliberately left out.
+- **Every acceptance criterion gets a test named after it.** An AC that no test
+  can fail on is not an AC.
+- Specs are numbered `NNNN-kebab-slug`, ids never reused. A change of direction
+  gets a new spec with `supersedes: NNNN`, not an edit to the old one.
+- Validate with `python scripts/check_specs.py` (stdlib only).
+
+Existing specs `0001` and `0002` predate this workflow and are marked as
+migrated; they lack explicit acceptance criteria. Add them before treating
+either as approved.
