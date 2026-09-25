@@ -248,7 +248,7 @@ def delete_student_grades(lesson, student, user=None):
 
 def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
     """Snapshot current grades for all enrolled students in an offering's quarter."""
-    from apps.home.repo.students import grade_identifier
+    from apps.home.grading import grade_identifier
 
     offering = SubjectOffering.objects.select_related(
         'class_group', 'class_group__academic_year',

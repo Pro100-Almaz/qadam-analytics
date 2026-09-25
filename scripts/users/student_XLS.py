@@ -17,6 +17,7 @@ from apps.home.models import Subject, AcademicYear
 from scripts.class_group.class_group_script import add_class_group
 from scripts.subjects.enrollment_script import add_enrollment
 from scripts.subjects.subject_offering_script import add_subject_offering
+from scripts.utils.bootstrap import active_school
 from scripts.utils.logging_config import logger
 
 EMPTY_VALUES = {'', 'none', 'nan', 'null', '-'}
@@ -41,7 +42,9 @@ def process_student(sheet_name, row, idx, admin_id, user):
             try:
                 year = str(row['Academic Year']).strip()
                 if (len(year) == 9) and ('/' in year):
-                    academic_year = AcademicYear.objects.update_or_create(year=row['Academic Year'])[0]
+                    academic_year = AcademicYear.objects.update_or_create(
+                        year=row['Academic Year'], school=active_school(),
+                    )[0]
                 else:
                     raise ValueError(f"Academic Year is not provided in expected format for '{row['Academic Year']}'")
 

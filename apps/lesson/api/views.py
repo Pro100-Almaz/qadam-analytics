@@ -379,7 +379,8 @@ class TopicTotalWeightAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor]
 
     def get(self, request, topic_id):
-        topic = Topic.objects.get(pk=topic_id)
+        # Scoped manager: another school's topic is absent, not an error.
+        topic = get_object_or_404(Topic, pk=topic_id)
         subtopics = topic.subtopics.all()
 
         total_weight = 0

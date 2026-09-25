@@ -1,23 +1,20 @@
 import os
 import sys
-import django
-
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-django.setup()
+from scripts.utils.bootstrap import school_from_argv, setup_django
+
+setup_django()
 
 from scripts.users.parent_XLS import process_parent
 from scripts.users.student_XLS import process_student
 from scripts.users.supervisor_XLS import process_supervisor
-from scripts.users.teacher_XLS import process_teacher
 from scripts.users.get_admin import get_admin_id
 from scripts.users.generate_password import generate_password
 from scripts.users.generate_username import generate_username
 
-from scripts.prefill_tables import prefill_school_groups
 from scripts.reading_data import get_sheets_data
 from scripts.writing_data import get_writable_sheet
 from scripts.utils.logging_config import logger
@@ -28,11 +25,11 @@ from django.db.models import signals
 
 from apps.authentication import models as auth_models
 from apps.authentication.models import CustomUser
+from core.tenancy import set_active_school
 from django.contrib.auth.models import Group
 
 from datetime import datetime, date
 from dateutil import parser
-import random
 
 # Mapping from legacy role names to Django Group names
 ROLE_TO_GROUP = {
@@ -74,7 +71,11 @@ dfs = get_sheets_data(only_sheets=STUDENT_IMPORT_SHEETS)
 admin_id = 0
 
 def main():
-    prefill_school_groups()
+    # Orda houses used to be seeded from here, by a raw INSERT that has been
+    # failing on `school_id` NOT NULL since phase 1 — so this importer crashed
+    # on its first line on every run. Seeding them is `manage.py create_school`
+    # now: it belongs to standing a tenant up, not to importing a roster into
+    # one that already exists.
     global admin_id
     admin_id = get_admin_id()
 
@@ -89,6 +90,15 @@ def col_to_letter(col):
     return result
 
 signals.post_save.disconnect(auth_models.registration_email_post_send, sender=CustomUser)
+
+# One school per run, named on the command line. The scope is entered for the
+# whole process rather than with a `with` block because the import loop below
+# runs at module level; a one-shot script has no later request to leak into.
+school, _args = school_from_argv(
+    'Import users from the roster sheets into ONE school.'
+)
+set_active_school(school)
+logger.info(f'Importing into school {school.slug!r} (pk={school.pk})')
 
 user_dict = {} # first_name + . + last_name : how many times it appeared
 
@@ -140,17 +150,10 @@ for sheet_name, rows in dfs.items():
                         logger.error(f"Date of Birth is invalid. {date_of_birth} in sheet {sheet_name} at row {idx + 2}")
                         print(e)
 
-                    try:
-                        school_name = row['School'].lower().strip()
-                        if 'alim' in school_name:
-                            school_name = 'muzafar_alimbayev'
-                        else:
-                            school_name = 'bukhar_zhyrau'
-
-                    except ValueError as e:
-                        school_name = 'muzafar_alimbayev'
-                        logger.error(f"School name was not provided correctly in sheet {sheet_name} at row {idx + 2}")
-                        print(e)
+                    # The per-row `'alim' in row['School']` guess that used to
+                    # live here is deleted, not fixed: it is what put user id=2
+                    # alone in an empty tenant with their grades in the other
+                    # one. The school now comes from --school, for every row.
 
                     try:
                         first_name = str(row['First Name']).strip()
@@ -170,7 +173,7 @@ for sheet_name, rows in dfs.items():
                                 first_name=first_name,
                                 last_name=last_name,
                                 email=row['Email'],
-                                school=school_name,
+                                school=school,
                                 address=row['Address'],
                                 phone_number=row['Phone (parent)'],
                                 date_of_birth=date_of_birth,

@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{# Overrides django/contrib/admin/templates/admin/base_site.html — the three
+   blocks below the switcher are copied from it verbatim, because a template
+   cannot extend the name it is registered under.
+
+   The school bar is loud on purpose, and sits above the breadcrumbs rather
+   than inside the user tools. Every admin request now acts in exactly one
+   school (core.middleware), the choice lives in the session, and a session is
+   shared across browser tabs — so opening school A in a second tab retargets
+   this one. The moment that costs something is part-way through a change form,
+   believing you are elsewhere, which is why this renders on every page and is
+   keyed to a per-school accent colour. It is inside `nav-breadcrumbs`, so it
+   is absent from popups: a raw_id picker is no place to change tenant. #}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  #school-switcher {
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+    margin: 0 1rem; padding: .3rem .6rem; font-size: .8125rem;
+    background: var(--darkened-bg); color: var(--body-fg);
+    border-radius: 4px;
+    border-left: 6px solid var(--school-accent, var(--primary));
+  }
+  #school-switcher label {
+    font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--school-accent, var(--primary));
+  }
+  #school-switcher select { max-width: 18rem; margin: 0; }
+  @media (max-width: 767px) {
+    #header { flex-wrap: wrap; }
+    #school-switcher { margin: .4rem 0; width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block nav-global %}
+  {% if school_switcher_choices %}
+    <form id="school-switcher" method="post" action="{{ school_switcher_url }}"
+          style="--school-accent: {{ school_switcher_accent }};">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label for="school-switcher-select">{% translate "Школа" %}</label>
+      <select name="active_school" id="school-switcher-select"
+              onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+        {% for school in school_switcher_choices %}
+          <option value="{{ school.pk }}"
+                  {% if school.pk == school_switcher_active_id %}selected{% endif %}>
+            {{ school.name }}{% if not school.is_active %} — {% translate "неактивна" %}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit">{% translate "Переключить" %}</button></noscript>
+    </form>
+  {% endif %}
+{% endblock %}

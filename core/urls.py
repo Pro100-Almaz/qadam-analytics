@@ -8,7 +8,6 @@ from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
 )
-from apps.home.views import main_page
 from apps.home.admin_views import bulk_enroll_view
 
 
@@ -24,15 +23,21 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 
-    # Existing routes (kept during dual-mode transition)
-    path("", main_page),
+    # Django admin (session-authenticated; used by superusers)
     path('admin/bulk-enroll/', bulk_enroll_view, name='admin_bulk_enroll_form'),
     path('admin/', admin.site.urls),
-    path("", include("apps.authentication.urls")),
-    path("pages/", include("apps.home.urls")),
-    path("lessons/", include("apps.lesson.urls")),
-    path("notifications/", include("apps.notification.urls")),
     path("healthz", lambda r: HttpResponse("ok"), name="healthz"),
+
+    # The legacy server-rendered views (apps/*/views.py, apps/home/repo/*) are
+    # deliberately NOT routed. They were unauthenticated in places — notably
+    # /register/, which accepted role=Admin from anonymous users — and are
+    # superseded by the DRF API above. The modules remain on disk for
+    # reference; re-adding the includes below would make them live again.
+    #   path("", main_page),
+    #   path("", include("apps.authentication.urls")),
+    #   path("pages/", include("apps.home.urls")),
+    #   path("lessons/", include("apps.lesson.urls")),
+    #   path("notifications/", include("apps.notification.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

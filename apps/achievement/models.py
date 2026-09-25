@@ -9,7 +9,11 @@ from django.db import models
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
-from core.models import SoftDeleteMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
+)
+from core.tenancy import SchoolScopedManager
+from core.validators import is_stored_file
 
 MAX_ATTACHMENT_SIZE_MB = 10
 MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
@@ -23,6 +27,8 @@ IMAGE_ATTACHMENT_EXTENSIONS = {
 
 
 def validate_attachment_size(file):
+    if is_stored_file(file):
+        return
     if file.size > MAX_ATTACHMENT_SIZE_BYTES:
         raise ValidationError(
             f'File size must not exceed {MAX_ATTACHMENT_SIZE_MB}MB. '
@@ -31,7 +37,16 @@ def validate_attachment_size(file):
 
 
 def validate_attachment_format(file):
-    """Allow PDFs and verified browser-safe images only."""
+    """Allow PDFs and verified browser-safe images only.
+
+    Only an upload is inspected. Reopening a stored file to re-verify it is a
+    GetObject that raises when the object is gone — see
+    `core.validators.is_stored_file`. The extension check below could run on a
+    stored name safely, but the two halves belong together: a file that passed
+    once has nothing new to prove.
+    """
+    if is_stored_file(file):
+        return
     extension = os.path.splitext(file.name)[1].lower()
     if extension not in ALLOWED_ATTACHMENT_EXTENSIONS:
         allowed = ', '.join(sorted(ALLOWED_ATTACHMENT_EXTENSIONS))
@@ -53,13 +68,43 @@ def validate_attachment_format(file):
         file.seek(0)
 
 
-class Attachment(models.Model):
+class Attachment(SchoolDerivedMixin, models.Model):
+    """A file hung off any model by GenericForeignKey.
+
+    `content_object` comes first and `uploaded_by` second, deliberately. The
+    attachment belongs to the row it is attached to, so that row is the
+    authority on which school owns it; the uploader is only a fallback for a
+    content_object whose target has since been deleted.
+
+    Deriving from the uploader *alone* was a live 500: `uploaded_by` is
+    SET_NULL, and a superuser has no school by design, so every upload by a
+    superuser through the club, achievement or homework endpoints hit the NOT
+    NULL constraint. Ordering it this way also closes the milder case — a
+    school-A user attaching to a school-B row no longer files the attachment
+    under school A, where nobody looking at the row would ever see it.
+    """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('content_object', 'uploaded_by')
+    #: `uploaded_by` is deliberately absent: an admin acting in another
+    #: school from the §9a switcher is legitimate, a file filed under the
+    #: wrong tenant is not.
+    SCHOOL_CONSISTENT_FIELDS = ('content_object',)
+    objects = SchoolScopedManager()
+
     FILE_TYPE_CHOICES = [
         ('image', 'Image'),
         ('document', 'Document'),
         ('certificate', 'Certificate'),
         ('other', 'Other'),
     ]
+
+    # A GenericForeignKey has no lookup path, so no join can reach a school —
+    # the attachment carries its own tenant key.
+    school = models.ForeignKey(
+        'authentication.School', related_name='attachments',
+        on_delete=models.PROTECT,
+    )
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -89,7 +134,10 @@ class Attachment(models.Model):
         return f"{self.original_name} ({self.file_type})"
 
 
-class Achievement(SoftDeleteMixin, models.Model):
+class Achievement(SchoolConsistentModel, SoftDeleteMixin):
+    SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year', 'subject')
+
     CATEGORY_CHOICES = [
         ('olympiad', 'Subject Olympiad'),
         ('additional_education', 'Additional Education'),
@@ -163,7 +211,10 @@ class Achievement(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.get_category_display()} ({self.academic_year})"
 
 
-class ReadingEntry(SoftDeleteMixin, models.Model):
+class ReadingEntry(SchoolConsistentModel, SoftDeleteMixin):
+    SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year')
+
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -200,7 +251,10 @@ class ReadingEntry(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.title}"
 
 
-class ClubEntry(SoftDeleteMixin, models.Model):
+class ClubEntry(SchoolConsistentModel, SoftDeleteMixin):
+    SCHOOL_PATH = 'student__user__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'academic_year')
+
     student = models.ForeignKey(
         'authentication.Student',
         on_delete=models.CASCADE,
@@ -231,7 +285,26 @@ class ClubEntry(SoftDeleteMixin, models.Model):
         return f"{self.student} - {self.club_name} ({self.month}/{self.academic_year})"
 
 
-class Club(SoftDeleteMixin, models.Model):
+class Club(SchoolDerivedMixin, SoftDeleteMixin, models.Model):
+    """A club. Carries its own school column.
+
+    `manager` is SET_NULL, and a nullable link in a SCHOOL_PATH becomes an
+    INNER JOIN that drops every manager-less club from every school's queryset.
+    `academic_year__school` does reach a tenant again now that years are
+    per-school, but the column is kept: it is one fewer join on the path every
+    club query takes, and it is what the `SchoolDerivedMixin` fills, so the
+    value is maintained either way.
+    """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('manager__user',)
+    SCHOOL_CONSISTENT_FIELDS = ('manager', 'academic_year')
+
+    school = models.ForeignKey(
+        'authentication.School', related_name='clubs',
+        on_delete=models.PROTECT,
+    )
+
     CLUB_STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('active', 'Active'),
@@ -289,6 +362,8 @@ class Club(SoftDeleteMixin, models.Model):
 
 
 class ClubSession(SoftDeleteMixin, models.Model):
+    SCHOOL_PATH = 'club__school'
+
     WEEKDAY_CHOICES = (
         ('monday', 'Monday'),
         ('tuesday', 'Tuesday'),
@@ -322,7 +397,10 @@ class ClubSession(SoftDeleteMixin, models.Model):
         return f"{self.club.name}: {self.weekday} {self.start_time}-{self.end_time}"
 
 
-class ClubAttendance(SoftDeleteMixin, models.Model):
+class ClubAttendance(SchoolConsistentModel, SoftDeleteMixin):
+    SCHOOL_PATH = 'session__club__school'
+    SCHOOL_CONSISTENT_FIELDS = ('session', 'student')
+
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),
         ('absent', 'Absent'),

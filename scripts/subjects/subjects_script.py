@@ -11,6 +11,7 @@ django.setup()
 from scripts.reading_data import get_sheets_data
 from scripts.writing_data import get_writable_sheet
 from scripts.users.get_admin import get_admin_id
+from scripts.utils.bootstrap import active_school
 from scripts.utils.logging_config import logger
 
 from django.core.exceptions import ValidationError
@@ -100,7 +101,9 @@ for sheet_name, rows in dfs.items():
                     try:
                         year = str(row['AcademicYear']).strip()
                         if (len(year) == 9) and ('/' in year):
-                            academic_year = AcademicYear.objects.update_or_create(year=year)[0]
+                            academic_year = AcademicYear.objects.update_or_create(
+                                year=year, school=active_school(),
+                            )[0]
                         else:
                             raise ValueError(
                                 f"Academic Year is not provided in expected format for '{row['AcademicYear']}'")

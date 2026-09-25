@@ -1,8 +1,10 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.authentication.models import School
 from apps.home.models import AcademicYear, ClassGroup, GradeLevel, Enrollment
+from core.tenancy import school_scope
 
 
 class Command(BaseCommand):
@@ -11,14 +13,29 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('new_year_name', type=str, help='e.g., 2026-2027')
         parser.add_argument('--dry-run', action='store_true', help='Preview without saving')
+        parser.add_argument(
+            '--school', required=True,
+            help=(
+                'Slug of the school to roll over. Required, not inferred: '
+                'everything a rollover touches — the academic year itself, its '
+                'class groups and its enrollments — is per-school, so this runs '
+                'once per school and the two need not happen on the same day.'
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         new_year_name = options['new_year_name']
 
         try:
-            with transaction.atomic():
-                summary = self._rollover(new_year_name)
+            school = School.objects.get(slug=options['school'])
+        except School.DoesNotExist:
+            known = ', '.join(School.objects.values_list('slug', flat=True))
+            raise CommandError(f'No school with slug {options["school"]!r}. Known: {known}')
+
+        try:
+            with transaction.atomic(), school_scope(school):
+                summary = self._rollover(new_year_name, school)
 
                 for line in summary:
                     self.stdout.write(line)
@@ -32,26 +49,45 @@ class Command(BaseCommand):
         except _DryRunRollback:
             pass
 
-    def _rollover(self, new_year_name):
+    def _rollover(self, new_year_name, school):
         summary = []
 
+        # Years are per-school again, so a rollover is wholly per-school: each
+        # run creates that school's own new year and archives that school's own
+        # current one. Two schools means two independent rollovers, which is
+        # the point — they can now happen on different days.
+        #
+        # `AcademicYear.objects` is scoped, and the caller has entered
+        # `school_scope(school)`, so this can only see and create rows here.
         current_year = AcademicYear.objects.filter(is_active=True).first()
         if not current_year:
-            self.stderr.write(self.style.ERROR('No active academic year found.'))
+            self.stderr.write(
+                self.style.ERROR(f'No active academic year for {school.slug}.')
+            )
             return []
 
+        # `is_active` is deliberately NOT in defaults: the partial unique index
+        # `academicyear_one_active_per_school` allows exactly one active row
+        # per school, so the new year is created dormant and activated below,
+        # after the current one has been stood down. Creating it active first
+        # would violate the constraint inside this transaction.
         new_year, created = AcademicYear.objects.get_or_create(
             year=new_year_name,
-            defaults={'is_active': True, 'archived': False},
+            school=school,
+            defaults={'is_active': False, 'archived': False},
         )
-        if not created:
-            self.stderr.write(self.style.ERROR(f'Academic year {new_year_name} already exists.'))
-            return []
-
-        current_year.is_active = False
-        current_year.archived = True
-        current_year.save(update_fields=['is_active', 'archived'])
-        summary.append(f'Archived {current_year.year}, created {new_year_name}')
+        if created:
+            current_year.is_active = False
+            current_year.archived = True
+            current_year.save(update_fields=['is_active', 'archived'])
+            new_year.is_active = True
+            new_year.save(update_fields=['is_active'])
+            summary.append(f'Archived {current_year.year}, created {new_year_name}')
+        else:
+            summary.append(
+                f'Academic year {new_year_name} already exists for '
+                f'{school.slug} — rolling its class groups over into it'
+            )
 
         # Only major class groups are promoted — minor groups are re-formed each year.
         old_class_groups = ClassGroup.objects.filter(
@@ -67,11 +103,17 @@ class Command(BaseCommand):
             next_grade_number = old_cg.grade_level.number + 1
             next_grade, _ = GradeLevel.objects.get_or_create(number=next_grade_number)
 
+            # `school` stays explicit even though the year now carries one
+            # again: ClassGroup declares no SCHOOL_DERIVED_FROM, its column is
+            # NOT NULL, and a year belongs to one school anyway — so passing it
+            # is both required and a second assertion that this is the right
+            # tenant.
             new_cg, _ = ClassGroup.objects.get_or_create(
                 academic_year=new_year,
                 grade_level=next_grade,
                 letter=old_cg.letter,
                 category=ClassGroup.MAJOR_CHOICE,
+                school=school,
             )
             group_mapping[old_cg.id] = new_cg
 

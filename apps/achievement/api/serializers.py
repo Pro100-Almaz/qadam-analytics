@@ -16,6 +16,7 @@ from apps.achievement.models import (
 from apps.authentication.models import ClubManager, Student
 from apps.home.models import AcademicYear, ClassGroup, Subject
 from core.permissions import is_admin_role
+from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
 # ── Shared nested serializers ──
 
@@ -61,11 +62,11 @@ class AchievementDetailSerializer(AchievementListSerializer):
 
 
 class AchievementCreateSerializer(serializers.Serializer):
-    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all())
-    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects)
+    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects)
     category = serializers.ChoiceField(choices=Achievement.CATEGORY_CHOICES)
     subject = serializers.PrimaryKeyRelatedField(
-        queryset=Subject.objects.all(), required=False, allow_null=True
+        queryset=Subject.objects, required=False, allow_null=True
     )
     award_type = serializers.CharField(max_length=255, required=False, allow_blank=True)
     place = serializers.CharField(max_length=255, required=False, allow_blank=True)
@@ -90,16 +91,16 @@ class AchievementCreateSerializer(serializers.Serializer):
 
 class AchievementUpdateSerializer(serializers.Serializer):
     student = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(), required=False
+        queryset=Student.objects, required=False
     )
     academic_year = serializers.PrimaryKeyRelatedField(
-        queryset=AcademicYear.objects.all(), required=False
+        queryset=AcademicYear.objects, required=False
     )
     category = serializers.ChoiceField(
         choices=Achievement.CATEGORY_CHOICES, required=False
     )
     subject = serializers.PrimaryKeyRelatedField(
-        queryset=Subject.objects.all(), required=False, allow_null=True
+        queryset=Subject.objects, required=False, allow_null=True
     )
     award_type = serializers.CharField(max_length=255, required=False, allow_blank=True)
     place = serializers.CharField(max_length=255, required=False, allow_blank=True)
@@ -132,8 +133,8 @@ class ReadingEntrySerializer(serializers.ModelSerializer):
 
 
 class ReadingEntryCreateSerializer(serializers.Serializer):
-    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all())
-    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects)
+    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects)
     title = serializers.CharField(max_length=500)
     cover = serializers.ImageField(required=False, allow_null=True)
     month = serializers.IntegerField(min_value=1, max_value=12)
@@ -170,8 +171,8 @@ class ClubEntrySerializer(serializers.ModelSerializer):
 
 
 class ClubEntryCreateSerializer(serializers.Serializer):
-    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all())
-    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects)
+    academic_year = serializers.PrimaryKeyRelatedField(queryset=AcademicYear.objects)
     month = serializers.IntegerField(min_value=1, max_value=12)
     club_name = serializers.CharField(max_length=255)
     plan = serializers.CharField(required=False, allow_blank=True)
@@ -411,11 +412,11 @@ class ClubScheduleWriteSerializer(serializers.Serializer):
 class ClubWriteSerializer(serializers.Serializer):
     club_name = serializers.CharField(max_length=255)
     academic_year_id = serializers.PrimaryKeyRelatedField(
-        source='academic_year', queryset=AcademicYear.objects.all()
+        source='academic_year', queryset=AcademicYear.objects
     )
-    manager_id = serializers.PrimaryKeyRelatedField(
-        source='manager', queryset=ClubManager.objects.select_related('user'),
-        required=False,
+    manager_id = ScopedPrimaryKeyRelatedField(
+        ClubManager, select_related=('user',),
+        source='manager', required=False,
     )
     start_date = serializers.DateField()
     end_date = serializers.DateField()

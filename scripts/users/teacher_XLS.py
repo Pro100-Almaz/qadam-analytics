@@ -2,6 +2,7 @@ from django.db import transaction
 from apps.authentication.models import Teacher
 from apps.home.models import Subject, AcademicYear
 
+from scripts.utils.bootstrap import active_school
 from scripts.utils.logging_config import logger
 
 def process_teacher(sheet_name, row, idx, admin_id, user):
@@ -20,7 +21,9 @@ def process_teacher(sheet_name, row, idx, admin_id, user):
             try:
                 year = str(row['Academic Year']).strip()
                 if (len(year) == 9) and ('/' in year):
-                    academic_year = AcademicYear.objects.update_or_create(year=row['Academic Year'])[0]
+                    academic_year = AcademicYear.objects.update_or_create(
+                        year=row['Academic Year'], school=active_school(),
+                    )[0]
                 else:
                     raise ValueError(f"Academic Year is not provided in expected format for '{row['Academic Year']}'")
 

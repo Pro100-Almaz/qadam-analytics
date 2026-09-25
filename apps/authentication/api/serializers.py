@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from apps.authentication.models import (
     CustomUser, Student, Teacher, Parent, Supervisor, ClubManager,
-    SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
+    School, SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
     MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
 )
 
@@ -109,7 +109,12 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
-    school = serializers.ChoiceField(choices=CustomUser.SCHOOL_CHOICES, required=False)
+    # Server-assigned — see _resolve_school(). Only a superuser
+    # may name a school, so an admin of one school cannot mint users in another.
+    # Accepts a School uuid; the pk is never exposed over the wire.
+    school = serializers.SlugRelatedField(
+        slug_field='uuid', queryset=School.objects, required=False,
+    )
     role = serializers.ChoiceField(choices=CustomUser.GROUP_CHOICES)
     phone_number = serializers.CharField(required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
@@ -126,7 +131,7 @@ class RegisterSerializer(serializers.Serializer):
 
     # Student-specific
     school_group = serializers.PrimaryKeyRelatedField(
-        queryset=SchoolGroup.objects.all(), required=False, allow_null=True
+        queryset=SchoolGroup.objects, required=False, allow_null=True
     )
     medical_features = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
@@ -143,7 +148,35 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"email": "Адрес электронной почты уже зарегистрирован"}
             )
+
+        attrs['school'] = self._resolve_school(attrs.get('school'))
         return attrs
+
+    def _resolve_school(self, requested):
+        """Decide which tenant the new user belongs to — never the client.
+
+        Resolved here rather than in create() so an unresolvable school is a 400
+        naming the field, not an IntegrityError from the
+        `user_has_school_unless_superuser` constraint (a 500).
+        """
+        actor = getattr(self.context.get('request'), 'user', None)
+
+        if actor is not None and actor.is_superuser:
+            # A superuser spans every school and so has none of their own to
+            # inherit — they have to say which one this user belongs to.
+            if requested is None:
+                raise serializers.ValidationError({
+                    'school': 'A superuser must name the school the new user belongs to.',
+                })
+            return requested
+
+        # Everyone else creates users inside their own school, whatever they sent.
+        own_school = getattr(actor, 'school', None) if actor is not None else None
+        if own_school is None:
+            raise serializers.ValidationError({
+                'school': 'Your account has no school, so it cannot create users.',
+            })
+        return own_school
 
     @transaction.atomic
     def create(self, validated_data):
@@ -160,6 +193,8 @@ class RegisterSerializer(serializers.Serializer):
         medical_features = validated_data.pop('medical_features', None)
         student_id = validated_data.pop('student_id', None)
 
+        # validate() already replaced any client-supplied school with the
+        # server-assigned one, so it passes straight through.
         user = CustomUser(
             username=validated_data['email'],
             **validated_data,
@@ -191,11 +226,17 @@ class RegisterSerializer(serializers.Serializer):
         elif group_name == CustomUser.GROUP_PARENT:
             parent = Parent.objects.create(user=user)
             if student_id:
+                # A client-supplied id, so an unresolvable one is a validation
+                # error rather than a silent no-op — otherwise a parent could be
+                # created 201 OK with no child attached, or (once scoping is on)
+                # with another school's child silently dropped.
                 try:
                     student = Student.objects.get(pk=student_id)
-                    parent.students.add(student)
                 except Student.DoesNotExist:
-                    pass
+                    raise serializers.ValidationError(
+                        {'student_id': [f'Invalid pk "{student_id}" - object does not exist.']}
+                    )
+                parent.students.add(student)
         elif group_name in (CustomUser.GROUP_SUPERVISOR, CustomUser.GROUP_PRINCIPAL):
             Supervisor.objects.create(user=user)
         elif group_name == CustomUser.GROUP_CLUB_MANAGER:
@@ -233,7 +274,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'school_group', 'academic_year']
+        fields = ['id', 'user', 'school_group', 'intake_year']
 
 
 class TeacherProfileSerializer(serializers.ModelSerializer):

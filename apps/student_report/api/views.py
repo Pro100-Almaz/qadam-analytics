@@ -12,7 +12,13 @@ from apps.student_report.api.serializers import (
     StudentReportSerializer,
     StudentReportListSerializer,
 )
-from core.permissions import IsTeacherAdminOrSupervisor, CanAccessStudent
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
+
+from apps.authentication.models import Student
+from core.error_messages import NO_ACCESS_STUDENT
+from core.permissions import IsTeacherAdminOrSupervisor, can_access_student
 
 
 class GenerateReportView(GenericAPIView):
@@ -72,7 +78,9 @@ class GenerateReportView(GenericAPIView):
         )
 
         from apps.student_report.tasks import generate_report_task
-        generate_report_task.delay(report.pk)
+        # The school travels with the task: a worker starts with no scope, and
+        # deriving it inside would mean querying before one exists.
+        generate_report_task.delay(report.pk, report.student.user.school_id)
 
         report = StudentReport.objects.select_related(
             'student__user', 'student__school_group',
@@ -88,19 +96,32 @@ class GenerateReportView(GenericAPIView):
 class ReportDetailView(RetrieveAPIView):
     permission_classes = [IsTeacherAdminOrSupervisor]
     serializer_class = StudentReportSerializer
-    queryset = StudentReport.objects.select_related(
-        'student__user', 'student__school_group',
-        'academic_year', 'generated_by',
-    )
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return StudentReport.objects.select_related(
+            'student__user', 'student__school_group',
+            'academic_year', 'generated_by',
+        )
 
 
 class StudentReportListView(ListAPIView):
-    permission_classes = [CanAccessStudent]
+    # CanAccessStudent only defines has_object_permission, and a ListAPIView has
+    # no single object — so on its own it never runs, and declaring it here used
+    # to *replace* the IsAuthenticated default, leaving the endpoint open to
+    # anonymous callers. Authentication is required explicitly, and ownership is
+    # enforced against the student named in the URL.
+    permission_classes = [IsAuthenticated]
     serializer_class = StudentReportListSerializer
 
     def get_queryset(self):
+        student = get_object_or_404(Student, pk=self.kwargs['student_id'])
+        if not can_access_student(self.request.user, student):
+            raise PermissionDenied(NO_ACCESS_STUDENT)
+
         return StudentReport.objects.filter(
-            student_id=self.kwargs['student_id'],
+            student_id=student.pk,
         ).select_related(
             'student__user', 'student__school_group',
             'academic_year', 'generated_by',

@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,10 +12,10 @@ from apps.home.models import (
     AcademicYear, ClassGroup, SubjectOffering, TeachingAssignment, Enrollment,
 )
 from apps.lesson.models import Lesson
-from apps.home.repo.students import grade_identifier
+from apps.home.grading import grade_identifier
 from apps.home.services import get_students_for_role
 from apps.lesson.services import get_cached_grades_bulk
-from core.permissions import can_access_student, CanAccessStudent, IsPsychologist, CanModifyStudent
+from core.permissions import can_access_student, IsPsychologist, CanModifyStudent
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
@@ -64,7 +66,15 @@ class StudentProfileUpdateAPIView(APIView):
     permission_classes = [IsAuthenticated,  CanModifyStudent]
 
     def patch(self, request, pk):
-        student = Student.objects.select_related('user').get(pk=pk)
+        # get_object_or_404 + an explicit object-permission check: this is a plain
+        # APIView, so DRF never calls check_object_permissions() for us and
+        # CanModifyStudent (which only defines has_object_permission) would
+        # otherwise never run — letting any authenticated user edit any student.
+        student = get_object_or_404(
+            Student.objects.select_related('user'), pk=pk
+        )
+        self.check_object_permissions(request, student)
+
         serializer = StudentProfileUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -75,33 +85,43 @@ class StudentProfileUpdateAPIView(APIView):
                 setattr(user, field, data[field])
         user.save()
 
+        # Each of the three lookups below used to `except DoesNotExist: pass`,
+        # which returned 200 with the change silently discarded — indistinguishable
+        # from success to the client. Once scoping is enforced they would swallow a
+        # *cross-school* id the same way, so a school-A admin could send school B's
+        # class_group and be told it worked. A supplied id that does not resolve is
+        # a validation error.
         if 'school_group' in data and data['school_group']:
             from apps.authentication.models import SchoolGroup
             try:
                 student.school_group = SchoolGroup.objects.get(id=data['school_group'])
             except SchoolGroup.DoesNotExist:
-                pass
+                raise ValidationError(
+                    {'school_group': [f"Invalid pk \"{data['school_group']}\" - object does not exist."]}
+                )
 
         if 'medical_features' in data:
             student.medical_features = data['medical_features']
 
-        if 'academic_year' in data and data['academic_year']:
-            try:
-                student.academic_year = AcademicYear.objects.get(id=data['academic_year'])
-            except AcademicYear.DoesNotExist:
-                pass
-
         if 'class_group' in data and data['class_group']:
             try:
                 class_group = ClassGroup.objects.get(id=data['class_group'])
+            except ClassGroup.DoesNotExist:
+                raise ValidationError(
+                    {'class_group': [f"Invalid pk \"{data['class_group']}\" - object does not exist."]}
+                )
+            try:
+                # The class group's own year, not the student's: enrollment is
+                # what binds a student to a year, and the group already names
+                # one. Falling back to the school's active year covers a group
+                # with none — the manager is scoped, so "active" here can only
+                # mean this school's.
                 academic_year = (
-                    student.academic_year
+                    class_group.academic_year
                     or AcademicYear.objects.filter(is_active=True).first()
                 )
                 if academic_year:
                     Enrollment.enroll_student(student, class_group, academic_year)
-            except ClassGroup.DoesNotExist:
-                pass
             except DjangoValidationError as exc:
                 return Response(
                     {'detail': '; '.join(exc.messages)},
@@ -136,10 +156,17 @@ class PsychologicalStateCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # PsychologicalStateTemplates is a tenant root with a NOT NULL school and
+        # no parent to derive one from, so it has to be supplied here. The state
+        # is about the student, so the student's school owns the template; the
+        # actor's school is the fallback for the (data-defect) case of a student
+        # without one. `name` alone still gates the lookup because the column is
+        # globally unique until Phase 6 relaxes it to unique(school, name).
         if not PsychologicalStateTemplates.objects.filter(name=data['state_name']).exists():
             PsychologicalStateTemplates.objects.create(
                 name=data['state_name'],
                 comment=data.get('comment', ''),
+                school_id=student.user.school_id or request.user.school_id,
             )
 
         state = PsychologicalState.objects.create(
@@ -178,10 +205,17 @@ class PsychologicalStateDeleteAPIView(APIView):
 
 
 class PsychologicalStateTemplateListAPIView(ListAPIView):
-    queryset = PsychologicalStateTemplates.objects.all()
     serializer_class = PsychologicalStateTemplateSerializer
-    permission_classes = [IsAuthenticated, CanAccessStudent]
+    # CanAccessStudent only defines has_object_permission, which a ListAPIView
+    # never invokes — it was a no-op here. These templates populate the
+    # psychological-state creation form, so they match that view's audience.
+    permission_classes = [IsAuthenticated, IsTeacherAdminOrSupervisor | IsPsychologist]
     pagination_class = None
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return PsychologicalStateTemplates.objects.all()
 
 
 # ── Student Self-Service ──

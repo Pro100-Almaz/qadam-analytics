@@ -19,9 +19,13 @@ from core.permissions import IsAdminRole, is_admin_role, is_staff_role, is_teach
 
 
 class AcademicYearListAPIView(ListAPIView):
-    queryset = AcademicYear.objects.order_by('-year')
     serializer_class = AcademicYearSerializer
     pagination_class = None
+
+    def get_queryset(self):
+        # Resolved per request, not at import: a class-body queryset
+        # would bake the school scope when the module loads.
+        return AcademicYear.objects.order_by('-year')
 
 
 class ClassGroupListAPIView(ListAPIView):

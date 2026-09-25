@@ -4,9 +4,39 @@ from django.db import models
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
+from core.models import SchoolConsistentModel, SchoolDerivedMixin
+from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
 
 
 class AcademicYear(models.Model):
+    """A school year and its quarter boundaries. One row PER SCHOOL.
+
+    §1a briefly made this shared — one 2025/2026 row for everybody — on the
+    grounds that both schools follow the same national calendar. Reversed
+    2026-09-21: sharing the row also shares `q1_start … q4_end`, `is_active`
+    and the rollover day, so the two schools could never diverge on term dates
+    without undoing it, and it is cheaper to split while school #2 has almost
+    no data than after a year of grades hangs off the shared row.
+
+    What that costs, stated so it is findable: `filter(is_active=True).first()`
+    is no longer a global singleton. Inside a request it is correct — the
+    scoped manager narrows it to one school — and outside one it raises under
+    `SCHOOL_SCOPE_MODE=enforce` rather than silently picking a tenant. The
+    `/admin/` case is what made this safe to do at all: since §9a a superuser
+    is scoped to exactly one school there, so the seven admin call sites see
+    one candidate row, not four.
+    """
+
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
+    #: Root: a year belongs to its school directly. PROTECT, never CASCADE —
+    #: deleting a tenant must not silently take its calendar and every grade
+    #: that hangs off it.
+    school = models.ForeignKey(
+        'authentication.School', related_name='academic_years',
+        on_delete=models.PROTECT,
+    )
     year = models.CharField(max_length=40)  # 2024/2025
     is_active = models.BooleanField(default=False)
     archived = models.BooleanField(default=True)
@@ -19,6 +49,37 @@ class AcademicYear(models.Model):
     q3_end = models.DateField(null=True, blank=True)
     q4_start = models.DateField(null=True, blank=True)
     q4_end = models.DateField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            # §7: one `2025/2026` per school. Was a plain `unique(year)` while
+            # the row was shared; the school column is what lets both tenants
+            # name the same year again.
+            models.UniqueConstraint(
+                fields=['school', 'year'],
+                name='academicyear_unique_year_per_school',
+            ),
+            # `filter(is_active=True).first()` is used as a per-school
+            # singleton in ~24 places. Without this it is nondeterministic the
+            # moment a rollover leaves two rows active, and the failure is a
+            # silently wrong year rather than an error.
+            models.UniqueConstraint(
+                fields=['school'],
+                condition=models.Q(is_active=True),
+                name='academicyear_one_active_per_school',
+            ),
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='academicyear_id_school_unique',
+            ),
+        ]
+        verbose_name = 'Учебный год'
+        verbose_name_plural = 'Учебные годы'
 
     @property
     def current_quarter(self):
@@ -55,7 +116,18 @@ class GradeLevel(models.Model):
         return str(self.number)
 
 
-class ClassGroup(models.Model):
+class ClassGroup(SchoolDerivedMixin, models.Model):
+    SCHOOL_PATH = 'school'
+    #: A class group in one school cannot sit in another school's year —
+    #: which is exactly what the §1b split had to unpick by hand.
+    SCHOOL_CONSISTENT_FIELDS = ('academic_year',)
+    objects = SchoolScopedManager()
+
+    # No SCHOOL_DERIVED_FROM: `academic_year` is shared and carries no school,
+    # and `grade_level` is shared too — so there is nothing to derive from.
+    # Every creation site must pass `school=` explicitly; SchoolDerivationError
+    # says so by name if one forgets.
+
     MAJOR_CHOICE = 'major'
     MINOR_CHOICE = 'minor'
     CATEGORY_CHOICES = (
@@ -78,8 +150,25 @@ class ClassGroup(models.Model):
     )
     letter = models.CharField(default="A", max_length=50)
     category = models.CharField(choices=CATEGORY_CHOICES, max_length=10, default=MAJOR_CHOICE)
+    # Root: `academic_year` is SET_NULL/nullable, so a class group cannot
+    # reliably reach a school by join — it carries its own.
+    school = models.ForeignKey(
+        'authentication.School', related_name='class_groups',
+        on_delete=models.PROTECT,
+    )
 
     class Meta:
+        constraints = [
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='classgroup_id_school_unique',
+            ),
+        ]
         verbose_name = "Класс"
         verbose_name_plural = "Классы"
 
@@ -102,8 +191,12 @@ class ClassGroup(models.Model):
         return self.category == self.MINOR_CHOICE
 
 
-class MinorClassGroupManager(models.Manager):
-    """Restricts every query — and every create — to the minor category."""
+class MinorClassGroupManager(SchoolScopedManagerMixin, models.Manager):
+    """Restricts every query — and every create — to the minor category.
+
+    The scope mixin goes first so the school filter composes on top of the
+    category filter rather than replacing it.
+    """
 
     def get_queryset(self):
         return super().get_queryset().filter(category=ClassGroup.MINOR_CHOICE)
@@ -120,6 +213,11 @@ class MinorClassGroup(ClassGroup):
     own queries while sharing the model, enrollments and subject offerings of
     regular (major) classes.
     """
+
+    # Declared again rather than inherited: core.checks walks concrete and proxy
+    # models alike, and an explicit path is what it reports against.
+    SCHOOL_PATH = 'school'
+
     objects = MinorClassGroupManager()
 
     class Meta:
@@ -140,6 +238,10 @@ class ClassGroupCollection(models.Model):
     place, ready to be filled again. Subgroups are shared rather than owned:
     «English Advanced» can sit in 7A's constellation and 7B's at the same time.
     """
+
+    SCHOOL_PATH = 'major__school'
+    objects = SchoolScopedManager()
+
     major = models.OneToOneField(
         ClassGroup,
         on_delete=models.CASCADE,
@@ -204,6 +306,9 @@ class ClassGroupCollection(models.Model):
 
 
 class Subject(models.Model):
+    SCHOOL_PATH = 'school'
+    objects = SchoolScopedManager()
+
     STATUS_CHOICES = (
         ('active', 'Active'),
         ('planned', 'Planned'),
@@ -215,6 +320,11 @@ class Subject(models.Model):
         ('kaz', 'KAZ'),
         ('rus', 'RUS'),
         ('eng', 'ENG')
+    )
+    # Root: each school owns its own subject catalogue.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subjects',
+        on_delete=models.PROTECT,
     )
     language_group = models.CharField(max_length=20, choices=LANGUAGE_CHOICES, default='KAZ')
     name = models.CharField(max_length=100)
@@ -229,17 +339,39 @@ class Subject(models.Model):
         help_text="User who added this subject"
     )
 
+    class Meta:
+        constraints = [
+            # §7 layer 3: the composite FKs in
+            # home/0040_composite_school_fks reference (id, school_id), and
+            # Postgres will only point a foreign key at a UNIQUE index. `id`
+            # is already unique on its own, so this adds no new rule about the
+            # data — it exists solely to give that FK something to reference.
+            models.UniqueConstraint(
+                fields=['id', 'school'],
+                name='subject_id_school_unique',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.name}"
 
 
-class SubjectOffering(models.Model):
+class SubjectOffering(SchoolDerivedMixin, models.Model):
     """
     The central entity: "Math for 7A in 2025/2026"
 
     Ties together: Subject, ClassGroup, AcademicYear, teachers, lessons, grades.
     Everything on a subject page filters by this offering.
     """
+
+    SCHOOL_PATH = 'school'
+    SCHOOL_DERIVED_FROM = ('class_group',)
+    #: The hub, and the one place cross-tenant mixing actually happens:
+    #: school A's Subject offered to school B's ClassGroup. Also the
+    #: composite FK pair in the database (§7 layer 3).
+    SCHOOL_CONSISTENT_FIELDS = ('subject', 'class_group')
+    objects = SchoolScopedManager()
+
     subject = models.ForeignKey(
         Subject,
         on_delete=models.CASCADE,
@@ -262,6 +394,13 @@ class SubjectOffering(models.Model):
         max_length=20,
         choices=GRADING_STRATEGY_CHOICES,
         default='average'
+    )
+    # Hub: everything in apps/lesson reaches a school through this row, and it
+    # is where cross-tenant mixing would happen (school A's Subject + school B's
+    # ClassGroup). Derived from class_group on save; see Phase 6.
+    school = models.ForeignKey(
+        'authentication.School', related_name='subject_offerings',
+        on_delete=models.PROTECT,
     )
 
     @property
@@ -298,8 +437,13 @@ class SubjectOffering(models.Model):
         return assignment.teacher if assignment else None
 
 
-class TeachingAssignment(models.Model):
+class TeachingAssignment(SchoolConsistentModel):
     """Assigns teachers to a SubjectOffering with specific roles."""
+
+    SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'teacher')
+    objects = SchoolScopedManager()
+
     ROLE_CHOICES = [
         ('primary', 'Primary Teacher'),
         ('assistant', 'Assistant Teacher'),
@@ -325,8 +469,13 @@ class TeachingAssignment(models.Model):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
 
 
-class HomeroomTeacherAssignment(models.Model):
+class HomeroomTeacherAssignment(SchoolConsistentModel):
     """Links a homeroom teacher to a class group for an academic year."""
+
+    SCHOOL_PATH = 'class_group__school'
+    SCHOOL_CONSISTENT_FIELDS = ('teacher', 'class_group')
+    objects = SchoolScopedManager()
+
     teacher = models.ForeignKey(
         Teacher,
         on_delete=models.CASCADE,
@@ -354,12 +503,17 @@ class HomeroomTeacherAssignment(models.Model):
         return f"{self.teacher} → {self.class_group} ({self.academic_year})"
 
 
-class Enrollment(models.Model):
+class Enrollment(SchoolConsistentModel):
     """Tracks which class a student belongs to in a given academic year.
 
     A student may hold at most one active enrollment in a *major* class group
     per academic year, but any number of active *minor* group enrollments.
     """
+
+    SCHOOL_PATH = 'class_group__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'class_group')
+    objects = SchoolScopedManager()
+
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('transferred', 'Transferred'),
@@ -515,6 +669,9 @@ class Enrollment(models.Model):
 
 
 class QuarterGrader(models.Model):
+    SCHOOL_PATH = 'subject__school'
+    objects = SchoolScopedManager()
+
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
     quarter = models.PositiveSmallIntegerField()
     average_points = models.PositiveIntegerField(default=0)
@@ -529,6 +686,9 @@ class QuarterGrader(models.Model):
 
 
 class SubjectAssignment(models.Model):
+    SCHOOL_PATH = 'offering__school'
+    objects = SchoolScopedManager()
+
     CATEGORY_CHOICES = (
         ('lesson', 'Lesson'),
         ('exam', 'Exam'),
@@ -544,7 +704,11 @@ class SubjectAssignment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class SubjectGrade(models.Model):
+class SubjectGrade(SchoolConsistentModel):
+    SCHOOL_PATH = 'assignment__offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('assignment', 'student')
+    objects = SchoolScopedManager()
+
     assignment = models.ForeignKey(SubjectAssignment, on_delete=models.CASCADE, related_name="grades")
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grades")
     grade = models.PositiveIntegerField(null=True, blank=True)
@@ -557,7 +721,11 @@ class SubjectGrade(models.Model):
         ordering = ['student']
 
 
-class QuarterGrade(models.Model):
+class QuarterGrade(SchoolConsistentModel):
+    SCHOOL_PATH = 'offering__school'
+    SCHOOL_CONSISTENT_FIELDS = ('student', 'offering')
+    objects = SchoolScopedManager()
+
     grade = models.PositiveIntegerField(validators=[MinValueValidator(2), MaxValueValidator(5)])
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
 
