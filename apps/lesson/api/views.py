@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
-from apps.lesson.models import Lesson, Topic, TopicGrade, MergedLessonComment, QuarterGradeSnapshot
+from apps.lesson.models import Lesson, Topic, TopicGrade, QuarterGradeSnapshot
 from core import settings
 from core.permissions import (
     can_access_lesson, can_modify_lesson, can_grade_student,
@@ -629,7 +629,7 @@ class CalendarLessonListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')

@@ -610,8 +610,6 @@ def registration_email_post_send(sender, instance, created, *args, **kwargs):
         return
 
     if created:
-        raw_password = getattr(instance, '_raw_password', None)
-
         subject = 'Уведомление о учетной записи Qadam Analytics'
         html_message = render_to_string("email/registration_login_pw_email.html",
                                    {"user": instance, "password": "[скрыто в целях защиты ваших данных]"})

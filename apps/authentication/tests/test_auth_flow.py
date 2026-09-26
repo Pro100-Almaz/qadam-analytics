@@ -4,8 +4,8 @@ from django.urls import reverse
 from rest_framework import status
 
 from core.factories import (
-    UserFactory, StudentUserFactory, TeacherUserFactory, AdminUserFactory,
-    StudentFactory, SchoolGroupFactory, AcademicYearFactory,
+    UserFactory, TeacherUserFactory, AdminUserFactory,
+    SchoolGroupFactory, AcademicYearFactory,
 )
 
 
@@ -197,7 +197,6 @@ class TestPasswordResetFlow:
     @patch('apps.authentication.services.AccountService.check_verification_code')
     @patch('apps.authentication.services.AccountService.send_verification_code')
     def test_full_reset_flow(self, mock_send, mock_check, api_client):
-        from django.core.cache import cache
         user = UserFactory()
         mock_send.return_value = 'signed:code'
         mock_check.return_value = (True, None)

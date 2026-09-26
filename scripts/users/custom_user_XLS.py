@@ -227,7 +227,7 @@ for sheet_name, rows in dfs.items():
                             "values": [["✅"]]
                         })
 
-                    except Exception as e:
+                    except Exception:
                         col_letter = col_to_letter(status_col)
                         status_updates.append({
                             "range": f"{sheet_title}!{col_letter}{idx + 2}",

@@ -4,8 +4,7 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.core.validators import MinValueValidator, MaxValueValidator
 from simple_history.models import HistoricalRecords
 
-from apps.authentication.models import CustomUser
-from apps.home.models import ClassGroup, Subject, SubjectOffering, TeachingAssignment
+from apps.home.models import ClassGroup, SubjectOffering, TeachingAssignment
 from core.models import (
     SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
 )
@@ -107,7 +106,6 @@ class Lesson(SoftDeleteMixin, models.Model):
         Returns:
             dict mapping (lesson_id, student_id) -> grade
         """
-        from django.db.models import F
 
         lesson_ids = [l.id for l in lessons]
         student_ids = [s.id for s in students]

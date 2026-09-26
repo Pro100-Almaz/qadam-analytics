@@ -3,10 +3,9 @@ from django.urls import reverse
 from rest_framework import status
 
 from core.factories import (
-    StudentFactory, TeacherFactory, ParentFactory, SupervisorFactory,
-    AdminUserFactory, AcademicYearFactory, ClassGroupFactory,
-    SubjectFactory, SubjectOfferingFactory, TeachingAssignmentFactory,
-    EnrollmentFactory, LessonFactory, TopicFactory,
+    StudentFactory, TeacherFactory, ParentFactory, ClassGroupFactory,
+    SubjectOfferingFactory, TeachingAssignmentFactory,
+    EnrollmentFactory, LessonFactory,
 )
 
 

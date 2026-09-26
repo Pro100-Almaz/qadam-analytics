@@ -88,7 +88,7 @@ def process_teacher(sheet_name, row, idx, admin_id, user):
                 temp = row['Subjects']
 
                 if len(temp) == 0:
-                    raise ValueError(f"Subjects are empty: : sheet {sheet_name}, row {idx + 2} — {e}")
+                    raise ValueError(f"Subjects are empty: sheet {sheet_name}, row {idx + 2}")
 
                 subjects_to_add = [s.strip() for s in temp.split('/') if s.strip()]
 

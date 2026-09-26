@@ -1,0 +1,25 @@
+# Lint gate for CI (.github/workflows/ci.yml, `lint` job).
+#
+# Correctness only: pyflakes (F) and syntax errors (E9). Ruff's own defaults
+# grow with each release (0.16 flags ~850 style findings here), so the rule set
+# is chosen explicitly and the ruff version is pinned in CI — a new ruff
+# release must not turn the build red on its own. Style stays with pycodestyle
+# (CLAUDE.md → Code style).
+target-version = "py313"
+extend-exclude = [
+    "**/migrations/**",
+    "staticfiles",
+    "apps/static",
+    "venv",
+    "media",
+]
+
+[lint]
+select = ["F", "E9"]
+
+[lint.per-file-ignores]
+# Stale since home.0023 removed the ClassRoom model (and Teacher lost its
+# classroom/subjects fields): the classroom branch of this import script cannot
+# run. Needs a rewrite against ClassGroup, not a lint suppression — tracked
+# here so it stays visible.
+"scripts/users/teacher_XLS.py" = ["F821"]
