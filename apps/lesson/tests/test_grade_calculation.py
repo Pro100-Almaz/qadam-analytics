@@ -1,11 +1,10 @@
 import pytest
-from decimal import Decimal
 
-from apps.lesson.models import Lesson, Topic, TopicGrade
+from apps.lesson.models import Lesson
 from core.factories import (
     StudentFactory, AcademicYearFactory, ClassGroupFactory,
     SubjectOfferingFactory, EnrollmentFactory, LessonFactory,
-    TopicFactory, TopicGradeFactory, SubtopicFactory,
+    TopicFactory, TopicGradeFactory,
 )
 
 

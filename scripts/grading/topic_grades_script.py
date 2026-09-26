@@ -108,7 +108,7 @@ for sheet_name, rows in dfs.items():
                         import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "✅")
 
-                    except Exception as e:
+                    except Exception:
                         import_status_col = header.index("ImportStatus") + 1
                         worksheet.update_cell(idx + 2, import_status_col, "❌")
                         continue

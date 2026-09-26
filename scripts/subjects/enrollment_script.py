@@ -19,7 +19,7 @@ def add_enrollment(student, class_group, academic_year):
         # year; minor groups are added alongside whatever they already have.
         Enrollment.enroll_student(student, class_group, academic_year)
 
-    except IntegrityError as e:
+    except IntegrityError:
         msg = f'Error while adding Enrollment for student: {student.user.get_full_name()}'
         logger.error(msg)
         raise

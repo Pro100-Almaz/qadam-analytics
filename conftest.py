@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from core.factories import (
     DEFAULT_TEST_SCHOOL_SLUG,
-    UserFactory, StudentFactory, TeacherFactory, ParentFactory,
+    StudentFactory, TeacherFactory, ParentFactory,
     SupervisorFactory, AdminUserFactory, AcademicYearFactory,
     ClassGroupFactory, SchoolGroupFactory, EnrollmentFactory,
     SubjectFactory, SubjectOfferingFactory, TeachingAssignmentFactory,

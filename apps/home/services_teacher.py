@@ -1,9 +1,9 @@
 from datetime import timedelta
 
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count
 from django.utils import timezone
 
-from apps.authentication.models import Teacher, PsychologicalState, Student
+from apps.authentication.models import PsychologicalState, Student
 from apps.home.models import (
     AcademicYear, SubjectOffering, Enrollment, TeachingAssignment,
     HomeroomTeacherAssignment,

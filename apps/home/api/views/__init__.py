@@ -94,6 +94,7 @@ __all__ = [
     'ParentChildrenListAPIView',
     'ParentChildDetailAPIView',
     'ParentTeachersAPIView',
+    'ParentChildSubjectDetailAPIView',
     'TeacherRoleDashboardAPIView',
     'HomeroomClassAPIView',
     'PsychologistDashboardAPIView',

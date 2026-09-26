@@ -19,7 +19,7 @@ from core.permissions import can_access_student, IsPsychologist, CanModifyStuden
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
-    IsTeacherAdminOrSupervisor, IsAdminOrSupervisor, IsStudent,
+    IsTeacherAdminOrSupervisor, IsStudent,
 )
 from apps.home.api.serializers import (
     StudentListSerializer,

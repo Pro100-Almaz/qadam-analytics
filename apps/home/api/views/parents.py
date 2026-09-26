@@ -4,17 +4,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Parent, Student, Teacher
+from apps.authentication.models import Parent, Student
 from apps.home.models import TeachingAssignment, Enrollment, Subject, SubjectOffering
 from apps.home.services import compute_child_grades
-from apps.lesson.models import Lesson, QuarterGradeSnapshot
+from apps.lesson.models import Lesson
 
 from apps.home.api.permissions import IsParent
 from core.error_messages import CHILD_NOT_FOUND
 from apps.home.api.serializers import (
     StudentDetailSerializer,
     ParentChildSerializer,
-    ParentChildDetailSerializer,
     ParentTeacherDetailSerializer,
     ParentChildSubjectDetailSerializer,
 )
