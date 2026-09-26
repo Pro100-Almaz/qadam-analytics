@@ -238,7 +238,7 @@ def test_a_forged_claim_for_another_school_does_not_grant_it(school_a, school_b)
 
 def test_login_puts_the_school_on_the_refresh_token(api_client, school_a):
     from apps.authentication.school_cache import uuid_for_school_pk
-    user = AdminUserFactory(school=school_a, username='a@test.kz')
+    AdminUserFactory(school=school_a, username='a@test.kz')
 
     response = api_client.post(
         '/api/v1/auth/login/', {'username': 'a@test.kz', 'password': 'testpass123'},

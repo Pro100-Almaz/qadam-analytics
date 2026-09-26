@@ -7,7 +7,7 @@ from scripts.utils.logging_config import logger
 
 from django.db import IntegrityError
 
-from apps.home.models import Subject, AcademicYear, ClassGroup, SubjectOffering
+from apps.home.models import AcademicYear, ClassGroup, SubjectOffering
 
 
 def add_subject_offering(subject, academic_year : AcademicYear, class_group: ClassGroup):

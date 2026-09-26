@@ -1,4 +1,3 @@
-from typing import Optional
 
 from apps.lesson.services import get_comments_for_lesson_bulk
 
@@ -147,7 +146,6 @@ def _collect_class_averages(student, academic_year, quarter: int) -> dict:
     from apps.home.models import SubjectOffering, Enrollment
     from apps.lesson.models import Lesson
     from apps.lesson.services import get_cached_grades_bulk
-    from apps.authentication.models import Student
 
     enrollment = student.get_current_enrollment()
     if not enrollment:

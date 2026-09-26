@@ -35,7 +35,6 @@ from apps.authentication.api.serializers import (
     PasswordChangeSerializer,
     ResetPasswordSerializer,
     PublicSchoolGroupSerializer,
-    SchoolGroupSerializer,
 )
 
 

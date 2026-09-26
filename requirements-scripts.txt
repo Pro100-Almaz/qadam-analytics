@@ -1,2 +1,7 @@
 -r requirements.txt
 gspread==6.*
+# SSH tunnel for manage_ssh_tunnel.py, a local dev helper — not needed by the
+# app, so kept out of requirements.txt (and its CI audit). paramiko has an
+# advisory with no fixed release yet (PYSEC-2026-2858).
+paramiko==3.5.1
+sshtunnel==0.4.0

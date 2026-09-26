@@ -139,7 +139,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install ruff
-        run: pip install ruff
+        # Pinned: ruff's default rules change between releases, so an unpinned
+        # install can turn the build red with no code change. The rule set
+        # lives in ruff.toml; bump this together with requirements-dev.txt.
+        run: pip install ruff==0.16.9
 
       - name: Run linting
         run: ruff check .
@@ -153,10 +156,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
       - name: Check for known vulnerabilities
+        # Audits what the app ships — requirements.txt, resolved with its
+        # transitive deps in an isolated env — not the runner's own tooling
+        # (pip, pip-audit), whose advisories are not ours to fix.
         run: |
           pip install pip-audit
-          pip-audit
+          pip-audit -r requirements.txt

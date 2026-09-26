@@ -2,19 +2,17 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from rest_framework import serializers, status
-from rest_framework.response import Response
+from rest_framework import serializers
 
 from apps.achievement.models import (
     Attachment, validate_attachment_format, validate_attachment_size,
 )
-from apps.authentication.models import Student, Teacher, Parent
+from apps.authentication.models import Student, Teacher
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.lesson.models import (
     Homework, Lesson, Topic, TopicGrade, MergedLessonComment,
-    QuarterGradeSnapshot, SubjectSchedule,
+    QuarterGradeSnapshot,
 )
-from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import is_admin_role, is_teacher_role
 
 GRADE_CACHE_TTL = 300
@@ -239,7 +237,6 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
 
 def delete_student_grades(lesson, student, user=None):
     """Soft-delete all grades and delete merged comments for a student on a lesson."""
-    from django.utils import timezone
 
     invalidate_lesson_grade_cache(lesson.id)
     TopicGrade.objects.filter(student=student, topic__lesson=lesson).delete()

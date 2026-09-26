@@ -3,8 +3,7 @@ from rest_framework import serializers
 
 from apps.authentication.api.serializers import UserSerializer
 from apps.authentication.models import (
-    Student, Teacher, Parent,
-    PsychologicalState, PsychologicalStateTemplates,
+    Student, Teacher, PsychologicalState, PsychologicalStateTemplates,
 )
 from apps.home.models import (
     AcademicYear, GradeLevel, ClassGroup,
@@ -154,7 +153,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         from apps.home.models import SubjectOffering
         from apps.lesson.models import Lesson
         from apps.lesson.services import get_cached_grades_bulk
-        from apps.home.grading import calculate_quarter_grade, grade_identifier
+        from apps.home.grading import grade_identifier
 
         enrollment = student.get_current_enrollment()
         if not enrollment:
