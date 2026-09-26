@@ -12,7 +12,7 @@ from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
 from apps.lesson.models import (
     Homework, Lesson, Topic, TopicGrade, MergedLessonComment,
-    QuarterGradeSnapshot, SubjectSchedule,
+    QuarterGradeSnapshot, ScheduleAttendance, SubjectSchedule,
 )
 from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import is_admin_role, is_teacher_role
@@ -291,6 +291,27 @@ def freeze_quarter_grades(offering_id, quarter, frozen_by_user):
 
     QuarterGradeSnapshot.objects.bulk_create(snapshots)
     return len(snapshots)
+
+
+def record_attendance(session, student, date, attendance_status, user):
+    """
+    Upsert the one attendance row of a lesson slot `(session, student, date)`.
+
+    Returns `(attendance, created)`. A teacher re-saving a register POSTs every
+    student again; the rows that already exist are updated rather than refused,
+    so the latest mark wins and a correction is never lost (spec 0004).
+
+    Race-safe by construction: `update_or_create` locks an existing row with
+    SELECT ... FOR UPDATE, and when two requests both miss and both insert, the
+    `scheduleattendance_one_per_slot` constraint fails the second, which
+    `get_or_create` catches and turns into a locked re-read and an update.
+    """
+    return ScheduleAttendance.objects.update_or_create(
+        session=session,
+        student=student,
+        date=date,
+        defaults={'status': attendance_status, 'marked_by': user},
+    )
 
 
 def build_other_sessions_map(schedules):

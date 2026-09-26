@@ -134,15 +134,15 @@ class TestStudentAttendanceSummary:
         }
         assert response.data['counting']['unrecorded_as'] == 'excluded'
 
-    def test_student_with_nothing_registered_reads_zero_with_zero_recorded(
+    def test_student_with_nothing_registered_reads_null_with_zero_recorded(
         self, cohort, authenticated_client,
     ):
-        """The rate is meaningless here — `recorded` is what says so."""
+        """No rows, no rate: null rather than 0.0 since spec 0004 AC-9."""
         client = authenticated_client(AdminUserFactory())
         response = client.get(summary_url(cohort['students'][3]))
 
         assert response.data['totals'] == {
-            'recorded': 0, 'present': 0, 'absent': 0, 'attendance_rate': 0.0,
+            'recorded': 0, 'present': 0, 'absent': 0, 'attendance_rate': None,
         }
         assert response.data['by_subject'] == []
 
@@ -203,9 +203,11 @@ class TestStudentAttendanceSummary:
         assert comparison['class_size'] == 4
         # Pooled over all nine rows, not the mean of the four student rates.
         assert comparison['class_attendance_rate'] == pytest.approx(55.56)
-        assert comparison['class_mean_rate'] == pytest.approx(31.25)
+        # Mean over the three rated students (75, 50, 0); s3 has no rows and
+        # sits out rather than counting as 0% (spec 0004 AC-10).
+        assert comparison['class_mean_rate'] == pytest.approx(41.67)
         assert comparison['rank'] == 1
-        assert comparison['percentile'] == 88
+        assert comparison['percentile'] == 83
 
         body = str(response.data)
         for student in cohort['students'][1:]:
@@ -416,11 +418,12 @@ class TestClassGroupAttendanceOverview:
             cohort['students'][0].id, cohort['students'][1].id,
             cohort['students'][2].id, cohort['students'][3].id,
         ]
+        # s2's 0.0 stands on a real absence; s3 has no rows, so no rate and no
+        # rank, listed after everyone rated (spec 0004 AC-9/AC-10).
         assert [row['attendance_rate'] for row in rows] == [
-            pytest.approx(75.0), pytest.approx(50.0), 0.0, 0.0,
+            pytest.approx(75.0), pytest.approx(50.0), 0.0, None,
         ]
-        # The two students on 0.0 share the better rank.
-        assert [row['rank'] for row in rows] == [1, 2, 3, 3]
+        assert [row['rank'] for row in rows] == [1, 2, 3, None]
 
     def test_student_without_rows_still_appears(self, cohort, authenticated_client):
         client = authenticated_client(AdminUserFactory())
@@ -466,8 +469,9 @@ class TestClassGroupAttendanceOverview:
         assert totals['absent'] == 4
         assert totals['attendance_rate'] == pytest.approx(55.56)
         assert totals['class_size'] == 4
-        # Mean of the four per-student rates, which is a different number.
-        assert totals['mean_student_rate'] == pytest.approx(31.25)
+        # Mean of the per-student rates, which is a different number — over
+        # the three rated students only (spec 0004 AC-10).
+        assert totals['mean_student_rate'] == pytest.approx(41.67)
 
     def test_by_subject_covers_every_subject_taught_to_the_class(
         self, cohort, authenticated_client,
@@ -541,3 +545,79 @@ class TestClassGroupAttendanceOverview:
 
         assert response.status_code == 200
         assert len(response.data['students']) == 20
+
+
+# ── Spec 0004: no data reads as null, not as 0% ──
+#
+# cohort: s0 75% (4 rows), s1 50% (4), s2 0% (1 row, absent), s3 no rows.
+
+@pytest.mark.django_db
+class TestUnrecordedRateIsNull:
+
+    def test_ac9_unrecorded_rate_is_null_in_every_block(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(AdminUserFactory())
+        s3 = cohort['students'][3]
+
+        summary = client.get(summary_url(s3)).data
+        assert summary['totals']['recorded'] == 0
+        assert summary['totals']['attendance_rate'] is None
+        # by_weekday is dense: all seven blocks exist, none has a row.
+        assert [b['attendance_rate'] for b in summary['by_weekday']] == [None] * 7
+        # s0 has nothing on a Friday: that one block is null, the rest are not.
+        s0_weekdays = client.get(summary_url(cohort['students'][0])).data['by_weekday']
+        assert s0_weekdays[4]['recorded'] == 0
+        assert s0_weekdays[4]['attendance_rate'] is None
+
+        heatmap = client.get(heatmap_url(cohort['maths'])).data
+        students = [s['id'] for s in heatmap['students']]
+        assert heatmap['row_summary'][students.index(s3.id)]['attendance_rate'] is None
+
+        overview = client.get(overview_url(cohort['class_group'])).data
+        block = next(b for b in overview['students'] if b['student']['id'] == s3.id)
+        assert block['recorded'] == 0
+        assert block['attendance_rate'] is None
+
+    def test_ac10_unrecorded_students_excluded_from_class_stats(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(AdminUserFactory())
+
+        comparison = client.get(summary_url(cohort['students'][0])).data['class_comparison']
+        # Over the three rated students (75, 50, 0) — s3 is not a 0.
+        assert comparison['class_size'] == 4
+        assert comparison['class_mean_rate'] == pytest.approx(41.67)
+        assert comparison['rank'] == 1
+        assert comparison['percentile'] == 83
+        assert comparison['delta'] == pytest.approx(33.33)
+
+        own_unrated = client.get(summary_url(cohort['students'][3])).data['class_comparison']
+        assert own_unrated['rank'] is None
+        assert own_unrated['percentile'] is None
+        assert own_unrated['delta'] is None
+        assert own_unrated['class_mean_rate'] == pytest.approx(41.67)
+
+    def test_ac10_overview_lists_unrated_students_last_without_rank(
+        self, cohort, authenticated_client,
+    ):
+        client = authenticated_client(AdminUserFactory())
+        overview = client.get(overview_url(cohort['class_group'])).data
+
+        assert [b['student']['id'] for b in overview['students']] == [
+            s.id for s in cohort['students']
+        ]
+        assert [b['rank'] for b in overview['students']] == [1, 2, 3, None]
+        assert overview['totals']['mean_student_rate'] == pytest.approx(41.67)
+
+    def test_ac11_recorded_rate_formula_unchanged(self, cohort, authenticated_client):
+        """A real 0% — one row, absent — stays 0.0; it is not 'no data'."""
+        client = authenticated_client(AdminUserFactory())
+
+        s0 = client.get(summary_url(cohort['students'][0])).data['totals']
+        s2 = client.get(summary_url(cohort['students'][2])).data['totals']
+
+        assert s0['attendance_rate'] == pytest.approx(75.0)
+        assert s2 == {
+            'recorded': 1, 'present': 0, 'absent': 1, 'attendance_rate': 0.0,
+        }
