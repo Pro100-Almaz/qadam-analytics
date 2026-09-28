@@ -20,9 +20,10 @@ An attendance row exists only where somebody registered one. There is no
 roster of expected sessions to compare against, so **an unrecorded slot is not
 an absence** and is never counted as one: rates are `present / (present +
 absent)` over the rows that exist, and `recorded` travels next to every rate to
-say how thin the ground under it is. A student with nothing recorded reads a
-rate of 0.0 with `recorded` 0 — read `recorded` before reading the rate, the
-same way the grade analytics ask you to read `lesson_count` before `value`.
+say how thin the ground under it is. A block with nothing recorded reads a rate
+of null, never 0.0 — a 0.0 always has at least one absence behind it (spec
+0004). Students with no rows sit out of class means, ranks and percentiles
+rather than dragging them down as zeros.
 
 `weekday` is the session's own weekday, 0 = Monday through 6 = Sunday, matching
 ScheduleSession.weekday.
@@ -119,13 +120,25 @@ def tally(queryset, *group_fields):
 
 
 def counts(present=0, absent=0, recorded=None):
-    """The four numbers every block in this module reports."""
+    """
+    The four numbers every block in this module reports.
+
+    `attendance_rate` is None — not 0.0 — when nothing was registered, so "no
+    data" cannot be read as "never attended" (spec 0004). A real 0% needs at
+    least one absent row behind it.
+    """
+    registered = present + absent
     return {
-        'recorded': recorded if recorded is not None else present + absent,
+        'recorded': recorded if recorded is not None else registered,
         'present': present,
         'absent': absent,
-        'attendance_rate': ratio(present, present + absent),
+        'attendance_rate': ratio(present, registered) if registered else None,
     }
+
+
+def rated(rates):
+    """The rates that stand on at least one row; unrated (None) ones dropped."""
+    return [rate for rate in rates if rate is not None]
 
 
 def counts_from(row):
@@ -353,7 +366,10 @@ class StudentAttendanceSummaryAPIView(APIView):
         cohort_rows = scope.filter(student__in=cohort)
 
         per_student = rates_by_student(cohort_rows, cohort)
-        rates = [block['attendance_rate'] for block in per_student.values()]
+        # Classmates with nothing registered have no rate to compare against,
+        # so they sit out of the mean and the ranking rather than count as 0%.
+        rates = rated(block['attendance_rate'] for block in per_student.values())
+        class_mean = mean(rates) if rates else None
         pooled = cohort_rows.aggregate(
             recorded=Count('id'),
             present=Count('id', filter=Q(status='present')),
@@ -361,13 +377,14 @@ class StudentAttendanceSummaryAPIView(APIView):
         )
 
         own_rate = totals['attendance_rate']
+        ranked = own_rate is not None
         return {
             'class_size': len(cohort),
             'class_attendance_rate': counts_from(pooled)['attendance_rate'],
-            'class_mean_rate': mean(rates),
-            'rank': rank(rates, own_rate),
-            'percentile': percentile_rank(rates, own_rate),
-            'delta': round(own_rate - mean(rates), 2),
+            'class_mean_rate': class_mean,
+            'rank': rank(rates, own_rate) if ranked else None,
+            'percentile': percentile_rank(rates, own_rate) if ranked else None,
+            'delta': round(own_rate - class_mean, 2) if ranked else None,
         }
 
 
@@ -590,18 +607,28 @@ class ClassGroupAttendanceOverviewAPIView(APIView):
         filters['at_risk_below'] = at_risk_below
 
         per_student = rates_by_student(rows, students)
-        rates = [per_student[student.id]['attendance_rate'] for student in students]
+        # Students with nothing registered stay listed — they are who a
+        # homeroom teacher is looking for — but unranked, after everyone rated,
+        # and out of the mean (spec 0004).
+        rates = rated(per_student[student.id]['attendance_rate'] for student in students)
+
+        def student_rank(rate):
+            return rank(rates, rate) if rate is not None else None
 
         student_blocks = [
             dict(
                 student=student_payload(student),
-                rank=rank(rates, per_student[student.id]['attendance_rate']),
+                rank=student_rank(per_student[student.id]['attendance_rate']),
                 **per_student[student.id],
             )
             for student in students
         ]
         student_blocks.sort(
-            key=lambda block: (-block['attendance_rate'], block['student']['full_name'])
+            key=lambda block: (
+                block['attendance_rate'] is None,
+                -(block['attendance_rate'] or 0),
+                block['student']['full_name'],
+            )
         )
 
         at_risk = [
@@ -616,7 +643,7 @@ class ClassGroupAttendanceOverviewAPIView(APIView):
         )
         totals = counts_from(pooled)
         totals['class_size'] = len(students)
-        totals['mean_student_rate'] = mean(rates)
+        totals['mean_student_rate'] = mean(rates) if rates else None
 
         return Response({
             'class_group': class_group_payload(class_group),

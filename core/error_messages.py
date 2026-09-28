@@ -32,6 +32,9 @@ OWN_OFFERINGS_ONLY = _("You can only modify your own offerings.")
 NO_VIEW_LESSON = _("You do not have permission to view this lesson.")
 NO_TOPICS_FOUND = _("No topics found for this lesson.")
 NOT_A_SUBTOPIC = _("This topic is not a subtopic.")
+ATTENDANCE_ALREADY_RECORDED = _(
+    "Attendance for this student on this date is already recorded."
+)
 
 # Resources
 CHILD_NOT_FOUND = _("Child not found or not linked to your account.")

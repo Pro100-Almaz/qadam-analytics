@@ -425,6 +425,28 @@ class ScheduleAttendance(SchoolConsistentModel):
     status = models.CharField(choices=ATTENDANCE_CHOICES, max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Who wrote the current status, and when. Null on rows saved before these
+    # columns existed (spec 0004). Deliberately outside SCHOOL_CONSISTENT_FIELDS:
+    # admin roles may act across schools.
+    marked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        constraints = [
+            # One record per lesson slot. POST upserts against this, so a
+            # re-saved register updates rows instead of being refused (0004).
+            models.UniqueConstraint(
+                fields=['session', 'student', 'date'],
+                name='scheduleattendance_one_per_slot',
+            ),
+        ]
+
 
 class Homework(SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'

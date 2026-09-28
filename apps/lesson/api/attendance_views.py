@@ -22,6 +22,7 @@ Sessions are slots in time: `weekday` plus `time_start`/`time_end`, ordered by
 clock time. Two sessions of one schedule may not overlap on the same weekday.
 """
 
+from django.db import IntegrityError, transaction
 from django.db.models import Min, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -36,8 +37,10 @@ from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import ClassGroupCollection, Enrollment, TeachingAssignment
 from apps.lesson.api.analytics_common import bool_param
 from apps.lesson.models import ScheduleAttendance, ScheduleSession, SubjectSchedule
-from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
-from apps.lesson.services import build_other_sessions_map
+from core.error_messages import (
+    ATTENDANCE_ALREADY_RECORDED, NO_PERMISSION, OWN_OFFERINGS_ONLY,
+)
+from apps.lesson.services import build_other_sessions_map, record_attendance
 from core.permissions import (
     IsNotStudent,
     IsTeacherAdminOrSupervisor,
@@ -707,7 +710,9 @@ class ScheduleSessionDetailAPIView(APIView):
 class ScheduleAttendanceListCreateAPIView(APIView):
     """
     GET  schedule-sessions/<session_id>/attendance/  — attendance rows for a slot
-    POST schedule-sessions/<session_id>/attendance/  — record one student's attendance
+    POST schedule-sessions/<session_id>/attendance/  — record one student's attendance;
+                                                      201 when new, 200 when it
+                                                      updated the slot's row
 
     Students are shut out of the list entirely; they read their own attendance
     through students/<student_id>/attendance/ instead.
@@ -777,13 +782,21 @@ class ScheduleAttendanceListCreateAPIView(APIView):
             data=request.data, context={'request': request, 'session': session},
         )
         serializer.is_valid(raise_exception=True)
-        attendance = serializer.save(session=session)
+        # Upsert: a slot that already has a row is updated, not refused, so a
+        # re-saved register keeps the teacher's latest mark (spec 0004).
+        attendance, created = record_attendance(
+            session=session,
+            student=serializer.validated_data['student'],
+            date=serializer.validated_data['date'],
+            attendance_status=serializer.validated_data['status'],
+            user=request.user,
+        )
 
         return Response(
             ScheduleAttendanceSerializer(
                 attendance, context={'request': request},
             ).data,
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
 
@@ -824,7 +837,16 @@ class ScheduleAttendanceDetailAPIView(APIView):
             context={'request': request, 'session': attendance.session},
         )
         serializer.is_valid(raise_exception=True)
-        attendance = serializer.save()
+        try:
+            # The serializer refuses a move onto an occupied slot; the
+            # constraint catches the slot filling between that check and here.
+            with transaction.atomic():
+                attendance = serializer.save(marked_by=request.user)
+        except IntegrityError:
+            return Response(
+                {'non_field_errors': [ATTENDANCE_ALREADY_RECORDED]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             ScheduleAttendanceSerializer(
@@ -894,7 +916,11 @@ class StudentAttendanceListAPIView(APIView):
         if params.get('status'):
             rows = rows.filter(status=params['status'])
 
-        rows = rows.order_by('-date', 'session__time_start', 'session__time_end')
+        # `id` last: lessons at the same date and time would otherwise come
+        # back in arbitrary order between requests (spec 0004).
+        rows = rows.order_by(
+            '-date', 'session__time_start', 'session__time_end', 'id',
+        )
 
         paginator = SchedulePagination()
         page = paginator.paginate_queryset(rows, request, view=self)

@@ -18,6 +18,7 @@ from apps.home.models import (
     ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
 )
 from apps.authentication.models import Student
+from core.error_messages import ATTENDANCE_ALREADY_RECORDED
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
 
@@ -788,9 +789,9 @@ class ScheduleAttendanceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'session', 'schedule_id', 'subject_name',
             'student', 'student_user_id', 'student_name',
-            'date', 'status', 'created_at',
+            'date', 'status', 'created_at', 'marked_by', 'updated_at',
         ]
-        read_only_fields = ['session', 'created_at']
+        read_only_fields = ['session', 'created_at', 'marked_by', 'updated_at']
 
 
 class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
@@ -822,20 +823,24 @@ class ScheduleAttendanceWriteSerializer(serializers.ModelSerializer):
         return student
 
     def validate(self, attrs):
-        """One attendance row per student per session per date."""
+        """
+        One attendance row per student per session per date — enforced here for
+        PATCH only. A PATCH moving a row onto an occupied slot is refused rather
+        than silently merged. POST needs no check: it upserts the slot through
+        record_attendance() (spec 0004).
+        """
+        if self.instance is None:
+            return attrs
+
         session = self.context['session']
-        student = attrs.get('student', getattr(self.instance, 'student', None))
-        date = attrs.get('date', getattr(self.instance, 'date', None))
+        student = attrs.get('student', self.instance.student)
+        date = attrs.get('date', self.instance.date)
 
         duplicate = ScheduleAttendance.objects.filter(
             session=session, student=student, date=date,
-        )
-        if self.instance is not None:
-            duplicate = duplicate.exclude(pk=self.instance.pk)
+        ).exclude(pk=self.instance.pk)
         if duplicate.exists():
-            raise serializers.ValidationError(
-                'Attendance for this student on this date is already recorded.'
-            )
+            raise serializers.ValidationError(ATTENDANCE_ALREADY_RECORDED)
         return attrs
 
 
@@ -1507,7 +1512,8 @@ class AttendanceCountsSerializer(serializers.Serializer):
     present = serializers.IntegerField()
     absent = serializers.IntegerField()
     attendance_rate = serializers.FloatField(
-        help_text='0.0 when nothing was recorded — read `recorded` first.',
+        allow_null=True,
+        help_text='null when nothing was recorded; 0.0 only with absences behind it.',
     )
 
 
@@ -1548,15 +1554,26 @@ class MonthAttendanceBlockSerializer(AttendanceCountsSerializer):
 class AttendanceClassComparisonSerializer(serializers.Serializer):
     class_size = serializers.IntegerField()
     class_attendance_rate = serializers.FloatField(
-        help_text='Pooled over every row of the class.',
+        allow_null=True,
+        help_text='Pooled over every row of the class; null when it has none.',
     )
     class_mean_rate = serializers.FloatField(
-        help_text='Mean of the per-student rates — what the rank is taken over.',
+        allow_null=True,
+        help_text=(
+            'Mean of the per-student rates of classmates with at least one row '
+            '— what the rank is taken over. null when nobody has a row.'
+        ),
     )
-    rank = serializers.IntegerField(help_text='1-based, best first; ties share.')
-    percentile = serializers.IntegerField()
+    rank = serializers.IntegerField(
+        allow_null=True,
+        help_text='1-based, best first; ties share. null when this student has no rows.',
+    )
+    percentile = serializers.IntegerField(
+        allow_null=True, help_text='null when this student has no rows.',
+    )
     delta = serializers.FloatField(
-        help_text="This student's rate minus class_mean_rate.",
+        allow_null=True,
+        help_text="This student's rate minus class_mean_rate; null when either is.",
     )
 
 
@@ -1616,13 +1633,20 @@ class OfferingAttendanceHeatmapSerializer(serializers.Serializer):
 
 class StudentAttendanceBlockSerializer(AttendanceCountsSerializer):
     student = AnalyticsStudentSerializer()
-    rank = serializers.IntegerField(help_text='1-based, best first; ties share.')
+    rank = serializers.IntegerField(
+        allow_null=True,
+        help_text='1-based, best first; ties share. null for a student with no rows.',
+    )
 
 
 class ClassAttendanceTotalsSerializer(AttendanceCountsSerializer):
     class_size = serializers.IntegerField()
     mean_student_rate = serializers.FloatField(
-        help_text='Mean of the per-student rates, unweighted by row count.',
+        allow_null=True,
+        help_text=(
+            'Mean of the per-student rates, unweighted by row count, over '
+            'students with at least one row. null when nobody has a row.'
+        ),
     )
 
 
