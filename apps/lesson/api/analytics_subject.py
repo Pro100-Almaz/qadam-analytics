@@ -419,6 +419,7 @@ def _assignment_payload(assignment):
         'category': assignment.category.code,
         'date': assignment.date.isoformat() if assignment.date else None,
         'max_grade': assignment.max_grade,
+        'is_active': assignment.is_active,
     }
 
 
