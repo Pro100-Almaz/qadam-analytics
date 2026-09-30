@@ -8,13 +8,14 @@ from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.utils.html import format_html
 from apps.home.admin_forms import ClassGroupMultipleChoiceField, class_group_formfield
 from apps.home.models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, ClassGroupCollection,
     MinorClassGroup, Enrollment, SubjectOffering, TeachingAssignment,
-    HomeroomTeacherAssignment
+    HomeroomTeacherAssignment, AssignmentCategory,
 )
 
 from apps.lesson.models import Lesson
@@ -23,6 +24,53 @@ from core.admin_mixins import SchoolScopedAdminMixin
 
 
 admin.site.register(GradeLevel)
+
+
+@admin.register(AssignmentCategory)
+class AssignmentCategoryAdmin(admin.ModelAdmin):
+    """
+    Kinds of SubjectAssignment (spec 0005). Shared by every school: a category
+    added here shows up for all of them.
+
+    A category still used by an assignment cannot be deleted (PROTECT, and
+    Django's delete page says which rows hold it). System categories — those
+    with a detail model, i.e. `homework` — can never be deleted, and no
+    category's code changes once created, because clients filter by it.
+    """
+    list_display = ("name", "code", "assignment_count", "is_system")
+    search_fields = ("name", "code")
+    ordering = ("name",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_assignment_count=Count("assignments"))
+
+    @admin.display(description="Assignments", ordering="_assignment_count")
+    def assignment_count(self, obj):
+        return obj._assignment_count
+
+    @admin.display(description="System", boolean=True)
+    def is_system(self, obj):
+        return obj.is_system
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("code",) if obj is not None else ()
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.is_system:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        system = queryset.filter(code__in=AssignmentCategory.SYSTEM_CODES)
+        if system.exists():
+            self.message_user(
+                request,
+                "System categories cannot be deleted: "
+                + ", ".join(system.values_list("code", flat=True)),
+                messages.ERROR,
+            )
+            queryset = queryset.exclude(code__in=AssignmentCategory.SYSTEM_CODES)
+        super().delete_queryset(request, queryset)
 
 
 class ClassGroupCategoryMixin:
@@ -112,6 +160,13 @@ class TeachingAssignmentAdmin(admin.ModelAdmin):
             "teacher__user", "offering__subject", "offering__class_group",
             "offering__class_group__grade_level", "offering__class_group__academic_year",
         )
+
+    def delete_queryset(self, request, queryset):
+        # One by one: TeachingAssignment.delete() removes the homework's
+        # SubjectAssignment mirrors, which a bulk delete would strand.
+        with transaction.atomic():
+            for obj in queryset:
+                obj.delete()
 
 
 @admin.register(HomeroomTeacherAssignment)

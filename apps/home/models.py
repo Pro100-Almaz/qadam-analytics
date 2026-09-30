@@ -1,6 +1,7 @@
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
@@ -468,6 +469,17 @@ class TeachingAssignment(SchoolConsistentModel):
     def __str__(self):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
 
+    def delete(self, *args, **kwargs):
+        # Homework cascades from here, but its SubjectAssignment mirror hangs
+        # off the offering and would be left pointing at nothing (spec 0005).
+        # Deleting each homework through its own delete() takes the mirror and
+        # the stored attachment files with it.
+        Homework = apps.get_model('lesson', 'Homework')
+        with transaction.atomic():
+            for homework in Homework._base_manager.filter(teaching_assignment=self):
+                homework.delete()
+            return super().delete(*args, **kwargs)
+
 
 class HomeroomTeacherAssignment(SchoolConsistentModel):
     """Links a homeroom teacher to a class group for an academic year."""
@@ -685,23 +697,176 @@ class QuarterGrader(models.Model):
         return f"Q{self.quarter}: avg={self.average_points}"
 
 
+class AssignmentCategory(models.Model):
+    """What kind of graded work a SubjectAssignment is: lesson, exam, homework…
+
+    Shared by every school, like GradeLevel: an admin who adds a category adds
+    it for all tenants. Rows are managed in /admin/ (spec 0005).
+
+    A category may have a *detail model* — a table holding the fields specific
+    to that kind of work. `SubjectAssignment.detail_id` then stores the pk of
+    the matching row there. Only `homework` has one today.
+    """
+
+    HOMEWORK = 'homework'
+    #: What an assignment is when the client does not say.
+    DEFAULT = 'lesson'
+
+    #: category code -> 'app_label.Model' of its detail model.
+    DETAIL_MODELS = {
+        HOMEWORK: 'lesson.Homework',
+    }
+
+    #: Codes the code base depends on: never deleted, never renamed.
+    SYSTEM_CODES = frozenset(DETAIL_MODELS)
+
+    code = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'assignment categories'
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def default(cls):
+        """The `lesson` row; recreated if an admin deleted it while unused."""
+        category, _ = cls.objects.get_or_create(
+            code=cls.DEFAULT, defaults={'name': 'Lesson'},
+        )
+        return category
+
+    @property
+    def is_system(self):
+        return self.code in self.SYSTEM_CODES
+
+    @property
+    def detail_model(self):
+        """The model `detail_id` points into, or None for a plain category."""
+        label = self.DETAIL_MODELS.get(self.code)
+        return apps.get_model(label) if label else None
+
+
 class SubjectAssignment(models.Model):
     SCHOOL_PATH = 'offering__school'
     objects = SchoolScopedManager()
 
-    CATEGORY_CHOICES = (
-        ('lesson', 'Lesson'),
-        ('exam', 'Exam'),
-        ('final', 'Final'),
-    )
-
     title = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="assignments")
     max_grade = models.PositiveIntegerField()
-    category = models.CharField(choices=CATEGORY_CHOICES, max_length=50, default='lesson')
+    category = models.ForeignKey(
+        AssignmentCategory, on_delete=models.PROTECT, related_name='assignments',
+    )
     date = models.DateField()
 
+    #: pk of the row in `category.detail_model` that this assignment mirrors —
+    #: a Homework id for category `homework`. Not a ForeignKey because the
+    #: target table depends on the category, so `validate_detail()` does the
+    #: checks a real FK would.
+    detail_id = models.PositiveIntegerField(null=True, blank=True)
+    #: False for a draft. Synced from Homework.is_active; students, parents and
+    #: analytics never see an inactive assignment.
+    is_active = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            # One assignment per detail row: a Homework is mirrored once.
+            models.UniqueConstraint(
+                fields=['category', 'detail_id'],
+                condition=models.Q(detail_id__isnull=False),
+                name='subjectassignment_unique_detail',
+            ),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_homework(self):
+        return self.category.code == AssignmentCategory.HOMEWORK
+
+    @property
+    def details(self):
+        """The detail row (e.g. the Homework) or None."""
+        model = self.category.detail_model
+        if model is None or self.detail_id is None:
+            return None
+        return model._base_manager.filter(pk=self.detail_id).first()
+
+    def validate_detail(self):
+        """
+        The checks a ForeignKey would give `detail_id` for free.
+
+        Run from save(), not only clean(): DRF and `objects.create()` never call
+        full_clean(), so a clean()-only check would guard nothing (see
+        core.models.SchoolConsistentModel).
+        """
+        category = self.category
+        model = category.detail_model
+
+        if model is None:
+            if self.detail_id is not None:
+                raise ValidationError({
+                    'detail_id': f'Category "{category.code}" has no detail model, '
+                                 f'so detail_id must be empty.'
+                })
+        else:
+            if self.detail_id is None:
+                raise ValidationError({
+                    'detail_id': f'Category "{category.code}" needs detail_id: '
+                                 f'the id of its {model.__name__}.'
+                })
+            detail = model._base_manager.filter(pk=self.detail_id).first()
+            if detail is None:
+                raise ValidationError({
+                    'detail_id': f'{model.__name__} #{self.detail_id} does not exist.'
+                })
+            if detail.offering_id != self.offering_id:
+                raise ValidationError({
+                    'detail_id': f'{model.__name__} #{self.detail_id} belongs to '
+                                 f'another subject offering.'
+                })
+
+        if self.pk is not None:
+            old_category_id = type(self)._base_manager.filter(
+                pk=self.pk,
+            ).values_list('category_id', flat=True).first()
+            if old_category_id is not None and old_category_id != self.category_id:
+                old = AssignmentCategory.objects.get(pk=old_category_id)
+                if old.detail_model is not None or model is not None:
+                    raise ValidationError({
+                        'category': f'Cannot change category from "{old.code}" to '
+                                    f'"{category.code}": one of them has its own '
+                                    f'detail model. Delete and recreate instead.'
+                    })
+
+    def clean(self):
+        super().clean()
+        if self.category_id is not None and self.offering_id is not None:
+            self.validate_detail()
+
+    def save(self, *args, sync=True, **kwargs):
+        """`sync=False` is for the homework sync itself, so a write never echoes back."""
+        self.validate_detail()
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if sync and self.is_homework:
+                from apps.lesson import homework_sync
+                homework_sync.homework_from_assignment(self)
+
+    def delete(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            homework_id = self.detail_id if sync and self.is_homework else None
+            result = super().delete(*args, **kwargs)
+            if homework_id is not None:
+                from apps.lesson import homework_sync
+                homework_sync.delete_homework(homework_id)
+            return result
 
 
 class SubjectGrade(SchoolConsistentModel):
@@ -719,6 +884,22 @@ class SubjectGrade(SchoolConsistentModel):
     class Meta:
         unique_together = ('assignment', 'student')
         ordering = ['student']
+
+    def save(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if sync and self.assignment.is_homework:
+                from apps.lesson import homework_sync
+                homework_sync.homework_grade_from_subject_grade(self)
+
+    def delete(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            if sync and self.assignment.is_homework:
+                from apps.lesson import homework_sync
+                homework_sync.delete_homework_grade(
+                    self.assignment.detail_id, self.student_id,
+                )
+            return super().delete(*args, **kwargs)
 
 
 class QuarterGrade(SchoolConsistentModel):

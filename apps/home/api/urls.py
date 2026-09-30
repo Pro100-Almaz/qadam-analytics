@@ -94,6 +94,13 @@ urlpatterns = [
         name='subject-assignment-list-create',
     ),
 
+    # GET /api/v1/assignment-categories/  categories managed in /admin/
+    path(
+        'assignment-categories/',
+        views.AssignmentCategoryListAPIView.as_view(),
+        name='assignment-category-list',
+    ),
+
     # GET    /api/v1/subject-assignments/<pk>/  single assignment
     # PATCH  /api/v1/subject-assignments/<pk>/  change title / category / max_grade / date
     # DELETE /api/v1/subject-assignments/<pk>/  delete it and its grades

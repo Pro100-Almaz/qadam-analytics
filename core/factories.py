@@ -17,6 +17,7 @@ from apps.authentication.models import (
 )
 from apps.home.models import (
     AcademicYear,
+    AssignmentCategory,
     ClassGroup,
     Enrollment,
     GradeLevel,
@@ -28,6 +29,8 @@ from apps.home.models import (
     TeachingAssignment,
 )
 from apps.lesson.models import (
+    Homework,
+    HomeworkGrade,
     Lesson,
     ScheduleAttendance,
     ScheduleSession,
@@ -450,15 +453,35 @@ class TopicGradeFactory(DjangoModelFactory):
     grade = 0
 
 
+class AssignmentCategoryFactory(DjangoModelFactory):
+    class Meta:
+        model = AssignmentCategory
+        django_get_or_create = ('code',)
+
+    code = 'lesson'
+    name = factory.LazyAttribute(lambda o: o.code.title())
+
+
 class SubjectAssignmentFactory(DjangoModelFactory):
+    """A plain assignment. `category` takes a code string or a category row.
+
+    Not for category `homework`: that row is a Homework's mirror and has to
+    be made through HomeworkFactory, whose save() creates it.
+    """
     class Meta:
         model = SubjectAssignment
 
     offering = factory.SubFactory(SubjectOfferingFactory)
     title = factory.Sequence(lambda n: f'Assignment {n}')
     max_grade = 100
-    category = 'lesson'
+    category = factory.SubFactory(AssignmentCategoryFactory)
     date = factory.Faker('date_object')
+
+    @classmethod
+    def _adjust_kwargs(cls, **kwargs):
+        if isinstance(kwargs.get('category'), str):
+            kwargs['category'] = AssignmentCategoryFactory(code=kwargs['category'])
+        return kwargs
 
 
 class SubjectGradeFactory(DjangoModelFactory):
@@ -466,6 +489,28 @@ class SubjectGradeFactory(DjangoModelFactory):
         model = SubjectGrade
 
     assignment = factory.SubFactory(SubjectAssignmentFactory)
+    student = factory.SubFactory(StudentFactory)
+    grade = None
+
+
+class HomeworkFactory(DjangoModelFactory):
+    """A homework; its save() also creates the SubjectAssignment mirror."""
+    class Meta:
+        model = Homework
+
+    teaching_assignment = factory.SubFactory(TeachingAssignmentFactory)
+    offering = factory.LazyAttribute(lambda o: o.teaching_assignment.offering)
+    description = factory.Sequence(lambda n: f'Homework {n}')
+    max_grade = 10
+    due_date = factory.Faker('date_object')
+    is_active = True
+
+
+class HomeworkGradeFactory(DjangoModelFactory):
+    class Meta:
+        model = HomeworkGrade
+
+    homework = factory.SubFactory(HomeworkFactory)
     student = factory.SubFactory(StudentFactory)
     grade = None
 

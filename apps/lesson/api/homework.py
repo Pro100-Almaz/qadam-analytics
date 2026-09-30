@@ -47,6 +47,7 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import Enrollment, TeachingAssignment
+from apps.lesson.homework_sync import assignments_from_homeworks
 from apps.lesson.models import Homework, HomeworkGrade
 from apps.lesson.services import attach_files_to_homeworks
 from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
@@ -351,6 +352,10 @@ class HomeworkCreateAPIView(APIView):
                 for offering in offerings
             ])
 
+            # bulk_create skips save(), so the SubjectAssignment mirrors
+            # (spec 0005) are made here instead.
+            assignments_from_homeworks(created)
+
             # Same files, one stored copy per class, so the batch stays atomic.
             attach_files_to_homeworks(created, files, request.user)
 
@@ -367,7 +372,8 @@ class HomeworkDetailAPIView(APIView):
     """
     GET    homeworks/<pk>/  — single homework
     PUT    homeworks/<pk>/  — replace description / max_grade / due_date / is_active
-    DELETE homeworks/<pk>/  — delete homework (cascades to its grades and files)
+    DELETE homeworks/<pk>/  — delete homework (cascades to its grades, files and
+                             its SubjectAssignment mirror)
 
     Attachments ride along on PUT: `attachments` adds files (multipart),
     `remove_attachments` deletes them by id. Both are optional, and leaving them
@@ -412,12 +418,9 @@ class HomeworkDetailAPIView(APIView):
         if isinstance(homework, Response):
             return homework
 
-        with transaction.atomic():
-            # The attachment rows cascade with the homework, but the stored
-            # files do not — drop them first so nothing is orphaned on disk.
-            for attachment in homework.attachments.all():
-                attachment.file.delete(save=False)
-            homework.delete()
+        # Homework.delete() drops the stored files and the SubjectAssignment
+        # mirror along with the row.
+        homework.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod

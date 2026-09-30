@@ -164,11 +164,13 @@ def collect_grade_sheet(
     if not offerings:
         return data
 
+    # Drafts stay off the sheet: it is handed to parents (spec 0005).
     assignments = SubjectAssignment.objects.filter(
         offering__in=offerings,
         date__gte=period_start,
         date__lte=period_end,
-    ).order_by('date', 'id')
+        is_active=True,
+    ).select_related('category').order_by('date', 'id')
 
     columns_by_offering = {offering.id: [] for offering in offerings}
     for assignment in assignments:
@@ -178,7 +180,7 @@ def collect_grade_sheet(
                 title=assignment.title,
                 date=assignment.date,
                 max_grade=assignment.max_grade,
-                category=assignment.category,
+                category=assignment.category.code,
             )
         )
 
@@ -200,6 +202,7 @@ def collect_grade_sheet(
         assignment__offering__in=offerings,
         assignment__date__gte=period_start,
         assignment__date__lte=period_end,
+        assignment__is_active=True,
         student_id__in=student_ids,
     ).values('student_id', 'assignment_id', 'grade', 'comments')
 

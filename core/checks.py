@@ -32,6 +32,9 @@ SHARED_MODELS = {
     'home.GradeLevel':
         'Grades 1-11 are universal, not per-school; rollover_academic_year does '
         'get_or_create(number=n) against a single shared table.',
+    'home.AssignmentCategory':
+        'Spec 0005: categories of graded work are platform-wide by decision — '
+        'an admin adding one adds it for every school.',
 }
 
 #: Models whose DEFAULT manager is deliberately unscoped, with the reason.

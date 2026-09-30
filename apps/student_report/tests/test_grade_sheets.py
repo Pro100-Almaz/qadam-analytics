@@ -13,6 +13,7 @@ from apps.home.models import (
 )
 from core.factories import (
     AdminUserFactory,
+    AssignmentCategoryFactory,
     ClassGroupFactory,
     EnrollmentFactory,
     ParentFactory,
@@ -79,19 +80,19 @@ def sheet_setup(year_with_quarters):
     # Created out of date order on purpose — columns must come back sorted.
     quiz = SubjectAssignment.objects.create(
         offering=math_offering, title='Quiz 2', max_grade=10,
-        date=date(2025, 10, 20), category='lesson',
+        date=date(2025, 10, 20), category=AssignmentCategoryFactory(code='lesson'),
     )
     entry_test = SubjectAssignment.objects.create(
         offering=math_offering, title='Entry test', max_grade=10,
-        date=date(2025, 9, 10), category='exam',
+        date=date(2025, 9, 10), category=AssignmentCategoryFactory(code='exam'),
     )
     q2_exam = SubjectAssignment.objects.create(
         offering=math_offering, title='Winter exam', max_grade=10,
-        date=date(2025, 12, 1), category='exam',
+        date=date(2025, 12, 1), category=AssignmentCategoryFactory(code='exam'),
     )
     still_life = SubjectAssignment.objects.create(
         offering=art_offering, title='Still life', max_grade=5,
-        date=date(2025, 9, 25), category='lesson',
+        date=date(2025, 9, 25), category=AssignmentCategoryFactory(code='lesson'),
     )
 
     SubjectGrade.objects.create(
