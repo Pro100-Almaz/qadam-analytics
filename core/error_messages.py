@@ -17,6 +17,12 @@ LOGOUT_FAILED = _("Logout failed. Please try again.")
 NO_ACTIVE_RESET = _("No active reset request. Please request a new code.")
 TOO_MANY_ATTEMPTS = _("Too many attempts. Please request a new code.")
 
+# Assignments
+HOMEWORK_ASSIGNMENT_DELETE = _(
+    "This assignment is a homework. Delete the homework instead: "
+    "DELETE /api/v1/homeworks/{homework_id}/ — that removes this assignment too."
+)
+
 # Permissions
 NO_PERMISSION = _("You do not have permission to perform this action.")
 NO_ACCESS_STUDENT = _("You do not have access to this student.")

@@ -103,7 +103,8 @@ urlpatterns = [
 
     # GET    /api/v1/subject-assignments/<pk>/  single assignment
     # PATCH  /api/v1/subject-assignments/<pk>/  change title / category / max_grade / date
-    # DELETE /api/v1/subject-assignments/<pk>/  delete it and its grades
+    # DELETE /api/v1/subject-assignments/<pk>/  delete it and its grades; a homework
+    #                                   one is 400: delete the homework instead
     path(
         'subject-assignments/<int:pk>/',
         views.SubjectAssignmentDetailAPIView.as_view(),

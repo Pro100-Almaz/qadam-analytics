@@ -11,15 +11,12 @@ import datetime
 
 import pytest
 from django.contrib import admin
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from django.core.management import CommandError, call_command
 from django.test import RequestFactory
 from django.urls import reverse
 
 from apps.home.models import HomeroomTeacherAssignment, SubjectAssignment, SubjectGrade
 from apps.lesson.models import Homework, HomeworkGrade
-from apps.lesson.services import attach_files_to_homeworks
 from apps.student_report.services.grade_sheet import collect_grade_sheet
 from core.factories import (
     EnrollmentFactory, HomeworkFactory, HomeworkGradeFactory, ParentFactory,
@@ -170,22 +167,8 @@ def test_ac17_assignment_patch_updates_the_homework(teacher, homework, authentic
     assert homework.is_active is False
 
 
-def test_ac18_assignment_delete_removes_homework_grades_and_files(
-    teacher, homework, pupil, authenticated_client,
-):
-    HomeworkGradeFactory(homework=homework, student=pupil, grade=7)
-    attachment, = attach_files_to_homeworks(
-        [homework], [ContentFile(b'%PDF-1.4', name='task.pdf')], teacher.user,
-    )
-    stored = attachment.file.name
-    assert default_storage.exists(stored)
-
-    response = authenticated_client(teacher.user).delete(assignment_url(mirror(homework)))
-
-    assert response.status_code == 204
-    assert not Homework.objects.filter(pk=homework.pk).exists()
-    assert not HomeworkGrade.objects.filter(homework_id=homework.pk).exists()
-    assert not default_storage.exists(stored)
+# AC-18 (deleting the assignment deletes the Homework) is superseded by spec
+# 0007: see test_homework_assignment_delete.py.
 
 
 # ── Grades ──

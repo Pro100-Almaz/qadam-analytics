@@ -8,8 +8,9 @@ AssignmentCategory an admin manages — lesson, exam, final, homework, …), a
 maximum grade, the date it took place, and one SubjectGrade per student.
 
 Category `homework` is the mirror of a lesson.Homework (spec 0005): creating one
-here creates the Homework, and edits and deletes on either side reach the other
-(apps/lesson/homework_sync.py). A draft (`is_active=False`) is visible only to
+here creates the Homework, and edits on either side reach the other
+(apps/lesson/homework_sync.py). Deleting is one-way (spec 0007): a homework
+assignment is removed by deleting its Homework, never from here. A draft (`is_active=False`) is visible only to
 the offering's teachers and to admin roles.
 
 Write access — assignments and grades alike:
@@ -52,7 +53,9 @@ from apps.home.models import (
     AssignmentCategory, Enrollment, SubjectAssignment, SubjectGrade,
     TeachingAssignment,
 )
-from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
+from core.error_messages import (
+    HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
+)
 from core.permissions import (
     IsTeacherRole,
     is_admin_role,
@@ -443,7 +446,8 @@ class SubjectAssignmentDetailAPIView(APIView):
                                        date / is_active
     DELETE subject-assignments/<pk>/  — delete it, cascading to its grades
 
-    On a homework assignment both reach the Homework behind it too.
+    On a homework assignment PATCH reaches the Homework behind it too, and
+    DELETE is refused with 400: delete the Homework instead (spec 0007).
 
     The offering is fixed after creation: moving an assignment to another class
     would strand the grades already recorded against it.
@@ -481,11 +485,23 @@ class SubjectAssignmentDetailAPIView(APIView):
             SubjectAssignmentSerializer(assignment, context={'request': request}).data
         )
 
-    @extend_schema(responses={204: None})
+    @extend_schema(
+        responses={204: None, 400: None},
+        description='Category `homework` is refused with 400: delete the '
+                    'homework through DELETE homeworks/<detail_id>/ instead.',
+    )
     def delete(self, request, pk):
         assignment = self._get_writable(request, pk)
         if isinstance(assignment, Response):
             return assignment
+
+        if assignment.is_homework and assignment.details is not None:
+            return Response(
+                {'detail': str(HOMEWORK_ASSIGNMENT_DELETE).format(
+                    homework_id=assignment.detail_id,
+                )},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         assignment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

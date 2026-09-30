@@ -874,13 +874,17 @@ class SubjectAssignment(models.Model):
                 homework_sync.homework_from_assignment(self)
 
     def delete(self, *args, sync=True, **kwargs):
-        with transaction.atomic():
-            homework_id = self.detail_id if sync and self.is_homework else None
-            result = super().delete(*args, **kwargs)
-            if homework_id is not None:
-                from apps.lesson import homework_sync
-                homework_sync.delete_homework(homework_id)
-            return result
+        """
+        A homework assignment is deleted through its Homework, never directly
+        (spec 0007): Homework.delete() removes it with `sync=False`. The only
+        homework assignment deletable here is an orphan whose Homework is gone.
+        """
+        if sync and self.is_homework and self.details is not None:
+            raise ValidationError(
+                f'SubjectAssignment #{self.pk} mirrors Homework #{self.detail_id}; '
+                f'delete the Homework instead, which removes this assignment too.'
+            )
+        return super().delete(*args, **kwargs)
 
 
 class SubjectGrade(SchoolConsistentModel):

@@ -3,8 +3,10 @@ Homework <-> SubjectAssignment mirror (spec 0005).
 
 Every Homework has exactly one SubjectAssignment of category `homework` whose
 `detail_id` is the homework's pk, and every HomeworkGrade has a SubjectGrade on
-that assignment for the same student. Either side may be written; the other
-follows.
+that assignment for the same student. Either side may be edited, and grades
+created or deleted, from either side; the other follows. Deletion of the
+assignment itself is one-way (spec 0007): deleting the Homework removes its
+assignment, and the assignment refuses to be deleted on its own.
 
 The model save()/delete() overrides call in here — deliberately not signals —
 and every write made from here passes `sync=False` so it does not echo back.
@@ -90,13 +92,6 @@ def delete_assignment(homework_id):
         category__code=AssignmentCategory.HOMEWORK, detail_id=homework_id,
     ):
         assignment.delete(sync=False)
-
-
-def delete_homework(homework_id):
-    """Drop the Homework behind a deleted assignment; grades and files go too."""
-    homework = Homework._base_manager.filter(pk=homework_id).first()
-    if homework is not None:
-        homework.delete(sync=False)
 
 
 def create_homework_with_assignment(
