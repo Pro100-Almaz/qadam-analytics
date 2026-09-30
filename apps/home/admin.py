@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils.html import format_html
+from modeltranslation.admin import TranslationAdmin
 from apps.home.admin_forms import ClassGroupMultipleChoiceField, class_group_formfield
 from apps.home.models import (
     Subject, AcademicYear, GradeLevel, ClassGroup, ClassGroupCollection,
@@ -27,7 +28,7 @@ admin.site.register(GradeLevel)
 
 
 @admin.register(AssignmentCategory)
-class AssignmentCategoryAdmin(admin.ModelAdmin):
+class AssignmentCategoryAdmin(TranslationAdmin):
     """
     Kinds of SubjectAssignment (spec 0005). Shared by every school: a category
     added here shows up for all of them.
@@ -36,10 +37,14 @@ class AssignmentCategoryAdmin(admin.ModelAdmin):
     Django's delete page says which rows hold it). System categories — those
     with a detail model, i.e. `homework` — can never be deleted, and no
     category's code changes once created, because clients filter by it.
+
+    The name is entered in every language in settings.LANGUAGES (spec 0006):
+    TranslationAdmin shows one field per language, and translation.py makes
+    all of them required.
     """
-    list_display = ("name", "code", "assignment_count", "is_system")
-    search_fields = ("name", "code")
-    ordering = ("name",)
+    list_display = ("name_en", "name_ru", "name_kk", "code", "assignment_count", "is_system")
+    search_fields = ("name_en", "name_ru", "name_kk", "code")
+    ordering = ("name_en",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_assignment_count=Count("assignments"))

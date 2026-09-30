@@ -773,10 +773,20 @@ class AssignmentCategoryListAPIView(APIView):
 
     Categories are shared by all schools and managed in /admin/ (spec 0005), so
     this is the list a client should offer instead of a hard-coded one.
+
+    `name` is in the language of the Accept-Language header — en, ru or kk —
+    and English for anything else (spec 0006). `code` never changes with it.
     """
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(responses=AssignmentCategorySerializer(many=True))
+    @extend_schema(
+        responses=AssignmentCategorySerializer(many=True),
+        parameters=[OpenApiParameter(
+            'Accept-Language', str, OpenApiParameter.HEADER,
+            enum=['en', 'ru', 'kk'],
+            description='Language of `name`. Default: en.',
+        )],
+    )
     def get(self, request):
         rows = AssignmentCategory.objects.order_by('name', 'id')
         return Response(AssignmentCategorySerializer(rows, many=True).data)

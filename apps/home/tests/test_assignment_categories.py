@@ -52,7 +52,7 @@ def test_ac1_admin_added_category_is_shared_by_every_school(
 ):
     response = admin_client.post(
         reverse('admin:home_assignmentcategory_add'),
-        {'code': 'project', 'name': 'Project'},
+        {'code': 'project', 'name_en': 'Project', 'name_ru': 'Проект', 'name_kk': 'Жоба'},
     )
     assert response.status_code == 302
     assert AssignmentCategory.objects.filter(code='project').exists()
@@ -119,11 +119,11 @@ def test_ac3_homework_category_cannot_be_deleted_or_recoded(admin_client):
 
     admin_client.post(
         reverse('admin:home_assignmentcategory_change', args=[category.pk]),
-        {'code': 'chores', 'name': 'Homework tasks'},
+        {'code': 'chores', 'name_en': 'Homework tasks', 'name_ru': 'Домашка', 'name_kk': 'Үй тапсырмасы'},
     )
     category.refresh_from_db()
     assert category.code == AssignmentCategory.HOMEWORK
-    assert category.name == 'Homework tasks'
+    assert category.name_en == 'Homework tasks'
 
 
 def test_ac5_category_is_a_code_on_the_wire_and_filters_by_code(

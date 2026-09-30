@@ -459,7 +459,15 @@ class AssignmentCategoryFactory(DjangoModelFactory):
         django_get_or_create = ('code',)
 
     code = 'lesson'
-    name = factory.LazyAttribute(lambda o: o.code.title())
+    name_en = factory.LazyAttribute(
+        lambda o: AssignmentCategory.BUILTIN_NAMES.get(o.code, {}).get('name_en', o.code.title())
+    )
+    name_ru = factory.LazyAttribute(
+        lambda o: AssignmentCategory.BUILTIN_NAMES.get(o.code, {}).get('name_ru', f'{o.name_en} (ru)')
+    )
+    name_kk = factory.LazyAttribute(
+        lambda o: AssignmentCategory.BUILTIN_NAMES.get(o.code, {}).get('name_kk', f'{o.name_en} (kk)')
+    )
 
 
 class SubjectAssignmentFactory(DjangoModelFactory):

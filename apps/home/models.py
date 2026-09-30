@@ -720,6 +720,15 @@ class AssignmentCategory(models.Model):
     #: Codes the code base depends on: never deleted, never renamed.
     SYSTEM_CODES = frozenset(DETAIL_MODELS)
 
+    #: Names for the codes the code base creates itself, per language (spec
+    #: 0006). `name` is translated by django-modeltranslation (translation.py).
+    BUILTIN_NAMES = {
+        'lesson': {'name_en': 'Lesson', 'name_ru': 'Урок', 'name_kk': 'Сабақ'},
+        'exam': {'name_en': 'Exam', 'name_ru': 'Экзамен', 'name_kk': 'Емтихан'},
+        'final': {'name_en': 'Final', 'name_ru': 'Итоговая работа', 'name_kk': 'Қорытынды жұмыс'},
+        'homework': {'name_en': 'Homework', 'name_ru': 'Домашнее задание', 'name_kk': 'Үй жұмысы'},
+    }
+
     code = models.SlugField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -732,12 +741,17 @@ class AssignmentCategory(models.Model):
         return self.name
 
     @classmethod
-    def default(cls):
-        """The `lesson` row; recreated if an admin deleted it while unused."""
+    def builtin(cls, code):
+        """A category the code base relies on, recreated if it went missing."""
         category, _ = cls.objects.get_or_create(
-            code=cls.DEFAULT, defaults={'name': 'Lesson'},
+            code=code, defaults=cls.BUILTIN_NAMES[code],
         )
         return category
+
+    @classmethod
+    def default(cls):
+        """The `lesson` row; recreated if an admin deleted it while unused."""
+        return cls.builtin(cls.DEFAULT)
 
     @property
     def is_system(self):

@@ -38,10 +38,7 @@ from apps.lesson.models import Homework, HomeworkGrade
 
 def homework_category():
     """The `homework` category row. Created if missing, so it cannot be lost."""
-    category, _ = AssignmentCategory.objects.get_or_create(
-        code=AssignmentCategory.HOMEWORK, defaults={'name': 'Homework'},
-    )
-    return category
+    return AssignmentCategory.builtin(AssignmentCategory.HOMEWORK)
 
 
 def mirror_of(homework_id):
