@@ -397,7 +397,7 @@ def _apply_assignment_filters(queryset, params):
     date_from = date_param(params, 'date_from')
     date_to = date_param(params, 'date_to')
 
-    queryset = queryset.filter(is_active=True).select_related('category')
+    queryset = queryset.select_related('category')
     if category is not None:
         queryset = queryset.filter(category__code=category)
     if date_from is not None:
