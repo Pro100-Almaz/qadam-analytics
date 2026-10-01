@@ -43,6 +43,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -290,15 +291,18 @@ def apply_offering_filters(qs, params, prefix=''):
 
 def _apply_assignment_filters(qs, params, prefix=''):
     """
-    Offering filters plus `category` and the assignment's own `date`.
+    Offering filters plus `category`, `quarter` and the assignment's own `date`.
 
     The date is filtered either exactly (`date`) or as a closed range
-    (`date_from` / `date_to`, either end optional) — enough to ask for one day,
-    one week or one quarter without a second endpoint.
+    (`date_from` / `date_to`, either end optional) — enough to ask for one day
+    or one week without a second endpoint. `quarter` matches the stored
+    quarter, so an assignment with none never matches it.
     """
     qs = apply_offering_filters(qs, params, prefix=prefix)
     if params.get('category'):
         qs = qs.filter(**{f'{prefix}category__code': params['category']})
+    if params.get('quarter'):
+        qs = qs.filter(**{f'{prefix}quarter': _quarter_param(params['quarter'])})
     if params.get('date'):
         qs = qs.filter(**{f'{prefix}date': params['date']})
     if params.get('date_from'):
@@ -306,6 +310,12 @@ def _apply_assignment_filters(qs, params, prefix=''):
     if params.get('date_to'):
         qs = qs.filter(**{f'{prefix}date__lte': params['date_to']})
     return qs
+
+
+def _quarter_param(value):
+    if value not in ('1', '2', '3', '4'):
+        raise ValidationError({'quarter': 'Must be 1, 2, 3 or 4.'})
+    return int(value)
 
 
 OFFERING_FILTER_PARAMS = [
@@ -328,6 +338,11 @@ CATEGORY_PARAM = OpenApiParameter(
                 '(lesson, exam, final, homework, …).',
 )
 
+QUARTER_FILTER_PARAM = OpenApiParameter(
+    'quarter', int, enum=[1, 2, 3, 4],
+    description='Quarter, 1–4. Anything else is a 400.',
+)
+
 DATE_PARAMS = [
     OpenApiParameter(
         'date', OpenApiTypes.DATE,
@@ -344,7 +359,8 @@ DATE_PARAMS = [
 ]
 
 ASSIGNMENT_FILTER_PARAMS = (
-    OFFERING_FILTER_PARAMS + [CATEGORY_PARAM] + DATE_PARAMS + PAGE_PARAMS
+    OFFERING_FILTER_PARAMS + [CATEGORY_PARAM, QUARTER_FILTER_PARAM]
+    + DATE_PARAMS + PAGE_PARAMS
 )
 
 
@@ -391,8 +407,8 @@ class SubjectAssignmentListCreateAPIView(APIView):
             'instead. Students and parents get the classes they (or their '
             'children) are enrolled in, and admin roles and psychologists the '
             'whole school. Filter by `category` to separate ordinary work from '
-            'exams and finals, and by `date` / `date_from` / `date_to` to pick '
-            'a day or a range. Newest assignment date first.'
+            'exams and finals, by `quarter`, and by `date` / `date_from` / '
+            '`date_to` to pick a day or a range. Newest assignment date first.'
         ),
     )
     def get(self, request):
@@ -405,7 +421,9 @@ class SubjectAssignmentListCreateAPIView(APIView):
         responses={201: SubjectAssignmentSerializer},
         description=(
             'Creates an assignment. The caller must be an assigned teacher of '
-            'the target offering, otherwise the request is a 403.'
+            'the target offering, otherwise the request is a 403. `quarter` '
+            'is optional: without it the quarter is derived from `date`, and '
+            'is null when the date is outside every quarter of the year.'
         ),
     )
     def post(self, request):
@@ -431,6 +449,7 @@ class SubjectAssignmentListCreateAPIView(APIView):
                 max_grade=data['max_grade'],
                 date=data['date'],
                 is_active=data['is_active'],
+                quarter=data.get('quarter'),
             )
         else:
             assignment = serializer.save()
@@ -444,7 +463,9 @@ class SubjectAssignmentDetailAPIView(APIView):
     """
     GET    subject-assignments/<pk>/  — single assignment
     PATCH  subject-assignments/<pk>/  — change title / category / max_grade /
-                                       date / is_active
+                                       date / quarter / is_active
+
+    A PATCH that moves `date` without sending `quarter` re-derives the quarter.
     DELETE subject-assignments/<pk>/  — delete it, cascading to its grades
 
     On a homework assignment PATCH reaches the Homework behind it too, and
@@ -653,7 +674,7 @@ class OfferingSubjectGradeListAPIView(APIView):
 
     @extend_schema(
         responses=SubjectAssignmentWithGradesSerializer(many=True),
-        parameters=[CATEGORY_PARAM] + DATE_PARAMS + PAGE_PARAMS,
+        parameters=[CATEGORY_PARAM, QUARTER_FILTER_PARAM] + DATE_PARAMS + PAGE_PARAMS,
         description=(
             'Assignments of one offering, newest first, each with a `grades` '
             'list ordered by student name. Scoped per role like GET '

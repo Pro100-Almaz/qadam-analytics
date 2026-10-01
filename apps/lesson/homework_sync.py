@@ -21,6 +21,9 @@ Field map:
     Homework.due_date     <-> SubjectAssignment.date
     Homework.is_active    <-> SubjectAssignment.is_active
     Homework.offering      -> SubjectAssignment.offering (fixed after creation)
+    Homework.due_date      -> SubjectAssignment.quarter, re-derived whenever the
+                              date moves; Homework has no quarter of its own, so
+                              a quarter set on the assignment stays until then.
 
     HomeworkGrade.grade / comments <-> SubjectGrade.grade / comments,
     matched on (homework <-> assignment.detail_id, student).
@@ -69,6 +72,8 @@ def assignment_from_homework(homework):
         assignment = SubjectAssignment(
             category=homework_category(), detail_id=homework.pk,
         )
+    elif assignment.date != homework.due_date:
+        assignment.quarter = None  # save() derives it again from the new date
     for field, value in _assignment_fields(homework).items():
         setattr(assignment, field, value)
     assignment.save(sync=False)
@@ -96,10 +101,12 @@ def delete_assignment(homework_id):
 
 def create_homework_with_assignment(
     *, offering, teaching_assignment, title, max_grade, date, is_active=True,
+    quarter=None,
 ):
     """
     The POST subject-assignments/ path for category `homework`: the Homework
     is created first, and its save() creates the mirror, which is returned.
+    `quarter` overrides the one derived from `date`.
     """
     with transaction.atomic():
         homework = Homework(
@@ -111,7 +118,11 @@ def create_homework_with_assignment(
             is_active=is_active,
         )
         homework.save()
-        return mirror_of(homework.pk)
+        assignment = mirror_of(homework.pk)
+        if quarter is not None and assignment.quarter != quarter:
+            assignment.quarter = quarter
+            assignment.save(sync=False)
+        return assignment
 
 
 def assignments_from_homeworks(homeworks):

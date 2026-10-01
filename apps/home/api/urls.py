@@ -86,7 +86,8 @@ urlpatterns = [
     # GET  /api/v1/subject-assignments/  role-scoped list, a teacher's own
     #                                    offerings only; filters: offering,
     #                                    subject, class_group, academic_year,
-    #                                    category, date, date_from, date_to
+    #                                    category, quarter, date, date_from,
+    #                                    date_to
     # POST /api/v1/subject-assignments/  create one in an offering you teach
     path(
         'subject-assignments/',
@@ -102,7 +103,7 @@ urlpatterns = [
     ),
 
     # GET    /api/v1/subject-assignments/<pk>/  single assignment
-    # PATCH  /api/v1/subject-assignments/<pk>/  change title / category / max_grade / date
+    # PATCH  /api/v1/subject-assignments/<pk>/  change title / category / max_grade / date / quarter
     # DELETE /api/v1/subject-assignments/<pk>/  delete it and its grades; a homework
     #                                   one is 400: delete the homework instead
     path(
@@ -139,8 +140,8 @@ urlpatterns = [
     # GET /api/v1/subject-grades/  every grade the caller may see, assignment
     #                              inlined; filters: student, assignment,
     #                              offering, subject, class_group,
-    #                              academic_year, category, date, date_from,
-    #                              date_to
+    #                              academic_year, category, quarter, date,
+    #                              date_from, date_to
     path(
         'subject-grades/',
         views.SubjectGradeListAPIView.as_view(),

@@ -807,6 +807,14 @@ def _check_homework_max_grade(category, max_grade):
         })
 
 
+def _quarter_field():
+    return serializers.IntegerField(
+        min_value=1, max_value=4, required=False,
+        help_text='Quarter, 1-4. Omit it to derive it from `date` and the '
+                  'academic year\'s quarter bounds.',
+    )
+
+
 class SubjectAssignmentSerializer(serializers.ModelSerializer):
     """Read payload for an assignment, flattened enough to render a list."""
     category = serializers.SlugRelatedField(slug_field='code', read_only=True)
@@ -822,7 +830,7 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
         model = SubjectAssignment
         fields = [
             'id', 'title', 'category', 'category_name', 'max_grade', 'date',
-            'detail_id', 'is_active', 'offering_id',
+            'quarter', 'detail_id', 'is_active', 'offering_id',
             'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
@@ -857,6 +865,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     date = serializers.DateField(
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    quarter = _quarter_field()
     is_active = serializers.BooleanField(
         required=False, default=True,
         help_text='False keeps it a draft, hidden from students and parents.',
@@ -864,7 +873,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubjectAssignment
-        fields = ['offering', 'title', 'category', 'max_grade', 'date', 'is_active']
+        fields = ['offering', 'title', 'category', 'max_grade', 'date', 'quarter', 'is_active']
 
     def validate(self, attrs):
         if attrs.get('category') is None:
@@ -887,11 +896,12 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         required=False,
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    quarter = _quarter_field()
     is_active = serializers.BooleanField(required=False)
 
     class Meta:
         model = SubjectAssignment
-        fields = ['title', 'category', 'max_grade', 'date', 'is_active']
+        fields = ['title', 'category', 'max_grade', 'date', 'quarter', 'is_active']
 
     def validate_category(self, category):
         current = self.instance.category if self.instance is not None else None
@@ -908,6 +918,10 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         max_grade = attrs.get('max_grade', getattr(self.instance, 'max_grade', None))
         _check_homework_max_grade(category, max_grade)
+        if 'date' in attrs and 'quarter' not in attrs:
+            # A new date without a quarter: let save() derive it again rather
+            # than keep the quarter of the old date.
+            attrs['quarter'] = None
         return attrs
 
     def validate_max_grade(self, max_grade):

@@ -93,6 +93,18 @@ class AcademicYear(models.Model):
                 return q
         return None
 
+    def quarter_of(self, day):
+        """The quarter (1-4) whose bounds contain `day`, or None — also when
+        the bounds are not filled in."""
+        if day is None:
+            return None
+        for q in [1, 2, 3, 4]:
+            start = getattr(self, f'q{q}_start')
+            end = getattr(self, f'q{q}_end')
+            if start and end and start <= day <= end:
+                return q
+        return None
+
     @property
     def quarters(self):
         result = []
@@ -775,6 +787,14 @@ class SubjectAssignment(models.Model):
         AssignmentCategory, on_delete=models.PROTECT, related_name='assignments',
     )
     date = models.DateField()
+    #: 1-4. Stored, not computed on read, so a later edit of the year's quarter
+    #: bounds does not move existing work. save() fills it from `date` when it
+    #: is empty; None means the date is outside every quarter of the year (or
+    #: the year has no bounds yet).
+    quarter = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+    )
 
     #: pk of the row in `category.detail_model` that this assignment mirrors —
     #: a Homework id for category `homework`. Not a ForeignKey because the
@@ -864,9 +884,16 @@ class SubjectAssignment(models.Model):
         if self.category_id is not None and self.offering_id is not None:
             self.validate_detail()
 
+    def derive_quarter(self):
+        """The quarter `date` falls in, by the offering's academic year bounds."""
+        year = self.offering.academic_year if self.offering_id else None
+        return year.quarter_of(self.date) if year is not None else None
+
     def save(self, *args, sync=True, **kwargs):
         """`sync=False` is for the homework sync itself, so a write never echoes back."""
         self.validate_detail()
+        if self.quarter is None:
+            self.quarter = self.derive_quarter()
         with transaction.atomic():
             super().save(*args, **kwargs)
             if sync and self.is_homework:
