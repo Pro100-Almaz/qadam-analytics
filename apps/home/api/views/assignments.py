@@ -3,9 +3,15 @@ CRUD endpoints for subject assignments and the grades given for them.
 
 A SubjectAssignment is a piece of graded work that belongs to a
 SubjectOffering — "Math for 7A in 2025/2026" — and nothing else. It is not a
-lesson, not homework, and carries no topics or weights: a title, a category
-(lesson / exam / final), a maximum grade, the date it took place, and one
-SubjectGrade per student.
+lesson and carries no topics or weights: a title, a category (an
+AssignmentCategory an admin manages — lesson, exam, final, homework, …), a
+maximum grade, the date it took place, and one SubjectGrade per student.
+
+Category `homework` is the mirror of a lesson.Homework (spec 0005): creating one
+here creates the Homework, and edits on either side reach the other
+(apps/lesson/homework_sync.py). Deleting is one-way (spec 0007): a homework
+assignment is removed by deleting its Homework, never from here. A draft (`is_active=False`) is visible only to
+the offering's teachers and to admin roles.
 
 Write access — assignments and grades alike:
 - Only a teacher assigned to the offering (TeachingAssignment). An offering can
@@ -26,8 +32,8 @@ Read access:
                    subject their class is taught rather than only the ones they
                    teach — and, conversely, never their own work for the other
                    classes they teach.
-- Student        — their own grades, and the assignments of the classes they
-                   are enrolled in.
+- Student        — their own grades, and the published assignments of the
+                   classes they are enrolled in.
 - Parent         — the same, for their children.
 Nobody else sees any of it.
 """
@@ -44,9 +50,12 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import (
-    Enrollment, SubjectAssignment, SubjectGrade, TeachingAssignment,
+    AssignmentCategory, Enrollment, SubjectAssignment, SubjectGrade,
+    TeachingAssignment,
 )
-from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
+from core.error_messages import (
+    HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
+)
 from core.permissions import (
     IsTeacherRole,
     is_admin_role,
@@ -55,6 +64,7 @@ from core.permissions import (
 )
 
 from apps.home.api.serializers import (
+    AssignmentCategorySerializer,
     SubjectAssignmentCreateSerializer,
     SubjectAssignmentSerializer,
     SubjectAssignmentWriteSerializer,
@@ -70,7 +80,7 @@ class SubjectAssignmentPagination(PageNumberPagination):
 
 
 ASSIGNMENT_SELECT_RELATED = (
-    'offering', 'offering__subject',
+    'category', 'offering', 'offering__subject',
     'offering__class_group', 'offering__class_group__grade_level',
     'offering__class_group__academic_year',
 )
@@ -126,14 +136,14 @@ def assignment_queryset(user):
         if student is None:
             return qs.none()
         query = enrolled_offering_query([student])
-        return qs.filter(query) if query else qs.none()
+        return qs.filter(query, is_active=True) if query else qs.none()
 
     if user.is_parent():
         parent = Parent.objects.filter(user=user).first()
         if parent is None:
             return qs.none()
         query = enrolled_offering_query(parent.students.all())
-        return qs.filter(query) if query else qs.none()
+        return qs.filter(query, is_active=True) if query else qs.none()
 
     return qs.none()
 
@@ -165,17 +175,20 @@ def grade_queryset(user):
                     teacher_homeroom_class_group_ids(teacher)
                 ),
                 student__enrollments__status='active',
+                assignment__is_active=True,
             )
         ).distinct()
 
     if user.is_student():
-        return qs.filter(student__user=user)
+        return qs.filter(student__user=user, assignment__is_active=True)
 
     if user.is_parent():
         parent = Parent.objects.filter(user=user).first()
         if parent is None:
             return qs.none()
-        return qs.filter(student__in=parent.students.all())
+        return qs.filter(
+            student__in=parent.students.all(), assignment__is_active=True,
+        )
 
     return qs.none()
 
@@ -200,7 +213,7 @@ def homeroom_assignment_queryset(user):
 
     return SubjectAssignment.objects.select_related(
         *ASSIGNMENT_SELECT_RELATED,
-    ).filter(offering__class_group_id__in=class_group_ids)
+    ).filter(offering__class_group_id__in=class_group_ids, is_active=True)
 
 
 def homeroom_grade_queryset(user):
@@ -225,6 +238,7 @@ def homeroom_grade_queryset(user):
     ).filter(
         student__enrollments__class_group_id__in=class_group_ids,
         student__enrollments__status='active',
+        assignment__is_active=True,
     ).distinct()
 
 
@@ -283,7 +297,7 @@ def _apply_assignment_filters(qs, params, prefix=''):
     """
     qs = apply_offering_filters(qs, params, prefix=prefix)
     if params.get('category'):
-        qs = qs.filter(**{f'{prefix}category': params['category']})
+        qs = qs.filter(**{f'{prefix}category__code': params['category']})
     if params.get('date'):
         qs = qs.filter(**{f'{prefix}date': params['date']})
     if params.get('date_from'):
@@ -305,10 +319,12 @@ PAGE_PARAMS = [
     OpenApiParameter('page_size', int),
 ]
 
+# No `enum`: categories are rows an admin manages (spec 0005), so the valid
+# codes are whatever GET assignment-categories/ returns today.
 CATEGORY_PARAM = OpenApiParameter(
     'category', str,
-    enum=[value for value, _label in SubjectAssignment.CATEGORY_CHOICES],
-    description='Assignment category: lesson, exam or final.',
+    description='Assignment category code, from GET assignment-categories/ '
+                '(lesson, exam, final, homework, …).',
 )
 
 DATE_PARAMS = [
@@ -395,13 +411,28 @@ class SubjectAssignmentListCreateAPIView(APIView):
         serializer = SubjectAssignmentCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        offering = serializer.validated_data['offering']
-        if teacher_assignment_for(request.user, offering) is None:
+        data = serializer.validated_data
+        offering = data['offering']
+        teaching_assignment = teacher_assignment_for(request.user, offering)
+        if teaching_assignment is None:
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
             )
 
-        assignment = serializer.save()
+        if data['category'].code == AssignmentCategory.HOMEWORK:
+            # A homework assignment is a Homework's mirror: create the Homework
+            # on the caller's own teaching assignment and let it make the mirror.
+            from apps.lesson.homework_sync import create_homework_with_assignment
+            assignment = create_homework_with_assignment(
+                offering=offering,
+                teaching_assignment=teaching_assignment,
+                title=data['title'],
+                max_grade=data['max_grade'],
+                date=data['date'],
+                is_active=data['is_active'],
+            )
+        else:
+            assignment = serializer.save()
         return Response(
             SubjectAssignmentSerializer(assignment, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
@@ -411,8 +442,12 @@ class SubjectAssignmentListCreateAPIView(APIView):
 class SubjectAssignmentDetailAPIView(APIView):
     """
     GET    subject-assignments/<pk>/  — single assignment
-    PATCH  subject-assignments/<pk>/  — change title / category / max_grade / date
+    PATCH  subject-assignments/<pk>/  — change title / category / max_grade /
+                                       date / is_active
     DELETE subject-assignments/<pk>/  — delete it, cascading to its grades
+
+    On a homework assignment PATCH reaches the Homework behind it too, and
+    DELETE is refused with 400: delete the Homework instead (spec 0007).
 
     The offering is fixed after creation: moving an assignment to another class
     would strand the grades already recorded against it.
@@ -450,11 +485,23 @@ class SubjectAssignmentDetailAPIView(APIView):
             SubjectAssignmentSerializer(assignment, context={'request': request}).data
         )
 
-    @extend_schema(responses={204: None})
+    @extend_schema(
+        responses={204: None, 400: None},
+        description='Category `homework` is refused with 400: delete the '
+                    'homework through DELETE homeworks/<detail_id>/ instead.',
+    )
     def delete(self, request, pk):
         assignment = self._get_writable(request, pk)
         if isinstance(assignment, Response):
             return assignment
+
+        if assignment.is_homework and assignment.details is not None:
+            return Response(
+                {'detail': str(HOMEWORK_ASSIGNMENT_DELETE).format(
+                    homework_id=assignment.detail_id,
+                )},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         assignment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -732,3 +779,30 @@ class SubjectGradeDetailAPIView(APIView):
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )
         return grade
+
+
+# ── Categories ──
+
+class AssignmentCategoryListAPIView(APIView):
+    """
+    GET assignment-categories/ — every category an assignment may have.
+
+    Categories are shared by all schools and managed in /admin/ (spec 0005), so
+    this is the list a client should offer instead of a hard-coded one.
+
+    `name` is in the language of the Accept-Language header — en, ru or kk —
+    and English for anything else (spec 0006). `code` never changes with it.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses=AssignmentCategorySerializer(many=True),
+        parameters=[OpenApiParameter(
+            'Accept-Language', str, OpenApiParameter.HEADER,
+            enum=['en', 'ru', 'kk'],
+            description='Language of `name`. Default: en.',
+        )],
+    )
+    def get(self, request):
+        rows = AssignmentCategory.objects.order_by('name', 'id')
+        return Response(AssignmentCategorySerializer(rows, many=True).data)

@@ -1,6 +1,7 @@
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator, MaxValueValidator
 from simple_history.models import HistoricalRecords
 
@@ -471,6 +472,34 @@ class Homework(SchoolConsistentModel):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Every Homework is mirrored by one SubjectAssignment of category
+    # `homework` (spec 0005), kept in step here rather than in signals.
+    # `sync=False` is for apps.lesson.homework_sync itself.
+
+    def save(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if sync:
+                from apps.lesson import homework_sync
+                homework_sync.assignment_from_homework(self)
+
+    def delete(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            if sync:
+                from apps.lesson import homework_sync
+                homework_sync.delete_assignment(self.pk)
+            # The attachment rows cascade with the homework, but the stored
+            # files do not — drop them first so nothing is orphaned in storage.
+            # _base_manager: this also runs outside any request scope
+            # (TeachingAssignment.delete, the sync command).
+            attachments = self.attachments.model._base_manager.filter(
+                content_type=ContentType.objects.get_for_model(Homework),
+                object_id=self.pk,
+            )
+            for attachment in attachments:
+                attachment.file.delete(save=False)
+            return super().delete(*args, **kwargs)
+
 
 class HomeworkGrade(SchoolConsistentModel):
     SCHOOL_PATH = 'homework__offering__school'
@@ -486,3 +515,17 @@ class HomeworkGrade(SchoolConsistentModel):
 
     class Meta:
         unique_together = ('homework', 'student')
+
+    def save(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if sync:
+                from apps.lesson import homework_sync
+                homework_sync.subject_grade_from_homework_grade(self)
+
+    def delete(self, *args, sync=True, **kwargs):
+        with transaction.atomic():
+            if sync:
+                from apps.lesson import homework_sync
+                homework_sync.delete_subject_grade(self.homework_id, self.student_id)
+            return super().delete(*args, **kwargs)

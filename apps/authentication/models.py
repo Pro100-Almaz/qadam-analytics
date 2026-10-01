@@ -502,6 +502,10 @@ class ClubManager(models.Model):
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
+    def __str__(self):
+        full_name = self.user.get_full_name()
+        return full_name if full_name.strip() else self.user.username
+
 
 class PsychologicalState(SchoolDerivedMixin, models.Model):
     """A psychologist's note about a student.

@@ -40,6 +40,7 @@ from apps.home.api.views.parents import (
     ParentChildSubjectDetailAPIView,
 )
 from apps.home.api.views.assignments import (
+    AssignmentCategoryListAPIView,
     SubjectAssignmentListCreateAPIView,
     SubjectAssignmentDetailAPIView,
     SubjectAssignmentGradeListCreateAPIView,
@@ -101,6 +102,7 @@ __all__ = [
     'PsychologistStudentDetailAPIView',
     'TeacherMyClassesAPIView',
     'TeacherClassStudentsAPIView',
+    'AssignmentCategoryListAPIView',
     'SubjectAssignmentListCreateAPIView',
     'SubjectAssignmentDetailAPIView',
     'SubjectAssignmentGradeListCreateAPIView',

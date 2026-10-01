@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.db import transaction
 from django.db.models import Count
 from django.utils.text import Truncator
 
@@ -128,6 +129,13 @@ class HomeworkAdmin(admin.ModelAdmin):
     def grade_count(self, obj):
         return obj._grade_count
 
+    def delete_queryset(self, request, queryset):
+        # One by one so each Homework.delete() takes its SubjectAssignment
+        # mirror and stored files with it (spec 0005).
+        with transaction.atomic():
+            for obj in queryset:
+                obj.delete()
+
 
 @admin.register(HomeworkGrade)
 class HomeworkGradeAdmin(admin.ModelAdmin):
@@ -158,3 +166,9 @@ class HomeworkGradeAdmin(admin.ModelAdmin):
     @admin.display(description='Max')
     def max_grade(self, obj):
         return obj.homework.max_grade
+
+    def delete_queryset(self, request, queryset):
+        # One by one so each HomeworkGrade.delete() removes its SubjectGrade.
+        with transaction.atomic():
+            for obj in queryset:
+                obj.delete()

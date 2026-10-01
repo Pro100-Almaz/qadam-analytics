@@ -59,7 +59,7 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher
 from apps.home.models import (
-    AcademicYear, HomeroomTeacherAssignment, SubjectAssignment,
+    AcademicYear, AssignmentCategory, HomeroomTeacherAssignment, SubjectAssignment,
     SubjectGrade, SubjectOffering, TeachingAssignment,
 )
 from core.error_messages import NO_PERMISSION
@@ -101,7 +101,16 @@ from apps.lesson.api.serializers import (
 )
 
 
-CATEGORIES = [value for value, _label in SubjectAssignment.CATEGORY_CHOICES]
+def category_codes():
+    """
+    Every assignment category code, oldest first so the original lesson / exam
+    / final keep their order. Read per request: categories are rows an admin
+    manages (spec 0005), not a constant.
+    """
+    return list(
+        AssignmentCategory.objects.order_by('id').values_list('code', flat=True)
+    )
+
 
 MISSING_CHOICES = {'exclude', 'zero'}
 
@@ -110,7 +119,7 @@ MISSING_CHOICES = {'exclude', 'zero'}
 # the most recent ones and say so in the payload.
 MAX_HEATMAP_COLUMNS = 60
 
-ASSIGNMENT_SELECT_RELATED = ('offering', 'offering__subject')
+ASSIGNMENT_SELECT_RELATED = ('category', 'offering', 'offering__subject')
 
 
 # ── Scoring ──
@@ -180,11 +189,17 @@ def can_grade_offering(user, offering):
     ).exists()
 
 
-def assignment_heatmap_response(offering, params):
-    """Build the student × assignment heatmap for one offering."""
+def assignment_heatmap_response(offering, params, include_drafts=False):
+    """
+    Build the student × assignment heatmap for one offering.
+
+    `include_drafts` adds draft columns (`is_active` false) for a caller who
+    can grade the offering. Drafts still stay out of `row_means` and
+    `coverage`, so a student's figures describe published work only.
+    """
     missing = choice_param(params, 'missing', MISSING_CHOICES, 'exclude')
     assignments_qs, filters = _apply_assignment_filters(
-        offering.assignments.all(), params,
+        offering.assignments.all(), params, include_drafts=include_drafts,
     )
     filters['missing'] = missing
 
@@ -225,9 +240,10 @@ def assignment_heatmap_response(offering, params):
         grade_id_matrix.append(grade_id_row)
         comment_matrix.append(comment_row)
 
+    published = [a for a in assignments if a.is_active]
     row_means = [
         mean(_values_for(
-            percents, [(a.id, student.id) for a in assignments], missing,
+            percents, [(a.id, student.id) for a in published], missing,
         ))
         for student in students
     ]
@@ -257,7 +273,7 @@ def assignment_heatmap_response(offering, params):
         'comments': comment_matrix,
         'row_means': row_means,
         'column_means': column_means,
-        'coverage': _coverage(percents, assignments, students),
+        'coverage': _coverage(percents, published, students),
         'class_size': len(students),
         'assignment_count': len(assignments),
         'truncated': truncated,
@@ -352,17 +368,20 @@ def _coverage(percents, assignments, students):
     }
 
 
-def _category_breakdown(assignments, percents, student, missing):
+def _category_breakdown(assignments, percents, student, missing, categories=None):
     """
-    Per-category means for one student — lesson work, exams and finals apart.
+    Per-category means for one student — lesson work, exams, finals, homework
+    apart. Every category is present, with zero counts where there is no work.
 
     Category is the one axis subject assignments have and lessons do not, and
     it is usually the interesting one: a student who is fine on classwork and
     falls over in exams looks average until the two are separated.
     """
+    if categories is None:
+        categories = category_codes()
     by_category = {}
-    for category in CATEGORIES:
-        in_category = [a for a in assignments if a.category == category]
+    for category in categories:
+        in_category = [a for a in assignments if a.category.code == category]
         keys = [(a.id, student.id) for a in in_category]
         values = _values_for(percents, keys, missing)
         graded = sum(1 for key in keys if percents.get(key) is not None)
@@ -376,14 +395,21 @@ def _category_breakdown(assignments, percents, student, missing):
 
 # ── Filters ──
 
-def _apply_assignment_filters(queryset, params):
-    """Narrow assignments by category / date range, and echo the filters back."""
-    category = choice_param(params, 'category', set(CATEGORIES), None)
+def _apply_assignment_filters(queryset, params, include_drafts=False):
+    """
+    Narrow assignments by category / date range, and echo the filters back.
+    Drafts (is_active=False) are left out unless `include_drafts` — only the
+    heatmap sets it, and only for a caller who can grade the offering.
+    """
+    category = choice_param(params, 'category', set(category_codes()), None)
     date_from = date_param(params, 'date_from')
     date_to = date_param(params, 'date_to')
 
+    queryset = queryset.select_related('category')
+    if not include_drafts:
+        queryset = queryset.filter(is_active=True)
     if category is not None:
-        queryset = queryset.filter(category=category)
+        queryset = queryset.filter(category__code=category)
     if date_from is not None:
         queryset = queryset.filter(date__gte=date_from)
     if date_to is not None:
@@ -400,15 +426,17 @@ def _assignment_payload(assignment):
     return {
         'id': assignment.id,
         'title': assignment.title,
-        'category': assignment.category,
+        'category': assignment.category.code,
         'date': assignment.date.isoformat() if assignment.date else None,
         'max_grade': assignment.max_grade,
+        'is_active': assignment.is_active,
     }
 
 
 CATEGORY_PARAM = OpenApiParameter(
-    'category', str, enum=CATEGORIES,
-    description='Assignment category: lesson, exam or final. Default: all.',
+    'category', str,
+    description='Assignment category code, from GET assignment-categories/. '
+                'Default: all.',
 )
 
 MISSING_PARAM = OpenApiParameter(
@@ -600,7 +628,9 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             'Student × assignment matrix for one offering, scored as a percent '
             'of each assignment\'s own max_grade so that a 20-point quiz and a '
             '100-point exam share a scale. Newest assignments win when the '
-            'column cap bites. Teachers assigned to the offering only.'
+            'column cap bites. Teachers assigned to the offering only. Draft '
+            'assignments are included, flagged `is_active: false`, and left '
+            'out of `row_means` and `coverage`.'
         ),
     )
     def get(self, request, offering_id):
@@ -613,7 +643,9 @@ class OfferingAssignmentHeatmapAPIView(APIView):
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )
 
-        return assignment_heatmap_response(offering, request.query_params)
+        return assignment_heatmap_response(
+            offering, request.query_params, include_drafts=True,
+        )
 
 
 class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
@@ -632,7 +664,8 @@ class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
         description=(
             'Student × assignment matrix for one offering. Read-only and '
             'available to authenticated teacher-role users without requiring '
-            'them to teach the offering.'
+            'them to teach the offering. Draft assignments appear only when '
+            'the caller can also grade the offering.'
         ),
     )
     def get(self, request, offering_id):
@@ -640,7 +673,10 @@ class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
             SubjectOffering.objects.select_related(*OFFERING_SELECT_RELATED),
             pk=offering_id,
         )
-        return assignment_heatmap_response(offering, request.query_params)
+        return assignment_heatmap_response(
+            offering, request.query_params,
+            include_drafts=can_grade_offering(request.user, offering),
+        )
 
 
 class AssignmentAnalyticsOfferingListAPIView(APIView):
@@ -861,6 +897,7 @@ class StudentAssignmentSummaryAPIView(APIView):
             assignments, cohort,
         )
 
+        categories = category_codes()
         axes = []
         for offering in offerings:
             own = by_offering.get(offering.id, [])
@@ -877,7 +914,9 @@ class StudentAssignmentSummaryAPIView(APIView):
                 'graded_count': sum(
                     1 for a in own if percents.get((a.id, student.id)) is not None
                 ),
-                'by_category': _category_breakdown(own, percents, student, missing),
+                'by_category': _category_breakdown(
+                    own, percents, student, missing, categories,
+                ),
             }
             if include_class_mean:
                 class_values = [
@@ -911,7 +950,7 @@ class StudentAssignmentSummaryAPIView(APIView):
         otherwise be derived from, so a caller can ask for a fortnight inside a
         quarter without the two fighting.
         """
-        category = choice_param(params, 'category', set(CATEGORIES), None)
+        category = choice_param(params, 'category', set(category_codes()), None)
         date_from = date_param(params, 'date_from')
         date_to = date_param(params, 'date_to')
 
@@ -932,10 +971,10 @@ class StudentAssignmentSummaryAPIView(APIView):
         if not offerings:
             return []
         queryset = SubjectAssignment.objects.filter(
-            offering__in=offerings,
+            offering__in=offerings, is_active=True,
         ).select_related(*ASSIGNMENT_SELECT_RELATED)
         if filters['category']:
-            queryset = queryset.filter(category=filters['category'])
+            queryset = queryset.filter(category__code=filters['category'])
         if filters['date_from']:
             queryset = queryset.filter(date__gte=filters['date_from'])
         if filters['date_to']:
@@ -968,7 +1007,7 @@ class StudentAssignmentSummaryAPIView(APIView):
                 'graded_count': 0,
                 'by_category': {
                     category: {'assignment_count': 0, 'graded_count': 0, 'value': 0.0}
-                    for category in CATEGORIES
+                    for category in category_codes()
                 },
             },
         }
@@ -988,8 +1027,9 @@ class StudentAssignmentSummaryAPIView(APIView):
         strongest = max(scored, key=lambda a: a['value']) if scored else None
         weakest = min(scored, key=lambda a: a['value']) if scored else None
 
+        categories = list(axes[0]['by_category']) if axes else category_codes()
         by_category = {}
-        for category in CATEGORIES:
+        for category in categories:
             blocks = [axis['by_category'][category] for axis in axes]
             with_work = [b for b in blocks if b['assignment_count'] > 0]
             by_category[category] = {

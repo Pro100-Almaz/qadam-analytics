@@ -8,7 +8,7 @@ from apps.authentication.models import (
 from apps.home.models import (
     AcademicYear, GradeLevel, ClassGroup,
     Subject, SubjectOffering, TeachingAssignment, Enrollment,
-    SubjectAssignment, SubjectGrade, QuarterGrade,
+    SubjectAssignment, SubjectGrade, QuarterGrade, AssignmentCategory,
 )
 from apps.lesson.models import Lesson, TopicGrade, Topic
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
@@ -777,8 +777,40 @@ class ParentChildSubjectDetailSerializer(serializers.Serializer):
 
 # ── Subject assignments & grades ──
 
+class AssignmentCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssignmentCategory
+        fields = ['id', 'code', 'name']
+        read_only_fields = fields
+
+
+def _category_field(**kwargs):
+    """`category` on the wire is the category's code, as it was before 0005."""
+    return serializers.SlugRelatedField(
+        slug_field='code', queryset=AssignmentCategory.objects.all(), **kwargs,
+    )
+
+
+#: Homework.max_grade is capped at 100; a homework-category assignment is a
+#: Homework, so it carries the same cap.
+HOMEWORK_MAX_GRADE = 100
+
+
+def _check_homework_max_grade(category, max_grade):
+    if (
+        category is not None and max_grade is not None
+        and category.code == AssignmentCategory.HOMEWORK
+        and max_grade > HOMEWORK_MAX_GRADE
+    ):
+        raise serializers.ValidationError({
+            'max_grade': f'Homework max_grade cannot exceed {HOMEWORK_MAX_GRADE}.'
+        })
+
+
 class SubjectAssignmentSerializer(serializers.ModelSerializer):
     """Read payload for an assignment, flattened enough to render a list."""
+    category = serializers.SlugRelatedField(slug_field='code', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
     offering_id = serializers.IntegerField(read_only=True)
     subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
     subject_name = serializers.CharField(source='offering.subject.name', read_only=True)
@@ -789,7 +821,8 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubjectAssignment
         fields = [
-            'id', 'title', 'category', 'max_grade', 'date', 'offering_id',
+            'id', 'title', 'category', 'category_name', 'max_grade', 'date',
+            'detail_id', 'is_active', 'offering_id',
             'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
@@ -806,6 +839,9 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     Create payload. `offering` is required and checked against the caller's
     TeachingAssignment in the view — a serializer has no business deciding
     whose subject this is.
+
+    Category `homework` does not go through `save()`: the view creates the
+    Homework, whose own save() creates this assignment (spec 0005).
     """
     offering = ScopedPrimaryKeyRelatedField(
         SubjectOffering,
@@ -813,39 +849,66 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     )
     title = serializers.CharField()
     max_grade = serializers.IntegerField(min_value=1)
-    category = serializers.ChoiceField(
-        choices=SubjectAssignment.CATEGORY_CHOICES,
+    category = _category_field(
         required=False,
-        help_text='What kind of work this is. Defaults to "lesson".',
+        help_text='Category code, from GET assignment-categories/. Defaults to "lesson". '
+                  '"homework" also creates the Homework.',
     )
     date = serializers.DateField(
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    is_active = serializers.BooleanField(
+        required=False, default=True,
+        help_text='False keeps it a draft, hidden from students and parents.',
+    )
 
     class Meta:
         model = SubjectAssignment
-        fields = ['offering', 'title', 'category', 'max_grade', 'date']
+        fields = ['offering', 'title', 'category', 'max_grade', 'date', 'is_active']
+
+    def validate(self, attrs):
+        if attrs.get('category') is None:
+            attrs['category'] = AssignmentCategory.default()
+        _check_homework_max_grade(attrs['category'], attrs.get('max_grade'))
+        return attrs
 
 
 class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
     """
     Update payload. The offering stays fixed: moving an assignment to another
     class would silently invalidate the grades already hanging off it, so that
-    means creating it there instead.
+    means creating it there instead. For the same reason the category cannot
+    move into or out of one with a detail model (homework).
     """
     title = serializers.CharField(required=False)
     max_grade = serializers.IntegerField(min_value=1, required=False)
-    category = serializers.ChoiceField(
-        choices=SubjectAssignment.CATEGORY_CHOICES, required=False,
-    )
+    category = _category_field(required=False)
     date = serializers.DateField(
         required=False,
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    is_active = serializers.BooleanField(required=False)
 
     class Meta:
         model = SubjectAssignment
-        fields = ['title', 'category', 'max_grade', 'date']
+        fields = ['title', 'category', 'max_grade', 'date', 'is_active']
+
+    def validate_category(self, category):
+        current = self.instance.category if self.instance is not None else None
+        if current is not None and category != current and (
+            current.detail_model is not None or category.detail_model is not None
+        ):
+            raise serializers.ValidationError(
+                f'Cannot change category from "{current.code}" to "{category.code}". '
+                f'Delete the assignment and create it again instead.'
+            )
+        return category
+
+    def validate(self, attrs):
+        category = attrs.get('category') or getattr(self.instance, 'category', None)
+        max_grade = attrs.get('max_grade', getattr(self.instance, 'max_grade', None))
+        _check_homework_max_grade(category, max_grade)
+        return attrs
 
     def validate_max_grade(self, max_grade):
         """Lowering the ceiling under grades already given would corrupt them."""

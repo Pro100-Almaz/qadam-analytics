@@ -60,6 +60,8 @@ if not DEBUG:
 # Application definition
 
 INSTALLED_APPS = [
+    # Before the admin: it patches admin forms for translated fields (spec 0006).
+    'modeltranslation',
     # Replaces 'django.contrib.admin' so `admin.site` is QadamAdminSite —
     # the school switcher in the header needs its own `each_context`.
     'core.admin_config.QadamAdminConfig',
@@ -224,11 +226,19 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en'
 
+# `kk` is the ISO 639-1 code browsers send for Kazakh; `kz` (a country code)
+# never matched an Accept-Language header. LocaleMiddleware picks one of these
+# from Accept-Language and falls back to LANGUAGE_CODE (spec 0006).
 LANGUAGES = [
     ('en', 'English'),
     ('ru', 'Russian'),
-    ('kz', 'Kazakh'),
+    ('kk', 'Kazakh'),
 ]
+
+# django-modeltranslation: translated fields get one column per language above.
+# Only fields registered in an app's translation.py are affected.
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('en',)
 
 TIME_ZONE = 'Asia/Almaty'
 
