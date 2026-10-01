@@ -291,7 +291,7 @@ urlpatterns = [
     ),
 
     # ── Analytics: subject grades ──
-    # The same three shapes over the assignment gradebook. Marks are a percent
+    # Trajectory and summary over the assignment gradebook. Marks are a percent
     # of each assignment's own max_grade, and unmarked work is left out of the
     # averages unless missing=zero says otherwise.
 
@@ -311,24 +311,6 @@ urlpatterns = [
         'analytics/students/<int:student_id>/offerings/<int:offering_id>/assignment-trajectory/',
         analytics_subject.StudentAssignmentTrajectoryAPIView.as_view(),
         name='analytics-assignment-trajectory',
-    ),
-
-    # GET /api/v1/analytics/offerings/<offering_id>/assignment-heatmap/
-    #     student × assignment matrix for one offering. Staff only.
-    #     Filters: category, date_from, date_to, missing
-    path(
-        'analytics/offerings/<int:offering_id>/assignment-heatmap/',
-        analytics_subject.OfferingAssignmentHeatmapAPIView.as_view(),
-        name='analytics-assignment-heatmap',
-    ),
-
-    # GET /api/v1/analytics/teacher/offerings/<offering_id>/assignment-heatmap/
-    #     same heatmap payload, but available to any teacher-role user without a
-    #     TeachingAssignment or homeroom check. Read-only.
-    path(
-        'analytics/teacher/offerings/<int:offering_id>/assignment-heatmap/',
-        analytics_subject.TeacherScopedOfferingAssignmentHeatmapAPIView.as_view(),
-        name='analytics-teacher-scoped-assignment-heatmap',
     ),
 
     # GET /api/v1/analytics/students/<student_id>/assignment-summary/

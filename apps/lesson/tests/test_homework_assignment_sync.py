@@ -38,16 +38,6 @@ def assignment_url(assignment):
     return reverse('home-api:subject-assignment-detail', args=[assignment.pk])
 
 
-def heatmap_url(offering):
-    return reverse('lesson-api:analytics-assignment-heatmap', args=[offering.pk])
-
-
-def teacher_scoped_heatmap_url(offering):
-    return reverse(
-        'lesson-api:analytics-teacher-scoped-assignment-heatmap', args=[offering.pk],
-    )
-
-
 def trajectory_url(student, offering):
     return reverse(
         'lesson-api:analytics-assignment-trajectory', args=[student.pk, offering.pk],
@@ -305,60 +295,6 @@ def test_ac23_draft_homework_is_hidden_from_students_and_analytics(
     teacher_client = authenticated_client(teacher.user)
     seen = {row['id'] for row in teacher_client.get(ASSIGNMENTS_URL).data['results']}
     assert seen == {mirror(draft).pk, mirror(published).pk}
-
-
-def test_ac24_heatmap_shows_drafts_to_offering_teacher_outside_student_figures(
-    teacher, teaching_assignment, pupil, authenticated_client,
-):
-    draft = HomeworkFactory(
-        teaching_assignment=teaching_assignment, is_active=False,
-        max_grade=10, due_date=datetime.date(2026, 10, 1),
-    )
-    published = HomeworkFactory(
-        teaching_assignment=teaching_assignment, is_active=True,
-        max_grade=10, due_date=datetime.date(2026, 10, 2),
-    )
-    HomeworkGradeFactory(homework=draft, student=pupil, grade=2)
-    HomeworkGradeFactory(homework=published, student=pupil, grade=8)
-
-    heatmap = authenticated_client(teacher.user).get(
-        heatmap_url(teaching_assignment.offering),
-    )
-
-    assert heatmap.status_code == 200, heatmap.data
-    columns = heatmap.data['assignments']
-    assert [(a['id'], a['is_active']) for a in columns] == [
-        (mirror(draft).pk, False), (mirror(published).pk, True),
-    ]
-    assert heatmap.data['matrix'] == [[20.0, 80.0]]
-    # The draft's 20% is visible but does not drag the student's mean down.
-    assert heatmap.data['row_means'] == [80.0]
-    assert heatmap.data['coverage']['possible_count'] == 1
-    assert heatmap.data['coverage']['graded_count'] == 1
-
-
-def test_ac25_teacher_scoped_heatmap_shows_drafts_only_to_offering_teachers(
-    teacher, teaching_assignment, pupil, authenticated_client,
-):
-    draft = HomeworkFactory(
-        teaching_assignment=teaching_assignment, is_active=False,
-        due_date=datetime.date(2026, 10, 1),
-    )
-    published = HomeworkFactory(
-        teaching_assignment=teaching_assignment, is_active=True,
-        due_date=datetime.date(2026, 10, 2),
-    )
-    url = teacher_scoped_heatmap_url(teaching_assignment.offering)
-
-    outsider = authenticated_client(TeacherFactory().user).get(url)
-    assert outsider.status_code == 200, outsider.data
-    assert [a['id'] for a in outsider.data['assignments']] == [mirror(published).pk]
-
-    own = authenticated_client(teacher.user).get(url)
-    assert own.status_code == 200, own.data
-    assert [a['id'] for a in own.data['assignments']] == [
-        mirror(draft).pk, mirror(published).pk,
-    ]
 
 
 def test_ac23_draft_homework_is_hidden_from_parents_homeroom_and_grade_sheets(
