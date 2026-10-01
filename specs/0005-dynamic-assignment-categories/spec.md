@@ -5,7 +5,7 @@ title: Admin-managed SubjectAssignment categories, with Homework mirrored as a c
 status: shipped
 owner: bekzhan
 created: 2026-09-30
-updated: 2026-09-30
+updated: 2026-10-01
 ---
 
 # 0005 — Dynamic assignment categories and the Homework mirror
@@ -50,7 +50,7 @@ homework marks are missing from subject analytics, grade sheets
 | Role (Django Group) | Change |
 |---|---|
 | Admin | Manages `AssignmentCategory` in `/admin/`. Sees homework in subject-assignment lists and analytics. |
-| Teacher | Can create homework through `POST subject-assignments/` with `category=homework`. Homework and its grades appear in subject-assignment and grade lists. |
+| Teacher | Can create homework through `POST subject-assignments/` with `category=homework`. Homework and its grades appear in subject-assignment and grade lists. Drafts of the offerings they teach appear in the assignment heatmap. |
 | HomeroomTeacher | Published homework appears in `my-class/subject-assignments/`. Drafts do not. |
 | Student | Published homework and its grades appear in subject grades and analytics. Drafts do not. |
 | Supervisor / Principal | Same as Admin for reading. |
@@ -111,8 +111,16 @@ Sync:
 Drafts:
 
 - **AC-23** — A draft homework (`is_active=False`) has an assignment with
-  `is_active=False`. Students, parents and homeroom lists, subject analytics and
-  grade sheets exclude it. The offering's teachers and admin roles still see it.
+  `is_active=False`. Students, parents and homeroom lists, subject analytics
+  (except the heatmap, AC-24) and grade sheets exclude it. The offering's
+  teachers and admin roles still see it.
+- **AC-24** — The assignment heatmap shows draft assignments to a caller who
+  passes `can_grade_offering`. Each entry in `assignments` carries `is_active`,
+  which is `false` for a draft. Drafts stay out of `row_means` and `coverage`,
+  so a student's figures count published work only.
+- **AC-25** — The teacher-scoped heatmap shows drafts only to a caller who
+  also passes `can_grade_offering`. A teacher who does not teach the offering
+  sees published assignments only.
 
 ## API contract
 
@@ -149,7 +157,10 @@ Drafts:
 
 - **Performance** — sync adds one extra write per homework or grade write.
   Bulk homework create syncs in bulk. List endpoints add `select_related('category')`.
-- **Security** — drafts must not leak through the new mirror (AC-23).
+- **Security** — drafts must not leak through the new mirror (AC-23). The
+  heatmap is the only analytics view that shows them (AC-24, AC-25), and only to
+  callers who can grade the offering. The per-student trajectory, which
+  students and parents can call, never does.
 - **Migrations** — reversible, with no downtime needed. Backfill size is
   bounded by the current Homework and HomeworkGrade counts.
 - **Consistency** — Sync runs in model `save()`/`delete()` and inside

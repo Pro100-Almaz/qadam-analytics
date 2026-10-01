@@ -189,11 +189,17 @@ def can_grade_offering(user, offering):
     ).exists()
 
 
-def assignment_heatmap_response(offering, params):
-    """Build the student × assignment heatmap for one offering."""
+def assignment_heatmap_response(offering, params, include_drafts=False):
+    """
+    Build the student × assignment heatmap for one offering.
+
+    `include_drafts` adds draft columns (`is_active` false) for a caller who
+    can grade the offering. Drafts still stay out of `row_means` and
+    `coverage`, so a student's figures describe published work only.
+    """
     missing = choice_param(params, 'missing', MISSING_CHOICES, 'exclude')
     assignments_qs, filters = _apply_assignment_filters(
-        offering.assignments.all(), params,
+        offering.assignments.all(), params, include_drafts=include_drafts,
     )
     filters['missing'] = missing
 
@@ -234,9 +240,10 @@ def assignment_heatmap_response(offering, params):
         grade_id_matrix.append(grade_id_row)
         comment_matrix.append(comment_row)
 
+    published = [a for a in assignments if a.is_active]
     row_means = [
         mean(_values_for(
-            percents, [(a.id, student.id) for a in assignments], missing,
+            percents, [(a.id, student.id) for a in published], missing,
         ))
         for student in students
     ]
@@ -266,7 +273,7 @@ def assignment_heatmap_response(offering, params):
         'comments': comment_matrix,
         'row_means': row_means,
         'column_means': column_means,
-        'coverage': _coverage(percents, assignments, students),
+        'coverage': _coverage(percents, published, students),
         'class_size': len(students),
         'assignment_count': len(assignments),
         'truncated': truncated,
@@ -388,16 +395,19 @@ def _category_breakdown(assignments, percents, student, missing, categories=None
 
 # ── Filters ──
 
-def _apply_assignment_filters(queryset, params):
+def _apply_assignment_filters(queryset, params, include_drafts=False):
     """
     Narrow assignments by category / date range, and echo the filters back.
-    Drafts (is_active=False) never count: analytics describe published work.
+    Drafts (is_active=False) are left out unless `include_drafts` — only the
+    heatmap sets it, and only for a caller who can grade the offering.
     """
     category = choice_param(params, 'category', set(category_codes()), None)
     date_from = date_param(params, 'date_from')
     date_to = date_param(params, 'date_to')
 
     queryset = queryset.select_related('category')
+    if not include_drafts:
+        queryset = queryset.filter(is_active=True)
     if category is not None:
         queryset = queryset.filter(category__code=category)
     if date_from is not None:
@@ -618,7 +628,9 @@ class OfferingAssignmentHeatmapAPIView(APIView):
             'Student × assignment matrix for one offering, scored as a percent '
             'of each assignment\'s own max_grade so that a 20-point quiz and a '
             '100-point exam share a scale. Newest assignments win when the '
-            'column cap bites. Teachers assigned to the offering only.'
+            'column cap bites. Teachers assigned to the offering only. Draft '
+            'assignments are included, flagged `is_active: false`, and left '
+            'out of `row_means` and `coverage`.'
         ),
     )
     def get(self, request, offering_id):
@@ -631,7 +643,9 @@ class OfferingAssignmentHeatmapAPIView(APIView):
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )
 
-        return assignment_heatmap_response(offering, request.query_params)
+        return assignment_heatmap_response(
+            offering, request.query_params, include_drafts=True,
+        )
 
 
 class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
@@ -650,7 +664,8 @@ class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
         description=(
             'Student × assignment matrix for one offering. Read-only and '
             'available to authenticated teacher-role users without requiring '
-            'them to teach the offering.'
+            'them to teach the offering. Draft assignments appear only when '
+            'the caller can also grade the offering.'
         ),
     )
     def get(self, request, offering_id):
@@ -658,7 +673,10 @@ class TeacherScopedOfferingAssignmentHeatmapAPIView(APIView):
             SubjectOffering.objects.select_related(*OFFERING_SELECT_RELATED),
             pk=offering_id,
         )
-        return assignment_heatmap_response(offering, request.query_params)
+        return assignment_heatmap_response(
+            offering, request.query_params,
+            include_drafts=can_grade_offering(request.user, offering),
+        )
 
 
 class AssignmentAnalyticsOfferingListAPIView(APIView):

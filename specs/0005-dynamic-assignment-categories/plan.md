@@ -57,5 +57,5 @@ model); syncing from views only (admin and scripts would drift).
 ## Test plan
 
 - `apps/home/tests/test_assignment_categories.py` — AC-1 to AC-11
-- `apps/lesson/tests/test_homework_assignment_sync.py` — AC-13 to AC-23
+- `apps/lesson/tests/test_homework_assignment_sync.py` — AC-13 to AC-25
 - `apps/lesson/tests/test_homework_assignment_migration.py` — AC-4, AC-12
