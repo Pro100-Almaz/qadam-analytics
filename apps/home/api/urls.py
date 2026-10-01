@@ -156,6 +156,14 @@ urlpatterns = [
         name='subject-grade-detail',
     ),
 
+    # GET /api/v1/offerings/<offering_id>/subject-grades/  every assignment of
+    #     the offering with its grades nested; role-scoped (spec 0009)
+    path(
+        'offerings/<int:offering_id>/subject-grades/',
+        views.OfferingSubjectGradeListAPIView.as_view(),
+        name='offering-subject-grades',
+    ),
+
     # ── Quarter grades ──
     # GET /api/v1/teachers/my-class/quarter-grades/  every quarter grade of the
     #                                    caller's homeroom class, all subjects
@@ -165,22 +173,15 @@ urlpatterns = [
         name='homeroom-quarter-grade-list',
     ),
 
-    # GET  /api/v1/quarter-grades/  role-scoped list; filters: student, quarter,
-    #                               offering, subject, class_group, academic_year
-    # POST /api/v1/quarter-grades/  record one in an offering you teach
+    # GET    /api/v1/offerings/<offering_id>/quarter-grades/  any staff member
+    # POST   /api/v1/offerings/<offering_id>/quarter-grades/  {quarter, grades}
+    # PATCH  /api/v1/offerings/<offering_id>/quarter-grades/  {quarter, grades}
+    # DELETE /api/v1/offerings/<offering_id>/quarter-grades/  {quarter, students}
+    # Writes: teachers of the offering only (spec 0008)
     path(
-        'quarter-grades/',
-        views.QuarterGradeListCreateAPIView.as_view(),
-        name='quarter-grade-list-create',
-    ),
-
-    # GET    /api/v1/quarter-grades/<pk>/  single quarter grade
-    # PATCH  /api/v1/quarter-grades/<pk>/  change grade / quarter
-    # DELETE /api/v1/quarter-grades/<pk>/  remove it
-    path(
-        'quarter-grades/<int:pk>/',
-        views.QuarterGradeDetailAPIView.as_view(),
-        name='quarter-grade-detail',
+        'offerings/<int:offering_id>/quarter-grades/',
+        views.OfferingQuarterGradeAPIView.as_view(),
+        name='offering-quarter-grades',
     ),
 
     # Teacher dashboards (role-specific)

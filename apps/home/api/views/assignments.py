@@ -38,7 +38,7 @@ Read access:
 Nobody else sees any of it.
 """
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -51,7 +51,7 @@ from rest_framework.views import APIView
 from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import (
     AssignmentCategory, Enrollment, SubjectAssignment, SubjectGrade,
-    TeachingAssignment,
+    SubjectOffering, TeachingAssignment,
 )
 from core.error_messages import (
     HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
@@ -67,6 +67,7 @@ from apps.home.api.serializers import (
     AssignmentCategorySerializer,
     SubjectAssignmentCreateSerializer,
     SubjectAssignmentSerializer,
+    SubjectAssignmentWithGradesSerializer,
     SubjectAssignmentWriteSerializer,
     SubjectGradeSerializer,
     SubjectGradeWriteSerializer,
@@ -632,6 +633,52 @@ class SubjectGradeListAPIView(APIView):
         paginator = SubjectAssignmentPagination()
         page = paginator.paginate_queryset(rows, request, view=self)
         serializer = SubjectGradeSerializer(
+            page, many=True, context={'request': request},
+        )
+        return paginator.get_paginated_response(serializer.data)
+
+
+class OfferingSubjectGradeListAPIView(APIView):
+    """
+    GET offerings/<offering_id>/subject-grades/ — the offering's gradebook:
+    every assignment, each with its grades nested inside (spec 0009).
+
+    Visibility is exactly that of the per-assignment endpoints: assignments
+    come from assignment_queryset widened with the homeroom one, grades from
+    grade_queryset. A student therefore sees published assignments with only
+    their own mark in each, and a teacher with no claim on the offering an
+    empty list. Paginated over assignments, not grades.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses=SubjectAssignmentWithGradesSerializer(many=True),
+        parameters=[CATEGORY_PARAM] + DATE_PARAMS + PAGE_PARAMS,
+        description=(
+            'Assignments of one offering, newest first, each with a `grades` '
+            'list ordered by student name. Scoped per role like GET '
+            'subject-assignments/<id>/grades/.'
+        ),
+    )
+    def get(self, request, offering_id):
+        offering = get_object_or_404(SubjectOffering.objects.all(), pk=offering_id)
+        user = request.user
+
+        visible_grades = grade_queryset(user).order_by(
+            'student__user__last_name', 'student__user__first_name', 'id',
+        )
+        rows = (
+            assignment_queryset(user) | homeroom_assignment_queryset(user)
+        ).filter(offering=offering).prefetch_related(
+            Prefetch('grades', queryset=visible_grades, to_attr='visible_grades'),
+        )
+        rows = _apply_assignment_filters(rows, request.query_params).order_by(
+            '-date', '-created_at', '-id',
+        )
+
+        paginator = SubjectAssignmentPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        serializer = SubjectAssignmentWithGradesSerializer(
             page, many=True, context={'request': request},
         )
         return paginator.get_paginated_response(serializer.data)
