@@ -1337,15 +1337,6 @@ class AssignmentFiltersSerializer(serializers.Serializer):
     missing = serializers.ChoiceField(choices=['exclude', 'zero'])
 
 
-class AssignmentColumnSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    title = serializers.CharField()
-    category = serializers.CharField()
-    date = serializers.DateField(allow_null=True)
-    max_grade = serializers.IntegerField()
-    graded_count = serializers.IntegerField()
-
-
 class AssignmentTrajectoryPointSerializer(serializers.Serializer):
     id = serializers.IntegerField(help_text='Subject assignment id.')
     title = serializers.CharField()
@@ -1398,50 +1389,6 @@ class StudentAssignmentTrajectorySerializer(serializers.Serializer):
     grading = AssignmentGradingNoteSerializer()
     points = AssignmentTrajectoryPointSerializer(many=True)
     summary = AssignmentTrajectorySummarySerializer()
-
-
-class AssignmentHeatmapSerializer(serializers.Serializer):
-    offering = AnalyticsOfferingSerializer()
-    filters = AssignmentFiltersSerializer()
-    grading = AssignmentGradingNoteSerializer()
-    scale = HeatmapScaleSerializer(help_text='Always 0–100: cells are percentages.')
-    students = AnalyticsStudentSerializer(many=True)
-    assignments = AssignmentColumnSerializer(many=True)
-    matrix = serializers.ListField(
-        child=serializers.ListField(child=serializers.FloatField()),
-        help_text=(
-            'matrix[i][j] = students[i] on assignments[j], as a percent. '
-            '0.0 where unmarked — check graded[i][j].'
-        ),
-    )
-    graded = serializers.ListField(
-        child=serializers.ListField(child=serializers.BooleanField()),
-        help_text='Whether each cell holds a real mark.',
-    )
-    raw_grades = serializers.ListField(
-        child=serializers.ListField(
-            child=serializers.IntegerField(allow_null=True),
-        ),
-        help_text='The marks as entered, in the assignment\'s own points.',
-    )
-    grade_ids = serializers.ListField(
-        child=serializers.ListField(
-            child=serializers.IntegerField(allow_null=True),
-        ),
-        help_text='Existing SubjectGrade ids aligned with raw_grades.',
-    )
-    comments = serializers.ListField(
-        child=serializers.ListField(child=serializers.CharField(allow_blank=True)),
-        help_text='Existing SubjectGrade comments aligned with raw_grades.',
-    )
-    row_means = serializers.ListField(child=serializers.FloatField())
-    column_means = serializers.ListField(child=serializers.FloatField())
-    coverage = AssignmentCoverageSerializer()
-    class_size = serializers.IntegerField()
-    assignment_count = serializers.IntegerField()
-    truncated = serializers.BooleanField(
-        help_text='True when older assignments were dropped; narrow by date.',
-    )
 
 
 class AssignmentSummaryFiltersSerializer(AssignmentFiltersSerializer):

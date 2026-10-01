@@ -38,11 +38,12 @@ Read access:
 Nobody else sees any of it.
 """
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -51,7 +52,7 @@ from rest_framework.views import APIView
 from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import (
     AssignmentCategory, Enrollment, SubjectAssignment, SubjectGrade,
-    TeachingAssignment,
+    SubjectOffering, TeachingAssignment,
 )
 from core.error_messages import (
     HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
@@ -67,6 +68,7 @@ from apps.home.api.serializers import (
     AssignmentCategorySerializer,
     SubjectAssignmentCreateSerializer,
     SubjectAssignmentSerializer,
+    SubjectAssignmentWithGradesSerializer,
     SubjectAssignmentWriteSerializer,
     SubjectGradeSerializer,
     SubjectGradeWriteSerializer,
@@ -289,15 +291,18 @@ def apply_offering_filters(qs, params, prefix=''):
 
 def _apply_assignment_filters(qs, params, prefix=''):
     """
-    Offering filters plus `category` and the assignment's own `date`.
+    Offering filters plus `category`, `quarter` and the assignment's own `date`.
 
     The date is filtered either exactly (`date`) or as a closed range
-    (`date_from` / `date_to`, either end optional) — enough to ask for one day,
-    one week or one quarter without a second endpoint.
+    (`date_from` / `date_to`, either end optional) — enough to ask for one day
+    or one week without a second endpoint. `quarter` matches the stored
+    quarter, so an assignment with none never matches it.
     """
     qs = apply_offering_filters(qs, params, prefix=prefix)
     if params.get('category'):
         qs = qs.filter(**{f'{prefix}category__code': params['category']})
+    if params.get('quarter'):
+        qs = qs.filter(**{f'{prefix}quarter': _quarter_param(params['quarter'])})
     if params.get('date'):
         qs = qs.filter(**{f'{prefix}date': params['date']})
     if params.get('date_from'):
@@ -305,6 +310,12 @@ def _apply_assignment_filters(qs, params, prefix=''):
     if params.get('date_to'):
         qs = qs.filter(**{f'{prefix}date__lte': params['date_to']})
     return qs
+
+
+def _quarter_param(value):
+    if value not in ('1', '2', '3', '4'):
+        raise ValidationError({'quarter': 'Must be 1, 2, 3 or 4.'})
+    return int(value)
 
 
 OFFERING_FILTER_PARAMS = [
@@ -327,6 +338,11 @@ CATEGORY_PARAM = OpenApiParameter(
                 '(lesson, exam, final, homework, …).',
 )
 
+QUARTER_FILTER_PARAM = OpenApiParameter(
+    'quarter', int, enum=[1, 2, 3, 4],
+    description='Quarter, 1–4. Anything else is a 400.',
+)
+
 DATE_PARAMS = [
     OpenApiParameter(
         'date', OpenApiTypes.DATE,
@@ -343,7 +359,8 @@ DATE_PARAMS = [
 ]
 
 ASSIGNMENT_FILTER_PARAMS = (
-    OFFERING_FILTER_PARAMS + [CATEGORY_PARAM] + DATE_PARAMS + PAGE_PARAMS
+    OFFERING_FILTER_PARAMS + [CATEGORY_PARAM, QUARTER_FILTER_PARAM]
+    + DATE_PARAMS + PAGE_PARAMS
 )
 
 
@@ -390,8 +407,8 @@ class SubjectAssignmentListCreateAPIView(APIView):
             'instead. Students and parents get the classes they (or their '
             'children) are enrolled in, and admin roles and psychologists the '
             'whole school. Filter by `category` to separate ordinary work from '
-            'exams and finals, and by `date` / `date_from` / `date_to` to pick '
-            'a day or a range. Newest assignment date first.'
+            'exams and finals, by `quarter`, and by `date` / `date_from` / '
+            '`date_to` to pick a day or a range. Newest assignment date first.'
         ),
     )
     def get(self, request):
@@ -404,7 +421,9 @@ class SubjectAssignmentListCreateAPIView(APIView):
         responses={201: SubjectAssignmentSerializer},
         description=(
             'Creates an assignment. The caller must be an assigned teacher of '
-            'the target offering, otherwise the request is a 403.'
+            'the target offering, otherwise the request is a 403. `quarter` '
+            'is optional: without it the quarter is derived from `date`, and '
+            'is null when the date is outside every quarter of the year.'
         ),
     )
     def post(self, request):
@@ -430,6 +449,7 @@ class SubjectAssignmentListCreateAPIView(APIView):
                 max_grade=data['max_grade'],
                 date=data['date'],
                 is_active=data['is_active'],
+                quarter=data.get('quarter'),
             )
         else:
             assignment = serializer.save()
@@ -443,7 +463,9 @@ class SubjectAssignmentDetailAPIView(APIView):
     """
     GET    subject-assignments/<pk>/  — single assignment
     PATCH  subject-assignments/<pk>/  — change title / category / max_grade /
-                                       date / is_active
+                                       date / quarter / is_active
+
+    A PATCH that moves `date` without sending `quarter` re-derives the quarter.
     DELETE subject-assignments/<pk>/  — delete it, cascading to its grades
 
     On a homework assignment PATCH reaches the Homework behind it too, and
@@ -632,6 +654,52 @@ class SubjectGradeListAPIView(APIView):
         paginator = SubjectAssignmentPagination()
         page = paginator.paginate_queryset(rows, request, view=self)
         serializer = SubjectGradeSerializer(
+            page, many=True, context={'request': request},
+        )
+        return paginator.get_paginated_response(serializer.data)
+
+
+class OfferingSubjectGradeListAPIView(APIView):
+    """
+    GET offerings/<offering_id>/subject-grades/ — the offering's gradebook:
+    every assignment, each with its grades nested inside (spec 0009).
+
+    Visibility is exactly that of the per-assignment endpoints: assignments
+    come from assignment_queryset widened with the homeroom one, grades from
+    grade_queryset. A student therefore sees published assignments with only
+    their own mark in each, and a teacher with no claim on the offering an
+    empty list. Paginated over assignments, not grades.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses=SubjectAssignmentWithGradesSerializer(many=True),
+        parameters=[CATEGORY_PARAM, QUARTER_FILTER_PARAM] + DATE_PARAMS + PAGE_PARAMS,
+        description=(
+            'Assignments of one offering, newest first, each with a `grades` '
+            'list ordered by student name. Scoped per role like GET '
+            'subject-assignments/<id>/grades/.'
+        ),
+    )
+    def get(self, request, offering_id):
+        offering = get_object_or_404(SubjectOffering.objects.all(), pk=offering_id)
+        user = request.user
+
+        visible_grades = grade_queryset(user).order_by(
+            'student__user__last_name', 'student__user__first_name', 'id',
+        )
+        rows = (
+            assignment_queryset(user) | homeroom_assignment_queryset(user)
+        ).filter(offering=offering).prefetch_related(
+            Prefetch('grades', queryset=visible_grades, to_attr='visible_grades'),
+        )
+        rows = _apply_assignment_filters(rows, request.query_params).order_by(
+            '-date', '-created_at', '-id',
+        )
+
+        paginator = SubjectAssignmentPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        serializer = SubjectAssignmentWithGradesSerializer(
             page, many=True, context={'request': request},
         )
         return paginator.get_paginated_response(serializer.data)

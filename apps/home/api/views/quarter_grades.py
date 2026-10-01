@@ -1,5 +1,5 @@
 """
-CRUD endpoints for quarter grades.
+Quarter grades, managed per offering (spec 0008).
 
 A QuarterGrade is the single mark a student ends a quarter with in one subject
 — the 2–5 that goes on the report card. It hangs off a SubjectOffering ("Math
@@ -7,25 +7,28 @@ for 7A in 2025/2026") and a quarter, one row per student per subject per
 quarter, and it is entered by hand: nothing here derives it from the
 assignment grades underneath.
 
+    offerings/<offering_id>/quarter-grades/
+        GET     every quarter grade of the offering (?quarter=N narrows it)
+        POST    {"quarter": q, "grades": {student_id: grade}}  create
+        PATCH   {"quarter": q, "grades": {student_id: grade}}  change
+        DELETE  {"quarter": q, "students": [student_id, ...]}  remove
+
+Writes are all-or-nothing: one bad student fails the whole request.
+
 Write access:
-- Only a teacher assigned to the offering (TeachingAssignment), and only for
-  students actively enrolled in that offering's class group for that offering's
-  academic year. As with assignments, the boundary is the offering rather than
-  the person who typed the row in, so co-teachers can fix each other's marks.
-- Admin roles are deliberately not allowed to write; they read the whole
-  school instead.
+- Only a teacher assigned to the offering (TeachingAssignment), in any role
+  — co-teachers can fix each other's marks. Nobody else: not admin roles, and
+  not the homeroom teacher of the class unless they also teach the subject.
+  QuarterGrade is deliberately not registered in the Django admin either.
 
 Read access:
-- Admin / Principal / Supervisor and Psychologist — everything, school-wide.
-- Teacher        — the offerings they teach, and nothing else.
-- Homeroom teacher — their own class has its own endpoint,
-                   teachers/my-class/quarter-grades/, which spans every subject
-                   taught to that class rather than only the ones they teach.
-- Student        — their own marks.
-- Parent         — their children's.
-Nobody else sees any of it.
+- Any staff member (IsStaffOrAdmin: admin roles, teachers, psychologists),
+  for any offering in the school. Students and parents get nothing.
+- Homeroom teachers additionally have teachers/my-class/quarter-grades/,
+  which spans every subject taught to their class.
 """
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -34,27 +37,25 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Parent, Teacher
-from apps.home.models import QuarterGrade
-from core.error_messages import NO_PERMISSION, OWN_OFFERINGS_ONLY
+from apps.authentication.models import Teacher
+from apps.home.models import QuarterGrade, SubjectOffering
+from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import (
+    IsStaffOrAdmin,
     IsTeacherRole,
-    is_admin_role,
-    is_teacher_role,
     teacher_homeroom_class_group_ids,
 )
 
 from apps.home.api.serializers import (
-    QuarterGradeCreateSerializer,
+    QuarterGradeBulkDeleteSerializer,
+    QuarterGradeBulkSerializer,
     QuarterGradeSerializer,
-    QuarterGradeWriteSerializer,
 )
 from apps.home.api.views.assignments import (
     OFFERING_FILTER_PARAMS,
     PAGE_PARAMS,
     apply_offering_filters,
     teacher_assignment_for,
-    teacher_offering_ids,
 )
 
 
@@ -74,38 +75,14 @@ QUARTER_GRADE_SELECT_RELATED = (
 
 # ── Queryset scoping ──
 
-def quarter_grade_queryset(user):
-    """Quarter grades visible to the requesting user — see the module docstring."""
-    qs = QuarterGrade.objects.select_related(*QUARTER_GRADE_SELECT_RELATED)
-
-    if is_admin_role(user) or user.is_psychologist():
-        return qs
-
-    if is_teacher_role(user):
-        teacher = Teacher.objects.filter(user=user).first()
-        if teacher is None:
-            return qs.none()
-        return qs.filter(offering_id__in=teacher_offering_ids(teacher))
-
-    if user.is_student():
-        return qs.filter(student__user=user)
-
-    if user.is_parent():
-        parent = Parent.objects.filter(user=user).first()
-        if parent is None:
-            return qs.none()
-        return qs.filter(student__in=parent.students.all())
-
-    return qs.none()
-
-
 def homeroom_quarter_grade_queryset(user):
     """
     Every quarter grade of the students in the caller's own homeroom class,
     across all subjects taught to it — not only the subjects the caller teaches.
 
     Empty for anyone without a homeroom assignment in the active academic year,
-    admin roles included: they reach the same rows through GET quarter-grades/.
+    admin roles included: they reach the same rows through
+    GET offerings/<offering_id>/quarter-grades/.
     """
     teacher = Teacher.objects.filter(user=user).first()
     if teacher is None:
@@ -121,19 +98,6 @@ def homeroom_quarter_grade_queryset(user):
         student__enrollments__class_group_id__in=class_group_ids,
         student__enrollments__status='active',
     ).distinct()
-
-
-# ── Write permissions ──
-
-def can_manage_quarter_grade(user, quarter_grade):
-    """
-    Whether the user may edit or delete this quarter grade.
-
-    A quarter grade belongs to its offering rather than to one person: any
-    teacher of that offering may correct it. Homeroom teachers who do not teach
-    the subject are not included — their homeroom reach is read-only.
-    """
-    return teacher_assignment_for(user, quarter_grade.offering) is not None
 
 
 # ── Filters ──
@@ -154,145 +118,144 @@ QUARTER_GRADE_FILTER_PARAMS = (
     OFFERING_FILTER_PARAMS + [QUARTER_PARAM, STUDENT_PARAM] + PAGE_PARAMS
 )
 
-QUARTER_GRADE_ORDERING = (
-    'offering__subject__name', 'quarter',
-    'student__user__last_name', 'student__user__first_name', 'id',
+OFFERING_QUARTER_GRADE_ORDERING = (
+    'quarter', 'student__user__last_name', 'student__user__first_name', 'id',
 )
 
 
-class QuarterGradeListCreateAPIView(APIView):
+class OfferingQuarterGradeAPIView(APIView):
     """
-    GET  quarter-grades/  — quarter grades the caller is allowed to see
-    POST quarter-grades/  — record one in an offering the caller teaches
+    GET / POST / PATCH / DELETE offerings/<offering_id>/quarter-grades/
 
-    This is the endpoint that answers "what did this student finish the quarter
-    with": a student calls it bare and gets their own marks, a parent gets their
-    children's, a teacher gets the offerings they teach, and admin roles and
-    psychologists get the school. Narrow it with `student` or `quarter` when the
-    caller can see more than one.
-    """
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAuthenticated(), IsTeacherRole()]
-        return [IsAuthenticated()]
-
-    @extend_schema(
-        responses=QuarterGradeSerializer(many=True),
-        parameters=QUARTER_GRADE_FILTER_PARAMS,
-        description=(
-            'Role-scoped list of quarter grades. Teachers get the offerings '
-            'they teach, students their own marks, parents their children\'s, '
-            'and admin roles and psychologists the whole school. Homeroom '
-            'teachers use teachers/my-class/quarter-grades/ for their class.'
-        ),
-    )
-    def get(self, request):
-        rows = _apply_quarter_grade_filters(
-            quarter_grade_queryset(request.user), request.query_params,
-        ).order_by(*QUARTER_GRADE_ORDERING)
-
-        paginator = QuarterGradePagination()
-        page = paginator.paginate_queryset(rows, request, view=self)
-        serializer = QuarterGradeSerializer(
-            page, many=True, context={'request': request},
-        )
-        return paginator.get_paginated_response(serializer.data)
-
-    @extend_schema(
-        request=QuarterGradeCreateSerializer,
-        responses={201: QuarterGradeSerializer},
-        description=(
-            'Records a quarter grade. The caller must be an assigned teacher '
-            'of the target offering, and the student must be actively enrolled '
-            'in that offering\'s class group. One grade per student per subject '
-            'per quarter — change an existing one with PATCH '
-            'quarter-grades/<pk>/.'
-        ),
-    )
-    def post(self, request):
-        serializer = QuarterGradeCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        offering = serializer.validated_data['offering']
-        if teacher_assignment_for(request.user, offering) is None:
-            return Response(
-                {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
-            )
-
-        quarter_grade = serializer.save()
-        return Response(
-            QuarterGradeSerializer(quarter_grade, context={'request': request}).data,
-            status=status.HTTP_201_CREATED,
-        )
-
-
-class QuarterGradeDetailAPIView(APIView):
-    """
-    GET    quarter-grades/<pk>/  — single quarter grade
-    PATCH  quarter-grades/<pk>/  — change the mark or the quarter
-    DELETE quarter-grades/<pk>/  — remove it
-
-    Writes are limited to the teachers of the offering; reads follow the same
-    scoping as GET quarter-grades/.
+    See the module docstring for the payloads and who may call what. The
+    permission check runs before the payload is validated, so a caller without
+    write access gets 403 whatever they send.
     """
 
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsAuthenticated()]
+            return [IsAuthenticated(), IsStaffOrAdmin()]
         return [IsAuthenticated(), IsTeacherRole()]
 
-    @extend_schema(responses=QuarterGradeSerializer)
-    def get(self, request, pk):
-        quarter_grade = get_object_or_404(quarter_grade_queryset(request.user), pk=pk)
+    @extend_schema(
+        responses=QuarterGradeSerializer(many=True),
+        parameters=[QUARTER_PARAM],
+        description=(
+            'Every quarter grade of the offering, for any staff member. '
+            'Students and parents get 403.'
+        ),
+    )
+    def get(self, request, offering_id):
+        offering = get_object_or_404(SubjectOffering.objects.all(), pk=offering_id)
+        rows = QuarterGrade.objects.select_related(
+            *QUARTER_GRADE_SELECT_RELATED,
+        ).filter(offering=offering)
+        if request.query_params.get('quarter'):
+            rows = rows.filter(quarter=request.query_params['quarter'])
+
+        return Response(QuarterGradeSerializer(
+            rows.order_by(*OFFERING_QUARTER_GRADE_ORDERING), many=True,
+            context={'request': request},
+        ).data)
+
+    @extend_schema(
+        request=QuarterGradeBulkSerializer,
+        responses={201: QuarterGradeSerializer(many=True)},
+        description=(
+            'Records the quarter grades of several students at once. Fails as '
+            'a whole if any student is not enrolled in the class or is already '
+            'graded for the quarter — change existing grades with PATCH.'
+        ),
+    )
+    def post(self, request, offering_id):
+        offering, refusal = self._get_writable(request, offering_id)
+        if refusal:
+            return refusal
+
+        data = self._validated(QuarterGradeBulkSerializer, request, offering, 'create')
+        with transaction.atomic():
+            created = [
+                QuarterGrade.objects.create(
+                    offering=offering, student_id=student_id,
+                    quarter=data['quarter'], grade=grade,
+                )
+                for student_id, grade in data['grades'].items()
+            ]
         return Response(
-            QuarterGradeSerializer(quarter_grade, context={'request': request}).data
+            self._serialize(request, [row.pk for row in created]),
+            status=status.HTTP_201_CREATED,
         )
 
     @extend_schema(
-        request=QuarterGradeWriteSerializer,
-        responses=QuarterGradeSerializer,
+        request=QuarterGradeBulkSerializer,
+        responses=QuarterGradeSerializer(many=True),
         description=(
-            'Changes the mark or the quarter. The student and the offering are '
-            'fixed after creation — moving a row to another student is a delete '
-            'plus a create.'
+            'Changes the quarter grades of the listed students. Students not '
+            'listed are untouched. Fails as a whole if any listed student has '
+            'no grade for the quarter yet.'
         ),
     )
-    def patch(self, request, pk):
-        quarter_grade = self._get_writable(request, pk)
-        if isinstance(quarter_grade, Response):
-            return quarter_grade
+    def patch(self, request, offering_id):
+        offering, refusal = self._get_writable(request, offering_id)
+        if refusal:
+            return refusal
 
-        serializer = QuarterGradeWriteSerializer(
-            quarter_grade, data=request.data, partial=True,
-            context={'request': request},
-        )
-        serializer.is_valid(raise_exception=True)
-        quarter_grade = serializer.save()
+        data = self._validated(QuarterGradeBulkSerializer, request, offering, 'update')
+        grades = data['grades']
+        rows = list(QuarterGrade.objects.filter(
+            offering=offering, quarter=data['quarter'], student_id__in=grades,
+        ))
+        for row in rows:
+            row.grade = grades[row.student_id]
+        QuarterGrade.objects.bulk_update(rows, ['grade'])
 
-        return Response(
-            QuarterGradeSerializer(quarter_grade, context={'request': request}).data
-        )
+        return Response(self._serialize(request, [row.pk for row in rows]))
 
-    @extend_schema(responses={204: None})
-    def delete(self, request, pk):
-        quarter_grade = self._get_writable(request, pk)
-        if isinstance(quarter_grade, Response):
-            return quarter_grade
+    @extend_schema(
+        request=QuarterGradeBulkDeleteSerializer,
+        responses={204: None},
+        description=(
+            'Removes the quarter grades of the listed students. Fails as a '
+            'whole if any listed student has no grade for the quarter.'
+        ),
+    )
+    def delete(self, request, offering_id):
+        offering, refusal = self._get_writable(request, offering_id)
+        if refusal:
+            return refusal
 
-        quarter_grade.delete()
+        data = self._validated(QuarterGradeBulkDeleteSerializer, request, offering)
+        QuarterGrade.objects.filter(
+            offering=offering, quarter=data['quarter'], student_id__in=data['students'],
+        ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
-    def _get_writable(request, pk):
-        quarter_grade = get_object_or_404(
-            QuarterGrade.objects.select_related(*QUARTER_GRADE_SELECT_RELATED), pk=pk,
+    def _get_writable(request, offering_id):
+        """The offering, or a 403 unless the caller teaches it — admin roles included."""
+        offering = get_object_or_404(
+            SubjectOffering.objects.select_related('class_group'), pk=offering_id,
         )
-        if not can_manage_quarter_grade(request.user, quarter_grade):
-            return Response(
-                {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
+        if teacher_assignment_for(request.user, offering) is None:
+            return offering, Response(
+                {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
             )
-        return quarter_grade
+        return offering, None
+
+    @staticmethod
+    def _validated(serializer_class, request, offering, mode=None):
+        serializer = serializer_class(
+            data=request.data, context={'offering': offering, 'mode': mode},
+        )
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+    @staticmethod
+    def _serialize(request, pks):
+        rows = QuarterGrade.objects.select_related(
+            *QUARTER_GRADE_SELECT_RELATED,
+        ).filter(pk__in=pks).order_by(*OFFERING_QUARTER_GRADE_ORDERING)
+        return QuarterGradeSerializer(rows, many=True, context={'request': request}).data
 
 
 class HomeroomQuarterGradeListAPIView(APIView):
@@ -313,7 +276,8 @@ class HomeroomQuarterGradeListAPIView(APIView):
         parameters=QUARTER_GRADE_FILTER_PARAMS,
         description=(
             'Quarter grades of the classes the caller is homeroom teacher of. '
-            'Same payload as GET quarter-grades/. Empty when the caller has no '
+            'Same payload as GET offerings/<offering_id>/quarter-grades/. '
+            'Empty when the caller has no '
             'homeroom assignment for the active academic year.'
         ),
     )

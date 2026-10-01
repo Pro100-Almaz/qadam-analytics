@@ -807,6 +807,14 @@ def _check_homework_max_grade(category, max_grade):
         })
 
 
+def _quarter_field():
+    return serializers.IntegerField(
+        min_value=1, max_value=4, required=False,
+        help_text='Quarter, 1-4. Omit it to derive it from `date` and the '
+                  'academic year\'s quarter bounds.',
+    )
+
+
 class SubjectAssignmentSerializer(serializers.ModelSerializer):
     """Read payload for an assignment, flattened enough to render a list."""
     category = serializers.SlugRelatedField(slug_field='code', read_only=True)
@@ -822,7 +830,7 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
         model = SubjectAssignment
         fields = [
             'id', 'title', 'category', 'category_name', 'max_grade', 'date',
-            'detail_id', 'is_active', 'offering_id',
+            'quarter', 'detail_id', 'is_active', 'offering_id',
             'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
@@ -857,6 +865,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     date = serializers.DateField(
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    quarter = _quarter_field()
     is_active = serializers.BooleanField(
         required=False, default=True,
         help_text='False keeps it a draft, hidden from students and parents.',
@@ -864,7 +873,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubjectAssignment
-        fields = ['offering', 'title', 'category', 'max_grade', 'date', 'is_active']
+        fields = ['offering', 'title', 'category', 'max_grade', 'date', 'quarter', 'is_active']
 
     def validate(self, attrs):
         if attrs.get('category') is None:
@@ -887,11 +896,12 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         required=False,
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
+    quarter = _quarter_field()
     is_active = serializers.BooleanField(required=False)
 
     class Meta:
         model = SubjectAssignment
-        fields = ['title', 'category', 'max_grade', 'date', 'is_active']
+        fields = ['title', 'category', 'max_grade', 'date', 'quarter', 'is_active']
 
     def validate_category(self, category):
         current = self.instance.category if self.instance is not None else None
@@ -908,6 +918,10 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         max_grade = attrs.get('max_grade', getattr(self.instance, 'max_grade', None))
         _check_homework_max_grade(category, max_grade)
+        if 'date' in attrs and 'quarter' not in attrs:
+            # A new date without a quarter: let save() derive it again rather
+            # than keep the quarter of the old date.
+            attrs['quarter'] = None
         return attrs
 
     def validate_max_grade(self, max_grade):
@@ -938,6 +952,37 @@ class SubjectGradeSerializer(serializers.ModelSerializer):
             'id', 'assignment', 'student', 'student_user_id', 'student_name',
             'grade', 'comments', 'created_at',
         ]
+        read_only_fields = fields
+
+
+class OfferingGradebookGradeSerializer(serializers.ModelSerializer):
+    """One grade nested under its assignment — the assignment is the parent row."""
+    student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
+    student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
+
+    class Meta:
+        model = SubjectGrade
+        fields = [
+            'id', 'student', 'student_user_id', 'student_name',
+            'grade', 'comments', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class SubjectAssignmentWithGradesSerializer(SubjectAssignmentSerializer):
+    """
+    An assignment with its grades inlined (spec 0009).
+
+    Reads `visible_grades`, which the view prefetches through the caller's own
+    grade_queryset — never `assignment.grades.all()`, which would hand a
+    student their classmates' marks.
+    """
+    grades = OfferingGradebookGradeSerializer(
+        source='visible_grades', many=True, read_only=True,
+    )
+
+    class Meta(SubjectAssignmentSerializer.Meta):
+        fields = SubjectAssignmentSerializer.Meta.fields + ['grades']
         read_only_fields = fields
 
 
@@ -1014,20 +1059,6 @@ class SubjectGradeWriteSerializer(serializers.ModelSerializer):
 
 # ── Quarter grades ──
 
-def _assert_enrolled(student, offering):
-    """A quarter grade only means something for a student who was in the class."""
-    enrolled = Enrollment.objects.filter(
-        student=student,
-        class_group=offering.class_group,
-        class_group__academic_year_id=offering.academic_year_id,
-        status='active',
-    ).exists()
-    if not enrolled:
-        raise serializers.ValidationError(
-            'This student is not enrolled in the class group of this offering.'
-        )
-
-
 class QuarterGradeSerializer(serializers.ModelSerializer):
     """
     Read payload for one student's final mark in one subject for one quarter.
@@ -1060,69 +1091,105 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
         return f"{class_group.grade_level}{class_group.letter}"
 
 
-class QuarterGradeCreateSerializer(serializers.ModelSerializer):
+class QuarterGradeBulkSerializer(serializers.Serializer):
     """
-    Create payload. `offering` is checked against the caller's
-    TeachingAssignment in the view; here we only check that the student belongs
-    to that offering's class and that the quarter is not already graded.
-    """
-    offering = ScopedPrimaryKeyRelatedField(
-        SubjectOffering,
-        select_related=('subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',),
-    )
-    student = ScopedPrimaryKeyRelatedField(
-        Student,
-        select_related=('user',),
-        help_text='Student profile id of the student being graded.',
-    )
-    quarter = serializers.IntegerField(min_value=1, max_value=4)
-    grade = serializers.IntegerField(min_value=2, max_value=5)
+    POST / PATCH offerings/<offering_id>/quarter-grades/ payload (spec 0008).
 
-    class Meta:
-        model = QuarterGrade
-        fields = ['offering', 'student', 'quarter', 'grade']
-        # The model's unique_together would add a validator with a generic
-        # message; validate() below says the same thing in words a teacher can act on.
-        validators = []
+    `grades` maps a Student profile id to the mark for `quarter`. The whole
+    payload is validated before anything is written, so a teacher sees every
+    problem with the class at once and the write is all-or-nothing.
+
+    Context: `offering`, and `mode` — 'create' refuses students already graded
+    for the quarter, 'update' refuses students who are not.
+    """
+    quarter = serializers.IntegerField(min_value=1, max_value=4)
+    grades = serializers.DictField(
+        child=serializers.IntegerField(min_value=2, max_value=5),
+        allow_empty=False,
+        help_text='{"<student profile id>": grade}, grade 2–5.',
+    )
 
     def validate(self, attrs):
-        offering = attrs['offering']
-        _assert_enrolled(attrs['student'], offering)
+        offering = self.context['offering']
+        grades = _student_id_keys(attrs['grades'])
 
-        exists = QuarterGrade.objects.filter(
-            offering=offering, student=attrs['student'], quarter=attrs['quarter'],
-        ).exists()
-        if exists:
-            raise serializers.ValidationError(
+        errors = {
+            student_id: ['This student is not enrolled in the class group of this offering.']
+            for student_id in grades.keys() - _enrolled_student_ids(offering, grades)
+        }
+
+        graded = set(QuarterGrade.objects.filter(
+            offering=offering, quarter=attrs['quarter'], student_id__in=grades,
+        ).values_list('student_id', flat=True))
+        if self.context['mode'] == 'create':
+            clash, message = graded, (
                 f"This student already has a grade for quarter {attrs['quarter']} "
                 f'in this subject — change it with PATCH instead.'
             )
+        else:
+            clash, message = grades.keys() - graded, (
+                f"This student has no grade for quarter {attrs['quarter']} "
+                f'in this subject — record it with POST instead.'
+            )
+        for student_id in clash:
+            errors.setdefault(student_id, []).append(message)
+
+        if errors:
+            raise serializers.ValidationError(
+                {'grades': {str(k): v for k, v in sorted(errors.items())}}
+            )
+        attrs['grades'] = grades
         return attrs
 
 
-class QuarterGradeWriteSerializer(serializers.ModelSerializer):
+class QuarterGradeBulkDeleteSerializer(serializers.Serializer):
     """
-    Update payload. Student and offering stay fixed: moving a quarter grade to
-    another student or another subject is a delete plus a create, and keeping
-    them fixed means the permission check made on the original row still holds.
+    DELETE offerings/<offering_id>/quarter-grades/ payload (spec 0008).
+
+    Every listed student must have a grade for the quarter; otherwise nothing
+    is deleted, so a typo in one id cannot half-apply the request.
     """
-    quarter = serializers.IntegerField(min_value=1, max_value=4, required=False)
-    grade = serializers.IntegerField(min_value=2, max_value=5, required=False)
+    quarter = serializers.IntegerField(min_value=1, max_value=4)
+    students = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False,
+        help_text='Student profile ids whose grade for the quarter is removed.',
+    )
 
-    class Meta:
-        model = QuarterGrade
-        fields = ['quarter', 'grade']
-        validators = []
+    def validate(self, attrs):
+        student_ids = set(attrs['students'])
+        graded = set(QuarterGrade.objects.filter(
+            offering=self.context['offering'], quarter=attrs['quarter'],
+            student_id__in=student_ids,
+        ).values_list('student_id', flat=True))
 
-    def validate_quarter(self, quarter):
-        """Moving to a quarter that already has a grade would break uniqueness."""
-        clash = QuarterGrade.objects.filter(
-            offering=self.instance.offering,
-            student=self.instance.student,
-            quarter=quarter,
-        ).exclude(pk=self.instance.pk).exists()
-        if clash:
-            raise serializers.ValidationError(
-                f'This student already has a grade for quarter {quarter} in this subject.'
-            )
-        return quarter
+        missing = sorted(student_ids - graded)
+        if missing:
+            raise serializers.ValidationError({'students': [
+                f"No grade for quarter {attrs['quarter']} in this subject "
+                f'for student(s): {", ".join(map(str, missing))}.'
+            ]})
+        attrs['students'] = student_ids
+        return attrs
+
+
+def _student_id_keys(grades):
+    """JSON object keys are strings; the student ids behind them are ints."""
+    parsed, bad = {}, {}
+    for key, grade in grades.items():
+        try:
+            parsed[int(key)] = grade
+        except (TypeError, ValueError):
+            bad[str(key)] = ['Not a valid student id.']
+    if bad:
+        raise serializers.ValidationError({'grades': bad})
+    return parsed
+
+
+def _enrolled_student_ids(offering, student_ids):
+    """Of `student_ids`, those actively enrolled in the offering's class for its year."""
+    return set(Enrollment.objects.filter(
+        student_id__in=student_ids,
+        class_group=offering.class_group,
+        class_group__academic_year_id=offering.academic_year_id,
+        status='active',
+    ).values_list('student_id', flat=True))

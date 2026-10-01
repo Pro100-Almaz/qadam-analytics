@@ -45,13 +45,13 @@ from apps.home.api.views.assignments import (
     SubjectAssignmentDetailAPIView,
     SubjectAssignmentGradeListCreateAPIView,
     SubjectGradeListAPIView,
+    OfferingSubjectGradeListAPIView,
     SubjectGradeDetailAPIView,
     HomeroomSubjectAssignmentListAPIView,
     HomeroomSubjectGradeListAPIView,
 )
 from apps.home.api.views.quarter_grades import (
-    QuarterGradeListCreateAPIView,
-    QuarterGradeDetailAPIView,
+    OfferingQuarterGradeAPIView,
     HomeroomQuarterGradeListAPIView,
 )
 from apps.home.api.views.teacher_dashboard import (
@@ -107,10 +107,10 @@ __all__ = [
     'SubjectAssignmentDetailAPIView',
     'SubjectAssignmentGradeListCreateAPIView',
     'SubjectGradeListAPIView',
+    'OfferingSubjectGradeListAPIView',
     'SubjectGradeDetailAPIView',
     'HomeroomSubjectAssignmentListAPIView',
     'HomeroomSubjectGradeListAPIView',
-    'QuarterGradeListCreateAPIView',
-    'QuarterGradeDetailAPIView',
+    'OfferingQuarterGradeAPIView',
     'HomeroomQuarterGradeListAPIView',
 ]

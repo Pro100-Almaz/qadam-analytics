@@ -1,5 +1,5 @@
 """
-Tests for the three read-only subject-grade analytics endpoints.
+Tests for the read-only subject-grade analytics endpoints.
 
 The recurring theme is the opposite of the topic-grade one: an unmarked
 SubjectGrade is *not* a zero. Most of these assert an exact number that only
@@ -12,9 +12,7 @@ import pytest
 from django.contrib.auth.models import Group
 from django.urls import reverse
 
-from apps.home.models import (
-    Enrollment, HomeroomTeacherAssignment, SubjectAssignment,
-)
+from apps.home.models import HomeroomTeacherAssignment, SubjectAssignment
 from core.factories import (
     AcademicYearFactory, AdminUserFactory, ClassGroupFactory, EnrollmentFactory,
     ParentFactory, StudentFactory, SubjectAssignmentFactory, SubjectFactory,
@@ -27,17 +25,6 @@ def trajectory_url(student, offering):
     return reverse(
         'lesson-api:analytics-assignment-trajectory',
         args=[student.id, offering.id],
-    )
-
-
-def heatmap_url(offering):
-    return reverse('lesson-api:analytics-assignment-heatmap', args=[offering.id])
-
-
-def teacher_scoped_heatmap_url(offering):
-    return reverse(
-        'lesson-api:analytics-teacher-scoped-assignment-heatmap',
-        args=[offering.id],
     )
 
 
@@ -325,7 +312,7 @@ class TestAssignmentTrajectory:
         assert response.status_code == 401
 
 
-# ── Heatmap ──
+# ── Offering picker ──
 
 @pytest.mark.django_db
 class TestAssignmentAnalyticsOfferings:
@@ -362,9 +349,7 @@ class TestAssignmentAnalyticsOfferings:
         rows = {row['id']: row for row in response.data['offerings']}
         assert set(rows) == {cohort['offering'].id, homeroom_offering.id}
         assert rows[cohort['offering'].id]['access'] == 'teaching_and_homeroom'
-        assert rows[cohort['offering'].id]['can_heatmap'] is True
         assert rows[homeroom_offering.id]['access'] == 'homeroom'
-        assert rows[homeroom_offering.id]['can_heatmap'] is False
         assert unrelated.id not in rows
 
     def test_admin_can_request_a_specific_teacher(
@@ -393,155 +378,6 @@ class TestAssignmentAnalyticsOfferings:
         )
 
         assert response.status_code == 403
-
-
-@pytest.mark.django_db
-class TestAssignmentHeatmap:
-
-    def test_matrix_is_students_by_assignments(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']))
-
-        assert response.status_code == 200
-        assert len(response.data['students']) == 3
-        assert [a['title'] for a in response.data['assignments']] == [
-            'Quiz 1', 'Exam 1', 'Homework 1',
-        ]
-        assert response.data['matrix'] == [
-            [100.0, 50.0, 100.0],   # s0
-            [50.0, 0.0, 0.0],       # s1 — the last two are unmarked, not zero
-            [0.0, 0.0, 0.0],        # s2 — nothing entered at all
-        ]
-        assert response.data['graded'] == [
-            [True, True, True],
-            [True, False, False],
-            [False, False, False],
-        ]
-
-    def test_raw_grades_keep_the_original_marks(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']))
-
-        assert response.data['raw_grades'][0] == [20, 25, 10]
-        assert response.data['raw_grades'][1] == [10, None, None]
-
-    def test_edit_metadata_is_aligned_with_cells(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']))
-
-        grades = cohort['grades']
-        assert response.data['grade_ids'] == [
-            [grades['s0_quiz'].id, grades['s0_exam'].id, grades['s0_homework'].id],
-            [grades['s1_quiz'].id, grades['s1_exam'].id, None],
-            [None, None, None],
-        ]
-        assert response.data['comments'] == [
-            ['Excellent', 'Steady', ''],
-            ['', 'Needs submission', ''],
-            ['', '', ''],
-        ]
-
-    def test_means_exclude_unmarked_cells(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']))
-
-        # Quiz: 100 and 50 -> 75. Exam: only 50 entered. Homework: only 100.
-        assert response.data['column_means'] == [
-            pytest.approx(75.0), pytest.approx(50.0), pytest.approx(100.0),
-        ]
-        # s1's row is one mark of 50, not 50/3.
-        assert response.data['row_means'][1] == pytest.approx(50.0)
-        assert response.data['row_means'][2] == pytest.approx(0.0)
-
-    def test_missing_zero_pulls_the_means_down(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']), {'missing': 'zero'})
-
-        assert response.data['column_means'] == [
-            pytest.approx(50.0), pytest.approx(16.67), pytest.approx(33.33),
-        ]
-
-    def test_coverage_spans_the_whole_block(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(heatmap_url(cohort['offering']))
-
-        assert response.data['coverage']['possible_count'] == 9
-        assert response.data['coverage']['graded_count'] == 4
-
-    def test_homeroom_teacher_who_does_not_teach_is_403(
-        self, cohort, authenticated_client,
-    ):
-        homeroom = TeacherFactory()
-        HomeroomTeacherAssignment.objects.create(
-            teacher=homeroom,
-            class_group=cohort['class_group'],
-        )
-
-        client = authenticated_client(homeroom.user)
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
-
-    def test_admin_is_403(self, cohort, authenticated_client):
-        client = authenticated_client(AdminUserFactory())
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
-
-    def test_student_is_403(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['students'][0].user)
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
-
-    def test_parent_is_403(self, cohort, authenticated_client):
-        parent = ParentFactory()
-        parent.students.add(cohort['students'][0])
-
-        client = authenticated_client(parent.user)
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
-
-    def test_unrelated_teacher_is_403(self, cohort, authenticated_client):
-        client = authenticated_client(TeacherFactory().user)
-        assert client.get(heatmap_url(cohort['offering'])).status_code == 403
-
-    def test_teacher_scoped_heatmap_allows_unrelated_teacher(
-        self, cohort, authenticated_client,
-    ):
-        client = authenticated_client(TeacherFactory().user)
-        response = client.get(teacher_scoped_heatmap_url(cohort['offering']))
-
-        assert response.status_code == 200
-        assert response.data['offering']['id'] == cohort['offering'].id
-        assert response.data['matrix'] == [
-            [100.0, 50.0, 100.0],
-            [50.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-        ]
-
-    def test_teacher_scoped_heatmap_allows_mixed_admin_teacher(
-        self, cohort, authenticated_client,
-    ):
-        teacher = TeacherFactory()
-        admin_group, _ = Group.objects.get_or_create(name='Admin')
-        teacher.user.groups.add(admin_group)
-
-        client = authenticated_client(teacher.user)
-        response = client.get(teacher_scoped_heatmap_url(cohort['offering']))
-
-        assert response.status_code == 200
-
-    def test_teacher_scoped_heatmap_rejects_admin_without_teacher_role(
-        self, cohort, authenticated_client,
-    ):
-        client = authenticated_client(AdminUserFactory())
-        assert (
-            client.get(teacher_scoped_heatmap_url(cohort['offering'])).status_code
-            == 403
-        )
-
-    def test_teacher_scoped_heatmap_rejects_student(
-        self, cohort, authenticated_client,
-    ):
-        client = authenticated_client(cohort['students'][0].user)
-        assert (
-            client.get(teacher_scoped_heatmap_url(cohort['offering'])).status_code
-            == 403
-        )
 
 
 # ── Per-subject summary ──
@@ -693,19 +529,6 @@ class TestNothingInScope:
             class_group=cohort['class_group'],
         )
 
-    def test_heatmap_of_an_offering_with_no_assignments(
-        self, cohort, bare_offering, authenticated_client,
-    ):
-        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=bare_offering)
-        client = authenticated_client(cohort['teacher'].user)
-
-        response = client.get(heatmap_url(bare_offering))
-
-        assert response.status_code == 200
-        assert response.data['assignments'] == []
-        assert response.data['matrix'] == [[], [], []]
-        assert response.data['coverage']['possible_count'] == 0
-
     def test_trajectory_over_an_offering_with_no_assignments(
         self, cohort, bare_offering, authenticated_client,
     ):
@@ -730,25 +553,3 @@ class TestNothingInScope:
         assert response.status_code == 200
         assert [axis['assignment_count'] for axis in response.data['axes']] == [0]
         assert response.data['summary']['overall_mean'] == 0.0
-
-    def test_a_filter_matching_no_assignment(self, cohort, authenticated_client):
-        client = authenticated_client(cohort['teacher'].user)
-
-        response = client.get(
-            heatmap_url(cohort['offering']), {'category': 'final'},
-        )
-
-        assert response.status_code == 200
-        assert response.data['assignments'] == []
-
-    def test_heatmap_of_a_class_with_no_students(
-        self, cohort, authenticated_client,
-    ):
-        Enrollment.objects.filter(class_group=cohort['class_group']).delete()
-        client = authenticated_client(cohort['teacher'].user)
-
-        response = client.get(heatmap_url(cohort['offering']))
-
-        assert response.status_code == 200
-        assert response.data['students'] == []
-        assert response.data['matrix'] == []
