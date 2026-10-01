@@ -15,7 +15,7 @@ from django.urls import Resolver404, resolve, reverse
 from apps.home.models import HomeroomTeacherAssignment, QuarterGrade
 from core.factories import (
     AdminUserFactory, ClassGroupFactory, ClubManagerFactory, EnrollmentFactory,
-    ParentFactory, SchoolFactory, StudentFactory, SubjectOfferingFactory,
+    ParentFactory, SchoolFactory, SubjectOfferingFactory,
     SupervisorFactory, TeacherFactory, TeachingAssignmentFactory, UserFactory,
 )
 from core.tenancy import school_scope
