@@ -782,7 +782,9 @@ class SubjectAssignment(models.Model):
 
     title = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="assignments")
-    max_grade = models.PositiveIntegerField()
+    #: None for comment-only work: the teacher leaves feedback and no mark, so
+    #: none of its SubjectGrades may carry a grade. Homework always has one.
+    max_grade = models.PositiveIntegerField(null=True, blank=True)
     category = models.ForeignKey(
         AssignmentCategory, on_delete=models.PROTECT, related_name='assignments',
     )
@@ -879,10 +881,23 @@ class SubjectAssignment(models.Model):
                                     f'detail model. Delete and recreate instead.'
                     })
 
+    @property
+    def is_gradable(self):
+        """False for comment-only work, whose grades hold comments and no mark."""
+        return self.max_grade is not None
+
+    def validate_max_grade(self):
+        """Homework.max_grade is required, so its mirror cannot be comment-only."""
+        if self.max_grade is None and self.is_homework:
+            raise ValidationError({
+                'max_grade': 'A homework assignment needs a max_grade.'
+            })
+
     def clean(self):
         super().clean()
         if self.category_id is not None and self.offering_id is not None:
             self.validate_detail()
+            self.validate_max_grade()
 
     def derive_quarter(self):
         """The quarter `date` falls in, by the offering's academic year bounds."""
@@ -892,6 +907,7 @@ class SubjectAssignment(models.Model):
     def save(self, *args, sync=True, **kwargs):
         """`sync=False` is for the homework sync itself, so a write never echoes back."""
         self.validate_detail()
+        self.validate_max_grade()
         if self.quarter is None:
             self.quarter = self.derive_quarter()
         with transaction.atomic():
@@ -931,6 +947,12 @@ class SubjectGrade(SchoolConsistentModel):
         ordering = ['student']
 
     def save(self, *args, sync=True, **kwargs):
+        # Checked here, not only in the serializer: DRF and objects.create()
+        # never call full_clean().
+        if self.grade is not None and not self.assignment.is_gradable:
+            raise ValidationError({
+                'grade': 'This assignment is comment-only, so it takes no grade.'
+            })
         with transaction.atomic():
             super().save(*args, **kwargs)
             if sync and self.assignment.is_homework:

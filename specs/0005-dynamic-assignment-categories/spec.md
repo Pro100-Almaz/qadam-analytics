@@ -5,7 +5,7 @@ title: Admin-managed SubjectAssignment categories, with Homework mirrored as a c
 status: shipped
 owner: bekzhan
 created: 2026-09-30
-updated: 2026-10-01
+updated: 2026-10-02
 ---
 
 # 0005 — Dynamic assignment categories and the Homework mirror
@@ -121,6 +121,29 @@ Drafts:
 - **AC-25** — The teacher-scoped heatmap shows drafts only to a caller who
   also passes `can_grade_offering`. A teacher who does not teach the offering
   sees published assignments only.
+
+Comment-only assignments (amended 2026-10-02):
+
+Some work gets a comment from the teacher and no mark. Its assignment has
+`max_grade = null`.
+
+- **AC-26** — `POST subject-assignments/` accepts `"max_grade": null` for any
+  category except `homework`. The field must still be sent: leaving it out
+  gives a 400, so a client cannot create comment-only work by accident.
+- **AC-27** — `max_grade: null` with `category=homework` gives a 400, on POST
+  and on PATCH, because `Homework.max_grade` is required.
+- **AC-28** — On a comment-only assignment, `POST
+  subject-assignments/<id>/grades/` and `PATCH subject-grades/<pk>/` with a
+  non-null `grade` give a 400. A row with `comments` and `grade: null` is
+  accepted. The model refuses such a grade too.
+- **AC-29** — `PATCH subject-assignments/<pk>/` with `"max_grade": null` gives a 400
+  while any of its grades has a non-null `grade`. With no marks recorded it
+  succeeds. A number on a comment-only assignment makes it gradable.
+- **AC-30** — Subject analytics (`assignment-trajectory/`,
+  `assignment-summary/`) leave comment-only assignments out. They are not
+  counted as unmarked and do not count as zero under `missing=zero`.
+- **AC-31** — Grade sheets keep comment-only columns. The header note reads
+  "Comment only, no grade" in place of the max grade.
 
 ## API contract
 
