@@ -5,7 +5,7 @@ title: Every assignment of an offering with its grades, in one request
 status: in-progress
 owner: bekzhan
 created: 2026-10-01
-updated: 2026-10-01
+updated: 2026-10-02
 supersedes:
 ---
 
@@ -93,6 +93,9 @@ so the client makes one request per assignment.
 ```
 
 </details>
+
+`max_grade` is null on a comment-only assignment (spec 0005, AC-26). Its
+nested `grades` then carry `comments` and always `"grade": null`.
 
 ## Data model
 

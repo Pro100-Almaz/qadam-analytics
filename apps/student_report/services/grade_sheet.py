@@ -31,7 +31,7 @@ class GradeColumn:
     assignment_id: int
     title: str
     date: date
-    max_grade: int
+    max_grade: Optional[int]  # None for comment-only work
     category: str
 
 

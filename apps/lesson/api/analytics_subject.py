@@ -272,13 +272,16 @@ def _category_breakdown(assignments, percents, student, missing, categories=None
 def _apply_assignment_filters(queryset, params):
     """
     Narrow assignments by category / date range, and echo the filters back.
-    Drafts (is_active=False) are always left out (spec 0005 AC-23).
+    Drafts (is_active=False) are always left out (spec 0005 AC-23), and so is
+    comment-only work (max_grade null): it has no mark to average.
     """
     category = choice_param(params, 'category', set(category_codes()), None)
     date_from = date_param(params, 'date_from')
     date_to = date_param(params, 'date_to')
 
-    queryset = queryset.select_related('category').filter(is_active=True)
+    queryset = queryset.select_related('category').filter(
+        is_active=True, max_grade__isnull=False,
+    )
     if category is not None:
         queryset = queryset.filter(category__code=category)
     if date_from is not None:
@@ -765,7 +768,7 @@ class StudentAssignmentSummaryAPIView(APIView):
         if not offerings:
             return []
         queryset = SubjectAssignment.objects.filter(
-            offering__in=offerings, is_active=True,
+            offering__in=offerings, is_active=True, max_grade__isnull=False,
         ).select_related(*ASSIGNMENT_SELECT_RELATED)
         if filters['category']:
             queryset = queryset.filter(category__code=filters['category'])

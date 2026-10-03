@@ -797,14 +797,26 @@ HOMEWORK_MAX_GRADE = 100
 
 
 def _check_homework_max_grade(category, max_grade):
-    if (
-        category is not None and max_grade is not None
-        and category.code == AssignmentCategory.HOMEWORK
-        and max_grade > HOMEWORK_MAX_GRADE
-    ):
+    if category is None or category.code != AssignmentCategory.HOMEWORK:
+        return
+    if max_grade is None:
+        raise serializers.ValidationError({
+            'max_grade': 'A homework assignment needs a max_grade.'
+        })
+    if max_grade > HOMEWORK_MAX_GRADE:
         raise serializers.ValidationError({
             'max_grade': f'Homework max_grade cannot exceed {HOMEWORK_MAX_GRADE}.'
         })
+
+
+def _max_grade_field(**kwargs):
+    return serializers.IntegerField(
+        min_value=1, allow_null=True,
+        help_text='Highest grade possible, or null for comment-only work: '
+                  'its grades then carry comments and no mark. Category '
+                  '"homework" needs a number.',
+        **kwargs,
+    )
 
 
 def _quarter_field():
@@ -856,7 +868,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
         select_related=('subject', 'class_group', 'class_group__grade_level', 'class_group__academic_year',),
     )
     title = serializers.CharField()
-    max_grade = serializers.IntegerField(min_value=1)
+    max_grade = _max_grade_field()
     category = _category_field(
         required=False,
         help_text='Category code, from GET assignment-categories/. Defaults to "lesson". '
@@ -890,7 +902,7 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
     move into or out of one with a detail model (homework).
     """
     title = serializers.CharField(required=False)
-    max_grade = serializers.IntegerField(min_value=1, required=False)
+    max_grade = _max_grade_field(required=False)
     category = _category_field(required=False)
     date = serializers.DateField(
         required=False,
@@ -925,10 +937,18 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         return attrs
 
     def validate_max_grade(self, max_grade):
-        """Lowering the ceiling under grades already given would corrupt them."""
+        """
+        Lowering the ceiling under grades already given would corrupt them, and
+        making the work comment-only would leave marks it no longer allows.
+        """
         if self.instance is None:
             return max_grade
         highest = self.instance.grades.aggregate(top=Max('grade'))['top']
+        if highest is not None and max_grade is None:
+            raise serializers.ValidationError(
+                'Grades are already recorded for this assignment, so it cannot '
+                'become comment-only. Clear them first.'
+            )
         if highest is not None and max_grade < highest:
             raise serializers.ValidationError(
                 f'A grade of {highest} is already recorded for this assignment, '
@@ -1004,7 +1024,8 @@ class SubjectGradeWriteSerializer(serializers.ModelSerializer):
     )
     grade = serializers.IntegerField(
         min_value=0, required=False, allow_null=True,
-        help_text='Points awarded, or null for "not graded yet".',
+        help_text='Points awarded, or null for "not graded yet". Always '
+                  'null on a comment-only assignment (max_grade null).',
     )
     comments = serializers.CharField(
         required=False, allow_null=True, allow_blank=True,
@@ -1034,8 +1055,13 @@ class SubjectGradeWriteSerializer(serializers.ModelSerializer):
         """
         min_value on the field already rejects negatives; null means the work
         is simply not marked yet, so there is no ceiling to check against.
+        Comment-only work (max_grade null) takes no grade at all.
         """
         assignment = self.context['assignment']
+        if grade is not None and not assignment.is_gradable:
+            raise serializers.ValidationError(
+                'This assignment is comment-only, so grade must be null.'
+            )
         if grade is not None and grade > assignment.max_grade:
             raise serializers.ValidationError(
                 f'Grade cannot exceed the maximum of {assignment.max_grade}.'

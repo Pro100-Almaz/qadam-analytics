@@ -110,11 +110,15 @@ def _write_column_headers(ws, row, columns, corner_label):
         cell.fill = _HEADER_FILL
         cell.alignment = _HEADER_ALIGN
         cell.border = _BORDER
+        max_grade = (
+            f'Max grade: {column.max_grade}' if column.max_grade is not None
+            else 'Comment only, no grade'
+        )
         note = Comment(
             f'{column.title}\n'
             f'Date: {column.date:%d.%m.%Y}\n'
             f'Category: {column.category}\n'
-            f'Max grade: {column.max_grade}',
+            f'{max_grade}',
             COMMENT_AUTHOR,
         )
         note.width, note.height = 220, 100
