@@ -507,6 +507,14 @@ class AssignmentAnalyticsOfferingListAPIView(APIView):
                     'Academic year id. Defaults to the active academic year.'
                 ),
             ),
+            OpenApiParameter(
+                'include_empty', bool,
+                description=(
+                    'Include offerings with no assignments yet. Default '
+                    'true; false returns only offerings with at least one '
+                    'assignment.'
+                ),
+            ),
         ],
         description=(
             'Assignment analytics offering picker for one teacher. Includes '
@@ -548,12 +556,16 @@ class AssignmentAnalyticsOfferingListAPIView(APIView):
             ).values_list('class_group_id', flat=True)
         )
 
+        offerings_qs = SubjectOffering.objects.filter(
+            Q(id__in=taught_ids) | Q(class_group_id__in=homeroom_class_group_ids),
+            class_group__academic_year=academic_year,
+            subject__status='active',
+        )
+        if not bool_param(request.query_params, 'include_empty', True):
+            offerings_qs = offerings_qs.filter(assignments__isnull=False)
+
         offerings = list(
-            SubjectOffering.objects.filter(
-                Q(id__in=taught_ids) | Q(class_group_id__in=homeroom_class_group_ids),
-                class_group__academic_year=academic_year,
-                subject__status='active',
-            )
+            offerings_qs
             .select_related(*OFFERING_SELECT_RELATED)
             .distinct()
             .order_by(

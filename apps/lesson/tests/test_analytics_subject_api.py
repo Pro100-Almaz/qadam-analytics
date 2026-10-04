@@ -379,6 +379,43 @@ class TestAssignmentAnalyticsOfferings:
 
         assert response.status_code == 403
 
+    def test_include_empty_defaults_to_listing_offerings_without_assignments(
+        self, cohort, authenticated_client,
+    ):
+        empty = SubjectOfferingFactory(
+            subject=SubjectFactory(name='Chinese'),
+            class_group=cohort['class_group'],
+        )
+        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=empty)
+
+        client = authenticated_client(cohort['teacher'].user)
+        response = client.get(assignment_offerings_url())
+
+        ids = {row['id'] for row in response.data['offerings']}
+        assert ids == {cohort['offering'].id, empty.id}
+
+    def test_include_empty_false_drops_offerings_without_assignments(
+        self, cohort, authenticated_client,
+    ):
+        empty = SubjectOfferingFactory(
+            subject=SubjectFactory(name='Chinese'),
+            class_group=cohort['class_group'],
+        )
+        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=empty)
+
+        client = authenticated_client(cohort['teacher'].user)
+        response = client.get(
+            assignment_offerings_url(), {'include_empty': 'false'},
+        )
+
+        assert response.status_code == 200
+        # The cohort offering has three assignments; it is listed once, not
+        # once per assignment row the join produces.
+        assert [row['id'] for row in response.data['offerings']] == [
+            cohort['offering'].id,
+        ]
+        assert response.data['count'] == 1
+
 
 # ── Per-subject summary ──
 
