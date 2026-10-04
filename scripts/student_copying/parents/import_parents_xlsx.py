@@ -30,7 +30,6 @@ Usage::
 
 import argparse
 import os
-import re
 import sys
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
