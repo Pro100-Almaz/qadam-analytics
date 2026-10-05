@@ -186,6 +186,32 @@ class TestHorizontalAccessControl:
         ]
 
 
+    def test_teacher_can_see_detail_of_a_student_they_do_not_teach(
+        self, authenticated_client
+    ):
+        class_group = ClassGroupFactory(academic_year=self.academic_year)
+        student = StudentFactory(academic_year=self.academic_year)
+        EnrollmentFactory(student=student, class_group=class_group)
+
+        client = authenticated_client(TeacherFactory().user)
+        url = reverse('home-api:student-detail', kwargs={'pk': student.user_id})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_teacher_still_cannot_read_grades_of_a_student_they_do_not_teach(
+        self, authenticated_client
+    ):
+        class_group = ClassGroupFactory(academic_year=self.academic_year)
+        student = StudentFactory(academic_year=self.academic_year)
+        EnrollmentFactory(student=student, class_group=class_group)
+
+        client = authenticated_client(TeacherFactory().user)
+        url = reverse(
+            'lesson-api:student-grade-history', kwargs={'pk': student.user_id},
+        )
+        response = client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
 @pytest.mark.django_db
 class TestAdminAndSupervisorAccess:
     """Admins and supervisors can access everything."""
