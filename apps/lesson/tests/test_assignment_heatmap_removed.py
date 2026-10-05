@@ -27,20 +27,8 @@ def test_ac1_assignment_heatmap_routes_are_gone(path):
         resolve(path)
 
 
-def test_ac2_assignment_offerings_rows_have_no_can_heatmap(
-    teacher, teaching_assignment, authenticated_client,
-):
-    response = authenticated_client(teacher.user).get(
-        reverse('lesson-api:analytics-assignment-offering-list'),
-    )
-
-    assert response.status_code == 200
-    [row] = response.data['offerings']
-    assert row['id'] == teaching_assignment.offering_id
-    assert 'can_heatmap' not in row
-    assert row['access'] == 'teaching'
-    assert row['teaching_role'] == teaching_assignment.role
-    assert row['is_homeroom_class'] is False
+# AC-2 (the `can_heatmap` field of analytics/assignment-offerings/) is
+# superseded by spec 0012, which removes that endpoint altogether.
 
 
 @pytest.mark.parametrize('name', [

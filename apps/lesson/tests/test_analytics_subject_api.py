@@ -9,10 +9,9 @@ is folded in on purpose.
 """
 
 import pytest
-from django.contrib.auth.models import Group
 from django.urls import reverse
 
-from apps.home.models import HomeroomTeacherAssignment, SubjectAssignment
+from apps.home.models import SubjectAssignment
 from core.factories import (
     AcademicYearFactory, AdminUserFactory, ClassGroupFactory, EnrollmentFactory,
     ParentFactory, StudentFactory, SubjectAssignmentFactory, SubjectFactory,
@@ -30,10 +29,6 @@ def trajectory_url(student, offering):
 
 def summary_url(student):
     return reverse('lesson-api:analytics-assignment-summary', args=[student.id])
-
-
-def assignment_offerings_url():
-    return reverse('lesson-api:analytics-assignment-offering-list')
 
 
 @pytest.fixture
@@ -313,109 +308,6 @@ class TestAssignmentTrajectory:
 
 
 # ── Offering picker ──
-
-@pytest.mark.django_db
-class TestAssignmentAnalyticsOfferings:
-
-    def test_mixed_admin_teacher_gets_own_taught_and_homeroom_offerings(
-        self, cohort, authenticated_client,
-    ):
-        teacher = cohort['teacher']
-        admin_group, _ = Group.objects.get_or_create(name='Admin')
-        teacher.user.groups.add(admin_group)
-
-        # An offering's year comes from its class group — there is no
-        # academic_year field to set on either model.
-        homeroom_subject = SubjectFactory(name='Chinese')
-        homeroom_offering = SubjectOfferingFactory(
-            subject=homeroom_subject,
-            class_group=cohort['class_group'],
-        )
-        unrelated = SubjectOfferingFactory(
-            subject=SubjectFactory(name='Physics'),
-            class_group=ClassGroupFactory(
-                academic_year=cohort['academic_year'], letter='Z',
-            ),
-        )
-        HomeroomTeacherAssignment.objects.create(
-            teacher=teacher,
-            class_group=cohort['class_group'],
-        )
-
-        client = authenticated_client(teacher.user)
-        response = client.get(assignment_offerings_url())
-
-        assert response.status_code == 200
-        rows = {row['id']: row for row in response.data['offerings']}
-        assert set(rows) == {cohort['offering'].id, homeroom_offering.id}
-        assert rows[cohort['offering'].id]['access'] == 'teaching_and_homeroom'
-        assert rows[homeroom_offering.id]['access'] == 'homeroom'
-        assert unrelated.id not in rows
-
-    def test_admin_can_request_a_specific_teacher(
-        self, cohort, authenticated_client,
-    ):
-        admin = AdminUserFactory()
-
-        client = authenticated_client(admin)
-        response = client.get(
-            assignment_offerings_url(), {'teacher': cohort['teacher'].id},
-        )
-
-        assert response.status_code == 200
-        assert [row['id'] for row in response.data['offerings']] == [
-            cohort['offering'].id,
-        ]
-
-    def test_teacher_cannot_request_another_teacher(
-        self, cohort, authenticated_client,
-    ):
-        other = TeacherFactory()
-
-        client = authenticated_client(other.user)
-        response = client.get(
-            assignment_offerings_url(), {'teacher': cohort['teacher'].id},
-        )
-
-        assert response.status_code == 403
-
-    def test_include_empty_defaults_to_listing_offerings_without_assignments(
-        self, cohort, authenticated_client,
-    ):
-        empty = SubjectOfferingFactory(
-            subject=SubjectFactory(name='Chinese'),
-            class_group=cohort['class_group'],
-        )
-        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=empty)
-
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(assignment_offerings_url())
-
-        ids = {row['id'] for row in response.data['offerings']}
-        assert ids == {cohort['offering'].id, empty.id}
-
-    def test_include_empty_false_drops_offerings_without_assignments(
-        self, cohort, authenticated_client,
-    ):
-        empty = SubjectOfferingFactory(
-            subject=SubjectFactory(name='Chinese'),
-            class_group=cohort['class_group'],
-        )
-        TeachingAssignmentFactory(teacher=cohort['teacher'], offering=empty)
-
-        client = authenticated_client(cohort['teacher'].user)
-        response = client.get(
-            assignment_offerings_url(), {'include_empty': 'false'},
-        )
-
-        assert response.status_code == 200
-        # The cohort offering has three assignments; it is listed once, not
-        # once per assignment row the join produces.
-        assert [row['id'] for row in response.data['offerings']] == [
-            cohort['offering'].id,
-        ]
-        assert response.data['count'] == 1
-
 
 # ── Per-subject summary ──
 

@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Prefetch
 from django.utils import timezone
 
 from apps.authentication.models import PsychologicalState, Student
@@ -114,7 +114,14 @@ def get_homeroom_dashboard(teacher):
 
     offerings = list(SubjectOffering.objects.filter(
         class_group=cg, class_group__academic_year=year,
-    ).select_related('subject'))
+    ).select_related('subject').prefetch_related(
+        Prefetch(
+            'teaching_assignments',
+            queryset=TeachingAssignment.objects.select_related(
+                'teacher__user',
+            ).order_by('id'),
+        ),
+    ).order_by('subject__name', 'id'))
 
     all_lessons = list(Lesson.objects.filter(offering__in=offerings))
     grades_map = get_cached_grades_bulk(all_lessons, students) if all_lessons and students else {}
@@ -129,6 +136,7 @@ def get_homeroom_dashboard(teacher):
             o_lessons = [l for l in all_lessons if l.offering_id == offering.id]
             if not o_lessons:
                 subject_grades.append({
+                    'offering_id': offering.id,
                     'subject_name': offering.subject.name,
                     'average': None,
                     'letter_grade': None,
@@ -140,6 +148,7 @@ def get_homeroom_dashboard(teacher):
             ) / len(o_lessons)
 
             subject_grades.append({
+                'offering_id': offering.id,
                 'subject_name': offering.subject.name,
                 'average': round(avg, 1),
                 'letter_grade': grade_identifier(avg),
@@ -175,7 +184,29 @@ def get_homeroom_dashboard(teacher):
         'academic_year': str(year),
         'student_count': len(students),
         'subject_count': len(offerings),
+        'offerings': [_homeroom_offering_payload(o) for o in offerings],
         'students': students_data,
+    }
+
+
+def _homeroom_offering_payload(offering):
+    return {
+        'id': offering.id,
+        'subject_id': offering.subject_id,
+        'subject_name': offering.subject.name,
+        'subject_language_group': offering.subject.language_group,
+        'subject_status': offering.subject.status,
+        'max_points': offering.max_points,
+        'grading_strategy': offering.grading_strategy,
+        'teachers': [
+            {
+                'id': ta.teacher_id,
+                'user_id': ta.teacher.user_id,
+                'full_name': ta.teacher.user.get_full_name(),
+                'role': ta.role,
+            }
+            for ta in offering.teaching_assignments.all()
+        ],
     }
 
 
@@ -361,7 +392,14 @@ def get_class_students(class_group_id, request, teacher=None):
 
     offerings = list(SubjectOffering.objects.filter(
         class_group=cg, class_group__academic_year=year,
-    ).select_related('subject'))
+    ).select_related('subject').prefetch_related(
+        Prefetch(
+            'teaching_assignments',
+            queryset=TeachingAssignment.objects.select_related(
+                'teacher__user',
+            ).order_by('id'),
+        ),
+    ).order_by('subject__name', 'id'))
 
     if teacher:
         teacher_offering_ids = set(
