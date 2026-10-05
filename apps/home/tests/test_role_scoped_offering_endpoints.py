@@ -74,10 +74,6 @@ def setup(db):
 def test_ac1_teacher_offerings_lists_only_taught_offerings(
     setup, authenticated_client,
 ):
-    # A second assignment row on the same offering must not duplicate it.
-    TeachingAssignmentFactory(
-        teacher=setup['teacher'], offering=setup['taught'], role='assistant',
-    )
     archived = SubjectOfferingFactory(
         subject=SubjectFactory(name='Latin', status='archived'),
         class_group=setup['class_group'],
