@@ -18,7 +18,9 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.authentication.models import Student
 from core.error_messages import NO_ACCESS_STUDENT
-from core.permissions import IsTeacherAdminOrSupervisor, can_access_student
+from core.permissions import (
+    IsTeacherAdminOrSupervisor, can_view_student,
+)
 
 
 class GenerateReportView(GenericAPIView):
@@ -117,7 +119,7 @@ class StudentReportListView(ListAPIView):
 
     def get_queryset(self):
         student = get_object_or_404(Student, pk=self.kwargs['student_id'])
-        if not can_access_student(self.request.user, student):
+        if not can_view_student(self.request.user, student):
             raise PermissionDenied(NO_ACCESS_STUDENT)
 
         return StudentReport.objects.filter(

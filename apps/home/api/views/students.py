@@ -16,7 +16,7 @@ from apps.home.grading import grade_identifier
 from apps.home.services import get_students_for_role
 from apps.lesson.services import get_cached_grades_bulk
 from core.permissions import (
-    can_access_student, is_teacher_role, IsPsychologist, CanModifyStudent,
+    can_access_student, can_view_student, IsPsychologist, CanModifyStudent,
 )
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
@@ -58,12 +58,7 @@ class StudentDetailAPIView(RetrieveAPIView):
 
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
-        # Any teacher may read any student's profile. Only this endpoint:
-        # grades, attendance and the other student reads still go through
-        # can_access_student().
-        if is_teacher_role(request.user):
-            return
-        if not can_access_student(request.user, obj):
+        if not can_view_student(request.user, obj):
             self.permission_denied(request, message=(
                 NO_ACCESS_STUDENT
             ))

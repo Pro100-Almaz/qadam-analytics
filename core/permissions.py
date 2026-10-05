@@ -457,6 +457,16 @@ class IsNotStudent(BasePermission):
         return bool(user and user.is_authenticated and not user.is_student())
 
 
+def can_view_student(user, student):
+    """
+    Read-only access to one student for the student-facing pages: their
+    profile, achievements, reading and club entries, clubs, homework and
+    reports. Any teacher may read these for any student; everyone else falls
+    back to can_access_student(). Never use it to guard a write.
+    """
+    return is_teacher_role(user) or can_access_student(user, student)
+
+
 class CanAccessStudent(BasePermission):
     def has_object_permission(self, request, view, obj):
         return can_access_student(request.user, obj)

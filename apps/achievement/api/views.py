@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from apps.achievement.models import Achievement, Attachment, ClubEntry, ReadingEntry
 from apps.authentication.models import Student
-from core.permissions import can_access_student
+from core.permissions import can_access_student, can_view_student
 from core.error_messages import (
     NO_ACCESS_STUDENT, NO_MODIFY_ACHIEVEMENT, NO_MODIFY_READING,
     NO_MODIFY_CLUB, NO_CERTIFICATE, CERTIFICATE_NOT_FOUND,
@@ -45,7 +45,7 @@ class AchievementListCreateAPIView(APIView):
     def get(self, request, student_pk):
         student = get_object_or_404(Student, pk=student_pk)
 
-        if not can_access_student(request.user, student):
+        if not can_view_student(request.user, student):
             return Response(
                 {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,
@@ -194,7 +194,7 @@ class ReadingEntryListCreateAPIView(APIView):
     def get(self, request, student_pk):
         student = get_object_or_404(Student, pk=student_pk)
 
-        if not can_access_student(request.user, student):
+        if not can_view_student(request.user, student):
             return Response(
                 {'detail': NO_ACCESS_STUDENT},
                 status=status.HTTP_403_FORBIDDEN,

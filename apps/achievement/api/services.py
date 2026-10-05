@@ -65,7 +65,7 @@ def serialize_club(club, request, include_members=False):
     ).data
 
 
-def student_club_queryset(user, student) -> QuerySet:
+def student_club_queryset(user, student, access_check=can_access_student) -> QuerySet:
     student_attendance = Q(
         sessions__attendances__student=student,
         sessions__attendances__is_deleted=False,
@@ -93,7 +93,7 @@ def student_club_queryset(user, student) -> QuerySet:
             distinct=True,
         ),
     )
-    if not can_access_student(user, student):
+    if not access_check(user, student):
         clubs = clubs.filter(manager__user=user)
         if not clubs.exists():
             raise PermissionDenied(NO_ACCESS_STUDENT)
