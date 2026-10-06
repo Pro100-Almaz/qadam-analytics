@@ -483,7 +483,29 @@ class TeacherAdmin(ModelAdmin):
 
 
 admin.site.register(Supervisor)
-admin.site.register(ClubManager)
+
+
+@admin.register(ClubManager)
+class ClubManagerAdmin(ModelAdmin):
+    list_display = ("full_name", "email")
+    search_fields = (
+        "user__first_name", "user__last_name", "user__username", "user__email",
+    )
+    # A plain <select> lists every user in the school; search them instead.
+    autocomplete_fields = ("user",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("user")
+
+    def full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+    full_name.short_description = "ФИО"
+    full_name.admin_order_field = "user__last_name"
+
+    def email(self, obj):
+        return obj.user.email or "-"
+    email.short_description = "Email"
+    email.admin_order_field = "user__email"
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):

@@ -187,7 +187,13 @@ urlpatterns = [
 
     # Teacher dashboards (role-specific)
     path('teacher/dashboard/', views.TeacherRoleDashboardAPIView.as_view(), name='teacher-dashboard'),
-    path('teacher/my-class/', views.HomeroomClassAPIView.as_view(), name='homeroom-class'),
+    # GET /api/v1/teacher/offerings/  offerings the caller teaches, nothing
+    #     else — not their homeroom class's. Filters: academic_year,
+    #     include_empty (spec 0012)
+    path('teacher/offerings/', views.TeacherOfferingListAPIView.as_view(), name='teacher-offering-list'),
+    # GET /api/v1/homeroom/my-class/  the caller's homeroom class: students
+    #     with cross-subject grades, and the class's offerings (spec 0012)
+    path('homeroom/my-class/', views.HomeroomMyClassAPIView.as_view(), name='homeroom-my-class'),
     path('teacher/psychologist/', views.PsychologistDashboardAPIView.as_view(), name='psychologist-dashboard'),
     path(
         'teacher/psychologist/students/<int:pk>/',

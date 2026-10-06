@@ -55,7 +55,7 @@ from core.permissions import (
     IsTeacherRole,
     is_admin_role,
     is_teacher_role,
-    can_access_student,
+    can_view_student,
     teacher_homeroom_class_group_ids,
 )
 
@@ -109,6 +109,17 @@ def teacher_offering_ids(teacher):
     ).values_list('offering_id', flat=True)
 
 
+def homework_base_queryset():
+    """Every homework row, with what the serializers read joined in."""
+    return Homework.objects.select_related(
+        'offering', 'offering__subject',
+        'offering__class_group', 'offering__class_group__grade_level',
+        'offering__class_group__academic_year',
+        'teaching_assignment', 'teaching_assignment__teacher',
+        'teaching_assignment__teacher__user',
+    ).prefetch_related('attachments')
+
+
 def homework_queryset(user):
     """
     Homework visible to the requesting user — see the module docstring for the
@@ -118,13 +129,7 @@ def homework_queryset(user):
     by admin roles) and nowhere else, so a homeroom teacher, a student or a
     parent only ever meets a task once its teacher has published it.
     """
-    qs = Homework.objects.select_related(
-        'offering', 'offering__subject',
-        'offering__class_group', 'offering__class_group__grade_level',
-        'offering__class_group__academic_year',
-        'teaching_assignment', 'teaching_assignment__teacher',
-        'teaching_assignment__teacher__user',
-    ).prefetch_related('attachments')
+    qs = homework_base_queryset()
 
     if is_admin_role(user) or user.is_psychologist():
         return qs
@@ -159,6 +164,18 @@ def homework_queryset(user):
     return qs.none()
 
 
+def _reads_any_student(user):
+    """
+    A teacher reading a student they need not teach (can_view_student). Admin
+    roles and psychologists already see every row through homework_queryset.
+    """
+    return (
+        is_teacher_role(user)
+        and not is_admin_role(user)
+        and not user.is_psychologist()
+    )
+
+
 def homeroom_homework_queryset(user):
     """
     Published homework of the classes this user is homeroom teacher of, across
@@ -180,6 +197,15 @@ def homeroom_homework_queryset(user):
     )
 
 
+def grade_base_queryset():
+    """Every homework grade row, with what the serializers read joined in."""
+    return HomeworkGrade.objects.select_related(
+        'student', 'student__user', 'homework', 'homework__offering',
+        'homework__offering__subject', 'homework__offering__class_group',
+        'homework__teaching_assignment',
+    )
+
+
 def grade_queryset(user):
     """
     Homework grades visible to the requesting user.
@@ -188,11 +214,7 @@ def grade_queryset(user):
     offerings they teach plus anything belonging to their homeroom class, and
     psychologists / admin roles see everything.
     """
-    qs = HomeworkGrade.objects.select_related(
-        'student', 'student__user', 'homework', 'homework__offering',
-        'homework__offering__subject', 'homework__offering__class_group',
-        'homework__teaching_assignment',
-    )
+    qs = grade_base_queryset()
 
     if is_admin_role(user) or user.is_psychologist():
         return qs
@@ -700,7 +722,7 @@ class StudentHomeworkListAPIView(APIView):
         # and a 403 on the other would let any signed-in account walk the id
         # range and read off which student ids exist.
         student = Student.objects.select_related('user').filter(pk=student_id).first()
-        if student is None or not can_access_student(request.user, student):
+        if student is None or not can_view_student(request.user, student):
             raise Http404
 
         rows = self._student_homework(request.user, student)
@@ -726,10 +748,21 @@ class StudentHomeworkListAPIView(APIView):
         Homework belongs to the student when its offering is taught to a class
         they are actively enrolled in, for that same academic year. A student
         with no active enrollment simply has no homework.
+
+        Any teacher may read any student's homework here: every published
+        task, plus drafts only in offerings the teacher is assigned to.
         """
-        qs = homework_queryset(user)
         query = enrolled_offering_query([student])
-        return qs.filter(query) if query else qs.none()
+        if not query:
+            return Homework.objects.none()
+
+        if _reads_any_student(user):
+            teacher = Teacher.objects.filter(user=user).first()
+            own = teacher_offering_ids(teacher) if teacher else []
+            return homework_base_queryset().filter(query).filter(
+                Q(is_active=True) | Q(offering_id__in=own),
+            )
+        return homework_queryset(user).filter(query)
 
     @staticmethod
     def _grade_map(user, student, homeworks):
@@ -737,7 +770,11 @@ class StudentHomeworkListAPIView(APIView):
         {homework_id: HomeworkGrade} for the rows on this page, honouring the
         caller's grade permissions — one query, no N+1.
         """
-        grades = grade_queryset(user).filter(
+        base = (
+            grade_base_queryset() if _reads_any_student(user)
+            else grade_queryset(user)
+        )
+        grades = base.filter(
             student=student,
             homework_id__in=[homework.pk for homework in homeworks],
         )

@@ -45,7 +45,7 @@ from apps.achievement.api.serializers import (
 )
 from apps.achievement.api.views import _detect_file_type
 from apps.authentication.models import Student
-from core.permissions import IsClubManagementRole
+from core.permissions import IsClubManagementRole, can_view_student
 
 
 class ClubPagination(PageNumberPagination):
@@ -105,7 +105,9 @@ class StudentClubListAPIView(APIView):
     )
     def get(self, request, student_id):
         student = get_object_or_404(Student.objects.select_related('user'), pk=student_id)
-        clubs = student_club_queryset(request.user, student)
+        clubs = student_club_queryset(
+            request.user, student, access_check=can_view_student,
+        )
 
         academic_year = request.query_params.get('academic_year')
         if academic_year:

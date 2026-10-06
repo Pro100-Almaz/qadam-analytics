@@ -40,7 +40,6 @@ Nothing here writes.
 
 from collections import defaultdict
 
-from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -50,16 +49,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Student, Teacher
+from apps.authentication.models import Student
 from apps.home.models import (
-    AcademicYear, AssignmentCategory, HomeroomTeacherAssignment, SubjectAssignment,
-    SubjectGrade, SubjectOffering, TeachingAssignment,
+    AcademicYear, AssignmentCategory, SubjectAssignment, SubjectGrade,
+    SubjectOffering,
 )
 from core.error_messages import NO_PERMISSION
-from core.permissions import (
-    can_access_student,
-    is_admin_role,
-)
+from core.permissions import can_access_student
 
 from apps.lesson.api.analytics_common import (
     ACADEMIC_YEAR_PARAM,
@@ -152,59 +148,6 @@ def assignment_percent_matrix(assignments, students):
         )
 
     return percents, raw
-
-
-def _teacher_payload(teacher):
-    full_name = teacher.user.get_full_name().strip() or teacher.user.username
-    return {
-        'id': teacher.id,
-        'user_id': teacher.user_id,
-        'full_name': full_name,
-        'username': teacher.user.username,
-    }
-
-
-def _requested_teacher(request):
-    teacher_id = int_param(request.query_params, 'teacher', 1)
-    current_teacher = Teacher.objects.filter(user=request.user).first()
-
-    if teacher_id is None:
-        if current_teacher is None:
-            return None, Response(
-                {'detail': 'teacher is required. Use a teacher profile id.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return current_teacher, None
-
-    if not is_admin_role(request.user):
-        if current_teacher is None or current_teacher.id != teacher_id:
-            return None, Response(
-                {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
-            )
-
-    teacher = get_object_or_404(
-        Teacher.objects.select_related('user'), pk=teacher_id,
-    )
-    return teacher, None
-
-
-def _active_or_requested_academic_year(params):
-    year_id = int_param(params, 'academic_year', 1)
-    if year_id is not None:
-        return get_object_or_404(AcademicYear, pk=year_id)
-    return AcademicYear.objects.filter(is_active=True).first()
-
-
-def _access_for(offering, taught_ids, homeroom_class_group_ids):
-    taught = offering.id in taught_ids
-    homeroom = offering.class_group_id in homeroom_class_group_ids
-    if taught and homeroom:
-        access = 'teaching_and_homeroom'
-    elif taught:
-        access = 'teaching'
-    else:
-        access = 'homeroom'
-    return access, homeroom
 
 
 def _values_for(percents, keys, missing):
@@ -478,127 +421,6 @@ def _class_block(class_values, cohort, value, missing):
         # pretending they came last.
         'rank': rank(class_values, value) if value is not None else 0,
     }
-
-
-class AssignmentAnalyticsOfferingListAPIView(APIView):
-    """
-    GET analytics/assignment-offerings/
-
-    Offerings a teacher should see on the assignment analytics screen.
-
-    This is intentionally narrower than the schedule teaching-assignment list
-    for admin users: a mixed Admin/Teacher account gets the teacher's own
-    analytics scope, not the whole school's offerings.
-    """
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                'teacher', int,
-                description=(
-                    'Teacher profile id. Optional for teacher accounts; admin '
-                    'roles may use it to inspect a specific teacher.'
-                ),
-            ),
-            OpenApiParameter(
-                'academic_year', int,
-                description=(
-                    'Academic year id. Defaults to the active academic year.'
-                ),
-            ),
-            OpenApiParameter(
-                'include_empty', bool,
-                description=(
-                    'Include offerings with no assignments yet. Default '
-                    'true; false returns only offerings with at least one '
-                    'assignment.'
-                ),
-            ),
-        ],
-        description=(
-            'Assignment analytics offering picker for one teacher. Includes '
-            'offerings they teach and active subjects in their homeroom class.'
-        ),
-    )
-    def get(self, request):
-        teacher, error = _requested_teacher(request)
-        if error is not None:
-            return error
-
-        academic_year = _active_or_requested_academic_year(request.query_params)
-        if academic_year is None:
-            return Response({
-                'teacher': _teacher_payload(teacher),
-                'academic_year': None,
-                'offerings': [],
-                'count': 0,
-            })
-
-        # An offering's year is its class group's — `academic_year` is a derived
-        # property on the model, not a column, so it has to be traversed.
-        taught_assignments = list(
-            TeachingAssignment.objects.filter(
-                teacher=teacher,
-                offering__class_group__academic_year=academic_year,
-            ).select_related('offering')
-        )
-        taught_ids = {assignment.offering_id for assignment in taught_assignments}
-        roles_by_offering = {
-            assignment.offering_id: assignment.role
-            for assignment in taught_assignments
-        }
-
-        homeroom_class_group_ids = set(
-            HomeroomTeacherAssignment.objects.filter(
-                teacher=teacher,
-                class_group__academic_year=academic_year,
-            ).values_list('class_group_id', flat=True)
-        )
-
-        offerings_qs = SubjectOffering.objects.filter(
-            Q(id__in=taught_ids) | Q(class_group_id__in=homeroom_class_group_ids),
-            class_group__academic_year=academic_year,
-            subject__status='active',
-        )
-        if not bool_param(request.query_params, 'include_empty', True):
-            offerings_qs = offerings_qs.filter(assignments__isnull=False)
-
-        offerings = list(
-            offerings_qs
-            .select_related(*OFFERING_SELECT_RELATED)
-            .distinct()
-            .order_by(
-                'class_group__grade_level__number',
-                'class_group__letter',
-                'subject__name',
-                'id',
-            )
-        )
-
-        rows = []
-        for offering in offerings:
-            access, homeroom = _access_for(
-                offering, taught_ids, homeroom_class_group_ids,
-            )
-            row = offering_payload(offering)
-            row.update({
-                'subject_language_group': offering.subject.language_group,
-                'class_group_id': offering.class_group_id,
-                'class_group_detail': class_group_payload(offering.class_group),
-                'academic_year_id': offering.academic_year_id,
-                'access': access,
-                'teaching_role': roles_by_offering.get(offering.id),
-                'is_homeroom_class': homeroom,
-            })
-            rows.append(row)
-
-        return Response({
-            'teacher': _teacher_payload(teacher),
-            'academic_year': academic_year_payload(academic_year),
-            'offerings': rows,
-            'count': len(rows),
-        })
 
 
 class StudentAssignmentSummaryAPIView(APIView):

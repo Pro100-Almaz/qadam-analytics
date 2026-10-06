@@ -56,7 +56,8 @@ from apps.home.api.views.quarter_grades import (
 )
 from apps.home.api.views.teacher_dashboard import (
     TeacherRoleDashboardAPIView,
-    HomeroomClassAPIView,
+    HomeroomMyClassAPIView,
+    TeacherOfferingListAPIView,
     PsychologistDashboardAPIView,
     PsychologistStudentDetailAPIView,
     TeacherMyClassesAPIView,
@@ -97,7 +98,8 @@ __all__ = [
     'ParentTeachersAPIView',
     'ParentChildSubjectDetailAPIView',
     'TeacherRoleDashboardAPIView',
-    'HomeroomClassAPIView',
+    'HomeroomMyClassAPIView',
+    'TeacherOfferingListAPIView',
     'PsychologistDashboardAPIView',
     'PsychologistStudentDetailAPIView',
     'TeacherMyClassesAPIView',
