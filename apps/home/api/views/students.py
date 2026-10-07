@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -10,11 +12,9 @@ from rest_framework.views import APIView
 from apps.authentication.models import Student, PsychologicalState, PsychologicalStateTemplates
 from apps.home.models import (
     AcademicYear, ClassGroup, SubjectOffering, TeachingAssignment, Enrollment,
+    QuarterGrade,
 )
-from apps.lesson.models import Lesson
-from apps.home.grading import grade_identifier
 from apps.home.services import get_students_for_role
-from apps.lesson.services import get_cached_grades_bulk
 from core.permissions import (
     can_access_student, can_view_student, IsPsychologist, CanModifyStudent,
 )
@@ -243,8 +243,11 @@ class StudentMySubjectsAPIView(APIView):
         ).select_related('teacher__user')
         teacher_by_offering = {ta.offering_id: ta.teacher for ta in primary_assignments}
 
-        lessons = list(Lesson.objects.filter(offering_id__in=offering_ids))
-        grades_map = get_cached_grades_bulk(lessons, [student])
+        # The marks teachers entered (spec 0008), not ones derived from topics.
+        marks = {
+            (row.offering_id, row.quarter): row.grade
+            for row in QuarterGrade.objects.filter(student=student, offering_id__in=offering_ids)
+        }
 
         result = []
         for offering in offerings:
@@ -258,21 +261,9 @@ class StudentMySubjectsAPIView(APIView):
                     'avatar': avatar_url,
                 }
 
-            offering_lessons = [l for l in lessons if l.offering_id == offering.id]
-            cumulative = 0
-            quarter_grades = {}
-            for q in (1, 2, 3, 4):
-                q_lessons = [l for l in offering_lessons if l.quarter == q]
-                if q_lessons:
-                    q_grade_values = [grades_map.get((l.id, student.id), 0) for l in q_lessons]
-                    avg = sum(q_grade_values) / len(q_grade_values)
-                    quarter_grades[str(q)] = grade_identifier(avg)
-                    cumulative += avg
-                else:
-                    quarter_grades[str(q)] = None
-
-            active_quarters = sum(1 for v in quarter_grades.values() if v is not None)
-            student_grade = round(cumulative / active_quarters, 1) if active_quarters else 0
+            quarter_grades = {str(q): marks.get((offering.id, q)) for q in (1, 2, 3, 4)}
+            graded = [g for g in quarter_grades.values() if g is not None]
+            student_grade = round(sum(graded) / len(graded), 1) if graded else 0
 
             result.append({
                 'offering_id': offering.id,
@@ -352,18 +343,25 @@ class StudentClassmatesAPIView(APIView):
         ))
         classmate_list = list(classmates)
 
-        lessons = list(Lesson.objects.filter(offering__in=offerings))
-        grades_map = get_cached_grades_bulk(lessons, classmate_list)
+        # The marks teachers entered (spec 0008), not ones derived from topics.
+        # Averaged the way StudentDetailSerializer does, so a classmate's total
+        # here matches the one on their profile.
+        marks_by_quarter = defaultdict(lambda: defaultdict(list))
+        for row in QuarterGrade.objects.filter(
+            student__in=classmate_list, offering__in=offerings,
+        ):
+            marks_by_quarter[row.student_id][row.quarter].append(row.grade)
 
         result = []
         for cm in classmate_list:
-            total = 0
-            count = 0
-            for lesson in lessons:
-                grade = grades_map.get((lesson.id, cm.id), 0)
-                total += grade
-                count += 1
-            avg = round(total / count, 1) if count else 0
+            quarter_averages = [
+                round(sum(grades) / len(grades), 1)
+                for grades in marks_by_quarter[cm.id].values()
+            ]
+            avg = (
+                round(sum(quarter_averages) / len(quarter_averages), 2)
+                if quarter_averages else 0
+            )
 
             avatar_url = cm.user.avatar.url if cm.user.avatar else None
             result.append({

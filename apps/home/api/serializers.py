@@ -150,11 +150,6 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         if hasattr(self, '_grade_cache'):
             return self._grade_cache
 
-        from apps.home.models import SubjectOffering
-        from apps.lesson.models import Lesson
-        from apps.lesson.services import get_cached_grades_bulk
-        from apps.home.grading import grade_identifier
-
         enrollment = student.get_current_enrollment()
         if not enrollment:
             self._grade_cache = {
@@ -171,49 +166,41 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             class_group__academic_year=enrollment.academic_year,
         ).select_related('subject'))
 
-        lessons = list(Lesson.objects.filter(offering__in=offerings))
-        grades_map = get_cached_grades_bulk(lessons, [student])
+        # The marks teachers entered (spec 0008), not ones derived from topics.
+        marks = {
+            (row.offering_id, row.quarter): row.grade
+            for row in QuarterGrade.objects.filter(student=student, offering__in=offerings)
+        }
+
+        def average(values, digits):
+            return round(sum(values) / len(values), digits) if values else 0
 
         subject_quarter_grades = {}
         for quarter in [1, 2, 3, 4]:
-            subject_quarter_grades[quarter] = {}
-            for offering in offerings:
-                quarter_lessons = [
-                    l for l in lessons
-                    if l.offering_id == offering.id and l.quarter == quarter
-                ]
-                if quarter_lessons:
-                    lesson_grades = [
-                        grades_map.get((l.id, student.id), 0) for l in quarter_lessons
-                    ]
-                    grade = sum(lesson_grades) / len(lesson_grades)
-                else:
-                    grade = 0
-                subject_quarter_grades[quarter][offering.subject.name] = grade
+            subject_quarter_grades[quarter] = {
+                offering.subject.name: marks[offering.id, quarter]
+                for offering in offerings if (offering.id, quarter) in marks
+            }
 
-        num_subjects = len(offerings)
-        total_quarter_grades = {}
-        student_total_grade = 0
-        for quarter in [1, 2, 3, 4]:
-            quarter_sum = sum(subject_quarter_grades[quarter].values())
-            avg = round(quarter_sum / num_subjects, 1) if num_subjects > 0 else 0
-            student_total_grade += avg / 4
-            total_quarter_grades[quarter] = grade_identifier(avg)
+        total_quarter_grades = {
+            quarter: average(list(subject_quarter_grades[quarter].values()), 1)
+            for quarter in [1, 2, 3, 4]
+        }
+        student_total_grade = average([g for g in total_quarter_grades.values() if g], 2)
 
-        cumulative_subject_grades = {}
-        for offering in offerings:
-            total = sum(
-                subject_quarter_grades[q].get(offering.subject.name, 0)
-                for q in [1, 2, 3, 4]
-            )
-            cumulative_subject_grades[offering.subject.name] = round(total / 4, 1)
+        cumulative_subject_grades = {
+            offering.subject.name: average([
+                marks[offering.id, q] for q in [1, 2, 3, 4] if (offering.id, q) in marks
+            ], 1)
+            for offering in offerings
+        }
 
         self._grade_cache = {
             'offerings': offerings,
             'subject_quarter_grades': subject_quarter_grades,
             'total_quarter_grades': total_quarter_grades,
             'cumulative_subject_grades': cumulative_subject_grades,
-            'student_total_grade': round(student_total_grade, 2),
+            'student_total_grade': student_total_grade,
         }
         return self._grade_cache
 
