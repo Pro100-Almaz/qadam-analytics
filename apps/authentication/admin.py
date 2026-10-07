@@ -2,7 +2,10 @@ from django.contrib import admin
 from django.contrib.admin import ModelAdmin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
-from django.utils.html import format_html
+from django.db.models import Prefetch
+from django.urls import reverse
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django import forms
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -287,7 +290,7 @@ class StudentAdmin(ModelAdmin):
 
     fieldsets = (
         ("Основная информация", {
-            "fields": ("user", "class_group")
+            "fields": ("user", "class_group", "parents_info")
         }),
         ("Дополнительно", {
             "fields": ("school_group", "intake_year", "medical_features", "subjects"),
@@ -297,6 +300,24 @@ class StudentAdmin(ModelAdmin):
 
     filter_horizontal = ("subjects",)
     raw_id_fields = ("user",)
+    readonly_fields = ("parents_info",)
+
+    def parents_info(self, obj):
+        parents = obj.parent.select_related('user') if obj and obj.pk else []
+        if not parents:
+            return "—"
+        return format_html_join(
+            mark_safe('<br>'), '<a href="{}">{}</a>{}',
+            (
+                (
+                    reverse('admin:authentication_parent_change', args=[p.pk]),
+                    p.user.get_full_name() or p.user.username,
+                    f' — {p.user.phone_number}' if p.user.phone_number else '',
+                )
+                for p in parents
+            ),
+        )
+    parents_info.short_description = "Родители"
 
     def avatar_thumbnail(self, obj):
         if obj.user.avatar:
@@ -436,25 +457,93 @@ class ParentAdminForm(forms.ModelForm):
         fields = '__all__'
 
 
+def _current_class_group(student):
+    """The student's current class, from the prefetch when there is one.
+
+    `ParentAdmin.get_queryset` attaches `current_major_enrollments` so the
+    changelist costs one query per page rather than one per child.
+    """
+    if hasattr(student, 'current_major_enrollments'):
+        enrollments = student.current_major_enrollments
+        return enrollments[0].class_group if enrollments else None
+    return student.get_current_class_group()
+
+
 @admin.register(Parent)
 class ParentAdmin(ModelAdmin):
     form = ParentAdminForm
-    list_display = ["full_name"]
+    list_display = ["full_name", "children"]
     search_fields = ('user__first_name', 'user__last_name')
+    readonly_fields = ("children_info",)
 
     def full_name(self, obj):
         return obj.user.get_full_name()
+    full_name.short_description = "ФИО"
+    full_name.admin_order_field = "user__last_name"
 
     fieldsets = (
         ('User Info', {'fields' : ('user',)}),
+        ('Дети', {"fields": ("children_info",)}),
         ('Assigned Students', {"fields": ("students",)}),
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related(
-            'students__user',
-            'students__enrollments__class_group',
+        current_major = Enrollment.objects.filter(
+            status='active',
+            class_group__category=ClassGroup.MAJOR_CHOICE,
+            class_group__academic_year__is_active=True,
+        ).select_related('class_group', 'class_group__grade_level')
+        return super().get_queryset(request).select_related('user').prefetch_related(
+            Prefetch(
+                'students',
+                queryset=Student.objects.select_related('user').prefetch_related(
+                    Prefetch('enrollments', queryset=current_major,
+                             to_attr='current_major_enrollments'),
+                ),
+            ),
         )
+
+    def children(self, obj):
+        students = obj.students.all()
+        if not students:
+            return format_html('<span style="color: #999;">—</span>')
+        return format_html_join(
+            ', ', '<a href="{}">{}</a>{}',
+            (
+                (
+                    reverse('admin:authentication_student_change', args=[s.pk]),
+                    s,
+                    f' ({cg.short_name})' if (cg := _current_class_group(s)) else '',
+                )
+                for s in students
+            ),
+        )
+    children.short_description = "Дети"
+
+    def children_info(self, obj):
+        students = obj.students.all() if obj and obj.pk else []
+        if not students:
+            return "—"
+        rows = format_html_join(
+            '',
+            '<tr><td><a href="{}">{}</a></td><td>{}</td><td>{}</td><td>{}</td></tr>',
+            (
+                (
+                    reverse('admin:authentication_student_change', args=[s.pk]),
+                    s,
+                    cg.short_name if (cg := _current_class_group(s)) else '—',
+                    s.user.email or '—',
+                    s.user.phone_number or '—',
+                )
+                for s in students
+            ),
+        )
+        return format_html(
+            '<table><thead><tr><th>ФИО</th><th>Класс</th><th>Email</th>'
+            '<th>Телефон</th></tr></thead><tbody>{}</tbody></table>',
+            rows,
+        )
+    children_info.short_description = "Дети"
 
 
 
