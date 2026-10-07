@@ -31,6 +31,20 @@ def isolated_test_cache(settings):
 
 
 @pytest.fixture(autouse=True)
+def fast_password_hasher(settings):
+    """Hash test passwords with MD5 instead of PBKDF2.
+
+    PBKDF2 is deliberately slow — about 0.2s per hash on a dev machine — and
+    every user a factory builds is hashed once (`UserFactory.password`). Most
+    tests build several users and the tenancy worlds build dozens, so the
+    default hasher was a large share of the suite's runtime while testing
+    nothing: no test asserts on the hash algorithm.
+    """
+    settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _scope_mode_override(settings):
     """Let the suite be run under a stricter mode than the app boots with.
 
