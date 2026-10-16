@@ -38,3 +38,6 @@ class NotificationDeleteAPIView(DestroyAPIView):
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)

@@ -122,7 +122,8 @@ def build_graded_percent_map(lessons):
 
     graded_by_lesson = dict(
         Student.objects.filter(
-            topicgrade__topic__lesson_id__in=lesson_ids
+            topicgrade__topic__lesson_id__in=lesson_ids,
+            topicgrade__is_deleted=False,
         ).values('topicgrade__topic__lesson_id').annotate(
             cnt=Count('id', distinct=True)
         ).values_list('topicgrade__topic__lesson_id', 'cnt')
@@ -236,11 +237,11 @@ def submit_grades(lesson, student, topics_data, subtopics_data, comment_mode='no
 
 
 def delete_student_grades(lesson, student, user=None):
-    """Soft-delete all grades and delete merged comments for a student on a lesson."""
+    """Soft-delete a student's grades and merged comments on a lesson."""
 
     invalidate_lesson_grade_cache(lesson.id)
-    TopicGrade.objects.filter(student=student, topic__lesson=lesson).delete()
-    MergedLessonComment.objects.filter(lesson=lesson, student=student).delete()
+    TopicGrade.objects.filter(student=student, topic__lesson=lesson).delete(user=user)
+    MergedLessonComment.objects.filter(lesson=lesson, student=student).delete(user=user)
 
 
 def freeze_quarter_grades(offering_id, quarter, frozen_by_user):

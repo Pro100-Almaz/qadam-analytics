@@ -155,7 +155,7 @@ class TeacherOfferingListAPIView(APIView):
             subject__status='active',
         )
         if not bool_param(request.query_params, 'include_empty', True):
-            offerings_qs = offerings_qs.filter(assignments__isnull=False)
+            offerings_qs = offerings_qs.filter(assignments__is_deleted=False)
 
         offerings = (
             offerings_qs

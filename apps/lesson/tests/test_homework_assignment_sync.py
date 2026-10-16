@@ -239,23 +239,27 @@ def test_ac20_admin_save_and_bulk_delete_sync(homework, pupil):
 
 
 def test_ac21_teaching_assignment_delete_leaves_no_orphan(teaching_assignment, homework):
+    # Spec 0013 superseded "deleting a TeachingAssignment deletes its
+    # homeworks": the homework now stays, so neither side is orphaned.
     assignment_id = mirror(homework).pk
 
     teaching_assignment.delete()
 
-    assert not Homework.objects.filter(pk=homework.pk).exists()
-    assert not SubjectAssignment.objects.filter(pk=assignment_id).exists()
+    assert Homework.objects.filter(pk=homework.pk).exists()
+    assert SubjectAssignment.objects.filter(pk=assignment_id).exists()
+    call_command('sync_homework_assignments', '--check')
 
 
 def test_ac22_sync_command_detects_and_fixes_drift(homework, pupil, capsys):
     HomeworkGradeFactory(homework=homework, student=pupil, grade=3)
     call_command('sync_homework_assignments', '--check')
 
-    # Writes the hooks cannot see: QuerySet.update() and QuerySet.delete().
+    # Writes the hooks cannot see: QuerySet.update() and a raw hard delete
+    # (QuerySet.delete() is soft since spec 0013 and takes the mirror along).
     SubjectAssignment.objects.filter(pk=mirror(homework).pk).update(title='drifted')
     SubjectGrade.objects.filter(assignment=mirror(homework)).update(grade=1)
     gone = HomeworkFactory(teaching_assignment=homework.teaching_assignment)
-    Homework.objects.filter(pk=gone.pk).delete()
+    Homework._base_manager.filter(pk=gone.pk).delete()
 
     with pytest.raises(CommandError):
         call_command('sync_homework_assignments', '--check')

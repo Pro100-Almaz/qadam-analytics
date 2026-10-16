@@ -2,12 +2,32 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import Group
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from apps.authentication.models import (
     CustomUser, Student, Teacher, Parent, Supervisor, ClubManager,
     School, SchoolGroup, PsychologicalState, PsychologicalStateTemplates,
     MAX_AVATAR_SIZE_MB, MAX_AVATAR_SIZE_BYTES,
 )
+
+
+class LiveUserTokenRefreshSerializer(TokenRefreshSerializer):
+    """SimpleJWT's refresh, with a missing user as a 401 instead of a 500.
+
+    SimpleJWT 5.4 looks the token's user up with `objects.get()` and does not
+    catch DoesNotExist. `CustomUser.objects` is live-only (spec 0013), so a
+    soft-deleted user's refresh token would otherwise crash the endpoint
+    rather than be refused (AC-6).
+    """
+
+    def validate(self, attrs):
+        try:
+            return super().validate(attrs)
+        except CustomUser.DoesNotExist:
+            raise AuthenticationFailed(
+                'No active account found for this token.', code='user_not_found',
+            )
 
 
 class PublicSchoolGroupSerializer(serializers.ModelSerializer):

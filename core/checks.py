@@ -338,3 +338,58 @@ def check_join_models_validate_school_consistency(app_configs=None, **kwargs):
                     id='tenancy.E010',
                 ))
     return errors
+
+
+#: Models a soft-deletable model may reach by a CASCADE edge without being
+#: soft-deletable themselves, each with the reason (spec 0013). A soft delete
+#: leaves their rows untouched; a purge removes them with the parent.
+#:
+#: `achievement.Attachment` needs no entry: it hangs off its parent by
+#: GenericForeignKey, which is not an FK edge, so the walker never reaches it
+#: and a purge removes it through the GenericRelation.
+SOFT_DELETE_CASCADE_EXEMPT = {
+    'admin.LogEntry':
+        'The admin audit log. It must outlive a soft-deleted user; it goes '
+        'only when the user is purged.',
+}
+
+
+@register(Tags.models)
+def check_soft_delete_cascades_stay_soft(app_configs=None, **kwargs):
+    """A soft delete cannot hide what it cannot reach (spec 0013, AC-12).
+
+    The walker in core.soft_delete follows CASCADE edges, but it can only
+    stamp rows that have `is_deleted`. A hard-delete model under a
+    soft-deletable one would keep its rows live under a hidden parent — and
+    then be removed for good by the purge. So adding one fails the build until
+    the child is soft-deletable or listed in SOFT_DELETE_CASCADE_EXEMPT.
+    """
+    from django.db import models
+
+    from core.soft_delete import is_soft_deletable, soft_delete_models
+
+    errors = []
+    for model in soft_delete_models():
+        for rel in model._meta.related_objects:
+            if rel.many_to_many or rel.field.many_to_many:
+                continue
+            if rel.on_delete is not models.CASCADE:
+                continue
+            child = rel.related_model._meta.concrete_model
+            if is_soft_deletable(child) or _is_historical(child):
+                continue
+            if child._meta.label in SOFT_DELETE_CASCADE_EXEMPT:
+                continue
+            errors.append(Error(
+                f'{child._meta.label}.{rel.field.name} CASCADEs from the '
+                f'soft-deletable {model._meta.label}, but '
+                f'{child._meta.label} is not soft-deletable.',
+                hint=(
+                    'Add core.models.SoftDeleteMixin to it, or list it in '
+                    'core.checks.SOFT_DELETE_CASCADE_EXEMPT with the reason '
+                    'its rows may stay live under a soft-deleted parent.'
+                ),
+                obj=child,
+                id='softdelete.E001',
+            ))
+    return errors

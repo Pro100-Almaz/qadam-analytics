@@ -248,7 +248,7 @@ def process_status_subject(request, pk):
 def delete_subject(request, pk):
     if request.method == "POST":
         subject = get_object_or_404(Subject, pk=pk)
-        subject.delete()
+        subject.delete(user=request.user)
         return redirect("subjects")
     return JsonResponse({"error": "Invalid request"}, status=400)
 

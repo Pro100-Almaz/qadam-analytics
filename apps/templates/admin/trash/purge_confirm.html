@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{# Spec 0013 — the one irreversible step in the trash, so it is confirmed. #}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:trash_index' %}">Trash</a>
+&rsaquo; Purge
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>Purging batch <code>{{ batch_id }}</code> deletes these rows for good,
+     together with anything the database cascades from them and any stored
+     files. This cannot be undone.</p>
+  <ul>
+    {% for name, count in summary %}<li>{{ name }}: {{ count }}</li>{% endfor %}
+  </ul>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <input type="submit" class="deletelink" value="Yes, purge for good">
+    <a href="{% if next %}{{ next }}{% else %}{% url 'admin:trash_index' %}{% endif %}" class="button cancel-link">No, take me back</a>
+  </form>
+</div>
+{% endblock %}

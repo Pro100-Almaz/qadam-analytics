@@ -35,7 +35,9 @@ def club_base_queryset(include_members=False) -> QuerySet:
         Prefetch('sessions', queryset=sessions, to_attr='active_club_sessions'),
         'attachments',
     ).annotate(
-        member_count_value=Count('members', distinct=True),
+        member_count_value=Count(
+            'members', filter=Q(members__is_deleted=False), distinct=True,
+        ),
         attendance_dates_count_value=Count(
             'sessions__attendances__date',
             filter=Q(

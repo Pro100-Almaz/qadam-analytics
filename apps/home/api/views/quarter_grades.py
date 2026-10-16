@@ -97,6 +97,7 @@ def homeroom_quarter_grade_queryset(user):
     ).filter(
         student__enrollments__class_group_id__in=class_group_ids,
         student__enrollments__status='active',
+        student__enrollments__is_deleted=False,
     ).distinct()
 
 
@@ -227,7 +228,7 @@ class OfferingQuarterGradeAPIView(APIView):
         data = self._validated(QuarterGradeBulkDeleteSerializer, request, offering)
         QuarterGrade.objects.filter(
             offering=offering, quarter=data['quarter'], student_id__in=data['students'],
-        ).delete()
+        ).delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod

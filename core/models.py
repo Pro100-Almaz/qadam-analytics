@@ -1,14 +1,65 @@
+from django.contrib.auth.models import UserManager
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
-from django.utils import timezone
 
 from core.tenancy import (
-    CrossSchoolWriteError, SchoolDerivationError, SchoolScopedManager,
+    CrossSchoolWriteError, SchoolDerivationError,
     SchoolScopedManagerMixin, apply_school_scope,
 )
 
 
-class SoftDeleteManager(models.Manager):
+class SoftDeleteQuerySet(models.QuerySet):
+    """Every manager of a soft-deletable model is built from this (spec 0013).
+
+    `delete()` is the soft one, so a queryset delete anywhere in the code —
+    a view, a reverse relation, the admin's bulk action — is recoverable.
+    `_base_manager` is NOT built from it: Django's own cascade (the purge)
+    goes through `_base_manager`, and that is the one path that must really
+    remove rows.
+    """
+
+    def alive(self):
+        return self.filter(is_deleted=False)
+
+    def dead(self):
+        return self.filter(is_deleted=True)
+
+    def delete(self, user=None):
+        from core.soft_delete import soft_delete
+        return soft_delete(self, user=user)
+    delete.alters_data = True
+    delete.queryset_only = True
+
+    def hard_delete(self):
+        return super().delete()
+    hard_delete.alters_data = True
+    hard_delete.queryset_only = True
+
+    def restore(self):
+        """Restore the batch of every row here. One call per batch, not per row."""
+        from core.soft_delete import restore
+        seen = set()
+        for obj in self.filter(is_deleted=True):
+            key = obj.deletion_batch or (type(obj), obj.pk)
+            if key not in seen:
+                seen.add(key)
+                restore(obj)
+    restore.alters_data = True
+    restore.queryset_only = True
+
+
+_SoftDeleteQuerySetManager = models.Manager.from_queryset(SoftDeleteQuerySet)
+
+
+class AllRowsManager(_SoftDeleteQuerySetManager):
+    """Deleted rows included, no school scope. `SoftDeleteMixin.unscoped`."""
+
+
+class ScopedAllRowsManager(SchoolScopedManagerMixin, _SoftDeleteQuerySetManager):
+    """Deleted rows included, school-scoped. `SoftDeleteMixin.all_objects`."""
+
+
+class SoftDeleteManager(_SoftDeleteQuerySetManager):
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
 
@@ -36,7 +87,42 @@ class ScopedSoftDeleteManager(SchoolScopedManagerMixin, SoftDeleteManager):
         return apply_school_scope(super()._unfiltered(), self.model)
 
 
+class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
+    """`CustomUser.objects`: live users only, and deliberately NOT school-scoped.
+
+    Unscoped for the reason in `core.checks.UNSCOPED_DEFAULT_MANAGER`. Live-only
+    because `ModelBackend` (`get_by_natural_key`) and SimpleJWT (`get_user`)
+    both look users up through it, so a soft-deleted user is simply not found
+    and can neither log in nor use a token minted before the delete (AC-6).
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
+def live_unique_constraint(*, fields, name, condition=None):
+    """A UniqueConstraint that only live rows count towards (spec 0013, G-4).
+
+    A soft-deleted row keeps its values, so a plain unique rule would let it
+    block a new row with the same value forever. `is_deleted=False` is ANDed
+    into any condition the rule already had; `core.soft_delete` strips it
+    back off to find the live row that blocks a restore.
+    """
+    live = models.Q(is_deleted=False)
+    return models.UniqueConstraint(
+        fields=fields, name=name,
+        condition=live & condition if condition is not None else live,
+    )
+
+
 class SoftDeleteMixin(models.Model):
+    """Rows are hidden, not removed, and come back as the batch they left in.
+
+    `delete()` collects the same tree a hard delete would (`CASCADE` edges
+    only) and stamps all of it with one `deletion_batch`; `restore()` brings
+    that batch back. The walker and the guards live in `core.soft_delete`.
+    """
+
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(
@@ -46,29 +132,45 @@ class SoftDeleteMixin(models.Model):
         on_delete=models.SET_NULL,
         related_name='+',
     )
+    #: Shared by every row deleted in one action. NULL on live rows, and on
+    #: rows deleted before spec 0013, which restore one at a time.
+    deletion_batch = models.UUIDField(
+        null=True, blank=True, db_index=True, editable=False,
+    )
 
     # `objects` first: Django takes the first declared manager as the default,
     # and the default manager is what reverse FKs, M2M and the admin go through.
     objects = ScopedSoftDeleteManager()
     #: Soft-deleted rows included, still school-scoped.
-    all_objects = SchoolScopedManager()
+    all_objects = ScopedAllRowsManager()
     #: Neither filter. Last resort — one word, and greppable.
-    unscoped = models.Manager()
+    unscoped = AllRowsManager()
 
     class Meta:
         abstract = True
 
-    def soft_delete(self, user=None):
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.deleted_by = user
-        self.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+    def delete(self, using=None, keep_parents=False, *, user=None, extras=True):
+        """Soft delete. `hard_delete()` is the real one, used only by purge."""
+        return self.soft_delete(user=user, extras=extras)
+
+    def soft_delete(self, user=None, *, extras=True):
+        from core.soft_delete import soft_delete
+        return soft_delete([self], user=user, extras=extras)
+
+    def hard_delete(self, using=None, keep_parents=False):
+        return models.Model.delete(self, using=using, keep_parents=keep_parents)
 
     def restore(self):
-        self.is_deleted = False
-        self.deleted_at = None
-        self.deleted_by = None
-        self.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        from core.soft_delete import restore
+        restore(self)
+
+    @classmethod
+    def soft_delete_extra(cls, pks):
+        """Rows no FK links to that must leave with these (model, pks) pairs.
+
+        Yields `(model, iterable of pks)`. The walker only ever adds live rows.
+        """
+        return ()
 
 
 _UNCACHED = object()

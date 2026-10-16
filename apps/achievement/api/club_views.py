@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, status
@@ -280,17 +279,7 @@ class ClubDetailAPIView(APIView):
     @transaction.atomic
     def delete(self, request, pk):
         club = get_object_or_404(club_queryset(request.user), pk=pk)
-        now = timezone.now()
-        ClubAttendance.objects.filter(session__club=club).update(
-            is_deleted=True,
-            deleted_at=now,
-            deleted_by=request.user,
-        )
-        ClubSession.objects.filter(club=club).update(
-            is_deleted=True,
-            deleted_at=now,
-            deleted_by=request.user,
-        )
+        # Sessions and attendance go with the club as one batch (spec 0013).
         club.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -317,6 +306,7 @@ class ClubAvailableStudentListAPIView(APIView):
         club = get_object_or_404(club_queryset(request.user), pk=int(club_id))
         students = student_queryset().filter(
             enrollments__status='active',
+            enrollments__is_deleted=False,
         ).exclude(
             clubs=club,
         ).distinct()
@@ -338,6 +328,7 @@ class ClubAvailableStudentListAPIView(APIView):
             students = students.filter(
                 enrollments__class_group_id=int(class_group),
                 enrollments__status='active',
+                enrollments__is_deleted=False,
             )
 
         paginator = ClubPagination()

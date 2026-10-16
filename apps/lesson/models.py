@@ -3,11 +3,15 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import Exists, OuterRef
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from simple_history.models import HistoricalRecords
 
 from apps.home.models import ClassGroup, SubjectOffering, TeachingAssignment
 from core.models import (
     SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
+    live_unique_constraint,
 )
 from core.tenancy import SchoolScopedManager
 
@@ -164,10 +168,9 @@ class Lesson(SoftDeleteMixin, models.Model):
         return results
 
 
-class Topic(SchoolConsistentModel):
+class Topic(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'lesson__offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('lesson', 'parent')
-    objects = SchoolScopedManager()
 
     lesson = models.ForeignKey(
         Lesson,
@@ -199,7 +202,12 @@ class Topic(SchoolConsistentModel):
     history = HistoricalRecords()
 
     class Meta:
-        unique_together = ('lesson', 'parent', 'title')
+        constraints = [
+            live_unique_constraint(
+                fields=['lesson', 'parent', 'title'],
+                name='topic_unique_live_lesson_parent_title',
+            ),
+        ]
         ordering = ['order', 'id']
 
     def __str__(self):
@@ -232,10 +240,9 @@ class Topic(SchoolConsistentModel):
         return (weighted_sum / total_weight) if total_weight > 0 else 0.0
 
 
-class TopicGrade(SchoolConsistentModel):
+class TopicGrade(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'topic__lesson__offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('topic', 'student')
-    objects = SchoolScopedManager()
 
     topic = models.ForeignKey(Topic, related_name='grades', on_delete=models.CASCADE)
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE)
@@ -245,17 +252,21 @@ class TopicGrade(SchoolConsistentModel):
     history = HistoricalRecords()
 
     class Meta:
-        unique_together = ('topic', 'student')
+        constraints = [
+            live_unique_constraint(
+                fields=['topic', 'student'],
+                name='topicgrade_unique_live_topic_student',
+            ),
+        ]
         indexes = [
             models.Index(fields=['student', 'topic'], name='idx_topicgrade_student_topic'),
         ]
 
 
-class MergedLessonComment(SchoolDerivedMixin, models.Model):
+class MergedLessonComment(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('lesson__offering', 'student__user')
     SCHOOL_CONSISTENT_FIELDS = ('lesson', 'student')
-    objects = SchoolScopedManager()
 
     # `lesson` and `student` are both nullable, so there is no reliable join
     # path to a school.
@@ -337,13 +348,12 @@ class QuarterGradeSnapshot(SchoolConsistentModel):
         return f"{self.student} - {self.offering} Q{self.quarter}: {self.percentage}%"
 
 
-class SubjectSchedule(SchoolDerivedMixin, models.Model):
+class SubjectSchedule(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     SCHOOL_DERIVED_FROM = ('offering', 'class_group')
     #: Both are nullable — a school-wide schedule has neither, which the
     #: skip-None rule allows. Only a *disagreement* is rejected.
     SCHOOL_CONSISTENT_FIELDS = ('offering', 'class_group')
-    objects = SchoolScopedManager()
 
     # Both `offering` and `class_group` are nullable — school-wide schedules
     # have neither. 8 such rows exist today; scoping by join would make them
@@ -375,7 +385,12 @@ class SubjectSchedule(SchoolDerivedMixin, models.Model):
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
 
     class Meta:
-        unique_together = ['offering', 'quarter']
+        constraints = [
+            live_unique_constraint(
+                fields=['offering', 'quarter'],
+                name='subjectschedule_unique_live_offering_quarter',
+            ),
+        ]
 
     def __str__(self):
         if self.offering:
@@ -383,9 +398,8 @@ class SubjectSchedule(SchoolDerivedMixin, models.Model):
         return f"{self.description} - {self.quarter}"
 
 
-class ScheduleSession(models.Model):
+class ScheduleSession(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'schedule__school'
-    objects = SchoolScopedManager()
 
     schedule = models.ForeignKey(
         SubjectSchedule,
@@ -398,14 +412,18 @@ class ScheduleSession(models.Model):
     weekday = models.PositiveSmallIntegerField(validators=[MinValueValidator(0), MaxValueValidator(6)])
 
     class Meta:
-        unique_together = ['schedule', 'time_start', 'time_end', 'weekday']
+        constraints = [
+            live_unique_constraint(
+                fields=['schedule', 'time_start', 'time_end', 'weekday'],
+                name='schedulesession_unique_live_slot',
+            ),
+        ]
         ordering        = ['schedule', 'weekday', 'time_start', 'time_end']
 
 
-class ScheduleAttendance(SchoolConsistentModel):
+class ScheduleAttendance(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'session__schedule__school'
     SCHOOL_CONSISTENT_FIELDS = ('student', 'session')
-    objects = SchoolScopedManager()
 
     ATTENDANCE_CHOICES = (
         ('present', 'Present'),
@@ -442,21 +460,25 @@ class ScheduleAttendance(SchoolConsistentModel):
         constraints = [
             # One record per lesson slot. POST upserts against this, so a
             # re-saved register updates rows instead of being refused (0004).
-            models.UniqueConstraint(
+            live_unique_constraint(
                 fields=['session', 'student', 'date'],
                 name='scheduleattendance_one_per_slot',
             ),
         ]
 
 
-class Homework(SchoolConsistentModel):
+class Homework(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('offering', 'teaching_assignment')
-    objects = SchoolScopedManager()
 
     description = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
-    teaching_assignment = models.ForeignKey(TeachingAssignment, on_delete=models.CASCADE, related_name='homeworks')
+    #: SET_NULL (spec 0013): a homework outlives the teacher's assignment to
+    #: the offering, with its grades and files.
+    teaching_assignment = models.ForeignKey(
+        TeachingAssignment, on_delete=models.SET_NULL, related_name='homeworks',
+        null=True, blank=True,
+    )
     max_grade = models.PositiveIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(100)],
     )
@@ -483,28 +505,57 @@ class Homework(SchoolConsistentModel):
                 from apps.lesson import homework_sync
                 homework_sync.assignment_from_homework(self)
 
-    def delete(self, *args, sync=True, **kwargs):
-        with transaction.atomic():
-            if sync:
-                from apps.lesson import homework_sync
-                homework_sync.delete_assignment(self.pk)
-            # The attachment rows cascade with the homework, but the stored
-            # files do not — drop them first so nothing is orphaned in storage.
-            # _base_manager: this also runs outside any request scope
-            # (TeachingAssignment.delete, the sync command).
-            attachments = self.attachments.model._base_manager.filter(
-                content_type=ContentType.objects.get_for_model(Homework),
-                object_id=self.pk,
-            )
-            for attachment in attachments:
-                attachment.file.delete(save=False)
-            return super().delete(*args, **kwargs)
+    def delete(self, *args, sync=True, user=None, **kwargs):
+        """Soft delete. `sync=False` leaves the SubjectAssignment mirror alone.
+
+        The stored attachment files stay until the homework is purged — see
+        `remove_homework_files` below.
+        """
+        return super().delete(*args, user=user, extras=sync, **kwargs)
+
+    @classmethod
+    def soft_delete_extra(cls, pks):
+        """A homework leaves with its SubjectAssignment mirror (spec 0005).
+
+        The mirror is found by `detail_id`, not by an FK, so the walker would
+        never reach it on its own. Its SubjectGrades follow by CASCADE.
+        """
+        from apps.home.models import AssignmentCategory, SubjectAssignment
+        yield SubjectAssignment, SubjectAssignment._base_manager.filter(
+            category__code=AssignmentCategory.HOMEWORK,
+            detail_id__in=pks, is_deleted=False,
+        ).values_list('pk', flat=True)
 
 
-class HomeworkGrade(SchoolConsistentModel):
+@receiver(pre_delete, sender=Homework, dispatch_uid='homework_remove_files')
+def remove_homework_files(sender, instance, **kwargs):
+    """Drop a purged homework's stored files once the purge commits (AC-8).
+
+    Only a hard delete sends `pre_delete`, so a soft-deleted homework keeps its
+    files. `pre_delete` rather than `post_delete`: the Attachment rows go in
+    the same cascade, before the homework row, so they have to be read now.
+    The files themselves go on commit, so a purge that rolls back loses
+    nothing. `_base_manager`: a purge runs from the admin trash, whose scope
+    is the school, but the rows are found by id.
+    """
+    from apps.achievement.models import Attachment
+    files = [
+        attachment.file
+        for attachment in Attachment._base_manager.filter(
+            content_type=ContentType.objects.get_for_model(Homework),
+            object_id=instance.pk,
+        )
+    ]
+
+    def remove():
+        for file in files:
+            file.delete(save=False)
+    transaction.on_commit(remove)
+
+
+class HomeworkGrade(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'homework__offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('homework', 'student')
-    objects = SchoolScopedManager()
 
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='grades')
     student = models.ForeignKey('authentication.Student', on_delete=models.CASCADE, related_name='homework_grades')
@@ -514,7 +565,12 @@ class HomeworkGrade(SchoolConsistentModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('homework', 'student')
+        constraints = [
+            live_unique_constraint(
+                fields=['homework', 'student'],
+                name='homeworkgrade_unique_live_homework_student',
+            ),
+        ]
 
     def save(self, *args, sync=True, **kwargs):
         with transaction.atomic():
@@ -523,9 +579,21 @@ class HomeworkGrade(SchoolConsistentModel):
                 from apps.lesson import homework_sync
                 homework_sync.subject_grade_from_homework_grade(self)
 
-    def delete(self, *args, sync=True, **kwargs):
-        with transaction.atomic():
-            if sync:
-                from apps.lesson import homework_sync
-                homework_sync.delete_subject_grade(self.homework_id, self.student_id)
-            return super().delete(*args, **kwargs)
+    def delete(self, *args, sync=True, user=None, **kwargs):
+        """`sync=False` leaves the SubjectGrade mirror alone."""
+        return super().delete(*args, user=user, extras=sync, **kwargs)
+
+    @classmethod
+    def soft_delete_extra(cls, pks):
+        """A homework grade leaves with its SubjectGrade mirror (spec 0005)."""
+        from apps.home.models import AssignmentCategory, SubjectGrade
+        mirrored = cls._base_manager.filter(
+            pk__in=pks,
+            homework_id=OuterRef('assignment__detail_id'),
+            student_id=OuterRef('student_id'),
+        )
+        yield SubjectGrade, SubjectGrade._base_manager.filter(
+            Exists(mirrored),
+            assignment__category__code=AssignmentCategory.HOMEWORK,
+            is_deleted=False,
+        ).values_list('pk', flat=True)

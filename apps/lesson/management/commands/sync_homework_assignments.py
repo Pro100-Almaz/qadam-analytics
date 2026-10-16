@@ -4,10 +4,11 @@ Check (and optionally repair) the Homework <-> SubjectAssignment mirror.
     python manage.py sync_homework_assignments --check   # exit 1 on any drift
     python manage.py sync_homework_assignments --fix     # rewrite from Homework
 
-The model hooks keep both sides in step on every save()/delete(); this is the
-safety net for writes they cannot see — QuerySet.update()/delete(), cascades
-from a deleted Teacher, raw SQL. Spans every school: the mirror is per row, not
-per tenant. See apps/lesson/homework_sync.py and spec 0005.
+The model hooks keep both sides in step on every save(), and a soft delete
+takes both sides as one batch; this is the safety net for writes they cannot
+see — QuerySet.update(), raw SQL. Soft-deleted rows are ignored (spec 0013).
+Spans every school: the mirror is per row, not per tenant. See
+apps/lesson/homework_sync.py and spec 0005.
 """
 
 from django.core.management.base import BaseCommand, CommandError

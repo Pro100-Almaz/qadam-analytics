@@ -5,10 +5,21 @@ title: Admin-managed SubjectAssignment categories, with Homework mirrored as a c
 status: shipped
 owner: bekzhan
 created: 2026-09-30
-updated: 2026-10-02
+updated: 2026-10-15
 ---
 
 # 0005 — Dynamic assignment categories and the Homework mirror
+
+> **Partly superseded by [0013](../0013-soft-delete/spec.md)** (soft deletion).
+> The rest of this spec stands. Two behaviours changed:
+>
+> - Deleting a `Homework` no longer removes its stored attachment files
+>   (AC-15, AC-18). The homework, its mirror assignment and grades are
+>   soft-deleted together; the files go only when it is purged from the trash.
+> - Deleting a `TeachingAssignment` no longer deletes its homeworks (AC-21).
+>   They stay live, and `Homework.teaching_assignment` is `SET_NULL`. AC-21's
+>   guarantee still holds: no live `homework` assignment points at a deleted
+>   `Homework`.
 
 ## Problem
 

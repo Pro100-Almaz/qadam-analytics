@@ -1,18 +1,22 @@
 import uuid
 
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
+from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from simple_history.models import HistoricalRecords
 
-from core.models import SchoolConsistentModel, SchoolDerivedMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, ScopedSoftDeleteManager,
+    SoftDeleteMixin, SoftDeleteUserManager, live_unique_constraint,
+)
 from core.tenancy import SchoolScopedManager
 from core.validators import is_stored_file
 from core import settings
@@ -121,7 +125,7 @@ class SchoolGroup(models.Model):
         return self.name
 
 
-class CustomUser(AbstractUser):
+class CustomUser(SoftDeleteMixin, AbstractUser):
     SCHOOL_PATH = 'school'
 
     #: Identity lookups must be global, so the DEFAULT manager is unscoped.
@@ -131,9 +135,28 @@ class CustomUser(AbstractUser):
     #: createsuperuser and the admin login. Person-level isolation is enforced
     #: through the five profile models instead, each SCHOOL_PATH='user__school',
     #: which is what the API actually lists.
-    objects = UserManager()
-    #: Scoped, for listings, pickers and the admin.
-    in_school = SchoolScopedManager()
+    #:
+    #: Live users only (spec 0013): the same lookups are what keep a
+    #: soft-deleted user from logging in or using an old token.
+    objects = SoftDeleteUserManager()
+    #: Scoped and live, for listings, pickers and the admin.
+    in_school = ScopedSoftDeleteManager()
+
+    #: AbstractUser's field minus `unique=True`, which would count soft-deleted
+    #: users too. Uniqueness among live users is `user_unique_live_username`
+    #: below; `auth.E003`, which wants the field itself unique, is silenced in
+    #: settings for this reason.
+    username = models.CharField(
+        _('username'),
+        max_length=150,
+        help_text=_(
+            'Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'
+        ),
+        validators=[AbstractUser.username_validator],
+        error_messages={
+            'unique': _('A user with that username already exists.'),
+        },
+    )
 
     # Group name constants (used for consistency across the codebase)
     GROUP_PARENT = 'Parent'
@@ -220,6 +243,9 @@ class CustomUser(AbstractUser):
             models.CheckConstraint(
                 condition=models.Q(school__isnull=False) | models.Q(is_superuser=True),
                 name='user_has_school_unless_superuser',
+            ),
+            live_unique_constraint(
+                fields=['username'], name='user_unique_live_username',
             ),
         ]
 
@@ -315,9 +341,8 @@ class CustomUser(AbstractUser):
 
 
 
-class Student(SchoolConsistentModel):
+class Student(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'user__school'
-    objects = SchoolScopedManager()
     #: `user` is the student's own school, so this reads as: an Orda house
     #: from a school the student does not attend is a cross-tenant write, not
     #: a stray FK. `intake_year` is absent because it is no longer a relation —
@@ -439,7 +464,9 @@ def assign_intake_year_for_student(sender, instance: 'Student', **kwargs):
         # state a real student reaches.
         return
 
-    years = AcademicYear._base_manager.filter(school_id=school_id)
+    # `_base_manager` is unfiltered, so the soft-deleted years go explicitly
+    # (spec 0013, AC-10).
+    years = AcademicYear._base_manager.filter(school_id=school_id, is_deleted=False)
     year = (
         years.filter(is_active=True).first()
         or years.order_by('-year').first()
@@ -448,18 +475,16 @@ def assign_intake_year_for_student(sender, instance: 'Student', **kwargs):
         instance.intake_year = year.year
 
 
-class Parent(models.Model):
+class Parent(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'user__school'
-    objects = SchoolScopedManager()
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
     students = models.ManyToManyField(Student, blank=True, related_name="parent")
 
 
-class Teacher(models.Model):
+class Teacher(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'user__school'
-    objects = SchoolScopedManager()
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
@@ -489,16 +514,14 @@ class Teacher(models.Model):
         return full_name if full_name.strip() else self.user.username
 
 
-class Supervisor(models.Model):
+class Supervisor(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'user__school'
-    objects = SchoolScopedManager()
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
 
-class ClubManager(models.Model):
+class ClubManager(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'user__school'
-    objects = SchoolScopedManager()
 
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
 
@@ -507,7 +530,7 @@ class ClubManager(models.Model):
         return full_name if full_name.strip() else self.user.username
 
 
-class PsychologicalState(SchoolDerivedMixin, models.Model):
+class PsychologicalState(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     """A psychologist's note about a student.
 
     `student` is nullable, so the row carries its own school rather than
@@ -525,7 +548,6 @@ class PsychologicalState(SchoolDerivedMixin, models.Model):
     #: check that stops a sensitive record being filed under the wrong
     #: tenant, which here is a disclosure rather than a misfile.
     SCHOOL_CONSISTENT_FIELDS = ('student',)
-    objects = SchoolScopedManager()
 
     name = models.CharField(max_length=100)
     comment = models.TextField(blank=True, null=True)

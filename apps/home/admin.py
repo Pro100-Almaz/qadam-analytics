@@ -8,7 +8,6 @@ from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.db.models import Count, Q
 from django.utils.html import format_html
 from modeltranslation.admin import TranslationAdmin
@@ -21,7 +20,7 @@ from apps.home.models import (
 
 from apps.lesson.models import Lesson
 from apps.authentication.models import Teacher
-from core.admin_mixins import SchoolScopedAdminMixin
+from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
 
 
 admin.site.register(GradeLevel)
@@ -47,7 +46,9 @@ class AssignmentCategoryAdmin(TranslationAdmin):
     ordering = ("name_en",)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_assignment_count=Count("assignments"))
+        return super().get_queryset(request).annotate(_assignment_count=Count(
+            "assignments", filter=Q(assignments__is_deleted=False),
+        ))
 
     @admin.display(description="Assignments", ordering="_assignment_count")
     def assignment_count(self, obj):
@@ -93,7 +94,7 @@ class ClassGroupCategoryMixin:
 
 
 @admin.register(Subject)
-class SubjectAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+class SubjectAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ("name", "language_group", "status")
     list_filter = ("status", "language_group")
     search_fields = ("name",)
@@ -112,7 +113,7 @@ class LessonInline(admin.TabularInline):
 
 
 @admin.register(SubjectOffering)
-class SubjectOfferingAdmin(SchoolScopedAdminMixin, ClassGroupCategoryMixin, admin.ModelAdmin):
+class SubjectOfferingAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, ClassGroupCategoryMixin, admin.ModelAdmin):
     list_display = (
         "__str__", "subject", "class_group", "class_group_category",
         "academic_year", "get_primary_teacher",
@@ -153,7 +154,7 @@ class SubjectOfferingAdmin(SchoolScopedAdminMixin, ClassGroupCategoryMixin, admi
 
 
 @admin.register(TeachingAssignment)
-class TeachingAssignmentAdmin(admin.ModelAdmin):
+class TeachingAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("teacher", "offering", "role")
     list_filter = ("role", "offering__class_group__academic_year")
     search_fields = ("teacher__user__first_name", "teacher__user__last_name")
@@ -166,16 +167,9 @@ class TeachingAssignmentAdmin(admin.ModelAdmin):
             "offering__class_group__grade_level", "offering__class_group__academic_year",
         )
 
-    def delete_queryset(self, request, queryset):
-        # One by one: TeachingAssignment.delete() removes the homework's
-        # SubjectAssignment mirrors, which a bulk delete would strand.
-        with transaction.atomic():
-            for obj in queryset:
-                obj.delete()
-
 
 @admin.register(HomeroomTeacherAssignment)
-class HomeroomTeacherAssignmentAdmin(admin.ModelAdmin):
+class HomeroomTeacherAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("teacher", "class_group", "academic_year")
     list_filter = ("class_group__academic_year", "class_group__grade_level")
     search_fields = (
@@ -219,7 +213,7 @@ class HomeroomTeacherAssignmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Lesson)
-class LessonAdmin(admin.ModelAdmin):
+class LessonAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("title", "offering", "date", "quarter")
     list_filter = ("quarter", "offering__class_group__academic_year", "offering__subject")
     search_fields = ("title", "description")
@@ -228,7 +222,7 @@ class LessonAdmin(admin.ModelAdmin):
 
 
 @admin.register(AcademicYear)
-class AcademicYearAdmin(admin.ModelAdmin):
+class AcademicYearAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("year", "is_active", "archived")
     search_fields = ("year",)
     ordering = ("-year",)
@@ -248,7 +242,7 @@ class ClassGroupEnrollmentInline(admin.TabularInline):
         return super().get_queryset(request).select_related("student__user")
 
 
-class BaseClassGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+class BaseClassGroupAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmin):
     """CRUD shared by classes and Подгруппы; subclasses pin one category."""
     category = None
 
@@ -264,9 +258,15 @@ class BaseClassGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
             category=self.category
         ).select_related("grade_level", "academic_year").annotate(
             _students_count=Count(
-                "enrollments", filter=Q(enrollments__status="active"), distinct=True
+                "enrollments",
+                filter=Q(enrollments__status="active", enrollments__is_deleted=False),
+                distinct=True,
             ),
-            _offerings_count=Count("subject_offerings", distinct=True),
+            _offerings_count=Count(
+                "subject_offerings",
+                filter=Q(subject_offerings__is_deleted=False),
+                distinct=True,
+            ),
         )
 
     def save_model(self, request, obj, form, change):
@@ -407,7 +407,7 @@ class MinorClassGroupAdmin(BaseClassGroupAdmin):
 
 
 @admin.register(Enrollment)
-class EnrollmentAdmin(ClassGroupCategoryMixin, admin.ModelAdmin):
+class EnrollmentAdmin(SoftDeleteAdminMixin, ClassGroupCategoryMixin, admin.ModelAdmin):
     list_display = (
         "student_name", "student_avatar", "class_group", "class_group_category",
         "academic_year", "status_badge", "start_date", "end_date", "days_enrolled"

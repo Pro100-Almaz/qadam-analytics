@@ -51,6 +51,7 @@ class TeacherDetailAPIView(RetrieveAPIView):
                 teacher=obj,
                 offering__class_group__enrollments__student__in=children,
                 offering__class_group__enrollments__status='active',
+                offering__class_group__enrollments__is_deleted=False,
             ).exists()
             if has_link:
                 return

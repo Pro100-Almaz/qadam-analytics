@@ -231,6 +231,7 @@ def grade_queryset(user):
             | Q(
                 student__enrollments__class_group_id__in=homeroom_ids,
                 student__enrollments__status='active',
+                student__enrollments__is_deleted=False,
             )
         ).distinct()
 
@@ -440,9 +441,9 @@ class HomeworkDetailAPIView(APIView):
         if isinstance(homework, Response):
             return homework
 
-        # Homework.delete() drops the stored files and the SubjectAssignment
-        # mirror along with the row.
-        homework.delete()
+        # Soft: the SubjectAssignment mirror and the grades go in the same
+        # batch; the stored files stay until a purge (spec 0013).
+        homework.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
@@ -572,7 +573,7 @@ class HomeworkGradeDetailAPIView(APIView):
         if isinstance(grade, Response):
             return grade
 
-        grade.delete()
+        grade.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod

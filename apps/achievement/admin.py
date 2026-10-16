@@ -3,11 +3,11 @@ from django.contrib import admin
 from apps.achievement.models import (
     Achievement, Club, ClubAttendance, ClubEntry, ClubSession, ReadingEntry,
 )
-from core.admin_mixins import SchoolScopedAdminMixin
+from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
 
 
 @admin.register(Achievement)
-class AchievementAdmin(admin.ModelAdmin):
+class AchievementAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ['student', 'category', 'academic_year', 'award_type', 'place', 'created_at']
     list_filter = ['category', 'academic_year']
     search_fields = ['student__user__first_name', 'student__user__last_name', 'award_type', 'place']
@@ -16,7 +16,7 @@ class AchievementAdmin(admin.ModelAdmin):
 
 
 @admin.register(ReadingEntry)
-class ReadingEntryAdmin(admin.ModelAdmin):
+class ReadingEntryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ['student', 'title', 'month', 'academic_year', 'pages_read', 'test_score']
     list_filter = ['academic_year', 'month']
     search_fields = ['student__user__first_name', 'student__user__last_name', 'title']
@@ -24,7 +24,7 @@ class ReadingEntryAdmin(admin.ModelAdmin):
 
 
 @admin.register(ClubEntry)
-class ClubEntryAdmin(admin.ModelAdmin):
+class ClubEntryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = [
         'student', 'club_name', 'month', 'academic_year',
         'total_sessions', 'attended_sessions',
@@ -40,7 +40,7 @@ class ClubSessionInline(admin.TabularInline):
 
 
 @admin.register(Club)
-class ClubAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+class ClubAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ['name', 'manager', 'academic_year', 'start_date', 'end_date']
     list_filter = ['academic_year']
     search_fields = ['name', 'manager__user__first_name', 'manager__user__last_name']
@@ -50,7 +50,7 @@ class ClubAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(ClubAttendance)
-class ClubAttendanceAdmin(admin.ModelAdmin):
+class ClubAttendanceAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ['session', 'student', 'date', 'status']
     list_filter = ['status', 'date']
     raw_id_fields = ['session', 'student']

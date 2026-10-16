@@ -453,7 +453,12 @@ class TestClubMembershipAndAttendance:
             date=date(2026, 9, 7),
             status='present',
         )
-        session.soft_delete(admin_user)
+        # Retire the session the way the schedule editor does: a flag on the
+        # session alone, so its attendance history stays live and editable.
+        # (`soft_delete()` would take the attendance with it — spec 0013.)
+        ClubSession.objects.filter(pk=session.pk).update(
+            is_deleted=True, deleted_by=admin_user,
+        )
         client = authenticated_client(admin_user)
         url = reverse('achievement-api:club-attendance-detail', kwargs={
             'pk': club.id,

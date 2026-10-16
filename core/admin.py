@@ -36,6 +36,7 @@ from apps.authentication.school_selection import (
     selectable_schools,
 )
 from core.admin_mixins import SchoolScopedAdminMixin
+from core.admin_trash import TrashViews
 from core.tenancy import get_active_school
 
 
@@ -81,6 +82,9 @@ class QadamAdminSite(AdminSite):
                 self.admin_view(switch_school),
                 name='switch_school',
             ),
+            # The trash (spec 0013). Same reason: `trash/<app>/<model>/` would
+            # otherwise resolve as an app index.
+            *TrashViews(self).get_urls(),
         ] + super().get_urls()
 
     def each_context(self, request):
@@ -92,6 +96,7 @@ class QadamAdminSite(AdminSite):
             school_switcher_active_id=active_id,
             school_switcher_accent=accent_for_school(active_id),
             school_switcher_url=reverse(f'{self.name}:switch_school'),
+            trash_url=reverse(f'{self.name}:trash_index'),
         )
         return context
 
