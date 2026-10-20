@@ -7,7 +7,7 @@ def collect_student_data(student_id: int, quarter: int) -> dict:
     from apps.home.models import AcademicYear
 
     student = Student.objects.select_related(
-        'user', 'school_group', 'academic_year'
+        'user', 'school_group'
     ).get(pk=student_id)
 
     academic_year = AcademicYear.objects.filter(is_active=True).first()
