@@ -5,7 +5,7 @@ title: Role-scoped offering endpoints for teachers and homeroom teachers
 status: in-progress
 owner: bekzhan
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-21
 supersedes: 0010
 ---
 
@@ -61,8 +61,10 @@ nested under each student.
   (default: the active one), for active subjects, each listed once.
 - **AC-2** — A teacher who is also a homeroom teacher does not get the
   offerings of their homeroom class that they do not teach.
-- **AC-3** — `include_empty=false` drops offerings with no subject
-  assignment. The default is `true`.
+- **AC-3** — `include_empty=false` drops offerings that have neither a
+  subject assignment nor a quarter grade. With `quarter=<1-4>` only
+  assignments and quarter grades of that quarter count; anything else for
+  `quarter` is a 400. The default for `include_empty` is `true`.
 - **AC-4** — Each row carries `teaching_role` and no `access` or
   `is_homeroom_class` key.
 - **AC-5** — `teacher/offerings/` is 403 for a user outside the Teacher and
@@ -80,7 +82,7 @@ nested under each student.
 
 | Method | Path | Change |
 |---|---|---|
-| GET | `/api/v1/teacher/offerings/` | New. Params: `academic_year`, `include_empty` |
+| GET | `/api/v1/teacher/offerings/` | New. Params: `academic_year`, `include_empty`, `quarter` |
 | GET | `/api/v1/homeroom/my-class/` | New path for `teacher/my-class/`, plus `offerings` and `students[].subjects[].offering_id` |
 | GET | `/api/v1/teacher/my-class/` | Removed |
 | GET | `/api/v1/analytics/assignment-offerings/` | Removed |
