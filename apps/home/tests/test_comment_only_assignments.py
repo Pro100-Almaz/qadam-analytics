@@ -301,7 +301,8 @@ def test_ac31_grade_sheet_marks_comment_only_columns(
     )
 
     assert response.status_code == 200
-    ws = load_workbook(io.BytesIO(response.content)).worksheets[0]
+    # Sheet 0 is the Quarter Grades summary (spec 0013); the subject follows.
+    ws = load_workbook(io.BytesIO(response.content)).worksheets[1]
     header = ws.cell(row=4, column=2)
     assert header.value.startswith('Essay')
     assert header.comment.text.endswith('Comment only, no grade')
