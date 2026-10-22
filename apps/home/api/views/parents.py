@@ -29,13 +29,8 @@ class ParentChildrenListAPIView(APIView):
         result = []
         for child in children:
             enrollment = child.get_current_enrollment()
-            if enrollment:
-                total_grade, quarter_grades, _ = compute_child_grades(child, enrollment)
-                class_group_name = str(enrollment.class_group)
-            else:
-                total_grade = 0
-                quarter_grades = {'1': None, '2': None, '3': None, '4': None}
-                class_group_name = None
+            total_grade, quarter_grades = compute_child_grades(child)
+            class_group_name = str(enrollment.class_group) if enrollment else None
 
             school_group_name = child.school_group.name if child.school_group else None
 

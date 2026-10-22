@@ -10,6 +10,7 @@ from apps.home.models import (
     Subject, SubjectOffering, TeachingAssignment, Enrollment,
     SubjectAssignment, SubjectGrade, QuarterGrade, AssignmentCategory,
 )
+from apps.home.services import current_offerings
 from apps.lesson.models import Lesson, TopicGrade, Topic
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
@@ -150,21 +151,8 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         if hasattr(self, '_grade_cache'):
             return self._grade_cache
 
-        enrollment = student.get_current_enrollment()
-        if not enrollment:
-            self._grade_cache = {
-                'offerings': [],
-                'subject_quarter_grades': {},
-                'total_quarter_grades': {},
-                'cumulative_subject_grades': {},
-                'student_total_grade': 0,
-            }
-            return self._grade_cache
-
-        offerings = list(SubjectOffering.objects.filter(
-            class_group=enrollment.class_group,
-            class_group__academic_year=enrollment.academic_year,
-        ).select_related('subject'))
+        # Major and minor (подгруппа) class groups alike.
+        offerings = current_offerings(student)
 
         # The marks teachers entered (spec 0008), not ones derived from topics.
         marks = {
@@ -558,8 +546,8 @@ class ParentChildSerializer(serializers.Serializer):
     avatar = serializers.CharField(allow_null=True)
     class_group_name = serializers.CharField(allow_null=True)
     school_group = serializers.CharField(allow_null=True)
-    student_total_grade = serializers.FloatField()
-    quarter_grades = serializers.DictField()
+    student_total_grade = serializers.FloatField(allow_null=True)
+    quarter_grades = serializers.DictField(child=serializers.FloatField(allow_null=True))
 
 
 class ParentChildDetailSerializer(serializers.Serializer):
