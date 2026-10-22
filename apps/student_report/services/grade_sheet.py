@@ -1,8 +1,9 @@
 """
 Collects the grade data that the XLSX grade sheets are built from.
 
-Everything here reads SubjectGrade / SubjectAssignment and nothing else — the
-lesson/topic grading tree is deliberately not consulted.
+Everything here reads SubjectGrade / SubjectAssignment, plus the QuarterGrade
+given per offering (spec 0013), and nothing else — the lesson/topic grading
+tree is deliberately not consulted.
 
 A SubjectAssignment carries no quarter of its own, only a date, so a quarter is
 resolved into the closed date range the AcademicYear records for it
@@ -15,6 +16,7 @@ from typing import Optional
 
 from apps.home.models import (
     Enrollment,
+    QuarterGrade,
     SubjectAssignment,
     SubjectGrade,
     SubjectOffering,
@@ -66,9 +68,14 @@ class GradeSheetData:
     students: list = field(default_factory=list)
     subjects: list = field(default_factory=list)
     cells: dict = field(default_factory=dict)
+    quarter_grades: dict = field(default_factory=dict)
 
     def cell(self, student_id: int, assignment_id: int):
         return self.cells.get((student_id, assignment_id))
+
+    def quarter_grade(self, student_id: int, offering_id: int):
+        """The student's QuarterGrade for the offering, or None."""
+        return self.quarter_grades.get((student_id, offering_id))
 
     @property
     def widest_subject(self) -> int:
@@ -143,9 +150,9 @@ def collect_grade_sheet(
     """
     Build the full grade grid for `students` within one class group and quarter.
 
-    Four queries regardless of how many students or subjects are involved:
-    offerings, assignments, grades, and the enrollment lookup the caller
-    already did to produce `students`.
+    Five queries regardless of how many students or subjects are involved:
+    offerings, assignments, grades, quarter grades, and the enrollment lookup
+    the caller already did to produce `students`.
     """
     period_start, period_end = quarter_period(academic_year, quarter)
 
@@ -212,5 +219,17 @@ def collect_grade_sheet(
             comment=(g['comments'] or '').strip(),
         )
         for g in grades
+    }
+
+    # unique_together (student, offering, quarter): at most one per key.
+    quarter_grades = QuarterGrade.objects.filter(
+        offering__in=offerings,
+        quarter=quarter,
+        student_id__in=student_ids,
+    ).values_list('student_id', 'offering_id', 'grade')
+
+    data.quarter_grades = {
+        (student_id, offering_id): grade
+        for student_id, offering_id, grade in quarter_grades
     }
     return data

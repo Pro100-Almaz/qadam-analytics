@@ -16,6 +16,11 @@ Two layouts, chosen by the `ordering` query parameter:
 In both layouts a cell holds the grade, or "-" when none was given. A grade
 carrying a teacher comment is filled amber and gets an Excel note with the
 comment text, so the grade itself stays a number that Excel can still sum.
+
+Every assignment table ends with a Quarter Grade column holding the
+QuarterGrade for that offering, left empty when none was given. Unless the
+workbook is narrowed to one subject, it opens on a Quarter Grades sheet:
+students down, subjects across (spec 0013).
 """
 
 import re
@@ -26,6 +31,8 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 MISSING_MARK = '-'
+QUARTER_GRADE_HEADER = 'Quarter Grade'
+SUMMARY_SHEET_TITLE = 'Quarter Grades'
 COMMENT_AUTHOR = 'Qadam Analytics'
 
 NAME_COLUMN_WIDTH = 34
@@ -43,6 +50,8 @@ _HEADER_FILL = PatternFill('solid', fgColor='1F3864')
 _LABEL_FILL = PatternFill('solid', fgColor='D9E2F3')
 _BAND_FILL = PatternFill('solid', fgColor='F4F7FB')
 _COMMENT_FILL = PatternFill('solid', fgColor='FFF2CC')
+_QUARTER_FILL = PatternFill('solid', fgColor='E2EFDA')
+_QUARTER_FONT = Font(bold=True, size=11, color='1F3864')
 
 _HEADER_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
 _CENTER_ALIGN = Alignment(horizontal='center', vertical='center')
@@ -55,7 +64,9 @@ _INVALID_SHEET_CHARS = re.compile(r'[\\/*?:\[\]]')
 
 _LEGEND = (
     f'"{MISSING_MARK}" — no grade recorded. '
-    'Amber cells carry a teacher comment; hover over one to read it.'
+    'Amber cells carry a teacher comment; hover over one to read it. '
+    f'{QUARTER_GRADE_HEADER} is the grade given for the quarter, empty when '
+    'none was given.'
 )
 
 
@@ -93,23 +104,26 @@ def _write_page_header(ws, title, subtitle, width):
     return 4
 
 
+def _write_header_cell(ws, row, column, value):
+    cell = ws.cell(row=row, column=column, value=value)
+    cell.font = _HEADER_FONT
+    cell.fill = _HEADER_FILL
+    cell.alignment = _HEADER_ALIGN
+    cell.border = _BORDER
+    return cell
+
+
 def _write_column_headers(ws, row, columns, corner_label):
-    """The corner cell plus one header per assignment: title over its date."""
-    corner = ws.cell(row=row, column=1, value=corner_label)
-    corner.font = _HEADER_FONT
-    corner.fill = _HEADER_FILL
-    corner.alignment = _HEADER_ALIGN
-    corner.border = _BORDER
+    """
+    The corner cell, one header per assignment (title over its date), and the
+    closing Quarter Grade header.
+    """
+    _write_header_cell(ws, row, 1, corner_label)
 
     for index, column in enumerate(columns, start=2):
-        cell = ws.cell(
-            row=row, column=index,
-            value=f'{column.title}\n{column.date:%d.%m.%Y}',
+        cell = _write_header_cell(
+            ws, row, index, f'{column.title}\n{column.date:%d.%m.%Y}',
         )
-        cell.font = _HEADER_FONT
-        cell.fill = _HEADER_FILL
-        cell.alignment = _HEADER_ALIGN
-        cell.border = _BORDER
         max_grade = (
             f'Max grade: {column.max_grade}' if column.max_grade is not None
             else 'Comment only, no grade'
@@ -124,6 +138,7 @@ def _write_column_headers(ws, row, columns, corner_label):
         note.width, note.height = 220, 100
         cell.comment = note
 
+    _write_header_cell(ws, row, len(columns) + 2, QUARTER_GRADE_HEADER)
     ws.row_dimensions[row].height = HEADER_ROW_HEIGHT
 
 
@@ -158,6 +173,16 @@ def _write_grade(ws, row, column_index, grade_cell, banded=False):
     return cell
 
 
+def _write_quarter_grade(ws, row, column_index, grade):
+    """A quarter grade, or a cell with no value at all when none was given."""
+    cell = ws.cell(row=row, column=column_index, value=grade)
+    cell.font = _QUARTER_FONT
+    cell.fill = _QUARTER_FILL
+    cell.alignment = _CENTER_ALIGN
+    cell.border = _BORDER
+    return cell
+
+
 def _write_legend(ws, row, width):
     cell = ws.cell(row=row, column=1, value=_LEGEND)
     cell.font = _NOTE_FONT
@@ -187,14 +212,52 @@ def _period_subtitle(data):
     )
 
 
-def _render_by_subject(wb, data):
-    """One sheet per subject: students down, assignments across."""
-    used_titles = set()
+def _render_summary(wb, data, used_titles):
+    """The Quarter Grades sheet: students down, subjects across."""
+    ws = wb.create_sheet(_sheet_title(SUMMARY_SHEET_TITLE, used_titles))
+    width = len(data.subjects) + 1
+    _set_widths(ws, len(data.subjects))
 
+    row = _write_page_header(
+        ws,
+        f'{SUMMARY_SHEET_TITLE} — {data.class_group_label}',
+        _period_subtitle(data),
+        width,
+    )
+
+    if not data.subjects:
+        _empty_note(ws, row, 'No subjects offered to this class group.')
+        return
+
+    _write_header_cell(ws, row, 1, 'Student')
+    for index, subject in enumerate(data.subjects, start=2):
+        _write_header_cell(ws, row, index, subject.subject_name)
+    ws.row_dimensions[row].height = HEADER_ROW_HEIGHT
+    header_row = row
+    row += 1
+
+    if not data.students:
+        _empty_note(ws, row, 'No students enrolled in this class group.')
+        return
+
+    for offset, student in enumerate(data.students):
+        _write_label(ws, row, student.name, banded=offset % 2 == 1)
+        for index, subject in enumerate(data.subjects, start=2):
+            _write_quarter_grade(
+                ws, row, index,
+                data.quarter_grade(student.student_id, subject.offering_id),
+            )
+        row += 1
+
+    ws.freeze_panes = ws.cell(row=header_row + 1, column=2)
+
+
+def _render_by_subject(wb, data, used_titles):
+    """One sheet per subject: students down, assignments across."""
     for subject in data.subjects:
         ws = wb.create_sheet(_sheet_title(subject.subject_name, used_titles))
-        width = len(subject.columns) + 1
-        _set_widths(ws, len(subject.columns))
+        width = len(subject.columns) + 2
+        _set_widths(ws, len(subject.columns) + 1)
 
         row = _write_page_header(
             ws,
@@ -202,10 +265,6 @@ def _render_by_subject(wb, data):
             _period_subtitle(data),
             width,
         )
-
-        if not subject.columns:
-            _empty_note(ws, row, 'No assignments in this quarter.')
-            continue
 
         _write_column_headers(ws, row, subject.columns, 'Student')
         header_row = row
@@ -224,20 +283,25 @@ def _render_by_subject(wb, data):
                     data.cell(student.student_id, column.assignment_id),
                     banded=banded,
                 )
+            _write_quarter_grade(
+                ws, row, len(subject.columns) + 2,
+                data.quarter_grade(student.student_id, subject.offering_id),
+            )
             row += 1
 
+        if not subject.columns:
+            row = _empty_note(ws, row + 1, 'No assignments in this quarter.')
         _write_legend(ws, row + 1, width)
         ws.freeze_panes = ws.cell(row=header_row + 1, column=2)
 
 
-def _render_by_student(wb, data):
+def _render_by_student(wb, data, used_titles):
     """One sheet per student, stacking a small table per subject."""
-    used_titles = set()
-    width = data.widest_subject + 1
+    width = data.widest_subject + 2
 
     for student in data.students:
         ws = wb.create_sheet(_sheet_title(student.name, used_titles))
-        _set_widths(ws, data.widest_subject)
+        _set_widths(ws, data.widest_subject + 1)
 
         row = _write_page_header(
             ws,
@@ -252,16 +316,6 @@ def _render_by_student(wb, data):
             continue
 
         for subject in data.subjects:
-            if not subject.columns:
-                _write_label(ws, row, subject.subject_name)
-                note = ws.cell(
-                    row=row, column=2, value='No assignments in this quarter.',
-                )
-                note.font = _NOTE_FONT
-                note.alignment = _NAME_ALIGN
-                row += 2
-                continue
-
             _write_column_headers(ws, row, subject.columns, 'Subject')
             row += 1
 
@@ -271,6 +325,18 @@ def _render_by_student(wb, data):
                     ws, row, index,
                     data.cell(student.student_id, column.assignment_id),
                 )
+            quarter_column = len(subject.columns) + 2
+            _write_quarter_grade(
+                ws, row, quarter_column,
+                data.quarter_grade(student.student_id, subject.offering_id),
+            )
+            if not subject.columns:
+                note = ws.cell(
+                    row=row, column=quarter_column + 1,
+                    value='No assignments in this quarter.',
+                )
+                note.font = _NOTE_FONT
+                note.alignment = _NAME_ALIGN
             row += 2
 
         _write_legend(ws, row, width)
@@ -279,20 +345,29 @@ def _render_by_student(wb, data):
 
 # ── Entry point ──
 
-def build_grade_workbook(data, ordering='subject') -> Workbook:
+def build_grade_workbook(data, ordering='subject', summary=True) -> Workbook:
     """
     Render `data` (a GradeSheetData) into a workbook.
+
+    `summary` puts the Quarter Grades sheet first; callers turn it off when
+    the workbook is narrowed to a single subject. Its title is claimed before
+    any other sheet's, so a subject or student sharing the name takes the
+    numeric suffix instead.
 
     A workbook with no sheets is invalid, so an empty result still gets one
     sheet saying so rather than producing a file Excel refuses to open.
     """
     wb = Workbook()
     wb.remove(wb.active)
+    used_titles = set()
+
+    if summary:
+        _render_summary(wb, data, used_titles)
 
     if ordering == 'student':
-        _render_by_student(wb, data)
+        _render_by_student(wb, data, used_titles)
     else:
-        _render_by_subject(wb, data)
+        _render_by_subject(wb, data, used_titles)
 
     if not wb.sheetnames:
         ws = wb.create_sheet('No data')

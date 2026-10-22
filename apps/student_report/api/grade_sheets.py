@@ -4,10 +4,12 @@ XLSX grade sheet exports.
     GET grade/classgroup/<class_group_id>/?quarter=2[&subject=7][&ordering=student]
     GET grade/student/<student_id>/?quarter=2[&subject=7][&ordering=student]
 
-Both return a real .xlsx workbook, not JSON. Grades come from SubjectGrade
-only. `quarter` is required; `subject` narrows the workbook to a single
-subject; `ordering` picks the sheet layout and is rejected alongside `subject`,
-which would leave a single sheet either way.
+Both return a real .xlsx workbook, not JSON. Grades come from SubjectGrade,
+plus a Quarter Grade column and, without `subject`, a leading Quarter Grades
+sheet built from QuarterGrade (spec 0013). `quarter` is required;
+`subject` narrows the workbook to a single subject; `ordering` picks the
+sheet layout and is rejected alongside `subject`, which would leave a single
+sheet either way.
 """
 
 import io
@@ -182,7 +184,9 @@ def _build(class_group, academic_year, quarter, students, subject_id, ordering):
         )
     except GradeSheetError as exc:
         raise ValidationError({'quarter': str(exc)})
-    return build_grade_workbook(data, ordering=ordering)
+    return build_grade_workbook(
+        data, ordering=ordering, summary=subject_id is None,
+    )
 
 
 # ── Views ──
