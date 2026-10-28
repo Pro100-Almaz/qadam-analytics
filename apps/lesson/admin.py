@@ -1,13 +1,12 @@
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
-from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils.text import Truncator
 
 from apps.achievement.models import Attachment
 
 from apps.lesson.models import Homework, HomeworkGrade, Topic, TopicGrade, MergedLessonComment
-from core.admin_mixins import SchoolScopedAdminMixin
+from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
 
 
 class SubtopicInline(admin.TabularInline):
@@ -20,7 +19,7 @@ class SubtopicInline(admin.TabularInline):
 
 
 @admin.register(Topic)
-class TopicAdmin(admin.ModelAdmin):
+class TopicAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('title', 'lesson', 'order', 'weight')
     list_filter = ('lesson',)
     search_fields = ('title', 'lesson__title')
@@ -50,14 +49,14 @@ class TopicAdmin(admin.ModelAdmin):
 
 
 @admin.register(TopicGrade)
-class TopicGradeAdmin(admin.ModelAdmin):
+class TopicGradeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('topic', 'student', 'grade', 'comment_selected')
     list_filter = ('topic__lesson', 'comment_selected')
     search_fields = ('topic__title', 'student__user__first_name', 'student__user__last_name')
 
 
 @admin.register(MergedLessonComment)
-class MergedLessonCommentAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+class MergedLessonCommentAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmin):
     list_display = ('lesson', 'student', 'comment_text', 'is_merged')
     list_filter = ('lesson',)
     search_fields = ('comment_text', 'student__user__first_name')
@@ -80,7 +79,7 @@ class HomeworkGradeInline(admin.TabularInline):
 
 
 @admin.register(Homework)
-class HomeworkAdmin(admin.ModelAdmin):
+class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
         'short_description', 'offering', 'teacher', 'due_date',
         'max_grade', 'is_active', 'grade_count',
@@ -115,7 +114,7 @@ class HomeworkAdmin(admin.ModelAdmin):
             'offering', 'offering__subject', 'offering__class_group',
             'offering__class_group__academic_year',
             'teaching_assignment__teacher__user',
-        ).annotate(_grade_count=Count('grades'))
+        ).annotate(_grade_count=Count('grades', filter=Q(grades__is_deleted=False)))
 
     @admin.display(description='Description', ordering='description')
     def short_description(self, obj):
@@ -123,22 +122,18 @@ class HomeworkAdmin(admin.ModelAdmin):
 
     @admin.display(description='Teacher')
     def teacher(self, obj):
+        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
+        if obj.teaching_assignment is None:
+            return '—'
         return obj.teaching_assignment.teacher
 
     @admin.display(description='Grades', ordering='_grade_count')
     def grade_count(self, obj):
         return obj._grade_count
 
-    def delete_queryset(self, request, queryset):
-        # One by one so each Homework.delete() takes its SubjectAssignment
-        # mirror and stored files with it (spec 0005).
-        with transaction.atomic():
-            for obj in queryset:
-                obj.delete()
-
 
 @admin.register(HomeworkGrade)
-class HomeworkGradeAdmin(admin.ModelAdmin):
+class HomeworkGradeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ('student', 'homework', 'subject', 'grade', 'max_grade', 'created_at')
     list_filter = (
         'homework__offering__class_group__academic_year',
@@ -166,9 +161,3 @@ class HomeworkGradeAdmin(admin.ModelAdmin):
     @admin.display(description='Max')
     def max_grade(self, obj):
         return obj.homework.max_grade
-
-    def delete_queryset(self, request, queryset):
-        # One by one so each HomeworkGrade.delete() removes its SubjectGrade.
-        with transaction.atomic():
-            for obj in queryset:
-                obj.delete()

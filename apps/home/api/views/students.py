@@ -202,7 +202,7 @@ class PsychologicalStateDeleteAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        obj.delete()
+        obj.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -327,6 +327,7 @@ class StudentClassmatesAPIView(APIView):
             enrollments__class_group=enrollment.class_group,
             enrollments__class_group__academic_year=enrollment.academic_year,
             enrollments__status='active',
+            enrollments__is_deleted=False,
         ).exclude(id=student.id).select_related('user').distinct()
 
         search = request.query_params.get('search')

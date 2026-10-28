@@ -8,11 +8,17 @@ created or deleted, from either side; the other follows. Deletion of the
 assignment itself is one-way (spec 0007): deleting the Homework removes its
 assignment, and the assignment refuses to be deleted on its own.
 
-The model save()/delete() overrides call in here — deliberately not signals —
-and every write made from here passes `sync=False` so it does not echo back.
-Lookups use `_base_manager`: the counterpart is the same school by
-construction, and this runs outside request scope too (admin actions,
-TeachingAssignment.delete, the sync_homework_assignments command).
+The model save() overrides call in here — deliberately not signals — and
+every write made from here passes `sync=False` so it does not echo back.
+Deletes do not come through here: they are soft (spec 0014), and each model's
+`soft_delete_extra()` puts its mirror in the same deletion batch, so the pair
+is deleted and restored together.
+
+Lookups use `_base_manager` filtered to live rows: the counterpart is the same
+school by construction, and this runs outside request scope too (admin
+actions, the sync_homework_assignments command). Soft-deleted rows are out of
+the mirror entirely — neither side's deleted rows are synced, reported or
+repaired.
 
 Field map:
 
@@ -46,9 +52,13 @@ def homework_category():
     return AssignmentCategory.builtin(AssignmentCategory.HOMEWORK)
 
 
+def _live(model):
+    return model._base_manager.filter(is_deleted=False)
+
+
 def mirror_of(homework_id):
-    """The SubjectAssignment mirroring this homework, or None."""
-    return SubjectAssignment._base_manager.filter(
+    """The live SubjectAssignment mirroring this homework, or None."""
+    return _live(SubjectAssignment).filter(
         category__code=AssignmentCategory.HOMEWORK, detail_id=homework_id,
     ).first()
 
@@ -91,14 +101,6 @@ def homework_from_assignment(assignment):
     return homework
 
 
-def delete_assignment(homework_id):
-    """Drop the mirror of a homework being deleted; its grades cascade."""
-    for assignment in SubjectAssignment._base_manager.filter(
-        category__code=AssignmentCategory.HOMEWORK, detail_id=homework_id,
-    ):
-        assignment.delete(sync=False)
-
-
 def create_homework_with_assignment(
     *, offering, teaching_assignment, title, max_grade, date, is_active=True,
     quarter=None,
@@ -137,7 +139,7 @@ def subject_grade_from_homework_grade(homework_grade):
     assignment = mirror_of(homework_grade.homework_id)
     if assignment is None:
         assignment = assignment_from_homework(homework_grade.homework)
-    subject_grade = SubjectGrade._base_manager.filter(
+    subject_grade = _live(SubjectGrade).filter(
         assignment=assignment, student_id=homework_grade.student_id,
     ).first() or SubjectGrade(
         assignment=assignment, student_id=homework_grade.student_id,
@@ -150,7 +152,7 @@ def subject_grade_from_homework_grade(homework_grade):
 
 def homework_grade_from_subject_grade(subject_grade):
     homework_id = subject_grade.assignment.detail_id
-    homework_grade = HomeworkGrade._base_manager.filter(
+    homework_grade = _live(HomeworkGrade).filter(
         homework_id=homework_id, student_id=subject_grade.student_id,
     ).first() or HomeworkGrade(
         homework_id=homework_id, student_id=subject_grade.student_id,
@@ -159,21 +161,6 @@ def homework_grade_from_subject_grade(subject_grade):
     homework_grade.comments = subject_grade.comments
     homework_grade.save(sync=False)
     return homework_grade
-
-
-def delete_subject_grade(homework_id, student_id):
-    # Queryset delete: SubjectGrade.delete() would sync straight back.
-    SubjectGrade._base_manager.filter(
-        assignment__category__code=AssignmentCategory.HOMEWORK,
-        assignment__detail_id=homework_id,
-        student_id=student_id,
-    ).delete()
-
-
-def delete_homework_grade(homework_id, student_id):
-    HomeworkGrade._base_manager.filter(
-        homework_id=homework_id, student_id=student_id,
-    ).delete()
 
 
 # ── Drift report (sync_homework_assignments) ──
@@ -188,13 +175,13 @@ def find_drift():
     """
     Every place where the two sides disagree, as a list of Drift.
 
-    Covers writes the hooks cannot see: QuerySet.update()/delete(), cascades
-    from rows other than the ones overridden, raw SQL.
+    Covers writes the hooks cannot see: QuerySet.update(), raw SQL, and a
+    delete made with `sync=False`. Live rows only.
     """
     problems = []
-    homeworks = {hw.pk: hw for hw in Homework._base_manager.all()}
+    homeworks = {hw.pk: hw for hw in _live(Homework)}
     mirrors = {}
-    for assignment in SubjectAssignment._base_manager.filter(
+    for assignment in _live(SubjectAssignment).filter(
         category__code=AssignmentCategory.HOMEWORK,
     ):
         mirrors[assignment.detail_id] = assignment
@@ -224,12 +211,12 @@ def find_drift():
 
     subject_grades = {
         (g.assignment.detail_id, g.student_id): g
-        for g in SubjectGrade._base_manager.select_related('assignment').filter(
+        for g in _live(SubjectGrade).select_related('assignment').filter(
             assignment__category__code=AssignmentCategory.HOMEWORK,
         )
     }
     homework_grades = {
-        (g.homework_id, g.student_id): g for g in HomeworkGrade._base_manager.all()
+        (g.homework_id, g.student_id): g for g in _live(HomeworkGrade)
     }
     for key, homework_grade in homework_grades.items():
         subject_grade = subject_grades.get(key)
@@ -261,21 +248,21 @@ def fix_drift():
         return problems
 
     with transaction.atomic():
-        homework_ids = set(Homework._base_manager.values_list('pk', flat=True))
-        for assignment in SubjectAssignment._base_manager.filter(
+        homework_ids = set(_live(Homework).values_list('pk', flat=True))
+        for assignment in _live(SubjectAssignment).filter(
             category__code=AssignmentCategory.HOMEWORK,
         ).exclude(detail_id__in=homework_ids):
             assignment.delete(sync=False)
 
-        for homework in Homework._base_manager.all():
+        for homework in _live(Homework):
             assignment_from_homework(homework)
 
         homework_grade_keys = set()
-        for homework_grade in HomeworkGrade._base_manager.select_related('homework'):
+        for homework_grade in _live(HomeworkGrade).select_related('homework'):
             homework_grade_keys.add((homework_grade.homework_id, homework_grade.student_id))
             subject_grade_from_homework_grade(homework_grade)
 
-        for subject_grade in SubjectGrade._base_manager.select_related('assignment').filter(
+        for subject_grade in _live(SubjectGrade).select_related('assignment').filter(
             assignment__category__code=AssignmentCategory.HOMEWORK,
         ):
             key = (subject_grade.assignment.detail_id, subject_grade.student_id)

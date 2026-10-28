@@ -1,0 +1,59 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{# Spec 0014 — one model's deleted rows, grouped by the batch they left in. #}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:trash_index' %}">Trash</a>
+&rsaquo; {{ model_name }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if batches %}
+    <table style="width: 100%">
+      <thead>
+        <tr><th>Deleted</th><th>By</th><th>Deleted with</th><th>Batch</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for batch in batches %}
+        <tr>
+          <td>{{ batch.deleted_at|date:"DATETIME_FORMAT" }}</td>
+          <td>{{ batch.deleted_by|default:"—" }}</td>
+          <td>
+            {% for root in batch.roots %}<div><strong>{{ root }}</strong></div>{% endfor %}
+            <small>
+              {{ batch.here }} {{ model_name|lower }} of {{ batch.total }} row(s):
+              {% for name, count in batch.summary %}{{ name }} {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </small>
+          </td>
+          <td><code>{{ batch.id }}</code></td>
+          <td style="white-space: nowrap">
+            <form method="post" action="{% url 'admin:trash_restore' batch.id %}" style="display: inline">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <input type="submit" value="Restore">
+            </form>
+            {% if can_purge %}
+              <a class="deletelink" href="{% url 'admin:trash_purge' batch.id %}?next={{ request.get_full_path|urlencode }}">Purge</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if page.has_other_pages %}
+      <p class="paginator">
+        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">&lsaquo; Newer</a>{% endif %}
+        Page {{ page.number }} of {{ page.paginator.num_pages }}
+        {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Older &rsaquo;</a>{% endif %}
+      </p>
+    {% endif %}
+  {% else %}
+    <p>Nothing of this kind is in the trash.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -194,6 +194,9 @@ class SubjectDeleteAPIView(DestroyAPIView):
         # would bake the school scope when the module loads.
         return Subject.objects.all()
 
+    def perform_destroy(self, instance):
+        instance.delete(user=self.request.user)
+
 
 class MySubjectsListAPIView(ListAPIView):
     serializer_class = SubjectSerializer

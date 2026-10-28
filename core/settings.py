@@ -110,6 +110,13 @@ LOGIN_REDIRECT_URL = "home"  # Route defined in home/urls.py
 LOGOUT_REDIRECT_URL = "home"  # Route defined in home/urls.py
 TEMPLATE_DIR = os.path.join(CORE_DIR, "apps/templates")  # ROOT dir for templates
 AUTH_USER_MODEL = "authentication.CustomUser"
+# auth.E003 wants USERNAME_FIELD to be unique=True. CustomUser.username is
+# unique among LIVE users only — the partial constraint
+# `user_unique_live_username` — so a soft-deleted user does not hold a
+# username forever (spec 0014, AC-5). Login looks users up through the
+# live-only `CustomUser.objects`, so two rows sharing a username can never
+# both be candidates (AC-6).
+SILENCED_SYSTEM_CHECKS = ['auth.E003']
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
@@ -320,6 +327,10 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    # A soft-deleted user's refresh token must fail as a 401, not a 500
+    # (spec 0014, AC-6) — see the serializer.
+    'TOKEN_REFRESH_SERIALIZER':
+        'apps.authentication.api.serializers.LiveUserTokenRefreshSerializer',
 }
 
 # DRF Spectacular

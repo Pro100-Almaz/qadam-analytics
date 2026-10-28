@@ -2,14 +2,18 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import Exists, OuterRef
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
-from core.models import SchoolConsistentModel, SchoolDerivedMixin
-from core.tenancy import SchoolScopedManager, SchoolScopedManagerMixin
+from core.models import (
+    SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteManager,
+    SoftDeleteMixin, live_unique_constraint,
+)
+from core.tenancy import SchoolScopedManagerMixin
 
 
-class AcademicYear(models.Model):
+class AcademicYear(SoftDeleteMixin, models.Model):
     """A school year and its quarter boundaries. One row PER SCHOOL.
 
     §1a briefly made this shared — one 2025/2026 row for everybody — on the
@@ -29,7 +33,6 @@ class AcademicYear(models.Model):
     """
 
     SCHOOL_PATH = 'school'
-    objects = SchoolScopedManager()
 
     #: Root: a year belongs to its school directly. PROTECT, never CASCADE —
     #: deleting a tenant must not silently take its calendar and every grade
@@ -56,7 +59,7 @@ class AcademicYear(models.Model):
             # §7: one `2025/2026` per school. Was a plain `unique(year)` while
             # the row was shared; the school column is what lets both tenants
             # name the same year again.
-            models.UniqueConstraint(
+            live_unique_constraint(
                 fields=['school', 'year'],
                 name='academicyear_unique_year_per_school',
             ),
@@ -64,7 +67,7 @@ class AcademicYear(models.Model):
             # singleton in ~24 places. Without this it is nondeterministic the
             # moment a rollover leaves two rows active, and the failure is a
             # silently wrong year rather than an error.
-            models.UniqueConstraint(
+            live_unique_constraint(
                 fields=['school'],
                 condition=models.Q(is_active=True),
                 name='academicyear_one_active_per_school',
@@ -129,12 +132,11 @@ class GradeLevel(models.Model):
         return str(self.number)
 
 
-class ClassGroup(SchoolDerivedMixin, models.Model):
+class ClassGroup(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     SCHOOL_PATH = 'school'
     #: A class group in one school cannot sit in another school's year —
     #: which is exactly what the §1b split had to unpick by hand.
     SCHOOL_CONSISTENT_FIELDS = ('academic_year',)
-    objects = SchoolScopedManager()
 
     # No SCHOOL_DERIVED_FROM: `academic_year` is shared and carries no school,
     # and `grade_level` is shared too — so there is nothing to derive from.
@@ -204,11 +206,11 @@ class ClassGroup(SchoolDerivedMixin, models.Model):
         return self.category == self.MINOR_CHOICE
 
 
-class MinorClassGroupManager(SchoolScopedManagerMixin, models.Manager):
-    """Restricts every query — and every create — to the minor category.
+class MinorClassGroupManager(SchoolScopedManagerMixin, SoftDeleteManager):
+    """Restricts every query — and every create — to live minor class groups.
 
     The scope mixin goes first so the school filter composes on top of the
-    category filter rather than replacing it.
+    category and soft-delete filters rather than replacing them.
     """
 
     def get_queryset(self):
@@ -243,17 +245,20 @@ class MinorClassGroup(ClassGroup):
         return super().save(*args, **kwargs)
 
 
-class ClassGroupCollection(models.Model):
+class ClassGroupCollection(SoftDeleteMixin, models.Model):
     """A constellation: one class and the подгруппы bound to it.
 
     Each major class group has at most one constellation, which is created the
     first time a subgroup is bound and then stays — emptying it leaves it in
     place, ready to be filled again. Subgroups are shared rather than owned:
     «English Advanced» can sit in 7A's constellation and 7B's at the same time.
+
+    Never deleted on its own (spec 0014): it is soft-deleted and restored only
+    together with its major class group, which is why `major` may stay a
+    plain unique OneToOneField.
     """
 
     SCHOOL_PATH = 'major__school'
-    objects = SchoolScopedManager()
 
     major = models.OneToOneField(
         ClassGroup,
@@ -318,9 +323,8 @@ class ClassGroupCollection(models.Model):
         return collection
 
 
-class Subject(models.Model):
+class Subject(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'school'
-    objects = SchoolScopedManager()
 
     STATUS_CHOICES = (
         ('active', 'Active'),
@@ -369,7 +373,7 @@ class Subject(models.Model):
         return f"{self.name}"
 
 
-class SubjectOffering(SchoolDerivedMixin, models.Model):
+class SubjectOffering(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     """
     The central entity: "Math for 7A in 2025/2026"
 
@@ -383,7 +387,6 @@ class SubjectOffering(SchoolDerivedMixin, models.Model):
     #: school A's Subject offered to school B's ClassGroup. Also the
     #: composite FK pair in the database (§7 layer 3).
     SCHOOL_CONSISTENT_FIELDS = ('subject', 'class_group')
-    objects = SchoolScopedManager()
 
     subject = models.ForeignKey(
         Subject,
@@ -450,12 +453,16 @@ class SubjectOffering(SchoolDerivedMixin, models.Model):
         return assignment.teacher if assignment else None
 
 
-class TeachingAssignment(SchoolConsistentModel):
-    """Assigns teachers to a SubjectOffering with specific roles."""
+class TeachingAssignment(SoftDeleteMixin, SchoolConsistentModel):
+    """Assigns teachers to a SubjectOffering with specific roles.
+
+    Its homeworks do not go with it (spec 0014): `Homework.teaching_assignment`
+    is SET_NULL, so removing a teacher from an offering keeps their homework,
+    grades and files.
+    """
 
     SCHOOL_PATH = 'offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('offering', 'teacher')
-    objects = SchoolScopedManager()
 
     ROLE_CHOICES = [
         ('primary', 'Primary Teacher'),
@@ -476,29 +483,22 @@ class TeachingAssignment(SchoolConsistentModel):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
 
     class Meta:
-        unique_together = ('offering', 'teacher')
+        constraints = [
+            live_unique_constraint(
+                fields=['offering', 'teacher'],
+                name='teachingassignment_unique_live_offering_teacher',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"
 
-    def delete(self, *args, **kwargs):
-        # Homework cascades from here, but its SubjectAssignment mirror hangs
-        # off the offering and would be left pointing at nothing (spec 0005).
-        # Deleting each homework through its own delete() takes the mirror and
-        # the stored attachment files with it.
-        Homework = apps.get_model('lesson', 'Homework')
-        with transaction.atomic():
-            for homework in Homework._base_manager.filter(teaching_assignment=self):
-                homework.delete()
-            return super().delete(*args, **kwargs)
 
-
-class HomeroomTeacherAssignment(SchoolConsistentModel):
+class HomeroomTeacherAssignment(SoftDeleteMixin, SchoolConsistentModel):
     """Links a homeroom teacher to a class group for an academic year."""
 
     SCHOOL_PATH = 'class_group__school'
     SCHOOL_CONSISTENT_FIELDS = ('teacher', 'class_group')
-    objects = SchoolScopedManager()
 
     teacher = models.ForeignKey(
         Teacher,
@@ -512,7 +512,12 @@ class HomeroomTeacherAssignment(SchoolConsistentModel):
     )
 
     class Meta:
-        unique_together = ('class_group',)
+        constraints = [
+            live_unique_constraint(
+                fields=['class_group'],
+                name='homeroomassignment_unique_live_class_group',
+            ),
+        ]
 
     @property
     def academic_year(self):
@@ -527,7 +532,7 @@ class HomeroomTeacherAssignment(SchoolConsistentModel):
         return f"{self.teacher} → {self.class_group} ({self.academic_year})"
 
 
-class Enrollment(SchoolConsistentModel):
+class Enrollment(SoftDeleteMixin, SchoolConsistentModel):
     """Tracks which class a student belongs to in a given academic year.
 
     A student may hold at most one active enrollment in a *major* class group
@@ -536,7 +541,6 @@ class Enrollment(SchoolConsistentModel):
 
     SCHOOL_PATH = 'class_group__school'
     SCHOOL_CONSISTENT_FIELDS = ('student', 'class_group')
-    objects = SchoolScopedManager()
 
     STATUS_CHOICES = [
         ('active', 'Active'),
@@ -569,11 +573,11 @@ class Enrollment(SchoolConsistentModel):
     class Meta:
         ordering = ['-class_group__academic_year__year', 'class_group']
         constraints = [
-            models.UniqueConstraint(
+            live_unique_constraint(
                 fields=['student', 'class_group'],
                 condition=models.Q(status='active'),
-                name='unique_active_enrollment_per_class_group'
-            )
+                name='unique_active_enrollment_per_class_group',
+            ),
         ]
         indexes = [
             models.Index(fields=['class_group', 'status'], name='idx_enrollment_class_status'),
@@ -692,9 +696,8 @@ class Enrollment(SchoolConsistentModel):
         )
 
 
-class QuarterGrader(models.Model):
+class QuarterGrader(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'subject__school'
-    objects = SchoolScopedManager()
 
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quarters")
     quarter = models.PositiveSmallIntegerField()
@@ -702,7 +705,12 @@ class QuarterGrader(models.Model):
     cumulative_points = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ('subject', 'quarter')
+        constraints = [
+            live_unique_constraint(
+                fields=['subject', 'quarter'],
+                name='quartergrader_unique_live_subject_quarter',
+            ),
+        ]
         ordering = ['quarter']
 
     def __str__(self):
@@ -776,9 +784,8 @@ class AssignmentCategory(models.Model):
         return apps.get_model(label) if label else None
 
 
-class SubjectAssignment(models.Model):
+class SubjectAssignment(SoftDeleteMixin, models.Model):
     SCHOOL_PATH = 'offering__school'
-    objects = SchoolScopedManager()
 
     title = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="assignments")
@@ -812,7 +819,7 @@ class SubjectAssignment(models.Model):
     class Meta:
         constraints = [
             # One assignment per detail row: a Homework is mirrored once.
-            models.UniqueConstraint(
+            live_unique_constraint(
                 fields=['category', 'detail_id'],
                 condition=models.Q(detail_id__isnull=False),
                 name='subjectassignment_unique_detail',
@@ -916,24 +923,30 @@ class SubjectAssignment(models.Model):
                 from apps.lesson import homework_sync
                 homework_sync.homework_from_assignment(self)
 
-    def delete(self, *args, sync=True, **kwargs):
+    def delete(self, *args, sync=True, user=None, **kwargs):
         """
         A homework assignment is deleted through its Homework, never directly
-        (spec 0007): Homework.delete() removes it with `sync=False`. The only
-        homework assignment deletable here is an orphan whose Homework is gone.
+        (spec 0007): deleting the Homework takes this mirror along in the same
+        batch (spec 0014). The only homework assignment deletable here is an
+        orphan whose Homework is gone or deleted.
         """
-        if sync and self.is_homework and self.details is not None:
+        if sync and self.is_homework and self._has_live_homework():
             raise ValidationError(
                 f'SubjectAssignment #{self.pk} mirrors Homework #{self.detail_id}; '
                 f'delete the Homework instead, which removes this assignment too.'
             )
-        return super().delete(*args, **kwargs)
+        return super().delete(*args, user=user, **kwargs)
+
+    def _has_live_homework(self):
+        model = self.category.detail_model
+        return model is not None and self.detail_id is not None and (
+            model._base_manager.filter(pk=self.detail_id, is_deleted=False).exists()
+        )
 
 
-class SubjectGrade(SchoolConsistentModel):
+class SubjectGrade(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'assignment__offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('assignment', 'student')
-    objects = SchoolScopedManager()
 
     assignment = models.ForeignKey(SubjectAssignment, on_delete=models.CASCADE, related_name="grades")
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="grades")
@@ -943,7 +956,12 @@ class SubjectGrade(SchoolConsistentModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('assignment', 'student')
+        constraints = [
+            live_unique_constraint(
+                fields=['assignment', 'student'],
+                name='subjectgrade_unique_live_assignment_student',
+            ),
+        ]
         ordering = ['student']
 
     def save(self, *args, sync=True, **kwargs):
@@ -959,20 +977,28 @@ class SubjectGrade(SchoolConsistentModel):
                 from apps.lesson import homework_sync
                 homework_sync.homework_grade_from_subject_grade(self)
 
-    def delete(self, *args, sync=True, **kwargs):
-        with transaction.atomic():
-            if sync and self.assignment.is_homework:
-                from apps.lesson import homework_sync
-                homework_sync.delete_homework_grade(
-                    self.assignment.detail_id, self.student_id,
-                )
-            return super().delete(*args, **kwargs)
+    def delete(self, *args, sync=True, user=None, **kwargs):
+        """`sync=False` leaves the HomeworkGrade mirror alone."""
+        return super().delete(*args, user=user, extras=sync, **kwargs)
+
+    @classmethod
+    def soft_delete_extra(cls, pks):
+        """A homework grade leaves with its HomeworkGrade mirror (spec 0005)."""
+        HomeworkGrade = apps.get_model('lesson', 'HomeworkGrade')
+        mirrored = cls._base_manager.filter(
+            pk__in=pks,
+            assignment__category__code=AssignmentCategory.HOMEWORK,
+            assignment__detail_id=OuterRef('homework_id'),
+            student_id=OuterRef('student_id'),
+        )
+        yield HomeworkGrade, HomeworkGrade._base_manager.filter(
+            Exists(mirrored), is_deleted=False,
+        ).values_list('pk', flat=True)
 
 
-class QuarterGrade(SchoolConsistentModel):
+class QuarterGrade(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
     SCHOOL_CONSISTENT_FIELDS = ('student', 'offering')
-    objects = SchoolScopedManager()
 
     grade = models.PositiveIntegerField(validators=[MinValueValidator(2), MaxValueValidator(5)])
     quarter = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(4)])
@@ -983,5 +1009,10 @@ class QuarterGrade(SchoolConsistentModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('student', 'offering', 'quarter')
+        constraints = [
+            live_unique_constraint(
+                fields=['student', 'offering', 'quarter'],
+                name='quartergrade_unique_live_student_offering_quarter',
+            ),
+        ]
         ordering = ['quarter', 'student']

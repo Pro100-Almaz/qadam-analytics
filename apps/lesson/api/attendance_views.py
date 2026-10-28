@@ -314,6 +314,7 @@ def apply_schedule_filters(schedules, params, *, require_teacher=False, require_
             )
         schedules = schedules.filter(
             offering__teaching_assignments__teacher_id=teacher_id,
+            offering__teaching_assignments__is_deleted=False,
         )
 
     if quarter and quarter != 'all':
@@ -606,7 +607,7 @@ class SubjectScheduleDetailAPIView(APIView):
         if not can_manage_schedule(request.user, schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
-        schedule.delete()
+        schedule.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -701,7 +702,7 @@ class ScheduleSessionDetailAPIView(APIView):
         if not can_manage_schedule(request.user, session.schedule):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
-        session.delete()
+        session.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -860,7 +861,7 @@ class ScheduleAttendanceDetailAPIView(APIView):
         if isinstance(attendance, Response):
             return attendance
 
-        attendance.delete()
+        attendance.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod

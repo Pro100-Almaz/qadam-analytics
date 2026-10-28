@@ -12,12 +12,12 @@ django-redis==5.*
 django-simple-history==3.*
 django-storages==1.14.6
 django-widget-tweaks==1.5.0
-djangorestframework==3.17.2
+djangorestframework==3.18.2
 djangorestframework-simplejwt==5.5.1
 drf-spectacular==0.28.0
 gunicorn==23.0.0
 jmespath==1.0.1
-pillow==12.3.0
+pillow==13.0.0
 protobuf
 psycopg2-binary==2.9.10
 pycparser==2.22

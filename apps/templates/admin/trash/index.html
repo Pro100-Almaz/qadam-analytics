@@ -1,0 +1,34 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{# Spec 0014 — the trash index. Counts are for the school in the header only. #}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a> &rsaquo; Trash
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>Deleted rows of this school. A delete moves a row and everything deleted
+     with it here as one batch; restore brings the whole batch back, purge
+     removes it for good.</p>
+  {% if models %}
+    <table>
+      <thead><tr><th>App</th><th>Model</th><th>Deleted rows</th></tr></thead>
+      <tbody>
+      {% for m in models %}
+        <tr>
+          <td>{{ m.app }}</td>
+          <td><a href="{{ m.url }}">{{ m.name }}</a></td>
+          <td>{{ m.count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>The trash is empty.</p>
+  {% endif %}
+</div>
+{% endblock %}

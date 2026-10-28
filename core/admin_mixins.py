@@ -123,3 +123,99 @@ class SchoolScopedAdminMixin:
         if self._school_field(obj) is not None and obj.school_id is None:
             obj.school_id = self.school_for_request(request)
         super().save_model(request, obj, form, change)
+
+
+class SoftDeleteAdminMixin:
+    """Mix into the ModelAdmin of every soft-deletable model (spec 0014).
+
+    * The changelist shows live rows already: it reads the default manager.
+    * Delete and the "delete selected" action soft-delete and stamp
+      `deleted_by` with the acting user (AC-9). Rows come back from the trash
+      (`core.admin_trash`), not from here.
+    * The confirmation page lists the tree the soft-delete walker will stamp,
+      not the one Django's hard-delete Collector would remove, since those
+      differ: SET_NULL children stay, and `soft_delete_extra` mirrors go too.
+
+    Put it before `ModelAdmin` in the bases. A subclass that overrides
+    `delete_model` / `delete_queryset` must call `super()` to reach it.
+    `core.tests.test_admin_trash` fails for an in-scope admin without it.
+    """
+
+    #: Rows of one model listed under one root on the confirmation page; the
+    #: rest are counted. An offering's tree can run to thousands of grades.
+    DELETE_PREVIEW_LIMIT = 20
+
+    def delete_model(self, request, obj):
+        obj.delete(user=request.user)
+
+    def delete_queryset(self, request, queryset):
+        from core.soft_delete import soft_delete
+        soft_delete(queryset, user=request.user)
+
+    def get_deleted_objects(self, objs, request):
+        """`(tree, model_count, perms_needed, protected)`, as Django returns it."""
+        from django.db.models.deletion import ProtectedError
+
+        from core.soft_delete import collect
+
+        objs = list(objs)
+        try:
+            found = collect(objs)
+        except ProtectedError as exc:
+            return [], {}, set(), [
+                self._describe_row(request, obj) for obj in exc.protected_objects
+            ]
+
+        model_count, perms_needed = {}, set()
+        for model, pks in found.items():
+            model_count[model._meta.verbose_name_plural] = len(pks)
+            model_admin = self.admin_site._registry.get(model)
+            if model_admin is not None and not model_admin.has_delete_permission(request):
+                perms_needed.add(model._meta.verbose_name)
+
+        tree = []
+        for index, obj in enumerate(objs):
+            tree.append(self._describe_row(request, obj))
+            if index < self.DELETE_PREVIEW_LIMIT:
+                children = self._describe_children(request, obj)
+                if children:
+                    tree.append(children)
+        return tree, model_count, perms_needed, []
+
+    def _describe_children(self, request, obj):
+        from core.soft_delete import collect
+
+        own = obj._meta.concrete_model
+        lines = []
+        for model, pks in collect([obj]).items():
+            pks = pks - {obj.pk} if model is own else pks
+            if not pks:
+                continue
+            shown = model._base_manager.filter(pk__in=pks).order_by('pk')
+            for row in shown[:self.DELETE_PREVIEW_LIMIT]:
+                lines.append(self._describe_row(request, row))
+            hidden = len(pks) - self.DELETE_PREVIEW_LIMIT
+            if hidden > 0:
+                lines.append(f'… {hidden} more {model._meta.verbose_name_plural}')
+        return lines
+
+    def _describe_row(self, request, obj):
+        from django.urls import NoReverseMatch, reverse
+        from django.utils.html import format_html
+        from django.utils.text import capfirst
+
+        opts = obj._meta
+        model_admin = self.admin_site._registry.get(type(obj))
+        if model_admin is not None and model_admin.has_change_permission(request, obj):
+            try:
+                url = reverse(
+                    f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_change',
+                    args=[obj.pk],
+                )
+            except NoReverseMatch:
+                pass
+            else:
+                return format_html(
+                    '{}: <a href="{}">{}</a>', capfirst(opts.verbose_name), url, obj,
+                )
+        return format_html('{}: {}', capfirst(opts.verbose_name), obj)

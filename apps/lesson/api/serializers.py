@@ -125,7 +125,7 @@ class LessonListSerializer(serializers.ModelSerializer):
             return 0
         graded = (
             Student.objects
-            .filter(topicgrade__topic__lesson=obj)
+            .filter(topicgrade__topic__lesson=obj, topicgrade__is_deleted=False)
             .distinct()
             .count()
         )
@@ -159,6 +159,7 @@ class LessonDetailSerializer(serializers.ModelSerializer):
             enrollments__class_group=obj.offering.class_group,
             enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
             enrollments__status='active',
+            enrollments__is_deleted=False,
         ).select_related('user').distinct()
         return [
             {
@@ -178,6 +179,7 @@ class LessonDetailSerializer(serializers.ModelSerializer):
             enrollments__class_group=obj.offering.class_group,
             enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
             enrollments__status='active',
+            enrollments__is_deleted=False,
         ).distinct())
 
         all_topic_grades = TopicGrade.objects.filter(
@@ -386,6 +388,7 @@ class GradingDataSerializer(serializers.ModelSerializer):
             enrollments__class_group=obj.offering.class_group,
             enrollments__class_group__academic_year_id=obj.offering.academic_year_id,
             enrollments__status='active',
+            enrollments__is_deleted=False,
         ).select_related('user').distinct())
         return self._students_cache
 
@@ -882,6 +885,9 @@ class HomeworkSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_teacher(self, obj):
+        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
+        if obj.teaching_assignment is None:
+            return None
         teacher = obj.teaching_assignment.teacher
         return {'id': teacher.user_id, 'full_name': teacher.user.get_full_name()}
 

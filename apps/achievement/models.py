@@ -5,8 +5,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
-from django.utils import timezone
+from django.db import models, transaction
 from PIL import Image, UnidentifiedImageError
 
 from core.models import (
@@ -351,14 +350,16 @@ class Club(SchoolDerivedMixin, SoftDeleteMixin, models.Model):
     def __str__(self):
         return f"{self.name} - {self.manager} ({self.start_date}-{self.end_date})"
 
-    def soft_delete(self, user=None):
+    def soft_delete(self, user=None, *, extras=True):
+        """Also sets `status='deleted'`, as deleting a club always has.
+
+        Sessions and attendance go with it as one batch, like any soft delete.
+        """
+        with transaction.atomic():
+            result = super().soft_delete(user=user, extras=extras)
+            type(self)._base_manager.filter(pk=self.pk).update(status='deleted')
         self.status = 'deleted'
-        self.is_deleted = True
-        self.deleted_at = timezone.now()
-        self.deleted_by = user
-        self.save(update_fields=[
-            'status', 'is_deleted', 'deleted_at', 'deleted_by',
-        ])
+        return result
 
 
 class ClubSession(SoftDeleteMixin, models.Model):

@@ -340,7 +340,7 @@ class TopicUpdateDeleteAPIView(APIView):
             )
 
         lesson_id = lesson.id
-        topic.delete()
+        topic.delete(user=request.user)
 
         lesson = get_object_or_404(Lesson, pk=lesson_id)
         recalculate_topic_weights(lesson)
@@ -482,7 +482,7 @@ class SubtopicUpdateDeleteAPIView(APIView):
             )
 
         lesson_id = lesson.id
-        subtopic.delete()
+        subtopic.delete(user=request.user)
 
         lesson = get_object_or_404(Lesson, pk=lesson_id)
         recalculate_topic_weights(lesson)

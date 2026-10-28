@@ -18,7 +18,7 @@ from apps.home.models import Enrollment, ClassGroup, AcademicYear, Subject
 from apps.authentication.school_transfer import (
     realign_profile, stranded_by_move,
 )
-from core.admin_mixins import SchoolScopedAdminMixin
+from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
 
 
 class SchoolRequiredMixin:
@@ -88,7 +88,7 @@ class CustomUserChangeForm(SchoolRequiredMixin, UserChangeForm):
 
 
 @admin.register(CustomUser)
-class CustomUserAdmin(SchoolScopedAdminMixin, UserAdmin):
+class CustomUserAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, UserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = CustomUser
@@ -272,7 +272,7 @@ class StudentAdminForm(forms.ModelForm):
 
 
 @admin.register(Student)
-class StudentAdmin(ModelAdmin):
+class StudentAdmin(SoftDeleteAdminMixin, ModelAdmin):
     form = StudentAdminForm
     model = Student
     list_display = (
@@ -470,7 +470,7 @@ def _current_class_group(student):
 
 
 @admin.register(Parent)
-class ParentAdmin(ModelAdmin):
+class ParentAdmin(SoftDeleteAdminMixin, ModelAdmin):
     form = ParentAdminForm
     list_display = ["full_name", "children"]
     search_fields = ('user__first_name', 'user__last_name')
@@ -548,7 +548,7 @@ class ParentAdmin(ModelAdmin):
 
 
 @admin.register(Teacher)
-class TeacherAdmin(ModelAdmin):
+class TeacherAdmin(SoftDeleteAdminMixin, ModelAdmin):
     list_display = ("full_name", "email", "employment_type", "occupation")
     list_display_links = ("full_name",)
     search_fields = (
@@ -571,11 +571,13 @@ class TeacherAdmin(ModelAdmin):
     email.admin_order_field = "user__email"
 
 
-admin.site.register(Supervisor)
+@admin.register(Supervisor)
+class SupervisorAdmin(SoftDeleteAdminMixin, ModelAdmin):
+    pass
 
 
 @admin.register(ClubManager)
-class ClubManagerAdmin(ModelAdmin):
+class ClubManagerAdmin(SoftDeleteAdminMixin, ModelAdmin):
     list_display = ("full_name", "email")
     search_fields = (
         "user__first_name", "user__last_name", "user__username", "user__email",
@@ -647,44 +649,14 @@ class SchoolAdmin(admin.ModelAdmin):
         return bool(request.user and request.user.is_superuser)
 
     def has_delete_permission(self, request, obj=None):
-        """Only an empty tenant, and only one at a time.
+        """Never, for anyone (spec 0014, AC-15).
 
-        A populated school must not be deleted: every school FK is PROTECT, so
-        the attempt could only ever produce a wall of protected-object errors,
-        and `is_active=False` already means "no longer served" without taking a
-        year of grades with it. Offering the button there is a promise the
-        database will refuse to keep.
-
-        A school with nothing pointing at it is the opposite case — a mistyped
-        slug, a test row — and refusing *that* sends you to a shell to undo a
-        typo you made in a form. So the button appears exactly when it would
-        work.
-
-        `obj is None` is the changelist, where returning False removes the bulk
-        "delete selected" action. Deleting tenants en masse from a list of
-        checkboxes is not a thing this site should make easy.
+        A school is not soft-deletable and is never deleted from the
+        application: not here, not over the API. Retiring one is
+        `is_active=False`; actually removing one is done directly in the
+        database. Returning False on the changelist (`obj is None`) also drops
+        the bulk "delete selected" action.
         """
-        if not (request.user and request.user.is_superuser):
-            return False
-        if obj is None:
-            return False
-        return not self._has_dependents(obj)
-
-    @staticmethod
-    def _has_dependents(school):
-        """Anything at all pointing at this school, in any tenant.
-
-        `_base_manager`, not the reverse accessor: reverse managers go through
-        the scoped default manager, so a school other than the active one would
-        report itself empty and offer a delete that then fails at the database.
-        """
-        for relation in school._meta.related_objects:
-            model = relation.related_model
-            if model._meta.proxy:
-                continue
-            if model._base_manager.filter(
-                    **{relation.field.name: school}).exists():
-                return True
         return False
 
     def get_readonly_fields(self, request, obj=None):
@@ -699,5 +671,5 @@ class SchoolGroupAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(PsychologicalState)
-class PsychologicalStateAdmin(SchoolScopedAdminMixin, admin.ModelAdmin):
+class PsychologicalStateAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmin):
     """Derives its school from the student; stamped when there is none."""

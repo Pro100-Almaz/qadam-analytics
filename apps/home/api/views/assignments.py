@@ -177,6 +177,7 @@ def grade_queryset(user):
                     teacher_homeroom_class_group_ids(teacher)
                 ),
                 student__enrollments__status='active',
+                student__enrollments__is_deleted=False,
                 assignment__is_active=True,
             )
         ).distinct()
@@ -240,6 +241,7 @@ def homeroom_grade_queryset(user):
     ).filter(
         student__enrollments__class_group_id__in=class_group_ids,
         student__enrollments__status='active',
+        student__enrollments__is_deleted=False,
         assignment__is_active=True,
     ).distinct()
 
@@ -525,7 +527,7 @@ class SubjectAssignmentDetailAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        assignment.delete()
+        assignment.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
@@ -831,7 +833,7 @@ class SubjectGradeDetailAPIView(APIView):
         if isinstance(grade, Response):
             return grade
 
-        grade.delete()
+        grade.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
