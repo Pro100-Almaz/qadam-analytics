@@ -9,7 +9,7 @@ from core.tenancy import (
 
 
 class SoftDeleteQuerySet(models.QuerySet):
-    """Every manager of a soft-deletable model is built from this (spec 0013).
+    """Every manager of a soft-deletable model is built from this (spec 0014).
 
     `delete()` is the soft one, so a queryset delete anywhere in the code —
     a view, a reverse relation, the admin's bulk action — is recoverable.
@@ -101,7 +101,7 @@ class SoftDeleteUserManager(UserManager.from_queryset(SoftDeleteQuerySet)):
 
 
 def live_unique_constraint(*, fields, name, condition=None):
-    """A UniqueConstraint that only live rows count towards (spec 0013, G-4).
+    """A UniqueConstraint that only live rows count towards (spec 0014, G-4).
 
     A soft-deleted row keeps its values, so a plain unique rule would let it
     block a new row with the same value forever. `is_deleted=False` is ANDed
@@ -133,7 +133,7 @@ class SoftDeleteMixin(models.Model):
         related_name='+',
     )
     #: Shared by every row deleted in one action. NULL on live rows, and on
-    #: rows deleted before spec 0013, which restore one at a time.
+    #: rows deleted before spec 0014, which restore one at a time.
     deletion_batch = models.UUIDField(
         null=True, blank=True, db_index=True, editable=False,
     )

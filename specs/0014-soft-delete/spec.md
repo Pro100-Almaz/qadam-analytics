@@ -1,15 +1,15 @@
 ---
-id: 0013
+id: 0014
 slug: soft-delete
 title: Soft deletion with restore and an admin trash
 status: shipped
 owner: bekzhan
 created: 2026-10-14
-updated: 2026-10-15
+updated: 2026-10-28
 supersedes: 0005
 ---
 
-# 0013 — Soft deletion with restore and an admin trash
+# 0014 — Soft deletion with restore and an admin trash
 
 > Supersedes **only** the following parts of spec 0005. Everything else in
 > 0005, and all of 0007, stands.

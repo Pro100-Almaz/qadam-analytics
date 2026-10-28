@@ -1,4 +1,4 @@
-"""Spec 0013 — the admin side of soft deletion: AC-9 (admin half) and AC-11."""
+"""Spec 0014 — the admin side of soft deletion: AC-9 (admin half) and AC-11."""
 
 import re
 

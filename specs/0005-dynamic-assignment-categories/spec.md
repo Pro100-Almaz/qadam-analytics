@@ -10,7 +10,7 @@ updated: 2026-10-15
 
 # 0005 — Dynamic assignment categories and the Homework mirror
 
-> **Partly superseded by [0013](../0013-soft-delete/spec.md)** (soft deletion).
+> **Partly superseded by [0014](../0014-soft-delete/spec.md)** (soft deletion).
 > The rest of this spec stands. Two behaviours changed:
 >
 > - Deleting a `Homework` no longer removes its stored attachment files

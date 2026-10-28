@@ -1,4 +1,4 @@
-"""Spec 0013, AC-10 — club read paths leave soft-deleted children out."""
+"""Spec 0014, AC-10 — club read paths leave soft-deleted children out."""
 
 import datetime
 

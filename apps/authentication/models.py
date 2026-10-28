@@ -136,7 +136,7 @@ class CustomUser(SoftDeleteMixin, AbstractUser):
     #: through the five profile models instead, each SCHOOL_PATH='user__school',
     #: which is what the API actually lists.
     #:
-    #: Live users only (spec 0013): the same lookups are what keep a
+    #: Live users only (spec 0014): the same lookups are what keep a
     #: soft-deleted user from logging in or using an old token.
     objects = SoftDeleteUserManager()
     #: Scoped and live, for listings, pickers and the admin.
@@ -465,7 +465,7 @@ def assign_intake_year_for_student(sender, instance: 'Student', **kwargs):
         return
 
     # `_base_manager` is unfiltered, so the soft-deleted years go explicitly
-    # (spec 0013, AC-10).
+    # (spec 0014, AC-10).
     years = AcademicYear._base_manager.filter(school_id=school_id, is_deleted=False)
     year = (
         years.filter(is_active=True).first()

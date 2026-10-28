@@ -1,6 +1,6 @@
 """Soft deletion: the tree walker, batch restore, purge and the registry.
 
-Spec 0013. A soft delete hides the same rows a hard delete would remove, and
+Spec 0014. A soft delete hides the same rows a hard delete would remove, and
 restores them as one unit:
 
 * **Walk.** From the rows being deleted, follow every `CASCADE` edge to live
@@ -288,7 +288,7 @@ def restore(obj):
     if not obj.is_deleted:
         return
     if obj.deletion_batch is None:
-        # Deleted before spec 0013: a batch of one.
+        # Deleted before spec 0014: a batch of one.
         rows = {_concrete(type(obj)): {obj.pk}}
     else:
         rows = batch_rows(obj.deletion_batch)

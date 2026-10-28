@@ -442,7 +442,7 @@ class HomeworkDetailAPIView(APIView):
             return homework
 
         # Soft: the SubjectAssignment mirror and the grades go in the same
-        # batch; the stored files stay until a purge (spec 0013).
+        # batch; the stored files stay until a purge (spec 0014).
         homework.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 

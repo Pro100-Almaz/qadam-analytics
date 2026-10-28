@@ -1,10 +1,10 @@
 ---
-spec: 0013
+spec: 0014
 status: done
 updated: 2026-10-15
 ---
 
-# 0013 — Implementation plan
+# 0014 — Implementation plan
 
 > Written ahead of approval at the owner's request. If the spec changes,
 > update it first. Never let the plan silently redefine the behaviour.

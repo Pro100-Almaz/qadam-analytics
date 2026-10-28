@@ -10,7 +10,7 @@ assignment, and the assignment refuses to be deleted on its own.
 
 The model save() overrides call in here — deliberately not signals — and
 every write made from here passes `sync=False` so it does not echo back.
-Deletes do not come through here: they are soft (spec 0013), and each model's
+Deletes do not come through here: they are soft (spec 0014), and each model's
 `soft_delete_extra()` puts its mirror in the same deletion batch, so the pair
 is deleted and restored together.
 

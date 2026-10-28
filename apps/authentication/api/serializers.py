@@ -16,7 +16,7 @@ class LiveUserTokenRefreshSerializer(TokenRefreshSerializer):
     """SimpleJWT's refresh, with a missing user as a 401 instead of a 500.
 
     SimpleJWT 5.4 looks the token's user up with `objects.get()` and does not
-    catch DoesNotExist. `CustomUser.objects` is live-only (spec 0013), so a
+    catch DoesNotExist. `CustomUser.objects` is live-only (spec 0014), so a
     soft-deleted user's refresh token would otherwise crash the endpoint
     rather than be refused (AC-6).
     """

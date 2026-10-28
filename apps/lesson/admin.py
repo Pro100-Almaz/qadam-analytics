@@ -122,7 +122,7 @@ class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
     @admin.display(description='Teacher')
     def teacher(self, obj):
-        # NULL once the teacher's assignment is purged (spec 0013, AC-7).
+        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
         if obj.teaching_assignment is None:
             return '—'
         return obj.teaching_assignment.teacher

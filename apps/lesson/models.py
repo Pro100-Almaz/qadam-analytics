@@ -473,7 +473,7 @@ class Homework(SoftDeleteMixin, SchoolConsistentModel):
 
     description = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
-    #: SET_NULL (spec 0013): a homework outlives the teacher's assignment to
+    #: SET_NULL (spec 0014): a homework outlives the teacher's assignment to
     #: the offering, with its grades and files.
     teaching_assignment = models.ForeignKey(
         TeachingAssignment, on_delete=models.SET_NULL, related_name='homeworks',

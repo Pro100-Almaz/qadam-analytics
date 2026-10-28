@@ -885,7 +885,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_teacher(self, obj):
-        # NULL once the teacher's assignment is purged (spec 0013, AC-7).
+        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
         if obj.teaching_assignment is None:
             return None
         teacher = obj.teaching_assignment.teacher

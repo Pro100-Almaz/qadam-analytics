@@ -1,4 +1,4 @@
-"""Spec 0013 — cascade, batch restore and its guards: AC-2, AC-3, AC-4, AC-14."""
+"""Spec 0014 — cascade, batch restore and its guards: AC-2, AC-3, AC-4, AC-14."""
 
 import datetime
 

@@ -279,7 +279,7 @@ class ClubDetailAPIView(APIView):
     @transaction.atomic
     def delete(self, request, pk):
         club = get_object_or_404(club_queryset(request.user), pk=pk)
-        # Sessions and attendance go with the club as one batch (spec 0013).
+        # Sessions and attendance go with the club as one batch (spec 0014).
         club.soft_delete(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 

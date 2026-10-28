@@ -253,7 +253,7 @@ class ClassGroupCollection(SoftDeleteMixin, models.Model):
     place, ready to be filled again. Subgroups are shared rather than owned:
     «English Advanced» can sit in 7A's constellation and 7B's at the same time.
 
-    Never deleted on its own (spec 0013): it is soft-deleted and restored only
+    Never deleted on its own (spec 0014): it is soft-deleted and restored only
     together with its major class group, which is why `major` may stay a
     plain unique OneToOneField.
     """
@@ -456,7 +456,7 @@ class SubjectOffering(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
 class TeachingAssignment(SoftDeleteMixin, SchoolConsistentModel):
     """Assigns teachers to a SubjectOffering with specific roles.
 
-    Its homeworks do not go with it (spec 0013): `Homework.teaching_assignment`
+    Its homeworks do not go with it (spec 0014): `Homework.teaching_assignment`
     is SET_NULL, so removing a teacher from an offering keeps their homework,
     grades and files.
     """
@@ -927,7 +927,7 @@ class SubjectAssignment(SoftDeleteMixin, models.Model):
         """
         A homework assignment is deleted through its Homework, never directly
         (spec 0007): deleting the Homework takes this mirror along in the same
-        batch (spec 0013). The only homework assignment deletable here is an
+        batch (spec 0014). The only homework assignment deletable here is an
         orphan whose Homework is gone or deleted.
         """
         if sync and self.is_homework and self._has_live_homework():

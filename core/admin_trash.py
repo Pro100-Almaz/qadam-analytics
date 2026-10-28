@@ -1,4 +1,4 @@
-"""The admin trash: list, restore and purge soft-deleted rows (spec 0013, AC-11).
+"""The admin trash: list, restore and purge soft-deleted rows (spec 0014, AC-11).
 
     /admin/trash/                              counts per model
     /admin/trash/<app>/<model>/                that model's rows, by batch
@@ -10,7 +10,7 @@ the school in the header. A batch is looked up the same way, so a batch id
 from another tenant resolves to nothing here and 404s rather than being
 restored or purged from the wrong school.
 
-**Rows deleted before spec 0013 have no batch.** They are not backfilled
+**Rows deleted before spec 0014 have no batch.** They are not backfilled
 (spec, Data model), so each one is addressed as a batch of one under a stable
 id derived from its model and pk (`legacy_batch_id`). The id is computed, not
 stored, so listing the trash never writes.

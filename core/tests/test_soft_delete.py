@@ -1,4 +1,4 @@
-"""Spec 0013 — the soft-delete mechanism itself: AC-1, AC-9, AC-13."""
+"""Spec 0014 — the soft-delete mechanism itself: AC-1, AC-9, AC-13."""
 
 import pytest
 from django.db.models.deletion import ProtectedError

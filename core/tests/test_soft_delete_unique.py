@@ -1,4 +1,4 @@
-"""Spec 0013, AC-5 — uniqueness counts live rows only.
+"""Spec 0014, AC-5 — uniqueness counts live rows only.
 
 For every live-only unique rule: soft-delete row A, create row C with the
 same value, then try to restore A. The restore must be refused, name C, and

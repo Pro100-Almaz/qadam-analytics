@@ -1,4 +1,4 @@
-"""Spec 0013 — users and schools: AC-6, AC-15."""
+"""Spec 0014 — users and schools: AC-6, AC-15."""
 
 import pytest
 from django.contrib import admin

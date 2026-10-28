@@ -1,4 +1,4 @@
-"""Spec 0013, AC-10 — lesson-side read paths leave soft-deleted children out.
+"""Spec 0014, AC-10 — lesson-side read paths leave soft-deleted children out.
 
 A default manager hides a deleted row when it is queried directly. It does
 not when a query starts at a live parent and joins into the child

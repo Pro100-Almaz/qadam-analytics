@@ -1,4 +1,4 @@
-"""Spec 0013 — homework under soft delete: AC-7, AC-8.
+"""Spec 0014 — homework under soft delete: AC-7, AC-8.
 
 Supersedes two parts of spec 0005: deleting a TeachingAssignment no longer
 deletes its homework, and a homework's files stay in storage until it is

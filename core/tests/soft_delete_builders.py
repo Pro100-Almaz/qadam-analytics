@@ -1,4 +1,4 @@
-"""One live row of every soft-deletable model (spec 0013).
+"""One live row of every soft-deletable model (spec 0014).
 
 `BUILDERS` is keyed by model label and must cover `soft_delete_models()`
 exactly — `test_registry_has_a_builder_for_every_model` fails when a model

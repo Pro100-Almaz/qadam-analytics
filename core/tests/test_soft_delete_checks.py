@@ -1,4 +1,4 @@
-"""Spec 0013, AC-12 — `softdelete.E001` flags a hard-delete CASCADE child."""
+"""Spec 0014, AC-12 — `softdelete.E001` flags a hard-delete CASCADE child."""
 
 from core import checks
 

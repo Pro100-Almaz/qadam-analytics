@@ -341,7 +341,7 @@ def check_join_models_validate_school_consistency(app_configs=None, **kwargs):
 
 
 #: Models a soft-deletable model may reach by a CASCADE edge without being
-#: soft-deletable themselves, each with the reason (spec 0013). A soft delete
+#: soft-deletable themselves, each with the reason (spec 0014). A soft delete
 #: leaves their rows untouched; a purge removes them with the parent.
 #:
 #: `achievement.Attachment` needs no entry: it hangs off its parent by
@@ -356,7 +356,7 @@ SOFT_DELETE_CASCADE_EXEMPT = {
 
 @register(Tags.models)
 def check_soft_delete_cascades_stay_soft(app_configs=None, **kwargs):
-    """A soft delete cannot hide what it cannot reach (spec 0013, AC-12).
+    """A soft delete cannot hide what it cannot reach (spec 0014, AC-12).
 
     The walker in core.soft_delete follows CASCADE edges, but it can only
     stamp rows that have `is_deleted`. A hard-delete model under a

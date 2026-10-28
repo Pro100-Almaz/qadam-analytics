@@ -649,7 +649,7 @@ class SchoolAdmin(admin.ModelAdmin):
         return bool(request.user and request.user.is_superuser)
 
     def has_delete_permission(self, request, obj=None):
-        """Never, for anyone (spec 0013, AC-15).
+        """Never, for anyone (spec 0014, AC-15).
 
         A school is not soft-deletable and is never deleted from the
         application: not here, not over the API. Retiring one is

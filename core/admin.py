@@ -82,7 +82,7 @@ class QadamAdminSite(AdminSite):
                 self.admin_view(switch_school),
                 name='switch_school',
             ),
-            # The trash (spec 0013). Same reason: `trash/<app>/<model>/` would
+            # The trash (spec 0014). Same reason: `trash/<app>/<model>/` would
             # otherwise resolve as an app index.
             *TrashViews(self).get_urls(),
         ] + super().get_urls()

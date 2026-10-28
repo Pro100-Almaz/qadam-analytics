@@ -239,7 +239,7 @@ def test_ac20_admin_save_and_bulk_delete_sync(homework, pupil):
 
 
 def test_ac21_teaching_assignment_delete_leaves_no_orphan(teaching_assignment, homework):
-    # Spec 0013 superseded "deleting a TeachingAssignment deletes its
+    # Spec 0014 superseded "deleting a TeachingAssignment deletes its
     # homeworks": the homework now stays, so neither side is orphaned.
     assignment_id = mirror(homework).pk
 
@@ -255,7 +255,7 @@ def test_ac22_sync_command_detects_and_fixes_drift(homework, pupil, capsys):
     call_command('sync_homework_assignments', '--check')
 
     # Writes the hooks cannot see: QuerySet.update() and a raw hard delete
-    # (QuerySet.delete() is soft since spec 0013 and takes the mirror along).
+    # (QuerySet.delete() is soft since spec 0014 and takes the mirror along).
     SubjectAssignment.objects.filter(pk=mirror(homework).pk).update(title='drifted')
     SubjectGrade.objects.filter(assignment=mirror(homework)).update(grade=1)
     gone = HomeworkFactory(teaching_assignment=homework.teaching_assignment)

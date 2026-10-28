@@ -126,7 +126,7 @@ class SchoolScopedAdminMixin:
 
 
 class SoftDeleteAdminMixin:
-    """Mix into the ModelAdmin of every soft-deletable model (spec 0013).
+    """Mix into the ModelAdmin of every soft-deletable model (spec 0014).
 
     * The changelist shows live rows already: it reads the default manager.
     * Delete and the "delete selected" action soft-delete and stamp

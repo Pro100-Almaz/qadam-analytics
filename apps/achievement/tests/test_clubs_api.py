@@ -455,7 +455,7 @@ class TestClubMembershipAndAttendance:
         )
         # Retire the session the way the schedule editor does: a flag on the
         # session alone, so its attendance history stays live and editable.
-        # (`soft_delete()` would take the attendance with it — spec 0013.)
+        # (`soft_delete()` would take the attendance with it — spec 0014.)
         ClubSession.objects.filter(pk=session.pk).update(
             is_deleted=True, deleted_by=admin_user,
         )

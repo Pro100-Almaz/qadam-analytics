@@ -1,4 +1,4 @@
-"""Spec 0013, AC-10 — home-side read paths leave soft-deleted children out.
+"""Spec 0014, AC-10 — home-side read paths leave soft-deleted children out.
 
 See apps/lesson/tests/test_soft_delete_read_paths.py for the rule: each site
 that joins from a live parent into a soft-deletable child got an explicit

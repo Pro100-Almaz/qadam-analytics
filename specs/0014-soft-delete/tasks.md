@@ -1,9 +1,9 @@
 ---
-spec: 0013
+spec: 0014
 updated: 2026-10-15
 ---
 
-# 0013 — Tasks
+# 0014 — Tasks
 
 Ordered and small enough to land individually. Each task names the AC it
 serves, so nothing gets implemented that the spec did not ask for. Tests come
@@ -155,7 +155,7 @@ before the code they cover; each task should leave the suite green.
 - [x] **T-26** (AC-11) — `core/admin_trash.py` views (index, per-model batches,
   restore, purge with confirmation, purge limited to superuser/Admin group),
   URLs in `core/admin.py`, templates under `apps/templates/admin/trash/`,
-  "Trash" link in `admin/base_site.html`. Rows soft-deleted before 0013 have
+  "Trash" link in `admin/base_site.html`. Rows soft-deleted before 0014 have
   no `deletion_batch` and are not backfilled, so the trash addresses each one
   as a batch of one under a computed id (`legacy_batch_id`), with no write.
 

@@ -6,7 +6,7 @@ Check (and optionally repair) the Homework <-> SubjectAssignment mirror.
 
 The model hooks keep both sides in step on every save(), and a soft delete
 takes both sides as one batch; this is the safety net for writes they cannot
-see — QuerySet.update(), raw SQL. Soft-deleted rows are ignored (spec 0013).
+see — QuerySet.update(), raw SQL. Soft-deleted rows are ignored (spec 0014).
 Spans every school: the mirror is per row, not per tenant. See
 apps/lesson/homework_sync.py and spec 0005.
 """
