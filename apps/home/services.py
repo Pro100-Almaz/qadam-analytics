@@ -6,10 +6,10 @@ from django.utils import timezone
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import (
     AcademicYear, ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
+    QuarterGrade,
 )
 from apps.lesson.models import Lesson, TopicGrade
 from apps.lesson.services import get_cached_grades_bulk
-from apps.home.grading import grade_identifier
 from core.permissions import is_staff_role
 
 
@@ -105,65 +105,48 @@ def get_students_for_role(user, year_id=None, class_group_id=None):
     return students
 
 
-def compute_child_grades(student, enrollment):
-    """Compute grade summaries for a student — used by parent endpoints."""
-    offerings = list(SubjectOffering.objects.filter(
-        class_group=enrollment.class_group,
-        class_group__academic_year=enrollment.academic_year,
-    ).select_related('subject'))
+def current_offerings(student):
+    """
+    The offerings of every class group the student is in this year: their
+    major class plus any minor ones (подгруппы), whose subjects are taught
+    only there.
+    """
+    enrollments = list(student.get_current_minor_enrollments())
+    major = student.get_current_enrollment()
+    if major:
+        enrollments.insert(0, major)
+    return list(SubjectOffering.objects.filter(
+        class_group_id__in=[e.class_group_id for e in enrollments],
+    ).select_related('subject').order_by('class_group__category', 'id'))
 
-    lessons = list(Lesson.objects.filter(offering__in=offerings))
-    grades_map = get_cached_grades_bulk(lessons, [student])
 
-    quarter_grades = {}
-    cumulative_total = 0
-    active_quarters = 0
+def compute_child_grades(student):
+    """
+    Quarter and total grades for a child on the parent endpoints.
 
-    for q in (1, 2, 3, 4):
-        q_sum = 0
-        q_count = 0
-        for offering in offerings:
-            q_lessons = [l for l in lessons if l.offering_id == offering.id and l.quarter == q]
-            if q_lessons:
-                avg = sum(grades_map.get((l.id, student.id), 0) for l in q_lessons) / len(q_lessons)
-                q_sum += avg
-                q_count += 1
-        if q_count:
-            q_avg = q_sum / q_count
-            quarter_grades[str(q)] = grade_identifier(q_avg)
-            cumulative_total += q_avg
-            active_quarters += 1
-        else:
-            quarter_grades[str(q)] = None
+    Read from the quarter marks teachers entered (`QuarterGrade`, spec 0008),
+    as the student detail payload is, not derived from topic grades. Covers
+    the offerings of the child's major and minor class groups. A subject
+    without a mark is left out of the average rather than counted as 0, and a
+    quarter (or year) with no marks at all is None.
+    """
+    offerings = current_offerings(student)
+    marks_by_quarter = {q: [] for q in (1, 2, 3, 4)}
+    for quarter, grade in QuarterGrade.objects.filter(
+        student=student, offering__in=offerings,
+    ).values_list('quarter', 'grade'):
+        marks_by_quarter[quarter].append(grade)
 
-    student_total_grade = round(cumulative_total / active_quarters, 1) if active_quarters else 0
+    def average(values, digits):
+        return round(sum(values) / len(values), digits) if values else None
 
-    subject_data = []
-    for offering in offerings:
-        offering_lessons = [l for l in lessons if l.offering_id == offering.id]
-        subj_quarter_grades = {}
-        subj_cumulative = 0
-        subj_active = 0
-        for q in (1, 2, 3, 4):
-            q_lessons = [l for l in offering_lessons if l.quarter == q]
-            if q_lessons:
-                avg = sum(grades_map.get((l.id, student.id), 0) for l in q_lessons) / len(q_lessons)
-                subj_quarter_grades[str(q)] = grade_identifier(avg)
-                subj_cumulative += avg
-                subj_active += 1
-            else:
-                subj_quarter_grades[str(q)] = None
-
-        subject_data.append({
-            'offering_id': offering.id,
-            'subject_id': offering.subject_id,
-            'subject_name': offering.subject.name,
-            'language': offering.subject.language_group,
-            'student_grade': round(subj_cumulative / subj_active, 1) if subj_active else 0,
-            'quarter_grades': subj_quarter_grades,
-        })
-
-    return student_total_grade, quarter_grades, subject_data
+    quarter_grades = {
+        str(q): average(marks, 1) for q, marks in marks_by_quarter.items()
+    }
+    student_total_grade = average(
+        [g for g in quarter_grades.values() if g is not None], 2,
+    )
+    return student_total_grade, quarter_grades
 
 
 def get_subject_grades(subject, user, quarter=1, class_group_id=0):

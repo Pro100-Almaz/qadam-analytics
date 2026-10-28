@@ -8,7 +8,8 @@ from django.urls import reverse
 
 from apps.home.models import QuarterGrade
 from core.factories import (
-    AdminUserFactory, ClassGroupFactory, EnrollmentFactory, SubjectOfferingFactory,
+    AdminUserFactory, ClassGroupFactory, EnrollmentFactory, MinorClassGroupFactory,
+    StudentFactory, SubjectOfferingFactory,
 )
 
 
@@ -70,3 +71,35 @@ def test_grades_outside_current_class_are_ignored(
 
     assert response.data['total_quarter_grades']['1'] == 0
     assert elsewhere.subject.name not in response.data['cumulative_subject_grades']
+
+
+def test_minor_group_offerings_are_included(
+    enrolled, authenticated_client, academic_year,
+):
+    student, maths, _ = enrolled
+    subgroup = MinorClassGroupFactory(academic_year=academic_year)
+    EnrollmentFactory(student=student, class_group=subgroup)
+    english = SubjectOfferingFactory(class_group=subgroup)
+    QuarterGrade.objects.create(student=student, offering=maths, quarter=1, grade=5)
+    QuarterGrade.objects.create(student=student, offering=english, quarter=1, grade=3)
+
+    response = detail(authenticated_client, student)
+
+    assert english.id in [o['id'] for o in response.data['offerings']]
+    assert response.data['subject_quarter_grades']['1'][english.subject.name] == 3
+    assert response.data['total_quarter_grades']['1'] == 4.0
+    assert response.data['cumulative_subject_grades'][english.subject.name] == 3.0
+
+
+def test_minor_group_counts_without_a_major_class(authenticated_client, academic_year):
+    student = StudentFactory()
+    subgroup = MinorClassGroupFactory(academic_year=academic_year)
+    EnrollmentFactory(student=student, class_group=subgroup)
+    english = SubjectOfferingFactory(class_group=subgroup)
+    QuarterGrade.objects.create(student=student, offering=english, quarter=2, grade=4)
+
+    response = detail(authenticated_client, student)
+
+    assert response.data['current_class_group'] is None
+    assert response.data['total_quarter_grades']['2'] == 4.0
+    assert response.data['student_total_grade'] == 4.0

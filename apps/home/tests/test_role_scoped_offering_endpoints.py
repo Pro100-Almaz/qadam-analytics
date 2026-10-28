@@ -10,11 +10,11 @@ import pytest
 from django.contrib.auth.models import Group
 from django.urls import Resolver404, resolve, reverse
 
-from apps.home.models import HomeroomTeacherAssignment
+from apps.home.models import HomeroomTeacherAssignment, QuarterGrade
 from core.factories import (
     AcademicYearFactory, AdminUserFactory, ClassGroupFactory, EnrollmentFactory,
-    SubjectAssignmentFactory, SubjectFactory, SubjectOfferingFactory,
-    TeacherFactory, TeachingAssignmentFactory,
+    StudentFactory, SubjectAssignmentFactory, SubjectFactory,
+    SubjectOfferingFactory, TeacherFactory, TeachingAssignmentFactory,
 )
 
 
@@ -141,6 +141,56 @@ def test_ac3_include_empty_false_drops_offerings_without_assignments(
     assert [row['id'] for row in filtered.data['offerings']] == [
         setup['taught'].id,
     ]
+
+
+def test_ac3_include_empty_false_keeps_offerings_with_only_quarter_grades(
+    setup, authenticated_client,
+):
+    graded = SubjectOfferingFactory(
+        subject=SubjectFactory(name='Biology'), class_group=setup['class_group'],
+    )
+    TeachingAssignmentFactory(teacher=setup['teacher'], offering=graded)
+    QuarterGrade.objects.create(
+        student=StudentFactory(), offering=graded, quarter=1, grade=5,
+    )
+    client = authenticated_client(setup['teacher'].user)
+
+    response = client.get(offerings_url(), {'include_empty': 'false'})
+
+    assert [row['id'] for row in response.data['offerings']] == [graded.id]
+
+
+def test_ac3_quarter_counts_only_that_quarters_assignments_and_quarter_grades(
+    setup, authenticated_client,
+):
+    graded = SubjectOfferingFactory(
+        subject=SubjectFactory(name='Biology'), class_group=setup['class_group'],
+    )
+    TeachingAssignmentFactory(teacher=setup['teacher'], offering=graded)
+    QuarterGrade.objects.create(
+        student=StudentFactory(), offering=graded, quarter=1, grade=5,
+    )
+    SubjectAssignmentFactory(offering=setup['taught'], quarter=2)
+    client = authenticated_client(setup['teacher'].user)
+
+    first = client.get(offerings_url(), {'include_empty': 'false', 'quarter': 1})
+    second = client.get(offerings_url(), {'include_empty': 'false', 'quarter': 2})
+    third = client.get(offerings_url(), {'include_empty': 'false', 'quarter': 3})
+
+    assert [row['id'] for row in first.data['offerings']] == [graded.id]
+    assert [row['id'] for row in second.data['offerings']] == [
+        setup['taught'].id,
+    ]
+    assert third.data['offerings'] == []
+
+
+@pytest.mark.parametrize('quarter', ['0', '5', 'x'])
+def test_ac3_invalid_quarter_is_400(setup, authenticated_client, quarter):
+    response = authenticated_client(setup['teacher'].user).get(
+        offerings_url(), {'quarter': quarter},
+    )
+
+    assert response.status_code == 400
 
 
 def test_ac4_rows_carry_teaching_role_and_no_homeroom_fields(

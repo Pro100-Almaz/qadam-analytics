@@ -2,12 +2,15 @@ import io
 from datetime import date
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from openpyxl import load_workbook
 from rest_framework import status
 
 from apps.home.models import (
     HomeroomTeacherAssignment,
+    QuarterGrade,
     SubjectAssignment,
     SubjectGrade,
 )
@@ -52,6 +55,11 @@ def sheet_setup(year_with_quarters):
     Math has two Q1 assignments (one grade carries a comment, one student is
     ungraded on the second); Art has one. A Q2 Math assignment exists so that
     quarter filtering has something to exclude.
+
+    Quarter grades: Alice has Q1 Math 5 and Art 4; Bob has none in Q1, only a
+    Q2 Math 3. Alice also has a Q1 grade of 2 on another class group's Math
+    offering. The Q2 and other-class rows exist so that filtering has
+    something to exclude.
     """
     class_group = ClassGroupFactory(academic_year=year_with_quarters)
 
@@ -103,6 +111,23 @@ def sheet_setup(year_with_quarters):
     SubjectGrade.objects.create(assignment=still_life, student=alice, grade=5)
     SubjectGrade.objects.create(assignment=q2_exam, student=alice, grade=4)
 
+    QuarterGrade.objects.create(
+        student=alice, offering=math_offering, quarter=1, grade=5,
+    )
+    QuarterGrade.objects.create(
+        student=alice, offering=art_offering, quarter=1, grade=4,
+    )
+    QuarterGrade.objects.create(
+        student=bob, offering=math_offering, quarter=2, grade=3,
+    )
+    other_class_math = SubjectOfferingFactory(
+        subject=math,
+        class_group=ClassGroupFactory(academic_year=year_with_quarters),
+    )
+    QuarterGrade.objects.create(
+        student=alice, offering=other_class_math, quarter=1, grade=2,
+    )
+
     homeroom_teacher = TeacherFactory()
     HomeroomTeacherAssignment.objects.create(
         teacher=homeroom_teacher,
@@ -118,6 +143,8 @@ def sheet_setup(year_with_quarters):
         'bob': bob,
         'math': math,
         'art': art,
+        'math_offering': math_offering,
+        'art_offering': art_offering,
         'entry_test': entry_test,
         'quiz': quiz,
         'q2_exam': q2_exam,
@@ -155,7 +182,7 @@ class TestClassGroupGradeSheet:
         assert response['Content-Type'] == XLSX_CONTENT_TYPE
 
         wb = open_workbook(response)
-        assert set(wb.sheetnames) == {'Art', 'Mathematics'}
+        assert wb.sheetnames == ['Quarter Grades', 'Art', 'Mathematics']
 
     def test_columns_are_date_ordered_and_quarter_scoped(
         self, authenticated_client, sheet_setup,
@@ -168,11 +195,12 @@ class TestClassGroupGradeSheet:
         ws = open_workbook(response)['Mathematics']
         headers = [ws.cell(row=4, column=col).value for col in range(1, 5)]
 
-        # Entry test (10.09) precedes Quiz 2 (20.10); the Q2 exam is absent.
+        # Entry test (10.09) precedes Quiz 2 (20.10); the Q2 exam is absent,
+        # so the Quarter Grade column follows Quiz 2 directly.
         assert headers[0] == 'Student'
         assert headers[1].startswith('Entry test')
         assert headers[2].startswith('Quiz 2')
-        assert headers[3] is None
+        assert headers[3] == 'Quarter Grade'
 
     def test_cells_carry_grades_dashes_and_comments(
         self, authenticated_client, sheet_setup,
@@ -213,7 +241,9 @@ class TestClassGroupGradeSheet:
         )
 
         wb = open_workbook(response)
-        assert set(wb.sheetnames) == {'Alice Abbott', 'Bob Barnes'}
+        assert set(wb.sheetnames) == {
+            'Quarter Grades', 'Alice Abbott', 'Bob Barnes',
+        }
 
         ws = wb['Alice Abbott']
         labels = [
@@ -271,7 +301,7 @@ class TestStudentGradeSheet:
 
         assert response.status_code == status.HTTP_200_OK
         wb = open_workbook(response)
-        assert wb.sheetnames == ['Alice Abbott']
+        assert wb.sheetnames == ['Quarter Grades', 'Alice Abbott']
 
     def test_sheet_holds_only_that_student(self, authenticated_client, sheet_setup):
         client = authenticated_client(sheet_setup['alice'].user)
@@ -421,3 +451,251 @@ class TestGradeSheetParameters:
         assert response.status_code == status.HTTP_200_OK
         assert "filename*=UTF-8''" in disposition
         assert disposition.startswith('attachment; filename="Grades_')
+
+
+def quarter_grade_queries(captured):
+    return [
+        q for q in captured.captured_queries
+        if QuarterGrade._meta.db_table in q['sql']
+    ]
+
+
+@pytest.mark.django_db
+class TestQuarterGrades:
+    """Spec 0013 — quarter grades in the grade sheets."""
+
+    def test_ac1_subject_sheets_end_with_the_quarter_grade_column(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            class_group_url(sheet_setup['class_group']), {'quarter': 1},
+        )
+        wb = open_workbook(response)
+
+        math = wb['Mathematics']
+        assert math.cell(row=4, column=4).value == 'Quarter Grade'
+        assert math.cell(row=5, column=4).value == 5  # Alice
+        assert math.max_column == 4
+
+        art = wb['Art']
+        assert art.cell(row=4, column=3).value == 'Quarter Grade'
+        assert art.cell(row=5, column=3).value == 4  # Alice
+
+    def test_ac2_student_tables_end_with_the_quarter_grade_column(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            class_group_url(sheet_setup['class_group']),
+            {'quarter': 1, 'ordering': 'student'},
+        )
+        ws = open_workbook(response)['Alice Abbott']
+
+        # Art table: header row 4, grades row 5. Math table: rows 7 and 8.
+        assert ws.cell(row=4, column=3).value == 'Quarter Grade'
+        assert ws.cell(row=5, column=1).value == 'Art'
+        assert ws.cell(row=5, column=3).value == 4
+        assert ws.cell(row=7, column=4).value == 'Quarter Grade'
+        assert ws.cell(row=8, column=1).value == 'Mathematics'
+        assert ws.cell(row=8, column=4).value == 5
+
+    def test_ac3_missing_quarter_grade_is_an_empty_cell(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        url = class_group_url(sheet_setup['class_group'])
+
+        by_subject = open_workbook(client.get(url, {'quarter': 1}))
+        bob_row = by_subject['Mathematics'][6]
+        assert bob_row[3].value is None
+
+        by_student = open_workbook(
+            client.get(url, {'quarter': 1, 'ordering': 'student'}),
+        )
+        assert by_student['Bob Barnes'].cell(row=8, column=4).value is None
+
+    def test_ac4_other_quarters_and_offerings_never_appear(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        url = class_group_url(sheet_setup['class_group'])
+
+        # Bob's Q2 Math grade stays out of Q1 ...
+        q1 = open_workbook(client.get(url, {'quarter': 1}))
+        assert q1['Mathematics'].cell(row=6, column=4).value is None
+        # ... and is the only one in Q2, where Alice's Q1 grades are absent.
+        q2 = open_workbook(client.get(url, {'quarter': 2}))
+        math = q2['Mathematics']
+        assert math.cell(row=4, column=3).value == 'Quarter Grade'
+        assert math.cell(row=5, column=3).value is None
+        assert math.cell(row=6, column=3).value == 3
+
+        # Alice's grade of 2 belongs to another class group's offering.
+        values = {
+            cell.value
+            for sheet in q1.worksheets
+            for row in sheet.iter_rows(min_row=5)
+            for cell in row
+        }
+        assert 2 not in values
+
+    def test_ac5_subject_without_assignments_still_shows_quarter_grades(
+        self, authenticated_client, sheet_setup,
+    ):
+        biology = SubjectOfferingFactory(
+            subject=SubjectFactory(name='Biology'),
+            class_group=sheet_setup['class_group'],
+        )
+        QuarterGrade.objects.create(
+            student=sheet_setup['alice'], offering=biology, quarter=1, grade=3,
+        )
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        url = class_group_url(sheet_setup['class_group'])
+
+        ws = open_workbook(client.get(url, {'quarter': 1}))['Biology']
+        assert ws.cell(row=4, column=2).value == 'Quarter Grade'
+        assert ws.cell(row=5, column=1).value == 'Alice Abbott'
+        assert ws.cell(row=5, column=2).value == 3
+        assert ws.cell(row=6, column=1).value == 'Bob Barnes'
+        assert ws.cell(row=6, column=2).value is None
+
+        # Biology sorts after Art: its table is rows 7-8 of the student sheet.
+        ws = open_workbook(
+            client.get(url, {'quarter': 1, 'ordering': 'student'}),
+        )['Alice Abbott']
+        assert ws.cell(row=7, column=2).value == 'Quarter Grade'
+        assert ws.cell(row=8, column=1).value == 'Biology'
+        assert ws.cell(row=8, column=2).value == 3
+
+    @pytest.mark.parametrize('ordering', ['subject', 'student'])
+    def test_ac6_summary_sheet_comes_first_with_students_by_subjects(
+        self, authenticated_client, sheet_setup, ordering,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            class_group_url(sheet_setup['class_group']),
+            {'quarter': 1, 'ordering': ordering},
+        )
+        wb = open_workbook(response)
+
+        assert wb.sheetnames[0] == 'Quarter Grades'
+        ws = wb['Quarter Grades']
+        assert [ws.cell(row=4, column=c).value for c in range(1, 4)] == [
+            'Student', 'Art', 'Mathematics',
+        ]
+        assert [ws.cell(row=5, column=c).value for c in range(1, 4)] == [
+            'Alice Abbott', 4, 5,
+        ]
+        assert [ws.cell(row=6, column=c).value for c in range(1, 4)] == [
+            'Bob Barnes', None, None,
+        ]
+
+    def test_ac6_student_endpoint_summary_holds_only_that_student(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            student_url(sheet_setup['alice']), {'quarter': 1},
+        )
+        wb = open_workbook(response)
+
+        assert wb.sheetnames[0] == 'Quarter Grades'
+        ws = wb['Quarter Grades']
+        assert ws.cell(row=5, column=1).value == 'Alice Abbott'
+        assert ws.cell(row=6, column=1).value is None
+
+    @pytest.mark.parametrize('url_for', [
+        lambda setup: class_group_url(setup['class_group']),
+        lambda setup: student_url(setup['alice']),
+    ])
+    def test_ac7_subject_filter_has_no_summary_sheet(
+        self, authenticated_client, sheet_setup, url_for,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            url_for(sheet_setup),
+            {'quarter': 1, 'subject': sheet_setup['math'].pk},
+        )
+
+        wb = open_workbook(response)
+        assert wb.sheetnames == ['Mathematics']
+        assert wb['Mathematics'].cell(row=5, column=4).value == 5
+
+    def test_ac8_summary_keeps_its_name_when_a_subject_shares_it(
+        self, authenticated_client, sheet_setup,
+    ):
+        SubjectOfferingFactory(
+            subject=SubjectFactory(name='Quarter Grades'),
+            class_group=sheet_setup['class_group'],
+        )
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        response = client.get(
+            class_group_url(sheet_setup['class_group']), {'quarter': 1},
+        )
+
+        wb = open_workbook(response)
+        assert wb.sheetnames[0] == 'Quarter Grades'
+        assert wb['Quarter Grades'].cell(row=1, column=1).value.startswith(
+            'Quarter Grades — ',
+        )
+        assert 'Quarter Grades (2)' in wb.sheetnames
+        assert wb['Quarter Grades (2)'].cell(row=1, column=1).value.startswith(
+            'Quarter Grades — ',
+        )
+        assert wb['Quarter Grades (2)'].cell(row=4, column=2).value == (
+            'Quarter Grade'
+        )
+
+    @pytest.mark.parametrize('reader', ['student', 'parent'])
+    def test_ac9_student_and_parent_see_quarter_grades(
+        self, authenticated_client, sheet_setup, reader,
+    ):
+        alice = sheet_setup['alice']
+        if reader == 'parent':
+            parent = ParentFactory()
+            parent.students.add(alice)
+            user = parent.user
+        else:
+            user = alice.user
+
+        client = authenticated_client(user)
+        response = client.get(student_url(alice), {'quarter': 1})
+
+        assert response.status_code == status.HTTP_200_OK
+        wb = open_workbook(response)
+        summary = wb['Quarter Grades']
+        assert summary.cell(row=5, column=2).value == 4  # Art
+        assert summary.cell(row=5, column=3).value == 5  # Mathematics
+        assert wb['Mathematics'].cell(row=5, column=4).value == 5
+
+    def test_ac10_quarter_grades_cost_one_query(
+        self, authenticated_client, sheet_setup,
+    ):
+        client = authenticated_client(sheet_setup['homeroom_teacher'].user)
+        url = class_group_url(sheet_setup['class_group'])
+
+        with CaptureQueriesContext(connection) as small:
+            assert client.get(url, {'quarter': 1}).status_code == 200
+
+        for name in ('Chemistry', 'History', 'Music'):
+            offering = SubjectOfferingFactory(
+                subject=SubjectFactory(name=name),
+                class_group=sheet_setup['class_group'],
+            )
+            for _ in range(3):
+                student = StudentFactory(
+                    academic_year=sheet_setup['academic_year'],
+                )
+                EnrollmentFactory(
+                    student=student, class_group=sheet_setup['class_group'],
+                )
+                QuarterGrade.objects.create(
+                    student=student, offering=offering, quarter=1, grade=4,
+                )
+
+        with CaptureQueriesContext(connection) as large:
+            assert client.get(url, {'quarter': 1}).status_code == 200
+
+        assert len(quarter_grade_queries(small)) == 1
+        assert len(quarter_grade_queries(large)) == 1

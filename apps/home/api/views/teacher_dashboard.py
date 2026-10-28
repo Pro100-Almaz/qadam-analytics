@@ -1,3 +1,4 @@
+from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -7,7 +8,8 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Teacher, Student
 from apps.home.models import (
-    AcademicYear, ClassGroup, SubjectOffering, TeachingAssignment,
+    AcademicYear, ClassGroup, QuarterGrade, SubjectAssignment,
+    SubjectOffering, TeachingAssignment,
 )
 from apps.home.services_teacher import (
     get_lesson_teacher_dashboard,
@@ -104,7 +106,14 @@ class TeacherOfferingListAPIView(APIView):
                 description=(
                     'Include offerings with no assignments yet. Default '
                     'true; false returns only offerings with at least one '
-                    'assignment.'
+                    'assignment or quarter grade.'
+                ),
+            ),
+            OpenApiParameter(
+                'quarter', int, enum=[1, 2, 3, 4],
+                description=(
+                    'With include_empty=false, count only assignments and '
+                    'quarter grades of this quarter. Anything else is a 400.'
                 ),
             ),
         ],
@@ -120,6 +129,7 @@ class TeacherOfferingListAPIView(APIView):
             )
 
         year_id = int_param(request.query_params, 'academic_year', 1)
+        quarter = int_param(request.query_params, 'quarter', 1, 4)
         if year_id is not None:
             academic_year = get_object_or_404(AcademicYear, pk=year_id)
         else:
@@ -155,7 +165,18 @@ class TeacherOfferingListAPIView(APIView):
             subject__status='active',
         )
         if not bool_param(request.query_params, 'include_empty', True):
-            offerings_qs = offerings_qs.filter(assignments__is_deleted=False)
+            # An offering with quarter grades but no assignments is not empty:
+            # quarter grades can be entered without any graded work behind them.
+            assignments = SubjectAssignment.objects.filter(
+                offering=OuterRef('pk'),
+            )
+            quarter_grades = QuarterGrade.objects.filter(offering=OuterRef('pk'))
+            if quarter is not None:
+                assignments = assignments.filter(quarter=quarter)
+                quarter_grades = quarter_grades.filter(quarter=quarter)
+            offerings_qs = offerings_qs.filter(
+                Exists(assignments) | Exists(quarter_grades),
+            )
 
         offerings = (
             offerings_qs
