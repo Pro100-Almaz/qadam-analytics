@@ -54,6 +54,9 @@ from apps.home.models import (
     AssignmentCategory, Enrollment, SubjectAssignment, SubjectGrade,
     SubjectOffering, TeachingAssignment,
 )
+from apps.home.teaching_assignments import (
+    assignment_for, restrict_to_teacher_periods,
+)
 from core.error_messages import (
     HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
 )
@@ -131,7 +134,9 @@ def assignment_queryset(user):
         teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return qs.none()
-        return qs.filter(offering_id__in=teacher_offering_ids(teacher))
+        return restrict_to_teacher_periods(
+            qs, teacher, offering_field='offering_id', date_field='date',
+        )
 
     if user.is_student():
         student = Student.objects.filter(user=user).first()
@@ -170,8 +175,13 @@ def grade_queryset(user):
         teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return qs.none()
+        temporal_ids = restrict_to_teacher_periods(
+            qs, teacher,
+            offering_field='assignment__offering_id',
+            date_field='assignment__date',
+        ).values('pk')
         return qs.filter(
-            Q(assignment__offering_id__in=teacher_offering_ids(teacher))
+            Q(pk__in=temporal_ids)
             | Q(
                 student__enrollments__class_group_id__in=(
                     teacher_homeroom_class_group_ids(teacher)
@@ -248,14 +258,11 @@ def homeroom_grade_queryset(user):
 
 # ── Write permissions ──
 
-def teacher_assignment_for(user, offering):
-    """The requesting user's own TeachingAssignment for an offering, or None."""
-    teacher = Teacher.objects.filter(user=user).first()
-    if teacher is None:
-        return None
-    return TeachingAssignment.objects.filter(
-        offering=offering, teacher=teacher,
-    ).first()
+def teacher_assignment_for(user, offering, effective_date, *, writes=True):
+    """The caller's TA covering ``effective_date``, or ``None``."""
+    return assignment_for(
+        user, offering, effective_date, writes=writes,
+    )
 
 
 def can_manage_assignment(user, assignment):
@@ -267,7 +274,9 @@ def can_manage_assignment(user, assignment):
     including one a colleague created. Homeroom teachers who do not teach the
     subject are not included: their homeroom reach is read-only.
     """
-    return teacher_assignment_for(user, assignment.offering) is not None
+    return teacher_assignment_for(
+        user, assignment.offering, assignment.date,
+    ) is not None
 
 
 # ── Filters ──
@@ -434,7 +443,9 @@ class SubjectAssignmentListCreateAPIView(APIView):
 
         data = serializer.validated_data
         offering = data['offering']
-        teaching_assignment = teacher_assignment_for(request.user, offering)
+        teaching_assignment = teacher_assignment_for(
+            request.user, offering, data['date'],
+        )
         if teaching_assignment is None:
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
@@ -503,6 +514,13 @@ class SubjectAssignmentDetailAPIView(APIView):
             context={'request': request},
         )
         serializer.is_valid(raise_exception=True)
+        new_date = serializer.validated_data.get('date', assignment.date)
+        if teacher_assignment_for(
+            request.user, assignment.offering, new_date,
+        ) is None:
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
+            )
         assignment = serializer.save()
 
         return Response(

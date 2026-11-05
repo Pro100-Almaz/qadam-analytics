@@ -10,6 +10,9 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
+from apps.home.teaching_assignments import (
+    restrict_to_teacher_periods, teacher_can_write,
+)
 from apps.lesson.models import Lesson, Topic, TopicGrade, QuarterGradeSnapshot
 from core import settings
 from core.permissions import (
@@ -73,10 +76,10 @@ class LessonListCreateAPIView(APIView):
         elif is_teacher_role(user):
             try:
                 teacher = Teacher.objects.get(user=user)
-                offering_ids = TeachingAssignment.objects.filter(
-                    teacher=teacher
-                ).values_list('offering_id', flat=True)
-                lessons = lessons.filter(offering_id__in=offering_ids)
+                lessons = restrict_to_teacher_periods(
+                    lessons, teacher,
+                    offering_field='offering_id', date_field='date',
+                )
             except Teacher.DoesNotExist:
                 lessons = lessons.none()
         elif user.is_parent():
@@ -132,7 +135,13 @@ class LessonListCreateAPIView(APIView):
 
         offering = serializer.validated_data['offering']
         available = get_available_offerings(request.user)
-        if not available.filter(id=offering.id).exists():
+        if not available.filter(id=offering.id).exists() or (
+            is_teacher_role(request.user)
+            and not is_admin_role(request.user)
+            and not teacher_can_write(
+                request.user, offering, serializer.validated_data.get('date'),
+            )
+        ):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,
@@ -218,7 +227,13 @@ class LessonCopyAPIView(APIView):
 
         offering = serializer.validated_data['offering']
         available = get_available_offerings(request.user)
-        if not available.filter(id=offering.id).exists():
+        if not available.filter(id=offering.id).exists() or (
+            is_teacher_role(request.user)
+            and not is_admin_role(request.user)
+            and not teacher_can_write(
+                request.user, offering, serializer.validated_data.get('date'),
+            )
+        ):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,

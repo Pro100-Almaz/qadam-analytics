@@ -143,7 +143,7 @@ CASES = {
     'user_unique_live_username': _username,
     'academicyear_unique_year_per_school': _year_per_school,
     'academicyear_one_active_per_school': _one_active_year,
-    'teachingassignment_unique_live_offering_teacher': _teaching_assignment,
+    'teachingassignment_no_teacher_period_overlap': _teaching_assignment,
     'homeroomassignment_unique_live_class_group': _homeroom,
     'unique_active_enrollment_per_class_group': _enrollment,
     'quartergrader_unique_live_subject_quarter': _quarter_grader,

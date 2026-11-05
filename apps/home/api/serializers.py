@@ -11,6 +11,7 @@ from apps.home.models import (
     SubjectAssignment, SubjectGrade, QuarterGrade, AssignmentCategory,
 )
 from apps.home.services import current_offerings
+from apps.home.teaching_assignments import request_can_write
 from apps.lesson.models import Lesson, TopicGrade, Topic
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
@@ -85,10 +86,14 @@ class SubjectOfferingSerializer(serializers.ModelSerializer):
 
 class TeachingAssignmentSerializer(serializers.ModelSerializer):
     offering = SubjectOfferingSerializer(read_only=True)
+    is_current = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = TeachingAssignment
-        fields = ['id', 'offering', 'teacher', 'role']
+        fields = [
+            'id', 'offering', 'teacher', 'role',
+            'start_date', 'end_date', 'is_current',
+        ]
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -391,7 +396,10 @@ class SubjectCreateSerializer(serializers.Serializer):
                             TeachingAssignment.objects.get_or_create(
                                 offering=offering,
                                 teacher=teacher,
-                                defaults={'role': 'primary'},
+                                defaults={
+                                    'role': 'primary',
+                                    'start_date': offering.academic_year.q1_start,
+                                },
                             )
                         except Teacher.DoesNotExist:
                             # Deliberately silent, unlike the other four: `user`
@@ -812,6 +820,7 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
     class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
     class_group_name = serializers.SerializerMethodField()
     academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectAssignment
@@ -821,12 +830,19 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
             'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
 
     def get_class_group_name(self, obj):
         class_group = obj.offering.class_group
         return f"{class_group.grade_level}{class_group.letter}"
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.offering, obj.date,
+        ))
 
 
 class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
@@ -940,14 +956,22 @@ class SubjectGradeSerializer(serializers.ModelSerializer):
     student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
     assignment = SubjectAssignmentSerializer(read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectGrade
         fields = [
             'id', 'assignment', 'student', 'student_user_id', 'student_name',
             'grade', 'comments', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.assignment.offering, obj.assignment.date,
+        ))
 
 
 class OfferingGradebookGradeSerializer(serializers.ModelSerializer):
@@ -1075,6 +1099,7 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
     class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
     class_group_name = serializers.SerializerMethodField()
     academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = QuarterGrade
@@ -1084,12 +1109,24 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
             'offering_id', 'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
 
     def get_class_group_name(self, obj):
         class_group = obj.offering.class_group
         return f"{class_group.grade_level}{class_group.letter}"
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        effective_date = getattr(
+            obj.offering.academic_year, f'q{obj.quarter}_end', None,
+        )
+        if effective_date is None:
+            return False
+        return bool(request and request_can_write(
+            request, obj.offering, effective_date,
+        ))
 
 
 class QuarterGradeBulkSerializer(serializers.Serializer):

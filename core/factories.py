@@ -1,4 +1,4 @@
-from datetime import time, timedelta
+from datetime import date, time, timedelta
 
 import factory
 from django.contrib.auth.models import Group
@@ -204,7 +204,9 @@ class AcademicYearFactory(DjangoModelFactory):
         django_get_or_create = ('school', 'year')
 
     school = factory.LazyFunction(_current_school)
-    year = factory.Sequence(lambda n: f'202{n}/202{n + 1}')
+    year = factory.Sequence(
+        lambda n: f'{2000 + n}/{2001 + n}'
+    )
     is_active = True
     archived = False
 
@@ -406,6 +408,10 @@ class TeachingAssignmentFactory(DjangoModelFactory):
     offering = factory.SubFactory(SubjectOfferingFactory)
     teacher = factory.SubFactory(TeacherFactory)
     role = 'primary'
+    # Most legacy API tests use fixed 2026 dates while their factory-generated
+    # academic-year label is intentionally unique. A broad default preserves
+    # their non-temporal setup; temporal tests always pass an explicit bound.
+    start_date = factory.LazyFunction(lambda: date(1900, 1, 1))
 
 
 class EnrollmentFactory(DjangoModelFactory):
@@ -427,6 +433,7 @@ class LessonFactory(DjangoModelFactory):
     unit = 1
     status = 'pending'
     order = factory.Sequence(lambda n: n)
+    date = factory.Faker('date_object')
 
 
 class TopicFactory(DjangoModelFactory):

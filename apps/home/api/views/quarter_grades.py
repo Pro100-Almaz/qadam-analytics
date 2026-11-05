@@ -38,7 +38,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.authentication.models import Teacher
-from apps.home.models import QuarterGrade, SubjectOffering
+from apps.home.models import QuarterGrade, SubjectOffering, TeachingAssignment
 from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import (
     IsStaffOrAdmin,
@@ -169,11 +169,14 @@ class OfferingQuarterGradeAPIView(APIView):
         ),
     )
     def post(self, request, offering_id):
-        offering, refusal = self._get_writable(request, offering_id)
+        offering = self._get_offering(offering_id)
+        refusal = self._preflight_refusal(request, offering)
         if refusal:
             return refusal
-
         data = self._validated(QuarterGradeBulkSerializer, request, offering, 'create')
+        refusal = self._write_refusal(request, offering, data['quarter'])
+        if refusal:
+            return refusal
         with transaction.atomic():
             created = [
                 QuarterGrade.objects.create(
@@ -197,18 +200,22 @@ class OfferingQuarterGradeAPIView(APIView):
         ),
     )
     def patch(self, request, offering_id):
-        offering, refusal = self._get_writable(request, offering_id)
+        offering = self._get_offering(offering_id)
+        refusal = self._preflight_refusal(request, offering)
         if refusal:
             return refusal
-
         data = self._validated(QuarterGradeBulkSerializer, request, offering, 'update')
+        refusal = self._write_refusal(request, offering, data['quarter'])
+        if refusal:
+            return refusal
         grades = data['grades']
         rows = list(QuarterGrade.objects.filter(
             offering=offering, quarter=data['quarter'], student_id__in=grades,
         ))
         for row in rows:
             row.grade = grades[row.student_id]
-        QuarterGrade.objects.bulk_update(rows, ['grade'])
+            row._history_user = request.user
+            row.save(update_fields=['grade'])
 
         return Response(self._serialize(request, [row.pk for row in rows]))
 
@@ -221,27 +228,56 @@ class OfferingQuarterGradeAPIView(APIView):
         ),
     )
     def delete(self, request, offering_id):
-        offering, refusal = self._get_writable(request, offering_id)
+        offering = self._get_offering(offering_id)
+        refusal = self._preflight_refusal(request, offering)
         if refusal:
             return refusal
-
         data = self._validated(QuarterGradeBulkDeleteSerializer, request, offering)
+        refusal = self._write_refusal(request, offering, data['quarter'])
+        if refusal:
+            return refusal
         QuarterGrade.objects.filter(
             offering=offering, quarter=data['quarter'], student_id__in=data['students'],
         ).delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
-    def _get_writable(request, offering_id):
-        """The offering, or a 403 unless the caller teaches it — admin roles included."""
-        offering = get_object_or_404(
+    def _get_offering(offering_id):
+        return get_object_or_404(
             SubjectOffering.objects.select_related('class_group'), pk=offering_id,
         )
-        if teacher_assignment_for(request.user, offering) is None:
-            return offering, Response(
+
+    @staticmethod
+    def _write_refusal(request, offering, quarter):
+        effective_date = getattr(offering.academic_year, f'q{quarter}_end')
+        if effective_date is None:
+            # Legacy calendars may not have quarter bounds yet. Preserve the
+            # pre-0015 offering-level rule until the school configures them.
+            return OfferingQuarterGradeAPIView._preflight_refusal(request, offering)
+        if teacher_assignment_for(
+            request.user, offering, effective_date,
+        ) is None:
+            return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
             )
-        return offering, None
+        return None
+
+    @staticmethod
+    def _preflight_refusal(request, offering):
+        """Keep permission-before-payload-validation without trusting a quarter."""
+        teacher = Teacher.objects.filter(user=request.user).first()
+        allowed = (
+            teacher is not None
+            and not offering.academic_year.archived
+            and TeachingAssignment.objects.filter(
+                teacher=teacher, offering=offering,
+            ).exists()
+        )
+        if not allowed:
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
 
     @staticmethod
     def _validated(serializer_class, request, offering, mode=None):

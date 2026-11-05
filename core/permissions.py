@@ -214,12 +214,10 @@ def can_access_lesson(user, lesson):
 
     # Teacher check
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            return _teacher_teaches_offering(teacher, lesson.offering)
-        except Teacher.DoesNotExist:
-            return False
+        from apps.home.teaching_assignments import assignment_for
+        return assignment_for(
+            user, lesson.offering, lesson.date, writes=False,
+        ) is not None
 
     # Student check
     if user.is_student():
@@ -248,12 +246,10 @@ def can_modify_lesson(user, lesson):
         return False
 
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            return _teacher_teaches_offering(teacher, lesson.offering)
-        except Teacher.DoesNotExist:
-            return False
+        from apps.home.teaching_assignments import assignment_for
+        return assignment_for(
+            user, lesson.offering, lesson.date, writes=True,
+        ) is not None
 
     return False
 
@@ -390,16 +386,12 @@ def can_grade_student(user, lesson, student):
         return False
 
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            # Check teacher is assigned to this offering
-            if not _teacher_teaches_offering(teacher, lesson.offering):
-                return False
-            # Check student is enrolled in the offering's class
-            return _student_enrolled_in_offering(student, lesson.offering)
-        except Teacher.DoesNotExist:
+        from apps.home.teaching_assignments import assignment_for
+        if assignment_for(
+            user, lesson.offering, lesson.date, writes=True,
+        ) is None:
             return False
+        return _student_enrolled_in_offering(student, lesson.offering)
 
     return False
 

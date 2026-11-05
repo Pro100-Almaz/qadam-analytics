@@ -47,6 +47,9 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Parent, Student, Teacher
 from apps.home.models import Enrollment, TeachingAssignment
+from apps.home.teaching_assignments import (
+    assignment_for, restrict_to_teacher_periods,
+)
 from apps.lesson.homework_sync import assignments_from_homeworks
 from apps.lesson.models import Homework, HomeworkGrade
 from apps.lesson.services import attach_files_to_homeworks
@@ -139,8 +142,11 @@ def homework_queryset(user):
         if teacher is None:
             return qs.none()
 
+        temporal_ids = restrict_to_teacher_periods(
+            qs, teacher, offering_field='offering_id', date_field='due_date',
+        ).values('pk')
         return qs.filter(
-            Q(offering_id__in=teacher_offering_ids(teacher))
+            Q(pk__in=temporal_ids)
             | Q(
                 offering__class_group_id__in=teacher_homeroom_class_group_ids(teacher),
                 is_active=True,
@@ -226,8 +232,13 @@ def grade_queryset(user):
 
         homeroom_ids = teacher_homeroom_class_group_ids(teacher)
 
+        temporal_ids = restrict_to_teacher_periods(
+            qs, teacher,
+            offering_field='homework__offering_id',
+            date_field='homework__due_date',
+        ).values('pk')
         return qs.filter(
-            Q(homework__offering_id__in=teacher_offering_ids(teacher))
+            Q(pk__in=temporal_ids)
             | Q(
                 student__enrollments__class_group_id__in=homeroom_ids,
                 student__enrollments__status='active',
@@ -249,14 +260,10 @@ def grade_queryset(user):
 
 # ── Write permissions ──
 
-def teacher_assignment_for(user, offering):
-    """The requesting user's own TeachingAssignment for an offering, or None."""
-    teacher = Teacher.objects.filter(user=user).first()
-    if teacher is None:
-        return None
-    return TeachingAssignment.objects.filter(
-        offering=offering, teacher=teacher,
-    ).first()
+def teacher_assignment_for(user, offering, effective_date, *, writes=True):
+    return assignment_for(
+        user, offering, effective_date, writes=writes,
+    )
 
 
 def can_manage_homework(user, homework):
@@ -268,7 +275,9 @@ def can_manage_homework(user, homework):
     may work on its tasks, including ones a colleague set. Admin roles are
     excluded on purpose; their reach is read-only.
     """
-    return teacher_assignment_for(user, homework.offering) is not None
+    return teacher_assignment_for(
+        user, homework.offering, homework.due_date,
+    ) is not None
 
 
 def _is_active_param(params):
@@ -350,7 +359,9 @@ class HomeworkCreateAPIView(APIView):
         assignments = {}
         forbidden = []
         for offering in offerings:
-            assignment = teacher_assignment_for(request.user, offering)
+            assignment = teacher_assignment_for(
+                request.user, offering, data['due_date'],
+            )
             if assignment is None:
                 forbidden.append(offering.pk)
             else:
@@ -426,6 +437,13 @@ class HomeworkDetailAPIView(APIView):
             homework, data=request.data, context={'request': request},
         )
         serializer.is_valid(raise_exception=True)
+        new_date = serializer.validated_data.get('due_date', homework.due_date)
+        if teacher_assignment_for(
+            request.user, homework.offering, new_date,
+        ) is None:
+            return Response(
+                {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
+            )
         serializer.save()
 
         # Re-read through the scoped queryset so the response carries the
