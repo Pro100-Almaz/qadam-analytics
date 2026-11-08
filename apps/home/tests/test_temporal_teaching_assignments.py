@@ -40,10 +40,23 @@ def quarter_world(db):
 
 
 @pytest.mark.django_db
-def test_one_live_assignment_per_offering_quarter(quarter_world):
+def test_ac3_different_teachers_share_an_offering_quarter(quarter_world):
+    """Two primaries in one quarter are allowed when the teachers differ."""
+    TeachingAssignmentFactory(
+        offering=quarter_world['offering'], teacher=TeacherFactory(),
+        role='primary', quarter=1,
+    )
+    assert quarter_world['offering'].teaching_assignments.filter(
+        quarter=1, role='primary',
+    ).count() == 2
+
+
+@pytest.mark.django_db
+def test_ac3_same_teacher_twice_in_offering_quarter_is_rejected(quarter_world):
     with pytest.raises(IntegrityError), transaction.atomic():
         TeachingAssignmentFactory(
-            offering=quarter_world['offering'], teacher=TeacherFactory(), quarter=1,
+            offering=quarter_world['offering'],
+            teacher=quarter_world['q1_teacher'], role='assistant', quarter=1,
         )
 
 

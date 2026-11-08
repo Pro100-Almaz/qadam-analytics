@@ -495,10 +495,12 @@ class TeachingAssignment(SoftDeleteMixin, SchoolConsistentModel):
 
     class Meta:
         constraints = [
+            # Several teachers may share a quarter, in any role (spec 0015,
+            # AC-3); the same teacher is assigned to it at most once.
             live_unique_constraint(
-                fields=['offering', 'quarter'],
+                fields=['offering', 'quarter', 'teacher'],
                 condition=Q(quarter__isnull=False),
-                name='teachingassignment_unique_live_offering_quarter',
+                name='teachingassignment_unique_live_offering_quarter_teacher',
             ),
         ]
 
