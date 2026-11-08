@@ -1,10 +1,8 @@
 from django.apps import apps
-from django.contrib.postgres.constraints import ExclusionConstraint
-from django.contrib.postgres.fields import RangeOperators
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
-from django.db.models import Exists, F, Func, OuterRef, Q, Value
+from django.db.models import Exists, OuterRef, Q
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
@@ -446,16 +444,16 @@ class SubjectOffering(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
         return self.lessons.all().order_by('date', 'order')
 
     def get_teachers(self):
-        """Get all currently open teacher assignments for this offering."""
+        """Get teachers assigned to at least one quarter of this offering."""
         return self.teaching_assignments.filter(
-            end_date__isnull=True,
-        ).select_related('teacher', 'teacher__user')
+            quarter__isnull=False,
+        ).select_related('teacher', 'teacher__user').distinct()
 
     def get_primary_teacher(self):
         """Get the primary teacher for this offering."""
         assignment = self.teaching_assignments.filter(
-            role='primary', end_date__isnull=True,
-        ).first()
+            role='primary', quarter__isnull=False,
+        ).order_by('-quarter', '-id').first()
         return assignment.teacher if assignment else None
 
 
@@ -487,102 +485,22 @@ class TeachingAssignment(SoftDeleteMixin, SchoolConsistentModel):
         related_name='teaching_assignments'
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
-    start_date = models.DateField(db_index=True)
-    end_date = models.DateField(null=True, blank=True, db_index=True)
+    quarter = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        null=True,
+        blank=True,
+    )
+
     history = HistoricalRecords()
 
     class Meta:
         constraints = [
-            models.CheckConstraint(
-                condition=Q(end_date__isnull=True) | Q(end_date__gte=F('start_date')),
-                name='teachingassignment_end_not_before_start',
-            ),
-            ExclusionConstraint(
-                name='teachingassignment_no_teacher_period_overlap',
-                expressions=[
-                    (F('offering'), RangeOperators.EQUAL),
-                    (F('teacher'), RangeOperators.EQUAL),
-                    (
-                        Func(
-                            F('start_date'), F('end_date'), Value('[]'),
-                            function='DATERANGE',
-                        ),
-                        RangeOperators.OVERLAPS,
-                    ),
-                ],
-                condition=Q(is_deleted=False),
+            live_unique_constraint(
+                fields=['offering', 'quarter'],
+                condition=Q(quarter__isnull=False),
+                name='teachingassignment_unique_live_offering_quarter',
             ),
         ]
-
-    @property
-    def is_current(self):
-        return self.end_date is None
-
-    def _year_bounds(self):
-        year = self.offering.academic_year
-        date_field = models.DateField()
-        starts = [
-            date_field.to_python(getattr(year, f'q{quarter}_start'))
-            for quarter in range(1, 5)
-            if getattr(year, f'q{quarter}_start') is not None
-        ]
-        ends = [
-            date_field.to_python(getattr(year, f'q{quarter}_end'))
-            for quarter in range(1, 5)
-            if getattr(year, f'q{quarter}_end') is not None
-        ]
-        return (min(starts) if starts else None, max(ends) if ends else None)
-
-    def clean(self):
-        super().clean()
-        if self.offering_id is None:
-            return
-
-        year_start, _year_end = self._year_bounds()
-        if self.start_date is None:
-            if year_start is None:
-                raise ValidationError({
-                    'start_date': 'The academic year needs quarter dates before '
-                                  'a teaching assignment can be created.'
-                })
-            self.start_date = year_start
-
-        if self.end_date is not None and self.end_date < self.start_date:
-            raise ValidationError({'end_date': 'End date cannot precede start date.'})
-        if self.pk:
-            original = type(self)._base_manager.filter(pk=self.pk).values(
-                'teacher_id', 'offering_id', 'role', 'start_date',
-            ).first()
-            if original:
-                immutable = {
-                    'teacher_id': self.teacher_id,
-                    'offering_id': self.offering_id,
-                    'role': self.role,
-                    'start_date': self.start_date,
-                }
-                if any(original[field] != value for field, value in immutable.items()):
-                    raise ValidationError(
-                        'Teacher, offering, role and start date are historical identity; '
-                        'close this assignment and create a replacement instead.'
-                    )
-
-        overlap = type(self).objects.filter(
-            offering_id=self.offering_id,
-            teacher_id=self.teacher_id,
-        ).filter(Q(end_date__isnull=True) | Q(end_date__gte=self.start_date))
-        if self.end_date is not None:
-            overlap = overlap.filter(start_date__lte=self.end_date)
-        if self.pk:
-            overlap = overlap.exclude(pk=self.pk)
-        if overlap.exists():
-            raise ValidationError({
-                'start_date': 'This teacher already has an overlapping assignment '
-                              'for the offering.'
-            })
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.teacher} - {self.offering} ({self.get_role_display()})"

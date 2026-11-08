@@ -6,9 +6,7 @@ Read access to homework:
                    included. Read only: they never write homework or grades.
 - Psychologist   — the same read-only view, matching their blanket read access
                    to grades.
-- Teacher        — the homework of every offering they are assigned to. A
-                   subject offering can carry several teachers, so the boundary
-                   is the offering, not the person who typed the task in.
+- Teacher        — homework through the latest quarter they are assigned to.
 - Homeroom teacher — additionally the published homework of their own class,
                    across every subject taught to it. That extra reach has its
                    own endpoint (teachers/my-class/homeworks/): their own list
@@ -25,14 +23,13 @@ Read access to grades:
   homeroom teacher, psychologists, and Admin / Principal / Supervisor.
 
 Write access — homework and grades alike:
-- Only a teacher assigned to the offering (TeachingAssignment). Admin roles are
-  deliberately *not* allowed to write; they read the whole school instead. A
-  single POST can target many offerings at once, and the caller must teach
-  every one of them.
+- Only the teacher assigned to the offering for the homework's exact quarter.
+  Admin roles are deliberately *not* allowed to write. A single POST can target
+  many offerings, and the caller must hold the resolved quarter in each.
 """
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
@@ -46,9 +43,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.authentication.models import Parent, Student, Teacher
-from apps.home.models import Enrollment, TeachingAssignment
+from apps.home.models import Enrollment, SubjectAssignment, TeachingAssignment
 from apps.home.teaching_assignments import (
-    assignment_for, restrict_to_teacher_periods,
+    assignment_for, quarter_for_date_or_single_assignment,
+    restrict_to_teacher_quarters,
 )
 from apps.lesson.homework_sync import assignments_from_homeworks
 from apps.lesson.models import Homework, HomeworkGrade
@@ -108,8 +106,25 @@ def enrolled_offering_query(students):
 def teacher_offering_ids(teacher):
     """Ids of every offering this teacher is assigned to, in any role."""
     return TeachingAssignment.objects.filter(
-        teacher=teacher,
+        teacher=teacher, quarter__isnull=False,
     ).values_list('offering_id', flat=True)
+
+
+def _homework_quarter(outer_field):
+    """The stored quarter on a Homework's canonical SubjectAssignment mirror."""
+    return Subquery(
+        SubjectAssignment.objects.filter(
+            category__code='homework', detail_id=OuterRef(outer_field),
+        ).values('quarter')[:1]
+    )
+
+
+def homework_access_quarter(homework):
+    if hasattr(homework, 'access_quarter'):
+        return homework.access_quarter
+    return SubjectAssignment.objects.filter(
+        category__code='homework', detail_id=homework.pk,
+    ).values_list('quarter', flat=True).first()
 
 
 def homework_base_queryset():
@@ -120,7 +135,9 @@ def homework_base_queryset():
         'offering__class_group__academic_year',
         'teaching_assignment', 'teaching_assignment__teacher',
         'teaching_assignment__teacher__user',
-    ).prefetch_related('attachments')
+    ).prefetch_related('attachments').annotate(
+        access_quarter=_homework_quarter('pk'),
+    )
 
 
 def homework_queryset(user):
@@ -142,13 +159,15 @@ def homework_queryset(user):
         if teacher is None:
             return qs.none()
 
-        temporal_ids = restrict_to_teacher_periods(
-            qs, teacher, offering_field='offering_id', date_field='due_date',
+        authorized_ids = restrict_to_teacher_quarters(
+            qs, teacher, offering_field='offering_id',
+            quarter_field='access_quarter',
         ).values('pk')
+        homeroom_ids = teacher_homeroom_class_group_ids(teacher)
         return qs.filter(
-            Q(pk__in=temporal_ids)
+            Q(pk__in=authorized_ids)
             | Q(
-                offering__class_group_id__in=teacher_homeroom_class_group_ids(teacher),
+                offering__class_group_id__in=homeroom_ids,
                 is_active=True,
             )
         ).distinct()
@@ -209,7 +228,7 @@ def grade_base_queryset():
         'student', 'student__user', 'homework', 'homework__offering',
         'homework__offering__subject', 'homework__offering__class_group',
         'homework__teaching_assignment',
-    )
+    ).annotate(access_quarter=_homework_quarter('homework_id'))
 
 
 def grade_queryset(user):
@@ -232,13 +251,13 @@ def grade_queryset(user):
 
         homeroom_ids = teacher_homeroom_class_group_ids(teacher)
 
-        temporal_ids = restrict_to_teacher_periods(
+        authorized_ids = restrict_to_teacher_quarters(
             qs, teacher,
             offering_field='homework__offering_id',
-            date_field='homework__due_date',
+            quarter_field='access_quarter',
         ).values('pk')
         return qs.filter(
-            Q(pk__in=temporal_ids)
+            Q(pk__in=authorized_ids)
             | Q(
                 student__enrollments__class_group_id__in=homeroom_ids,
                 student__enrollments__status='active',
@@ -260,9 +279,9 @@ def grade_queryset(user):
 
 # ── Write permissions ──
 
-def teacher_assignment_for(user, offering, effective_date, *, writes=True):
+def teacher_assignment_for(user, offering, quarter, *, writes=True):
     return assignment_for(
-        user, offering, effective_date, writes=writes,
+        user, offering, quarter, writes=writes,
     )
 
 
@@ -270,13 +289,11 @@ def can_manage_homework(user, homework):
     """
     Whether the user may edit, delete or grade this homework.
 
-    Homework belongs to its offering rather than to one person: an offering can
-    carry several teachers, and any of them — primary, assistant, substitute —
-    may work on its tasks, including ones a colleague set. Admin roles are
-    excluded on purpose; their reach is read-only.
+    Homework follows the offering's teacher assignment for its stored quarter.
+    Admin roles are excluded on purpose; their reach is read-only.
     """
     return teacher_assignment_for(
-        user, homework.offering, homework.due_date,
+        user, homework.offering, homework_access_quarter(homework),
     ) is not None
 
 
@@ -359,8 +376,11 @@ class HomeworkCreateAPIView(APIView):
         assignments = {}
         forbidden = []
         for offering in offerings:
-            assignment = teacher_assignment_for(
+            quarter = quarter_for_date_or_single_assignment(
                 request.user, offering, data['due_date'],
+            )
+            assignment = teacher_assignment_for(
+                request.user, offering, quarter,
             )
             if assignment is None:
                 forbidden.append(offering.pk)
@@ -389,6 +409,12 @@ class HomeworkCreateAPIView(APIView):
             # bulk_create skips save(), so the SubjectAssignment mirrors
             # (spec 0005) are made here instead.
             assignments_from_homeworks(created)
+            for homework in created:
+                SubjectAssignment.objects.filter(
+                    category__code='homework', detail_id=homework.pk,
+                ).update(
+                    quarter=assignments[homework.offering_id].quarter,
+                )
 
             # Same files, one stored copy per class, so the batch stays atomic.
             attach_files_to_homeworks(created, files, request.user)
@@ -438,13 +464,19 @@ class HomeworkDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         new_date = serializer.validated_data.get('due_date', homework.due_date)
-        if teacher_assignment_for(
+        new_quarter = quarter_for_date_or_single_assignment(
             request.user, homework.offering, new_date,
+        )
+        if teacher_assignment_for(
+            request.user, homework.offering, new_quarter,
         ) is None:
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
             )
         serializer.save()
+        SubjectAssignment.objects.filter(
+            category__code='homework', detail_id=homework.pk,
+        ).update(quarter=new_quarter)
 
         # Re-read through the scoped queryset so the response carries the
         # prefetched attachments the edit just changed.

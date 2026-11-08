@@ -685,14 +685,12 @@ class TeachingAssignmentListSerializer(serializers.ModelSerializer):
     academic_year_id = serializers.IntegerField(
         source='offering.academic_year_id', read_only=True,
     )
-    is_current = serializers.BooleanField(read_only=True)
-
     class Meta:
         model = TeachingAssignment
         fields = [
             'id', 'subject_name', 'class_group_name',
             'teacher_name', 'academic_year', 'academic_year_id',
-            'start_date', 'end_date', 'is_current',
+            'quarter',
         ]
 
 
@@ -899,7 +897,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.offering, obj.due_date,
+            request, obj.offering, getattr(obj, 'access_quarter', None),
         ))
 
 
@@ -1060,7 +1058,8 @@ class HomeworkGradeSerializer(serializers.ModelSerializer):
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.homework.offering, obj.homework.due_date,
+            request, obj.homework.offering,
+            getattr(obj, 'access_quarter', None),
         ))
 
 

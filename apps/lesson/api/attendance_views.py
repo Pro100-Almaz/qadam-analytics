@@ -1,9 +1,8 @@
 """
 CRUD endpoints for subject schedules, their weekly sessions and attendance.
 
-Reading a timetable is staff-wide: admin roles and teachers see every schedule,
-so any teacher can look up any class group's week. `only_mine=true` narrows the
-schedule list to the caller's own offerings, homeroom classes and подгруппы.
+Teachers read schedules cumulatively through their latest assigned quarter;
+homeroom reach remains additive for the class and its подгруппы.
 
 Write access is narrower, and follows the same rules everywhere in this module:
 - Admin / Supervisor / Principal — any subject, any class group
@@ -23,7 +22,7 @@ clock time. Two sessions of one schedule may not overlap on the same weekday.
 """
 
 from django.db import IntegrityError, transaction
-from django.db.models import Min, Q
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -75,11 +74,9 @@ class CustomQueryset:
     def schedule_queryset(cls, user, only_mine=False):
         """SubjectSchedules visible to the requesting user.
 
-        A timetable is staff-wide reading matter: admin roles and teachers
-        alike see every schedule, so a teacher can look up any class group's
-        week. `only_mine` narrows a teacher to the offerings they are assigned
-        to plus their homeroom classes and подгруппы. Students and parents are
-        always limited to the class groups they belong to, whatever it says.
+        Admin roles see every schedule. Teachers see assigned offering quarters
+        cumulatively plus homeroom classes and подгруппы. Students and parents
+        remain limited to their own class groups.
 
         Writing is unaffected — that still goes through can_manage_schedule().
         """
@@ -89,7 +86,7 @@ class CustomQueryset:
             'class_group', 'class_group__grade_level', 'class_group__academic_year',
         ).prefetch_related('sessions')
 
-        if not only_mine and (is_admin_role(user) or is_teacher_role(user)):
+        if not only_mine and is_admin_role(user):
             return qs
 
         return cls._filter_qs_by_roles(qs, user, include_offering_less=True)
@@ -163,7 +160,9 @@ def can_manage_schedule(user, schedule):
     """
     if schedule.offering_id is None:
         return is_admin_role(user)
-    return can_manage_offering_schedule(user, schedule.offering)
+    return can_manage_offering_schedule(
+        user, schedule.offering, schedule.quarter, writes=True,
+    )
 
 
 def active_class_group_ids(students):
@@ -178,11 +177,14 @@ def teacher_offering_filter(teacher):
     The homeroom side reaches the class's подгруппы too — a subgroup takes its
     homeroom teacher from the class whose constellation holds it.
     """
-    offering_ids = TeachingAssignment.objects.filter(
-        teacher=teacher
-    ).values_list('offering_id', flat=True)
+    assignments = TeachingAssignment.objects.filter(
+        teacher=teacher,
+        offering_id=OuterRef('offering_id'),
+        quarter__isnull=False,
+        quarter__gte=OuterRef('quarter'),
+    )
     homeroom_ids = teacher_homeroom_class_group_ids_with_subgroups(teacher)
-    return Q(offering_id__in=offering_ids) | Q(offering__class_group_id__in=homeroom_ids)
+    return Q(Exists(assignments)) | Q(offering__class_group_id__in=homeroom_ids)
 
 
 def session_queryset(user):
@@ -341,9 +343,7 @@ class TeachingAssignmentListAPIView(APIView):
     """
     GET teaching-assignments/ — offerings of active subjects with their teacher.
 
-    One row per offering, carrying its primary teacher. Offerings with several
-    primary teachers collapse to the earliest assignment; offerings with no
-    primary teacher at all are left out.
+    One row per visible offering quarter, carrying its primary teacher.
     """
     permission_classes = [IsAuthenticated]
 
@@ -359,6 +359,7 @@ class TeachingAssignmentListAPIView(APIView):
     def get(self, request):
         rows = CustomQueryset.teaching_assignment_queryset(request.user).filter(
             role='primary',
+            quarter__isnull=False,
             offering__subject__status='active',
         )
 
@@ -368,15 +369,8 @@ class TeachingAssignmentListAPIView(APIView):
         if params.get('class_group'):
             rows = rows.filter(offering__class_group_id=params['class_group'])
 
-        # Collapse to one row per offering, keeping the earliest assignment.
-        first_ids = (
-            rows.order_by()
-            .values('offering_id')
-            .annotate(first_id=Min('id'))
-            .values_list('first_id', flat=True)
-        )
-        rows = rows.filter(id__in=first_ids).order_by(
-            'offering__subject__name', 'offering__class_group_id',
+        rows = rows.order_by(
+            'offering__subject__name', 'offering__class_group_id', 'quarter',
         )
 
         paginator = SchedulePagination()
@@ -496,7 +490,9 @@ class SubjectScheduleListCreateAPIView(APIView):
                 return Response(
                     {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
                 )
-        elif not can_manage_offering_schedule(request.user, offering):
+        elif not can_manage_offering_schedule(
+            request.user, offering, serializer.validated_data['quarter'],
+        ):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 
         schedule = serializer.save()
@@ -587,9 +583,10 @@ class SubjectScheduleDetailAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         # Moving a schedule to another offering requires rights on the target too.
-        target_offering = serializer.validated_data.get('offering')
+        target_offering = serializer.validated_data.get('offering', schedule.offering)
+        target_quarter = serializer.validated_data.get('quarter', schedule.quarter)
         if target_offering and not can_manage_offering_schedule(
-            request.user, target_offering
+            request.user, target_offering, target_quarter,
         ):
             return Response({'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN)
 

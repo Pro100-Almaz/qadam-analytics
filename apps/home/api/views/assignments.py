@@ -14,10 +14,9 @@ assignment is removed by deleting its Homework, never from here. A draft (`is_ac
 the offering's teachers and to admin roles.
 
 Write access — assignments and grades alike:
-- Only a teacher assigned to the offering (TeachingAssignment). An offering can
-  carry several teachers, so the boundary is the offering rather than the
-  person who typed the assignment in. Admin roles are deliberately *not*
-  allowed to write; they read the whole school instead.
+- Only the teacher assigned to the offering for the assignment's exact quarter.
+  Admin roles are deliberately *not* allowed to write; they read the whole
+  school instead.
 - Grades may only be given to students actively enrolled in the offering's own
   class group, for that offering's academic year.
 
@@ -55,7 +54,8 @@ from apps.home.models import (
     SubjectOffering, TeachingAssignment,
 )
 from apps.home.teaching_assignments import (
-    assignment_for, restrict_to_teacher_periods,
+    assignment_for, quarter_for_date_or_single_assignment,
+    restrict_to_teacher_quarters,
 )
 from core.error_messages import (
     HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
@@ -119,7 +119,7 @@ def enrolled_offering_query(students, prefix=''):
 def teacher_offering_ids(teacher):
     """Ids of every offering this teacher is assigned to, in any role."""
     return TeachingAssignment.objects.filter(
-        teacher=teacher,
+        teacher=teacher, quarter__isnull=False,
     ).values_list('offering_id', flat=True)
 
 
@@ -134,8 +134,8 @@ def assignment_queryset(user):
         teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return qs.none()
-        return restrict_to_teacher_periods(
-            qs, teacher, offering_field='offering_id', date_field='date',
+        return restrict_to_teacher_quarters(
+            qs, teacher, offering_field='offering_id', quarter_field='quarter',
         )
 
     if user.is_student():
@@ -175,16 +175,17 @@ def grade_queryset(user):
         teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return qs.none()
-        temporal_ids = restrict_to_teacher_periods(
+        authorized_ids = restrict_to_teacher_quarters(
             qs, teacher,
             offering_field='assignment__offering_id',
-            date_field='assignment__date',
+            quarter_field='assignment__quarter',
         ).values('pk')
+        homeroom_ids = teacher_homeroom_class_group_ids(teacher)
         return qs.filter(
-            Q(pk__in=temporal_ids)
+            Q(pk__in=authorized_ids)
             | Q(
                 student__enrollments__class_group_id__in=(
-                    teacher_homeroom_class_group_ids(teacher)
+                    homeroom_ids
                 ),
                 student__enrollments__status='active',
                 student__enrollments__is_deleted=False,
@@ -258,10 +259,10 @@ def homeroom_grade_queryset(user):
 
 # ── Write permissions ──
 
-def teacher_assignment_for(user, offering, effective_date, *, writes=True):
-    """The caller's TA covering ``effective_date``, or ``None``."""
+def teacher_assignment_for(user, offering, quarter, *, writes=True):
+    """The caller's TA authorizing ``quarter``, or ``None``."""
     return assignment_for(
-        user, offering, effective_date, writes=writes,
+        user, offering, quarter, writes=writes,
     )
 
 
@@ -275,7 +276,7 @@ def can_manage_assignment(user, assignment):
     subject are not included: their homeroom reach is read-only.
     """
     return teacher_assignment_for(
-        user, assignment.offering, assignment.date,
+        user, assignment.offering, assignment.quarter,
     ) is not None
 
 
@@ -443,8 +444,14 @@ class SubjectAssignmentListCreateAPIView(APIView):
 
         data = serializer.validated_data
         offering = data['offering']
+        quarter = data.get('quarter')
+        if quarter is None:
+            quarter = quarter_for_date_or_single_assignment(
+                request.user, offering, data['date'],
+            )
+            data['quarter'] = quarter
         teaching_assignment = teacher_assignment_for(
-            request.user, offering, data['date'],
+            request.user, offering, quarter,
         )
         if teaching_assignment is None:
             return Response(
@@ -515,8 +522,13 @@ class SubjectAssignmentDetailAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         new_date = serializer.validated_data.get('date', assignment.date)
+        new_quarter = serializer.validated_data.get('quarter', assignment.quarter)
+        if new_quarter is None:
+            new_quarter = quarter_for_date_or_single_assignment(
+                request.user, assignment.offering, new_date,
+            )
         if teacher_assignment_for(
-            request.user, assignment.offering, new_date,
+            request.user, assignment.offering, new_quarter,
         ) is None:
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
@@ -627,7 +639,6 @@ class SubjectAssignmentGradeListCreateAPIView(APIView):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
             )
-
         serializer = SubjectGradeWriteSerializer(
             data=request.data,
             context={'request': request, 'assignment': assignment},

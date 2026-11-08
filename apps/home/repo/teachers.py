@@ -11,7 +11,7 @@ def teacher_details(request, pk):
 
     # Get subjects via TeachingAssignment
     assignments = TeachingAssignment.objects.filter(
-        teacher=teacher
+        teacher=teacher, quarter__isnull=False,
     ).select_related('offering', 'offering__subject', 'offering__class_group')
 
     # Get unique subjects

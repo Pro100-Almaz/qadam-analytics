@@ -1,254 +1,149 @@
-"""Acceptance tests for spec 0015 temporal teaching assignments."""
+"""Acceptance tests for quarter-based teaching assignment authority."""
 
 from datetime import date
 
 import pytest
-from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 
-from apps.home.models import SubjectGrade, TeachingAssignment
-from apps.home.teaching_assignments import replace_assignment
+from apps.home.models import SubjectGrade
 from core.factories import (
     AcademicYearFactory, ClassGroupFactory, EnrollmentFactory,
     SubjectAssignmentFactory, SubjectOfferingFactory, TeacherFactory,
-    TeachingAssignmentFactory, UserFactory,
+    TeachingAssignmentFactory,
 )
 
 
-D = date
-
-
 @pytest.fixture
-def temporal_world(db):
+def quarter_world(db):
     year = AcademicYearFactory(
         year='2026/2027', archived=False, is_active=True,
-        q1_start=D(2026, 9, 1), q1_end=D(2026, 11, 30),
-        q2_start=D(2026, 12, 1), q2_end=D(2027, 2, 28),
-        q3_start=D(2027, 3, 1), q3_end=D(2027, 4, 30),
-        q4_start=D(2027, 5, 1), q4_end=D(2027, 6, 30),
+        q1_start=date(2026, 9, 1), q1_end=date(2026, 11, 30),
+        q2_start=date(2026, 12, 1), q2_end=date(2027, 2, 28),
     )
     class_group = ClassGroupFactory(academic_year=year)
     offering = SubjectOfferingFactory(class_group=class_group)
-    old_teacher = TeacherFactory()
-    old_ta = TeachingAssignmentFactory(
-        offering=offering, teacher=old_teacher, start_date=D(2026, 9, 1),
+    q1_teacher = TeacherFactory()
+    q2_teacher = TeacherFactory()
+    q1_ta = TeachingAssignmentFactory(
+        offering=offering, teacher=q1_teacher, quarter=1,
+    )
+    q2_ta = TeachingAssignmentFactory(
+        offering=offering, teacher=q2_teacher, quarter=2,
     )
     student = EnrollmentFactory(class_group=class_group).student
     return {
-        'year': year,
-        'offering': offering,
-        'old_teacher': old_teacher,
-        'old_ta': old_ta,
+        'year': year, 'offering': offering, 'q1_teacher': q1_teacher,
+        'q2_teacher': q2_teacher, 'q1_ta': q1_ta, 'q2_ta': q2_ta,
         'student': student,
     }
 
 
 @pytest.mark.django_db
-def test_ac1_replacement_closes_old_row_and_creates_open_row(temporal_world):
-    new_teacher = TeacherFactory()
-
-    replacement = replace_assignment(
-        assignment=temporal_world['old_ta'],
-        new_teacher=new_teacher,
-        effective_date=D(2026, 10, 1),
-    )
-
-    old = TeachingAssignment.objects.get(pk=temporal_world['old_ta'].pk)
-    assert old.teacher == temporal_world['old_teacher']
-    assert old.end_date == D(2026, 9, 30)
-    assert replacement.pk != old.pk
-    assert replacement.teacher == new_teacher
-    assert replacement.start_date == D(2026, 10, 1)
-    assert replacement.end_date is None
-    assert replacement.is_current
-
-
-@pytest.mark.parametrize(
-    'final_start_date',
-    [D(2026, 10, 1), D(2026, 10, 2)],
-)
-@pytest.mark.django_db
-def test_ac14_zero_or_one_day_replacement_hard_deletes_superseded_row(
-    temporal_world, final_start_date,
-):
-    first_replacement = replace_assignment(
-        assignment=temporal_world['old_ta'],
-        new_teacher=TeacherFactory(),
-        effective_date=D(2026, 10, 1),
-    )
-    final_teacher = TeacherFactory()
-
-    final_replacement = replace_assignment(
-        assignment=first_replacement,
-        new_teacher=final_teacher,
-        effective_date=final_start_date,
-    )
-
-    assert not TeachingAssignment._base_manager.filter(
-        pk=first_replacement.pk,
-    ).exists()
-    assert final_replacement.teacher == final_teacher
-    assert final_replacement.start_date == final_start_date
-    assert final_replacement.end_date is None
-    old = TeachingAssignment.objects.get(pk=temporal_world['old_ta'].pk)
-    assert old.end_date == D(2026, 9, 30)
-
-
-@pytest.mark.django_db
-def test_ac14_admin_accepts_a_second_replacement_on_the_same_day(
-    temporal_world, client,
-):
-    first_replacement = replace_assignment(
-        assignment=temporal_world['old_ta'],
-        new_teacher=TeacherFactory(),
-        effective_date=D(2026, 10, 1),
-    )
-    final_teacher = TeacherFactory()
-    admin_user = UserFactory(
-        school=temporal_world['offering'].school,
-        is_staff=True,
-        is_superuser=True,
-    )
-    client.post(
-        reverse('admin:login'),
-        {
-            'username': admin_user.username,
-            'password': 'testpass123',
-            'next': '/admin/',
-        },
-    )
-
-    response = client.post(
-        reverse(
-            'admin:home_teachingassignment_change',
-            args=[first_replacement.pk],
-        ),
-        {
-            'replacement_teacher': final_teacher.pk,
-            'replacement_date': '2026-10-01',
-            '_save': 'Save',
-        },
-    )
-
-    assert response.status_code == 302
-    assert not TeachingAssignment._base_manager.filter(
-        pk=first_replacement.pk,
-    ).exists()
-    assert TeachingAssignment.objects.filter(
-        offering=temporal_world['offering'],
-        teacher=final_teacher,
-        start_date=D(2026, 10, 1),
-        end_date__isnull=True,
-    ).exists()
-
-
-@pytest.mark.django_db
-def test_ac2_historical_identity_is_immutable(temporal_world):
-    assignment = temporal_world['old_ta']
-    assignment.teacher = TeacherFactory()
-
-    with pytest.raises(ValidationError, match='historical identity'):
-        assignment.save()
-
-
-@pytest.mark.django_db
-def test_ac3_different_teachers_overlap_but_same_teacher_cannot(
-    temporal_world,
-):
-    TeachingAssignmentFactory(
-        offering=temporal_world['offering'],
-        teacher=TeacherFactory(),
-        start_date=D(2026, 9, 15),
-    )
-
-    with pytest.raises(ValidationError, match='overlapping assignment'):
+def test_one_live_assignment_per_offering_quarter(quarter_world):
+    with pytest.raises(IntegrityError), transaction.atomic():
         TeachingAssignmentFactory(
-            offering=temporal_world['offering'],
-            teacher=temporal_world['old_teacher'],
-            start_date=D(2026, 9, 15),
+            offering=quarter_world['offering'], teacher=TeacherFactory(), quarter=1,
         )
 
 
 @pytest.mark.django_db
-def test_ac4_to_ac7_grade_writes_follow_teacher_periods(
-    temporal_world, authenticated_client,
-):
-    new_teacher = TeacherFactory()
-    replace_assignment(
-        assignment=temporal_world['old_ta'],
-        new_teacher=new_teacher,
-        effective_date=D(2026, 10, 1),
+def test_null_quarter_grants_no_grade_access(quarter_world, authenticated_client):
+    teacher = TeacherFactory()
+    TeachingAssignmentFactory(
+        offering=quarter_world['offering'], teacher=teacher, quarter=None,
     )
-    q1_work = SubjectAssignmentFactory(
-        offering=temporal_world['offering'], date=D(2026, 9, 20),
-    )
-    q2_work = SubjectAssignmentFactory(
-        offering=temporal_world['offering'], date=D(2026, 10, 20),
-    )
-    q1_url = reverse(
-        'home-api:subject-assignment-grade-list-create', args=[q1_work.pk],
-    )
-    q2_url = reverse(
-        'home-api:subject-assignment-grade-list-create', args=[q2_work.pk],
-    )
-    payload = {'student': temporal_world['student'].pk, 'grade': 8}
-
-    old_client = authenticated_client(temporal_world['old_teacher'].user)
-    assert old_client.post(q1_url, payload, format='json').status_code == 201
-    assert old_client.post(q2_url, payload, format='json').status_code == 403
-
-    SubjectGrade.objects.filter(assignment=q1_work).delete()
-    new_client = authenticated_client(new_teacher.user)
-    assert new_client.post(q1_url, payload, format='json').status_code == 403
-    assert new_client.post(q2_url, payload, format='json').status_code == 201
-
-
-@pytest.mark.django_db
-def test_ac8_quarter_grade_uses_quarter_end_teacher(
-    temporal_world, authenticated_client,
-):
-    new_teacher = TeacherFactory()
-    replace_assignment(
-        assignment=temporal_world['old_ta'],
-        new_teacher=new_teacher,
-        effective_date=D(2026, 10, 1),
-    )
-    url = reverse(
-        'home-api:offering-quarter-grades',
-        args=[temporal_world['offering'].pk],
-    )
-    payload = {
-        'quarter': 1,
-        'grades': {str(temporal_world['student'].pk): 5},
-    }
-
-    old_client = authenticated_client(temporal_world['old_teacher'].user)
-    old_response = old_client.post(url, payload, format='json')
-    new_response = authenticated_client(new_teacher.user).post(
-        url, payload, format='json',
-    )
-
-    assert old_response.status_code == 403
-    assert new_response.status_code == 201
-
-
-@pytest.mark.django_db
-def test_ac11_archived_year_locks_teacher_writes(
-    temporal_world, authenticated_client,
-):
     assignment = SubjectAssignmentFactory(
-        offering=temporal_world['offering'], date=D(2026, 9, 20),
+        offering=quarter_world['offering'], quarter=1,
     )
-    temporal_world['year'].archived = True
-    temporal_world['year'].save(update_fields=['archived'])
     url = reverse(
         'home-api:subject-assignment-grade-list-create', args=[assignment.pk],
     )
-
-    response = authenticated_client(temporal_world['old_teacher'].user).post(
-        url,
-        {'student': temporal_world['student'].pk, 'grade': 8},
-        format='json',
+    response = authenticated_client(teacher.user).post(
+        url, {'student': quarter_world['student'].pk, 'grade': 8}, format='json',
     )
+    assert response.status_code == 403
 
+
+@pytest.mark.django_db
+def test_later_teacher_reads_prior_quarter_but_cannot_edit_it(
+    quarter_world, authenticated_client,
+):
+    work = SubjectAssignmentFactory(offering=quarter_world['offering'], quarter=1)
+    SubjectGrade.objects.create(
+        assignment=work, student=quarter_world['student'], grade=8,
+    )
+    client = authenticated_client(quarter_world['q2_teacher'].user)
+    detail_url = reverse('home-api:subject-assignment-detail', args=[work.pk])
+    grade_url = reverse(
+        'home-api:subject-assignment-grade-list-create', args=[work.pk],
+    )
+    assert client.get(detail_url).status_code == 200
+    assert client.post(
+        grade_url, {'student': quarter_world['student'].pk, 'grade': 9}, format='json',
+    ).status_code == 403
+
+
+@pytest.mark.django_db
+def test_earlier_teacher_cannot_read_or_edit_later_quarter(
+    quarter_world, authenticated_client,
+):
+    work = SubjectAssignmentFactory(offering=quarter_world['offering'], quarter=2)
+    client = authenticated_client(quarter_world['q1_teacher'].user)
+    detail_url = reverse('home-api:subject-assignment-detail', args=[work.pk])
+    grade_url = reverse(
+        'home-api:subject-assignment-grade-list-create', args=[work.pk],
+    )
+    assert client.get(detail_url).status_code == 404
+    assert client.post(
+        grade_url, {'student': quarter_world['student'].pk, 'grade': 8}, format='json',
+    ).status_code == 403
+
+
+@pytest.mark.django_db
+def test_exact_quarter_teacher_can_write(quarter_world, authenticated_client):
+    work = SubjectAssignmentFactory(offering=quarter_world['offering'], quarter=2)
+    url = reverse(
+        'home-api:subject-assignment-grade-list-create', args=[work.pk],
+    )
+    response = authenticated_client(quarter_world['q2_teacher'].user).post(
+        url, {'student': quarter_world['student'].pk, 'grade': 8}, format='json',
+    )
+    assert response.status_code == 201
+
+
+@pytest.mark.django_db
+def test_replacing_teacher_in_place_revokes_old_teacher(
+    quarter_world, authenticated_client,
+):
+    replacement = TeacherFactory()
+    assignment = quarter_world['q2_ta']
+    assignment.teacher = replacement
+    assignment.save(update_fields=['teacher'])
+    work = SubjectAssignmentFactory(offering=quarter_world['offering'], quarter=2)
+    url = reverse(
+        'home-api:subject-assignment-grade-list-create', args=[work.pk],
+    )
+    payload = {'student': quarter_world['student'].pk, 'grade': 8}
+    assert authenticated_client(quarter_world['q2_teacher'].user).post(
+        url, payload, format='json',
+    ).status_code == 403
+    assert authenticated_client(replacement.user).post(
+        url, payload, format='json',
+    ).status_code == 201
+
+
+@pytest.mark.django_db
+def test_archived_year_blocks_exact_quarter_write(
+    quarter_world, authenticated_client,
+):
+    work = SubjectAssignmentFactory(offering=quarter_world['offering'], quarter=1)
+    quarter_world['year'].archived = True
+    quarter_world['year'].save(update_fields=['archived'])
+    url = reverse(
+        'home-api:subject-assignment-grade-list-create', args=[work.pk],
+    )
+    response = authenticated_client(quarter_world['q1_teacher'].user).post(
+        url, {'student': quarter_world['student'].pk, 'grade': 8}, format='json',
+    )
     assert response.status_code == 403

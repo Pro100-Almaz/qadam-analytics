@@ -29,7 +29,7 @@ from apps.lesson.api.analytics_common import (
 )
 from core.permissions import (
     IsStaffOrAdmin, IsHomeroomTeacher,
-    IsPsychologistOrAdmin, IsTeacherRole, is_admin_role,
+    IsPsychologistOrAdmin, IsTeacherRole, is_admin_role, is_teacher_role,
 )
 
 
@@ -43,19 +43,20 @@ class TeacherRoleDashboardAPIView(APIView):
         role_data = {
             'user_id': user.id,
             'full_name': user.get_full_name(),
+            'active_role': request.active_role,
             'roles': list(user.groups.values_list('name', flat=True)),
             'dashboards': {},
         }
 
         teacher = Teacher.objects.filter(user=user).first()
 
-        if user.groups.filter(name='Teacher').exists() and teacher:
+        if user._has_group('Teacher') and teacher:
             role_data['dashboards']['lesson_teacher'] = get_lesson_teacher_dashboard(teacher)
 
-        if user.groups.filter(name='HomeroomTeacher').exists() and teacher:
+        if user.is_homeroom_teacher() and teacher:
             role_data['dashboards']['homeroom_teacher'] = get_homeroom_dashboard(teacher)
 
-        if user.groups.filter(name='Psychologist').exists():
+        if user.is_psychologist():
             role_data['dashboards']['psychologist'] = get_psychologist_dashboard(user)
 
         if is_admin_role(user) and teacher:
@@ -153,11 +154,17 @@ class TeacherOfferingListAPIView(APIView):
 
         # An offering's year is its class group's — `academic_year` is a derived
         # property on the model, not a column, so it has to be traversed.
+        teaching_assignments = TeachingAssignment.objects.filter(
+            teacher=teacher,
+            offering__class_group__academic_year=academic_year,
+            quarter__isnull=False,
+        )
+        if quarter is not None:
+            teaching_assignments = teaching_assignments.filter(quarter__gte=quarter)
         roles_by_offering = dict(
-            TeachingAssignment.objects.filter(
-                teacher=teacher,
-                offering__class_group__academic_year=academic_year,
-            ).order_by('-id').values_list('offering_id', 'role')
+            teaching_assignments.order_by('quarter', 'id').values_list(
+                'offering_id', 'role',
+            )
         )
 
         offerings_qs = SubjectOffering.objects.filter(
@@ -245,7 +252,10 @@ class TeacherMyClassesAPIView(APIView):
                 {'detail': 'No teacher profile found.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        data = get_teacher_classes(teacher)
+        data = get_teacher_classes(
+            teacher,
+            include_homeroom=is_teacher_role(request.user),
+        )
         return Response(data)
 
 

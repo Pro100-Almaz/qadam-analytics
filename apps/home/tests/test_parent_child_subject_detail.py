@@ -103,8 +103,10 @@ def test_teacher_is_the_one_assigned_to_childs_offering(enrolled, authenticated_
     other_class = ClassGroupFactory(academic_year=academic_year, letter='B')
     other_offering = SubjectOfferingFactory(class_group=other_class, subject=offering.subject)
     TeachingAssignmentFactory(offering=other_offering)
-    TeachingAssignmentFactory(offering=offering, role='assistant')
-    primary = TeachingAssignmentFactory(offering=offering, role='primary').teacher
+    TeachingAssignmentFactory(offering=offering, role='assistant', quarter=1)
+    primary = TeachingAssignmentFactory(
+        offering=offering, role='primary', quarter=2,
+    ).teacher
     TeacherFactory().subjects.add(offering.subject)
 
     response = authenticated_client(parent.user).get(url(student, offering.subject))

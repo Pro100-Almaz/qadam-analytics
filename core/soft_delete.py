@@ -234,8 +234,7 @@ def _without_is_deleted(condition):
 def _live_unique_constraints(model):
     """Live-only collision constraints guarded before a restore.
 
-    The historical name is kept because tests and callers imported it before
-    temporal TeachingAssignments added the first exclusion constraint.
+    The historical name is kept because tests and callers import it directly.
     """
     for constraint in model._meta.constraints:
         if not isinstance(
@@ -252,10 +251,9 @@ def _live_unique_constraints(model):
 def _exclusion_conflict(model, constraint, candidate, restored_pks):
     """Find a live row colliding with the supported equality + date range rule.
 
-    Temporal TeachingAssignments use ``offering =``, ``teacher =`` and an
-    inclusive ``daterange(start_date, end_date) &&`` expression. Keeping this
-    parser deliberately narrow means a future exclusion shape fails through
-    the database race guard rather than being checked incorrectly here.
+    Keeping this parser deliberately narrow means an unsupported exclusion
+    shape fails through the database race guard instead of being checked
+    incorrectly here.
     """
     equal_fields = []
     range_fields = None

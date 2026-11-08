@@ -5,7 +5,7 @@ Copyright (c) 2019 - present AppSeed.us
 
 from django import forms
 from django.contrib import admin, messages
-from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -21,7 +21,6 @@ from apps.home.models import (
 
 from apps.lesson.models import Lesson
 from apps.authentication.models import Teacher
-from apps.home.teaching_assignments import replace_assignment
 from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
 
 
@@ -118,7 +117,7 @@ class SubjectAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmi
 class TeachingAssignmentInline(admin.TabularInline):
     model = TeachingAssignment
     extra = 0
-    fields = ("teacher", "role", "start_date", "end_date")
+    fields = ("teacher", "role", "quarter")
     readonly_fields = fields
 
     def has_add_permission(self, request, obj=None):
@@ -175,15 +174,6 @@ class SubjectOfferingAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, ClassGr
 @admin.register(TeachingAssignment)
 class TeachingAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     class Form(forms.ModelForm):
-        replacement_teacher = forms.ModelChoiceField(
-            queryset=Teacher._base_manager.none(), required=False,
-            help_text="Close this assignment and start a new open assignment.",
-        )
-        replacement_date = forms.DateField(
-            required=False, widget=AdminDateWidget,
-            help_text="The new teacher's first day; the old assignment ends the day before.",
-        )
-
         class Meta:
             model = TeachingAssignment
             fields = '__all__'
@@ -191,21 +181,11 @@ class TeachingAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.fields['replacement_teacher'].queryset = Teacher.objects.select_related('user')
-
-        def clean(self):
-            cleaned = super().clean()
-            teacher = cleaned.get('replacement_teacher')
-            day = cleaned.get('replacement_date')
-            if bool(teacher) != bool(day):
-                raise ValidationError(
-                    'Replacement teacher and replacement date must be supplied together.'
-                )
-            return cleaned
+            self.fields['teacher'].queryset = Teacher.objects.select_related('user')
 
     form = Form
-    list_display = ("teacher", "offering", "role", "start_date", "end_date", "is_current")
-    list_filter = ("role", "end_date", "offering__class_group__academic_year")
+    list_display = ("teacher", "offering", "role", "quarter")
+    list_filter = ("role", "quarter", "offering__class_group__academic_year")
     search_fields = ("teacher__user__first_name", "teacher__user__last_name")
     autocomplete_fields = ("teacher", "offering")
     ordering = ("-offering__class_group__academic_year__year", "offering", "teacher")
@@ -213,24 +193,9 @@ class TeachingAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
             return ()
-        return ('teacher', 'offering', 'role', 'start_date', 'end_date')
+        return ('offering',)
 
     def save_model(self, request, obj, form, change):
-        replacement_teacher = form.cleaned_data.get('replacement_teacher')
-        replacement_date = form.cleaned_data.get('replacement_date')
-        if change and replacement_teacher and replacement_date:
-            replacement = replace_assignment(
-                assignment=obj,
-                new_teacher=replacement_teacher,
-                effective_date=replacement_date,
-                actor=request.user,
-            )
-            self.message_user(
-                request,
-                f'Replaced assignment #{obj.pk} with #{replacement.pk}.',
-                messages.SUCCESS,
-            )
-            return
         obj._history_user = request.user
         super().save_model(request, obj, form, change)
 

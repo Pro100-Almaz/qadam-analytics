@@ -298,7 +298,7 @@ def student_is_enrolled_in(student, offering):
 
 # ── Class-wide read access ──
 
-def can_read_class_wide(user, offering):
+def can_read_class_wide(user, offering, quarter=None):
     """
     Whether the caller may see every student's numbers in one offering.
 
@@ -315,9 +315,12 @@ def can_read_class_wide(user, offering):
     if teacher is None:
         return False
 
-    if TeachingAssignment.objects.filter(
-        offering=offering, teacher=teacher,
-    ).exists():
+    assignments = TeachingAssignment.objects.filter(
+        offering=offering, teacher=teacher, quarter__isnull=False,
+    )
+    if quarter is not None:
+        assignments = assignments.filter(quarter__gte=quarter)
+    if assignments.exists():
         return True
 
     return offering.class_group_id in set(
@@ -325,7 +328,7 @@ def can_read_class_wide(user, offering):
     )
 
 
-def can_read_class_group_wide(user, class_group):
+def can_read_class_group_wide(user, class_group, quarter=None):
     """
     The same check one level up: every student of a class group, every subject.
 
@@ -347,9 +350,13 @@ def can_read_class_group_wide(user, class_group):
     if class_group.id in set(teacher_homeroom_class_group_ids(teacher)):
         return True
 
-    return TeachingAssignment.objects.filter(
+    assignments = TeachingAssignment.objects.filter(
         teacher=teacher, offering__class_group_id=class_group.id,
-    ).exists()
+        quarter__isnull=False,
+    )
+    if quarter is not None:
+        assignments = assignments.filter(quarter__gte=quarter)
+    return assignments.exists()
 
 
 # ── Quarters ──

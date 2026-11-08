@@ -16,9 +16,9 @@ assignment grades underneath.
 Writes are all-or-nothing: one bad student fails the whole request.
 
 Write access:
-- Only a teacher assigned to the offering (TeachingAssignment), in any role
-  — co-teachers can fix each other's marks. Nobody else: not admin roles, and
-  not the homeroom teacher of the class unless they also teach the subject.
+- Only the teacher assigned to the offering for that exact quarter, in any
+  role. Nobody else: not admin roles, and not the homeroom teacher unless they
+  also teach the subject in that quarter.
   QuarterGrade is deliberately not registered in the Django admin either.
 
 Read access:
@@ -29,6 +29,7 @@ Read access:
 """
 
 from django.db import transaction
+from django.db.models import Max
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -43,6 +44,8 @@ from core.error_messages import OWN_OFFERINGS_ONLY
 from core.permissions import (
     IsStaffOrAdmin,
     IsTeacherRole,
+    is_admin_role,
+    is_teacher_role,
     teacher_homeroom_class_group_ids,
 )
 
@@ -151,6 +154,16 @@ class OfferingQuarterGradeAPIView(APIView):
         rows = QuarterGrade.objects.select_related(
             *QUARTER_GRADE_SELECT_RELATED,
         ).filter(offering=offering)
+        if is_teacher_role(request.user) and not is_admin_role(request.user):
+            teacher = Teacher.objects.filter(user=request.user).first()
+            is_homeroom = teacher is not None and offering.class_group_id in set(
+                teacher_homeroom_class_group_ids(teacher)
+            )
+            if not is_homeroom:
+                latest = TeachingAssignment.objects.filter(
+                    teacher=teacher, offering=offering, quarter__isnull=False,
+                ).aggregate(value=Max('quarter'))['value'] if teacher else None
+                rows = rows.filter(quarter__lte=latest) if latest else rows.none()
         if request.query_params.get('quarter'):
             rows = rows.filter(quarter=request.query_params['quarter'])
 
@@ -249,13 +262,8 @@ class OfferingQuarterGradeAPIView(APIView):
 
     @staticmethod
     def _write_refusal(request, offering, quarter):
-        effective_date = getattr(offering.academic_year, f'q{quarter}_end')
-        if effective_date is None:
-            # Legacy calendars may not have quarter bounds yet. Preserve the
-            # pre-0015 offering-level rule until the school configures them.
-            return OfferingQuarterGradeAPIView._preflight_refusal(request, offering)
         if teacher_assignment_for(
-            request.user, offering, effective_date,
+            request.user, offering, quarter,
         ) is None:
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY}, status=status.HTTP_403_FORBIDDEN,
@@ -270,7 +278,7 @@ class OfferingQuarterGradeAPIView(APIView):
             teacher is not None
             and not offering.academic_year.archived
             and TeachingAssignment.objects.filter(
-                teacher=teacher, offering=offering,
+                teacher=teacher, offering=offering, quarter__isnull=False,
             ).exists()
         )
         if not allowed:

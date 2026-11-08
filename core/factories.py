@@ -1,4 +1,4 @@
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 
 import factory
 from django.contrib.auth.models import Group
@@ -408,10 +408,7 @@ class TeachingAssignmentFactory(DjangoModelFactory):
     offering = factory.SubFactory(SubjectOfferingFactory)
     teacher = factory.SubFactory(TeacherFactory)
     role = 'primary'
-    # Most legacy API tests use fixed 2026 dates while their factory-generated
-    # academic-year label is intentionally unique. A broad default preserves
-    # their non-temporal setup; temporal tests always pass an explicit bound.
-    start_date = factory.LazyFunction(lambda: date(1900, 1, 1))
+    quarter = 1
 
 
 class EnrollmentFactory(DjangoModelFactory):
@@ -491,6 +488,9 @@ class SubjectAssignmentFactory(DjangoModelFactory):
     max_grade = 100
     category = factory.SubFactory(AssignmentCategoryFactory)
     date = factory.Faker('date_object')
+    quarter = factory.LazyAttribute(
+        lambda obj: obj.offering.academic_year.quarter_of(obj.date) or 1
+    )
 
     @classmethod
     def _adjust_kwargs(cls, **kwargs):
@@ -519,6 +519,14 @@ class HomeworkFactory(DjangoModelFactory):
     max_grade = 10
     due_date = factory.Faker('date_object')
     is_active = True
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        homework = super()._create(model_class, *args, **kwargs)
+        SubjectAssignment.objects.filter(
+            category__code='homework', detail_id=homework.pk,
+        ).update(quarter=homework.teaching_assignment.quarter)
+        return homework
 
 
 class HomeworkGradeFactory(DjangoModelFactory):

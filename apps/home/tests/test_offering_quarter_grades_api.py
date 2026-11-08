@@ -12,7 +12,9 @@ import pytest
 from django.contrib import admin
 from django.urls import Resolver404, resolve, reverse
 
-from apps.home.models import HomeroomTeacherAssignment, QuarterGrade
+from apps.home.models import (
+    HomeroomTeacherAssignment, QuarterGrade, TeachingAssignment,
+)
 from core.factories import (
     AdminUserFactory, ClassGroupFactory, ClubManagerFactory, EnrollmentFactory,
     ParentFactory, SchoolFactory, SubjectOfferingFactory,
@@ -36,7 +38,10 @@ def world(academic_year):
     class_group = ClassGroupFactory(academic_year=academic_year)
     offering = SubjectOfferingFactory(class_group=class_group)
     teacher = TeacherFactory()
-    TeachingAssignmentFactory(teacher=teacher, offering=offering)
+    for quarter in range(1, 5):
+        TeachingAssignmentFactory(
+            teacher=teacher, offering=offering, quarter=quarter,
+        )
 
     students = [
         EnrollmentFactory(class_group=class_group).student for _ in range(3)
@@ -81,8 +86,6 @@ def stored(world):
     lambda: SupervisorFactory().user,
     lambda: UserFactory(group_name='Principal'),
     lambda: UserFactory(group_name='Psychologist'),
-    lambda: TeacherFactory().user,
-    lambda: UserFactory(group_name='HomeroomTeacher'),
 ])
 def test_ac1_staff_read_any_offering(world, authenticated_client, make_user):
     s1, s2, _ = world['students']
@@ -181,9 +184,12 @@ def test_ac5_only_teachers_of_the_offering_write(
 
 def test_ac5_co_teacher_of_the_offering_may_write(world, authenticated_client):
     co_teacher = TeacherFactory()
-    TeachingAssignmentFactory(
-        teacher=co_teacher, offering=world['offering'], role='assistant',
+    assignment = TeachingAssignment.objects.get(
+        offering=world['offering'], quarter=1,
     )
+    assignment.teacher = co_teacher
+    assignment.role = 'assistant'
+    assignment.save(update_fields=['teacher', 'role'])
     s1 = world['students'][0]
 
     response = authenticated_client(co_teacher.user).post(

@@ -3,12 +3,12 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.urls import path, include
 from django.conf.urls.static import static
-from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
 )
 from apps.home.admin_views import bulk_enroll_view
+from apps.authentication.api.views import ActiveRoleOptionalTokenRefreshView
 
 
 urlpatterns = [
@@ -19,7 +19,11 @@ urlpatterns = [
     path("api/v1/notifications/", include("apps.notification.api.urls")),
     path("api/v1/", include("apps.achievement.api.urls")),
     path("api/v1/", include("apps.student_report.api.urls")),
-    path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "api/v1/auth/token/refresh/",
+        ActiveRoleOptionalTokenRefreshView.as_view(),
+        name="token_refresh",
+    ),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 

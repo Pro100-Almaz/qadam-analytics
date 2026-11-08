@@ -10,7 +10,10 @@ from apps.home.models import (
     AcademicYear, Subject, SubjectOffering, TeachingAssignment, Enrollment,
 )
 from apps.home.services import get_subject_grades
-from core.permissions import can_access_subject, can_modify_subject, is_admin_role, is_teacher_role
+from core.permissions import (
+    IsTeacherRole, can_access_subject, can_modify_subject, is_admin_role,
+    is_teacher_role,
+)
 from core.error_messages import NO_ACCESS_SUBJECT, NO_MODIFY_SUBJECT
 
 from apps.home.api.permissions import IsTeacherAdminOrSupervisor, IsAdminOrSupervisor
@@ -48,7 +51,9 @@ class SubjectListAPIView(ListAPIView):
         elif is_teacher_role(user):
             try:
                 teacher = Teacher.objects.get(user=user)
-                assignments = TeachingAssignment.objects.filter(teacher=teacher)
+                assignments = TeachingAssignment.objects.filter(
+                    teacher=teacher, quarter__isnull=False,
+                )
                 if year_id:
                     assignments = assignments.filter(offering__class_group__academic_year_id=year_id)
                 subject_ids = set(a.offering.subject_id for a in assignments)
@@ -200,7 +205,7 @@ class SubjectDeleteAPIView(DestroyAPIView):
 
 class MySubjectsListAPIView(ListAPIView):
     serializer_class = SubjectSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTeacherRole]
 
     def get_queryset(self):
         user = self.request.user
@@ -212,7 +217,7 @@ class MySubjectsListAPIView(ListAPIView):
             return Subject.objects.none()
 
         assignments = TeachingAssignment.objects.filter(
-            teacher=teacher
+            teacher=teacher, quarter__isnull=False,
         ).select_related('offering__subject')
         subject_ids = set(a.offering.subject_id for a in assignments)
         qs = Subject.objects.filter(id__in=subject_ids)

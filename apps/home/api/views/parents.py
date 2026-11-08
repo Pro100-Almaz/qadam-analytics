@@ -88,6 +88,7 @@ class ParentTeachersAPIView(APIView):
         assignments = TeachingAssignment.objects.filter(
             offering__class_group_id__in=class_group_ids,
             offering__class_group__academic_year__is_active=True,
+            quarter__isnull=False,
         ).select_related('teacher__user', 'offering__subject', 'offering__class_group')
 
         teacher_map = {}

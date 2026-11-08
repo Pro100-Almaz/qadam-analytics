@@ -15,15 +15,14 @@ Student sheet (/grade/student/<id>/)
 Admin roles (Admin / Supervisor / Principal) read both, school-wide, matching
 every other read endpoint in the project.
 
-Authority comes from the assignment tables rather than from group membership:
-a HomeroomTeacherAssignment or TeachingAssignment row is the explicit grant,
-and a teacher holding one should not be locked out because their Django group
-drifted.
+Authority requires both the active teacher context and the relevant assignment
+row. A HomeroomTeacherAssignment or TeachingAssignment remains the explicit
+domain grant; a row cannot activate an inactive frontend role.
 """
 
 from apps.authentication.models import Parent, Teacher
 from apps.home.models import HomeroomTeacherAssignment, TeachingAssignment
-from core.permissions import is_admin_role
+from core.permissions import is_admin_role, is_teacher_role
 
 
 def _teacher_profile(user):
@@ -31,7 +30,11 @@ def _teacher_profile(user):
 
 
 def is_homeroom_teacher_of(user, class_group, academic_year) -> bool:
-    if class_group is None or academic_year is None:
+    if (
+        not is_teacher_role(user)
+        or class_group is None
+        or academic_year is None
+    ):
         return False
     teacher = _teacher_profile(user)
     if teacher is None:
@@ -45,7 +48,11 @@ def is_homeroom_teacher_of(user, class_group, academic_year) -> bool:
 
 def teaches_subject_in_class(user, class_group, academic_year, subject_id) -> bool:
     """Whether the user teaches this exact subject to this exact class group."""
-    if class_group is None or academic_year is None:
+    if (
+        not is_teacher_role(user)
+        or class_group is None
+        or academic_year is None
+    ):
         return False
     teacher = _teacher_profile(user)
     if teacher is None:
@@ -86,7 +93,7 @@ def can_read_student_sheet(user, student, class_group, academic_year, subject_id
     """
     if is_admin_role(user):
         return True
-    if user == student.user:
+    if user.is_student() and user == student.user:
         return True
     if is_parent_of(user, student):
         return True

@@ -86,13 +86,12 @@ class SubjectOfferingSerializer(serializers.ModelSerializer):
 
 class TeachingAssignmentSerializer(serializers.ModelSerializer):
     offering = SubjectOfferingSerializer(read_only=True)
-    is_current = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = TeachingAssignment
         fields = [
             'id', 'offering', 'teacher', 'role',
-            'start_date', 'end_date', 'is_current',
+            'quarter',
         ]
 
 
@@ -342,7 +341,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
 
     def get_assignments(self, obj):
         assignments = TeachingAssignment.objects.filter(
-            teacher=obj
+            teacher=obj, quarter__isnull=False,
         ).select_related(
             'offering', 'offering__subject', 'offering__class_group',
         )
@@ -350,7 +349,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
 
     def get_subjects(self, obj):
         subject_ids = TeachingAssignment.objects.filter(
-            teacher=obj
+            teacher=obj, quarter__isnull=False,
         ).values_list('offering__subject_id', flat=True).distinct()
         subjects = Subject.objects.filter(id__in=subject_ids)
         return SubjectSerializer(subjects, many=True).data
@@ -416,7 +415,7 @@ class SubjectCreateSerializer(serializers.Serializer):
                                 teacher=teacher,
                                 defaults={
                                     'role': 'primary',
-                                    'start_date': offering.academic_year.q1_start,
+                                    'quarter': None,
                                 },
                             )
                         except Teacher.DoesNotExist:
@@ -859,7 +858,7 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.offering, obj.date,
+            request, obj.offering, obj.quarter,
         ))
 
 
@@ -988,7 +987,7 @@ class SubjectGradeSerializer(serializers.ModelSerializer):
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.assignment.offering, obj.assignment.date,
+            request, obj.assignment.offering, obj.assignment.quarter,
         ))
 
 
@@ -1137,13 +1136,8 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
 
     def get_can_edit(self, obj):
         request = self.context.get('request')
-        effective_date = getattr(
-            obj.offering.academic_year, f'q{obj.quarter}_end', None,
-        )
-        if effective_date is None:
-            return False
         return bool(request and request_can_write(
-            request, obj.offering, effective_date,
+            request, obj.offering, obj.quarter,
         ))
 
 

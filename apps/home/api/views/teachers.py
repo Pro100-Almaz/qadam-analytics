@@ -49,6 +49,7 @@ class TeacherDetailAPIView(RetrieveAPIView):
             children = parent.students.all()
             has_link = TeachingAssignment.objects.filter(
                 teacher=obj,
+                quarter__isnull=False,
                 offering__class_group__enrollments__student__in=children,
                 offering__class_group__enrollments__status='active',
                 offering__class_group__enrollments__is_deleted=False,
@@ -101,6 +102,7 @@ class ParentTeacherListAPIView(ListAPIView):
         assignments = TeachingAssignment.objects.filter(
             offering__class_group__in=class_groups,
             offering__class_group__academic_year__is_active=True,
+            quarter__isnull=False,
         ).select_related('teacher', 'teacher__user', 'offering__subject')
 
         teacher_ids = set()

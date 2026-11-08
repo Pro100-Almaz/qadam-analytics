@@ -11,7 +11,9 @@ from apps.achievement.api.serializers import ClubSerializer, ClubStudentSerializ
 from apps.authentication.models import Student
 from apps.home.models import ClassGroup, Enrollment
 from core.error_messages import NO_ACCESS_STUDENT
-from core.permissions import can_access_student, is_admin_role
+from core.permissions import (
+    can_access_student, is_admin_role, is_club_management_role,
+)
 
 
 def student_queryset() -> QuerySet:
@@ -96,6 +98,8 @@ def student_club_queryset(user, student, access_check=can_access_student) -> Que
         ),
     )
     if not access_check(user, student):
+        if not is_club_management_role(user):
+            raise PermissionDenied(NO_ACCESS_STUDENT)
         clubs = clubs.filter(manager__user=user)
         if not clubs.exists():
             raise PermissionDenied(NO_ACCESS_STUDENT)

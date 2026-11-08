@@ -422,7 +422,8 @@ class OfferingAttendanceHeatmapAPIView(APIView):
             SubjectOffering.objects.select_related(*OFFERING_SELECT_RELATED),
             pk=offering_id,
         )
-        if not can_read_class_wide(request.user, offering):
+        requested_quarter = int_param(request.query_params, 'quarter', 1, 4)
+        if not can_read_class_wide(request.user, offering, requested_quarter):
             return Response(
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )
@@ -570,7 +571,10 @@ class ClassGroupAttendanceOverviewAPIView(APIView):
             ClassGroup.objects.select_related('grade_level', 'academic_year'),
             pk=class_group_id,
         )
-        if not can_read_class_group_wide(request.user, class_group):
+        requested_quarter = int_param(request.query_params, 'quarter', 1, 4)
+        if not can_read_class_group_wide(
+            request.user, class_group, requested_quarter,
+        ):
             return Response(
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )

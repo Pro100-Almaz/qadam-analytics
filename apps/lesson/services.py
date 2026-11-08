@@ -94,7 +94,7 @@ def get_available_offerings(user):
         try:
             teacher = Teacher.objects.get(user=user)
             offering_ids = TeachingAssignment.objects.filter(
-                teacher=teacher
+                teacher=teacher, quarter__isnull=False,
             ).values_list('offering_id', flat=True)
             return SubjectOffering.objects.filter(
                 id__in=offering_ids
