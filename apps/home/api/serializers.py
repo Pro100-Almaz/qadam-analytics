@@ -1,4 +1,4 @@
-from django.db.models import Max
+from django.db.models import Avg, Max
 from rest_framework import serializers
 
 from apps.authentication.api.serializers import UserSerializer
@@ -165,14 +165,26 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             for row in QuarterGrade.objects.filter(student=student, offering__in=offerings)
         }
 
+        # Mean over the students who have a mark; None when nobody does.
+        class_means = {
+            (row['offering_id'], row['quarter']): row['mean']
+            for row in QuarterGrade.objects.filter(offering__in=offerings)
+            .values('offering_id', 'quarter').annotate(mean=Avg('grade'))
+        }
+
         def average(values, digits):
             return round(sum(values) / len(values), digits) if values else 0
 
         subject_quarter_grades = {}
+        subject_class_means = {}
         for quarter in [1, 2, 3, 4]:
             subject_quarter_grades[quarter] = {
                 offering.subject.name: marks[offering.id, quarter]
                 for offering in offerings if (offering.id, quarter) in marks
+            }
+            subject_class_means[quarter] = {
+                offering.subject.name: class_means.get((offering.id, quarter))
+                for offering in offerings
             }
 
         total_quarter_grades = {
@@ -191,6 +203,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         self._grade_cache = {
             'offerings': offerings,
             'subject_quarter_grades': subject_quarter_grades,
+            'subject_class_means': subject_class_means,
             'total_quarter_grades': total_quarter_grades,
             'cumulative_subject_grades': cumulative_subject_grades,
             'student_total_grade': student_total_grade,
@@ -210,9 +223,14 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     def get_subject_quarter_grades(self, obj):
         ctx = self._get_grade_context(obj)
         result = {}
-        for quarter, subjects in ctx['subject_quarter_grades'].items():
+        for quarter, means in ctx['subject_class_means'].items():
+            grades = ctx['subject_quarter_grades'][quarter]
             result[str(quarter)] = {
-                name: round(grade, 1) for name, grade in subjects.items()
+                name: {
+                    'grade': round(grades[name], 1) if name in grades else None,
+                    'class_mean': round(mean, 1) if mean is not None else None,
+                }
+                for name, mean in means.items()
             }
         return result
 

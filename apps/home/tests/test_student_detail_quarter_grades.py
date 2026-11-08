@@ -46,6 +46,30 @@ def test_grade_fields_come_from_teacher_entered_quarter_grades(
     assert response.data['student_total_grade'] == 3.75
 
 
+def test_subject_quarter_grades_carry_class_mean_of_graded_students(
+    enrolled, authenticated_client,
+):
+    student, maths, physics = enrolled
+    classmate = EnrollmentFactory(class_group=maths.class_group).student
+    EnrollmentFactory(class_group=maths.class_group)  # never graded
+    QuarterGrade.objects.create(student=student, offering=maths, quarter=1, grade=5)
+    QuarterGrade.objects.create(student=classmate, offering=maths, quarter=1, grade=2)
+    QuarterGrade.objects.create(student=classmate, offering=physics, quarter=1, grade=4)
+
+    q1 = detail(authenticated_client, student).data['subject_quarter_grades']['1']
+
+    assert q1[maths.subject.name] == {'grade': 5, 'class_mean': 3.5}
+    assert q1[physics.subject.name] == {'grade': None, 'class_mean': 4.0}
+
+
+def test_class_mean_is_none_when_nobody_is_graded(enrolled, authenticated_client):
+    student, maths, _ = enrolled
+
+    q2 = detail(authenticated_client, student).data['subject_quarter_grades']['2']
+
+    assert q2[maths.subject.name] == {'grade': None, 'class_mean': None}
+
+
 def test_ungraded_student_gets_zeroes(enrolled, authenticated_client):
     student, maths, physics = enrolled
 
@@ -86,7 +110,7 @@ def test_minor_group_offerings_are_included(
     response = detail(authenticated_client, student)
 
     assert english.id in [o['id'] for o in response.data['offerings']]
-    assert response.data['subject_quarter_grades']['1'][english.subject.name] == 3
+    assert response.data['subject_quarter_grades']['1'][english.subject.name]['grade'] == 3
     assert response.data['total_quarter_grades']['1'] == 4.0
     assert response.data['cumulative_subject_grades'][english.subject.name] == 3.0
 
