@@ -7,6 +7,7 @@ Use these in views after the role_required decorator has verified the user's rol
 
 from django.http import HttpResponseForbidden
 
+from apps.authentication.active_role import user_has_active_role
 from apps.home.models import AcademicYear, ClassGroup, HomeroomTeacherAssignment
 
 # Group names for admin-level roles (bypass object-level checks)
@@ -25,22 +26,24 @@ CLUB_MANAGEMENT_GROUPS = ('ClubManager',) + ADMIN_GROUPS
 
 def is_admin_role(user):
     """Check if user has an admin-level role that bypasses object permissions."""
-    return user.groups.filter(name__in=ADMIN_GROUPS).exists()
+    return user_has_active_role(user, 'admin', 'supervisor', 'principal')
 
 
 def is_teacher_role(user):
     """Check if user has a teacher role (teacher or homeroom_teacher)."""
-    return user.groups.filter(name__in=TEACHER_GROUPS).exists()
+    return user_has_active_role(user, 'teacher')
 
 
 def is_staff_role(user):
     """Check if user has a staff role that bypasses object permissions."""
-    return user.groups.filter(name__in=STAFF_GROUPS).exists()
+    return user_has_active_role(user, 'teacher', 'psychologist')
 
 
 def is_club_management_role(user):
     """Check whether a user can enter the club-management API."""
-    return user.groups.filter(name__in=CLUB_MANAGEMENT_GROUPS).exists()
+    return user_has_active_role(
+        user, 'clubmanager', 'admin', 'supervisor', 'principal',
+    )
 
 
 def _teacher_teaches_subject(teacher, subject):
@@ -48,7 +51,8 @@ def _teacher_teaches_subject(teacher, subject):
     from apps.home.models import TeachingAssignment
     return TeachingAssignment.objects.filter(
         offering__subject=subject,
-        teacher=teacher
+        teacher=teacher,
+        quarter__isnull=False,
     ).exists()
 
 
@@ -57,7 +61,8 @@ def _teacher_teaches_offering(teacher, offering):
     from apps.home.models import TeachingAssignment
     return TeachingAssignment.objects.filter(
         offering=offering,
-        teacher=teacher
+        teacher=teacher,
+        quarter__isnull=False,
     ).exists()
 
 
@@ -99,7 +104,7 @@ def teacher_homeroom_class_group_ids_with_subgroups(teacher):
     return homeroom_ids + list(subgroup_ids)
 
 
-def can_manage_offering_schedule(user, offering):
+def can_manage_offering_schedule(user, offering, quarter=None, *, writes=True):
     """
     Check if user can create/modify schedules, sessions and attendance for an offering.
 
@@ -121,10 +126,17 @@ def can_manage_offering_schedule(user, offering):
     except Teacher.DoesNotExist:
         return False
 
-    if _teacher_teaches_offering(teacher, offering):
+    if quarter is not None:
+        from apps.home.teaching_assignments import assignment_for
+        if assignment_for(user, offering, quarter, writes=writes) is not None:
+            return True
+    elif _teacher_teaches_offering(teacher, offering):
         return True
 
-    return offering.class_group_id in teacher_homeroom_class_group_ids_with_subgroups(teacher)
+    return (
+        offering.class_group_id
+        in teacher_homeroom_class_group_ids_with_subgroups(teacher)
+    )
 
 
 def can_manage_class_group_schedule(user, class_group_id):
@@ -214,12 +226,10 @@ def can_access_lesson(user, lesson):
 
     # Teacher check
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            return _teacher_teaches_offering(teacher, lesson.offering)
-        except Teacher.DoesNotExist:
-            return False
+        from apps.home.teaching_assignments import assignment_for
+        return assignment_for(
+            user, lesson.offering, lesson.quarter, writes=False,
+        ) is not None
 
     # Student check
     if user.is_student():
@@ -248,12 +258,10 @@ def can_modify_lesson(user, lesson):
         return False
 
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            return _teacher_teaches_offering(teacher, lesson.offering)
-        except Teacher.DoesNotExist:
-            return False
+        from apps.home.teaching_assignments import assignment_for
+        return assignment_for(
+            user, lesson.offering, lesson.quarter, writes=True,
+        ) is not None
 
     return False
 
@@ -272,7 +280,7 @@ def can_access_student(user, student):
         return True
 
     # Self-access
-    if user == student.user:
+    if user.is_student() and user == student.user:
         return True
 
     # Teacher check - can see students in their classes
@@ -294,7 +302,7 @@ def can_access_student(user, student):
                     return True
 
             teacher_class_groups = TeachingAssignment.objects.filter(
-                teacher=teacher
+                teacher=teacher, quarter__isnull=False,
             ).values_list('offering__class_group_id', flat=True)
 
             return Enrollment.objects.filter(
@@ -343,7 +351,7 @@ def can_access_teacher(user, teacher):
         return True
 
     # Self-access
-    if user == teacher.user:
+    if is_teacher_role(user) and user == teacher.user:
         return True
 
     # Teachers can view other teachers
@@ -390,16 +398,12 @@ def can_grade_student(user, lesson, student):
         return False
 
     if is_teacher_role(user):
-        from apps.authentication.models import Teacher
-        try:
-            teacher = Teacher.objects.get(user=user)
-            # Check teacher is assigned to this offering
-            if not _teacher_teaches_offering(teacher, lesson.offering):
-                return False
-            # Check student is enrolled in the offering's class
-            return _student_enrolled_in_offering(student, lesson.offering)
-        except Teacher.DoesNotExist:
+        from apps.home.teaching_assignments import assignment_for
+        if assignment_for(
+            user, lesson.offering, lesson.quarter, writes=True,
+        ) is None:
             return False
+        return _student_enrolled_in_offering(student, lesson.offering)
 
     return False
 
@@ -494,27 +498,27 @@ class CanModifySubject(BasePermission):
 
 class IsPsychologist(BasePermission):
     def has_permission(self, request, view):
-        return request.user.groups.filter(name='Psychologist').exists()
+        return request.user.is_psychologist()
 
 
 class IsPsychologistOrAdmin(BasePermission):
     def has_permission(self, request, view):
         return (
             is_admin_role(request.user)
-            or request.user.groups.filter(name='Psychologist').exists()
+            or request.user.is_psychologist()
         )
 
 
 class IsHomeroomTeacher(BasePermission):
     def has_permission(self, request, view):
-        return request.user.groups.filter(name='HomeroomTeacher').exists()
+        return request.user.is_homeroom_teacher()
 
 
 class IsHomeroomTeacherOrAdmin(BasePermission):
     def has_permission(self, request, view):
         return (
             is_admin_role(request.user)
-            or request.user.groups.filter(name='HomeroomTeacher').exists()
+            or request.user.is_homeroom_teacher()
         )
 
 
@@ -523,7 +527,7 @@ class IsStaffOrAdmin(BasePermission):
     def has_permission(self, request, view):
         return (
             is_admin_role(request.user)
-            or request.user.groups.filter(name__in=STAFF_GROUPS).exists()
+            or is_staff_role(request.user)
         )
 
 

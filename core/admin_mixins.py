@@ -26,6 +26,7 @@ re-applies the scope to those models explicitly, both in the changelist and in
 every FK picker that points at one.
 """
 
+from django import forms
 from django.core.exceptions import FieldDoesNotExist
 
 from core.tenancy import (
@@ -219,3 +220,21 @@ class SoftDeleteAdminMixin:
                     '{}: <a href="{}">{}</a>', capfirst(opts.verbose_name), url, obj,
                 )
         return format_html('{}: {}', capfirst(opts.verbose_name), obj)
+
+
+class AuditedGradeAdminMixin:
+    """Require a reason and attach it to django-simple-history revisions."""
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change, **kwargs)
+        form.base_fields['change_reason'] = forms.CharField(
+            required=True,
+            label='Correction reason',
+            help_text='Required audit note explaining this grade change.',
+        )
+        return form
+
+    def save_model(self, request, obj, form, change):
+        obj._history_user = request.user
+        obj._change_reason = form.cleaned_data['change_reason']
+        super().save_model(request, obj, form, change)

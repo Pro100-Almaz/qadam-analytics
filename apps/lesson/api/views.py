@@ -10,6 +10,9 @@ from rest_framework.views import APIView
 
 from apps.authentication.models import Student, Teacher, Parent
 from apps.home.models import SubjectOffering, Enrollment, TeachingAssignment
+from apps.home.teaching_assignments import (
+    restrict_to_teacher_quarters, teacher_can_write,
+)
 from apps.lesson.models import Lesson, Topic, TopicGrade, QuarterGradeSnapshot
 from core import settings
 from core.permissions import (
@@ -73,10 +76,10 @@ class LessonListCreateAPIView(APIView):
         elif is_teacher_role(user):
             try:
                 teacher = Teacher.objects.get(user=user)
-                offering_ids = TeachingAssignment.objects.filter(
-                    teacher=teacher
-                ).values_list('offering_id', flat=True)
-                lessons = lessons.filter(offering_id__in=offering_ids)
+                lessons = restrict_to_teacher_quarters(
+                    lessons, teacher,
+                    offering_field='offering_id', quarter_field='quarter',
+                )
             except Teacher.DoesNotExist:
                 lessons = lessons.none()
         elif user.is_parent():
@@ -132,7 +135,13 @@ class LessonListCreateAPIView(APIView):
 
         offering = serializer.validated_data['offering']
         available = get_available_offerings(request.user)
-        if not available.filter(id=offering.id).exists():
+        if not available.filter(id=offering.id).exists() or (
+            is_teacher_role(request.user)
+            and not is_admin_role(request.user)
+            and not teacher_can_write(
+                request.user, offering, serializer.validated_data.get('quarter'),
+            )
+        ):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,
@@ -218,7 +227,13 @@ class LessonCopyAPIView(APIView):
 
         offering = serializer.validated_data['offering']
         available = get_available_offerings(request.user)
-        if not available.filter(id=offering.id).exists():
+        if not available.filter(id=offering.id).exists() or (
+            is_teacher_role(request.user)
+            and not is_admin_role(request.user)
+            and not teacher_can_write(
+                request.user, offering, serializer.validated_data.get('quarter'),
+            )
+        ):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,
@@ -537,7 +552,7 @@ class GradingAPIView(APIView):
             ),
             pk=lesson_id,
         )
-        if not can_modify_lesson(request.user, lesson):
+        if not can_access_lesson(request.user, lesson):
             return Response(
                 {'detail': OWN_OFFERINGS_ONLY},
                 status=status.HTTP_403_FORBIDDEN,
@@ -702,10 +717,10 @@ class CalendarLessonListAPIView(APIView):
     def _filter_for_teacher(self, lessons, user):
         try:
             teacher = Teacher.objects.get(user=user)
-            offering_ids = TeachingAssignment.objects.filter(
-                teacher=teacher
-            ).values_list('offering_id', flat=True)
-            return lessons.filter(offering_id__in=offering_ids)
+            return restrict_to_teacher_quarters(
+                lessons, teacher,
+                offering_field='offering_id', quarter_field='quarter',
+            )
         except Teacher.DoesNotExist:
             return lessons.none()
 
@@ -740,8 +755,8 @@ class CalendarLessonListAPIView(APIView):
         if not offering_ids:
             return {}
         primary_assignments = TeachingAssignment.objects.filter(
-            offering_id__in=offering_ids, role='primary',
-        ).select_related('teacher__user')
+            offering_id__in=offering_ids, role='primary', quarter__isnull=False,
+        ).select_related('teacher__user').order_by('offering_id', 'quarter')
         return {ta.offering_id: ta.teacher for ta in primary_assignments}
 
 

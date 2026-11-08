@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.authentication.api.permissions import IsAdminRole
 from apps.authentication.models import CustomUser, SchoolGroup
@@ -61,6 +62,7 @@ def _get_tokens_for_user(user):
 
 
 class LoginAPIView(APIView):
+    active_role_optional = True
     permission_classes = [AllowAny]
     throttle_scope = 'login'
 
@@ -126,6 +128,8 @@ class LogoutAPIView(APIView):
 
 
 class CurrentUserAPIView(RetrieveUpdateAPIView):
+    active_role_optional_methods = ('GET', 'HEAD')
+
     def get_object(self):
         return self.request.user
 
@@ -147,6 +151,7 @@ class AvatarUploadAPIView(APIView):
 
 
 class ForgetPasswordAPIView(APIView):
+    active_role_optional = True
     permission_classes = [AllowAny]
     throttle_scope = 'password_reset'
 
@@ -181,6 +186,7 @@ class ForgetPasswordAPIView(APIView):
 
 
 class VerificationCodeAPIView(APIView):
+    active_role_optional = True
     permission_classes = [AllowAny]
     throttle_scope = 'verify_code'
 
@@ -229,6 +235,7 @@ class VerificationCodeAPIView(APIView):
 
 
 class PasswordChangeAPIView(APIView):
+    active_role_optional = True
     permission_classes = [AllowAny]
     throttle_scope = 'password_reset'
 
@@ -272,6 +279,7 @@ class PasswordChangeAPIView(APIView):
 
 
 class ResetPasswordAPIView(APIView):
+    active_role_optional = True
     permission_classes = [AllowAny]
 
     def post(self, request, uidb64, token):
@@ -286,6 +294,12 @@ class ResetPasswordAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         AccountService.set_new_password(user, serializer.validated_data['new_password'])
         return Response({'detail': PASSWORD_CHANGED})
+
+
+class ActiveRoleOptionalTokenRefreshView(TokenRefreshView):
+    """Refresh is part of bootstrap and does not require a selected role."""
+
+    active_role_optional = True
 
 
 class SchoolGroupListAPIView(ListAPIView):

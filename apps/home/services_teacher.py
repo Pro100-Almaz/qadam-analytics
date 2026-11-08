@@ -28,6 +28,7 @@ def get_lesson_teacher_dashboard(teacher):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=teacher,
+        quarter__isnull=False,
         offering__class_group__academic_year=year,
     ).select_related(
         'offering', 'offering__subject',
@@ -309,7 +310,7 @@ def get_psychologist_student_detail(student_id):
     }
 
 
-def get_teacher_classes(teacher):
+def get_teacher_classes(teacher, *, include_homeroom=False):
     """Get all class groups a teacher is associated with (via offerings or homeroom)."""
     year = _get_active_year()
     if not year:
@@ -319,6 +320,7 @@ def get_teacher_classes(teacher):
 
     assignments = TeachingAssignment.objects.filter(
         teacher=teacher,
+        quarter__isnull=False,
         offering__class_group__academic_year=year,
     ).select_related(
         'offering__class_group',
@@ -347,9 +349,11 @@ def get_teacher_classes(teacher):
             'role': a.role,
         })
 
-    homeroom = HomeroomTeacherAssignment.objects.filter(
-        teacher=teacher, class_group__academic_year=year,
-    ).select_related('class_group', 'class_group__grade_level')
+    homeroom = HomeroomTeacherAssignment.objects.none()
+    if include_homeroom:
+        homeroom = HomeroomTeacherAssignment.objects.filter(
+            teacher=teacher, class_group__academic_year=year,
+        ).select_related('class_group', 'class_group__grade_level')
     for h in homeroom:
         cg = h.class_group
         if cg.id in classes_map:
@@ -404,7 +408,7 @@ def get_class_students(class_group_id, request, teacher=None):
     if teacher:
         teacher_offering_ids = set(
             TeachingAssignment.objects.filter(
-                teacher=teacher, offering__in=offerings,
+                teacher=teacher, offering__in=offerings, quarter__isnull=False,
             ).values_list('offering_id', flat=True)
         )
         relevant_offerings = [o for o in offerings if o.id in teacher_offering_ids]

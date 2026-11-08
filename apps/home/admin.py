@@ -8,6 +8,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.db.models import Count, Q
 from django.utils.html import format_html
 from modeltranslation.admin import TranslationAdmin
@@ -21,6 +22,19 @@ from apps.home.models import (
 from apps.lesson.models import Lesson
 from apps.authentication.models import Teacher
 from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
+
+
+def _unscoped_admin_formfield(field, **kwargs):
+    """Build ModelForm FK fields without querying a tenant at import time."""
+    if isinstance(field, models.ForeignKey):
+        return forms.ModelChoiceField(
+            queryset=field.remote_field.model._base_manager.none(),
+            required=not field.blank,
+            label=field.verbose_name.capitalize(),
+            help_text=field.help_text,
+            to_field_name=field.remote_field.field_name,
+        )
+    return field.formfield(**kwargs)
 
 
 admin.site.register(GradeLevel)
@@ -102,8 +116,12 @@ class SubjectAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmi
 
 class TeachingAssignmentInline(admin.TabularInline):
     model = TeachingAssignment
-    extra = 1
-    autocomplete_fields = ("teacher",)
+    extra = 0
+    fields = ("teacher", "role", "quarter")
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class LessonInline(admin.TabularInline):
@@ -155,11 +173,31 @@ class SubjectOfferingAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, ClassGr
 
 @admin.register(TeachingAssignment)
 class TeachingAssignmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("teacher", "offering", "role")
-    list_filter = ("role", "offering__class_group__academic_year")
+    class Form(forms.ModelForm):
+        class Meta:
+            model = TeachingAssignment
+            fields = '__all__'
+            formfield_callback = _unscoped_admin_formfield
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.fields['teacher'].queryset = Teacher.objects.select_related('user')
+
+    form = Form
+    list_display = ("teacher", "offering", "role", "quarter")
+    list_filter = ("role", "quarter", "offering__class_group__academic_year")
     search_fields = ("teacher__user__first_name", "teacher__user__last_name")
     autocomplete_fields = ("teacher", "offering")
     ordering = ("-offering__class_group__academic_year__year", "offering", "teacher")
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return ()
+        return ('offering',)
+
+    def save_model(self, request, obj, form, change):
+        obj._history_user = request.user
+        super().save_model(request, obj, form, change)
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(

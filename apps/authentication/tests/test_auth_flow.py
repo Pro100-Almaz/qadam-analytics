@@ -65,7 +65,7 @@ class TestTokenRefresh:
         assert 'access' in response.data
 
     def test_blacklisted_refresh_token_rejected(self, api_client):
-        user = UserFactory()
+        user = TeacherUserFactory()
         login_resp = api_client.post(reverse('auth-api:login'), {
             'username': user.username,
             'password': 'testpass123',
@@ -84,7 +84,7 @@ class TestTokenRefresh:
 class TestLogout:
 
     def test_logout_blacklists_refresh_token(self, api_client):
-        user = UserFactory()
+        user = TeacherUserFactory()
         login_resp = api_client.post(reverse('auth-api:login'), {
             'username': user.username,
             'password': 'testpass123',
@@ -97,7 +97,7 @@ class TestLogout:
         assert response.status_code == status.HTTP_205_RESET_CONTENT
 
     def test_logout_without_refresh_returns_400(self, authenticated_client):
-        user = UserFactory()
+        user = TeacherUserFactory()
         client = authenticated_client(user)
         response = client.post(reverse('auth-api:logout'), {})
         assert response.status_code == status.HTTP_400_BAD_REQUEST

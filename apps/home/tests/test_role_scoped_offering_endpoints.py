@@ -170,6 +170,9 @@ def test_ac3_quarter_counts_only_that_quarters_assignments_and_quarter_grades(
     QuarterGrade.objects.create(
         student=StudentFactory(), offering=graded, quarter=1, grade=5,
     )
+    TeachingAssignmentFactory(
+        teacher=setup['teacher'], offering=setup['taught'], quarter=2,
+    )
     SubjectAssignmentFactory(offering=setup['taught'], quarter=2)
     client = authenticated_client(setup['teacher'].user)
 

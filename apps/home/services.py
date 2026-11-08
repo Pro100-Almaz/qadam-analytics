@@ -282,7 +282,7 @@ def get_teacher_workload(teacher, week_start=None, week_end=None):
         week_end = week_start + timedelta(days=6)
 
     assignments = TeachingAssignment.objects.filter(
-        teacher=teacher,
+        teacher=teacher, quarter__isnull=False,
     ).select_related('offering', 'offering__subject', 'offering__class_group',
                      'offering__class_group__grade_level')
 

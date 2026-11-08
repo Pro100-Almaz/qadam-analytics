@@ -4,9 +4,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.authentication.models import Parent, Student
-from apps.home.models import TeachingAssignment, Enrollment, Subject, SubjectOffering
-from apps.home.services import compute_child_grades
+from apps.authentication.models import Parent
+from apps.home.models import TeachingAssignment, Enrollment, Subject
+from apps.home.services import compute_child_grades, current_offerings
 from apps.lesson.models import Lesson
 
 from apps.home.api.permissions import IsParent
@@ -88,6 +88,7 @@ class ParentTeachersAPIView(APIView):
         assignments = TeachingAssignment.objects.filter(
             offering__class_group_id__in=class_group_ids,
             offering__class_group__academic_year__is_active=True,
+            quarter__isnull=False,
         ).select_related('teacher__user', 'offering__subject', 'offering__class_group')
 
         teacher_map = {}
@@ -117,38 +118,55 @@ class ParentTeachersAPIView(APIView):
         serializer = ParentTeacherDetailSerializer(list(teacher_map.values()), many=True)
         return Response(serializer.data)
 
+
+def offering_teacher(offering):
+    """The offering's primary teacher, else any teacher assigned to it."""
+    assignments = offering.teaching_assignments.select_related('teacher__user')
+    assignment = (
+        assignments.filter(role='primary').order_by('id').first()
+        or assignments.order_by('id').first()
+    )
+    return assignment.teacher if assignment else None
+
+
 class ParentChildSubjectDetailAPIView(APIView):
     permission_classes = [IsAuthenticated, IsParent]
 
     def get(self, request, student_pk, subject_pk):
-        child = Student.objects.filter(pk=student_pk).first()
+        parent = Parent.objects.get(user=request.user)
+        child = parent.students.filter(pk=student_pk).first()
         if not child:
-            raise NotFound("Student not found")
+            raise NotFound(CHILD_NOT_FOUND)
 
         subject = Subject.objects.filter(pk=subject_pk).first()
         if not subject:
             raise NotFound("Subject not found")
 
-        teacher = subject.assigned_teachers.first()
-
-        class_group = child.get_current_class_group()
+        # The subject may be taught in the child's major class or in one of
+        # their minor groups (подгруппы), so look across all of them, major
+        # first. Lessons of every matching offering are the child's.
+        offerings = [
+            o for o in current_offerings(child) if o.subject_id == subject.pk
+        ]
+        if offerings:
+            class_group = offerings[0].class_group
+        else:
+            class_group = (
+                child.get_current_class_group()
+                or next(iter(child.get_current_minor_class_groups()), None)
+            )
         if not class_group:
             return Response(
                 {"detail": "Student does not belong to any class group"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        offering = SubjectOffering.objects.filter(
-            subject=subject,
-            class_group=class_group,
-        ).first()
-
         data = {
-            'teacher': teacher,
+            'teacher': offering_teacher(offerings[0]) if offerings else None,
             'subject': subject,
             'class_group': class_group,
             'child': child,
-            'lessons': Lesson.objects.filter(offering=offering) if offering else None,
+            'lessons': Lesson.objects.filter(offering__in=offerings),
         }
 
         serializer = ParentChildSubjectDetailSerializer(data, context={'request': request})

@@ -128,30 +128,24 @@ def test_only_mine_leaves_a_teacher_without_classes_empty_handed(
     assert response.data['results'] == []
 
 
-# ── Reading schedules: the staff-wide default ──
+# ── Reading schedules: quarter-scoped offering access ──
 
-def test_any_teacher_reads_the_whole_timetable_by_default(cohort, authenticated_client):
+def test_unassigned_teacher_reads_no_offering_timetable(cohort, authenticated_client):
     outsider = authenticated_client(TeacherFactory().user)
 
     response = outsider.get(SCHEDULES_URL)
 
-    assert listed_ids(response) == {
-        cohort['own_schedule'].id,
-        cohort['english_schedule'].id,
-        cohort['chess_schedule'].id,
-    }
+    assert listed_ids(response) == set()
 
 
-def test_the_default_covers_a_class_and_its_subgroups(cohort, authenticated_client):
+def test_class_filter_does_not_widen_unassigned_teacher(cohort, authenticated_client):
     outsider = authenticated_client(TeacherFactory().user)
 
     response = outsider.get(SCHEDULES_URL, {
         'class_group': cohort['class_a'].id, 'include_minor_groups': 'true',
     })
 
-    assert listed_ids(response) == {
-        cohort['own_schedule'].id, cohort['english_schedule'].id,
-    }
+    assert listed_ids(response) == set()
 
 
 def test_a_student_is_not_widened_by_the_default(cohort, authenticated_client):
@@ -165,11 +159,11 @@ def test_a_student_is_not_widened_by_the_default(cohort, authenticated_client):
     }
 
 
-def test_reading_widely_does_not_grant_writing(cohort, authenticated_client):
+def test_no_assignment_grants_neither_reading_nor_writing(cohort, authenticated_client):
     outsider_teacher = TeacherFactory()
     outsider = authenticated_client(outsider_teacher.user)
 
-    assert cohort['own_schedule'].id in listed_ids(outsider.get(SCHEDULES_URL))
+    assert cohort['own_schedule'].id not in listed_ids(outsider.get(SCHEDULES_URL))
     assert outsider.post(
         attendance_url(cohort['english_session']),
         attendance_payload(cohort['student']),

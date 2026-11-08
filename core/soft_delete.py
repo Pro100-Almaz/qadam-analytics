@@ -25,6 +25,8 @@ import uuid
 from collections import defaultdict
 
 from django.apps import apps
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import RangeOperators
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, router, transaction
 from django.db.models.deletion import Collector, ProtectedError
@@ -230,19 +232,95 @@ def _without_is_deleted(condition):
 
 
 def _live_unique_constraints(model):
+    """Live-only collision constraints guarded before a restore.
+
+    The historical name is kept because tests and callers import it directly.
+    """
     for constraint in model._meta.constraints:
-        if not isinstance(constraint, models.UniqueConstraint):
+        if not isinstance(
+            constraint, (models.UniqueConstraint, ExclusionConstraint),
+        ):
             continue
-        if not constraint.fields or constraint.condition is None:
+        if constraint.condition is None:
             continue
         if ('is_deleted', False) in constraint.condition.children:
-            yield constraint
+            if isinstance(constraint, ExclusionConstraint) or constraint.fields:
+                yield constraint
+
+
+def _exclusion_conflict(model, constraint, candidate, restored_pks):
+    """Find a live row colliding with the supported equality + date range rule.
+
+    Keeping this parser deliberately narrow means an unsupported exclusion
+    shape fails through the database race guard instead of being checked
+    incorrectly here.
+    """
+    equal_fields = []
+    range_fields = None
+    for expression, operator in constraint.expressions:
+        if operator == RangeOperators.EQUAL and isinstance(expression, models.F):
+            equal_fields.append(expression.name)
+            continue
+        if (
+            operator == RangeOperators.OVERLAPS
+            and isinstance(expression, models.Func)
+            and (
+                expression.function or expression.extra.get('function', '')
+            ).upper() == 'DATERANGE'
+        ):
+            sources = expression.get_source_expressions()
+            if len(sources) >= 2 and all(
+                isinstance(source, models.F) for source in sources[:2]
+            ):
+                range_fields = (sources[0].name, sources[1].name)
+                continue
+        return None
+
+    if not equal_fields or range_fields is None:
+        return None
+
+    filters = {
+        model._meta.get_field(field).attname: getattr(
+            candidate, model._meta.get_field(field).attname,
+        )
+        for field in equal_fields
+    }
+    start_field, end_field = range_fields
+    start = getattr(candidate, model._meta.get_field(start_field).attname)
+    end = getattr(candidate, model._meta.get_field(end_field).attname)
+    conflicts = model._base_manager.filter(
+        constraint.condition, **filters,
+    ).exclude(pk__in=restored_pks).filter(
+        models.Q(**{f'{end_field}__isnull': True})
+        | models.Q(**{f'{end_field}__gte': start}),
+    )
+    if end is not None:
+        conflicts = conflicts.filter(**{f'{start_field}__lte': end})
+    return conflicts.first()
 
 
 def _check_unique_free(rows):
-    """AC-5: refuse to restore a row whose unique value a live row now holds."""
+    """AC-5: refuse restore when a live-only collision is now occupied."""
     for model, pks in rows.items():
         for constraint in _live_unique_constraints(model):
+            if isinstance(constraint, ExclusionConstraint):
+                candidates = model._base_manager.filter(pk__in=pks)
+                rest = _without_is_deleted(constraint.condition)
+                if rest is not None:
+                    candidates = candidates.filter(rest)
+                for candidate in candidates:
+                    conflict = _exclusion_conflict(
+                        model, constraint, candidate, pks,
+                    )
+                    if conflict is not None:
+                        raise ValidationError(
+                            f'Cannot restore {_label(model, candidate.pk)}: '
+                            f'{_label(model, conflict.pk)} ("{conflict}") now '
+                            f'conflicts with {constraint.name}. Delete or '
+                            f'change it first.'
+                        )
+                continue
+
             attnames = [model._meta.get_field(f).attname for f in constraint.fields]
             candidates = model._base_manager.filter(pk__in=pks)
             rest = _without_is_deleted(constraint.condition)

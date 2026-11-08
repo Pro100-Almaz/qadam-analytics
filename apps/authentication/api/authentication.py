@@ -24,8 +24,10 @@ the header switcher (see core.middleware), and everywhere else the only
 cross-school access is an explicit `all_schools()` in code.
 """
 
+from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from apps.authentication.active_role import resolve_active_role
 from apps.authentication.school_cache import uuid_for_school_pk
 from core.tenancy import set_active_school
 
@@ -37,7 +39,20 @@ class SchoolScopedJWTAuthentication(JWTAuthentication):
             return None
         user, token = result                     # get_user() already loaded the row
         set_active_school(resolve_scope(user, token.get('school_uuid')))
+        resolve_active_role(request, user)
         return user, token
+
+
+class ActiveRoleSessionAuthentication(SessionAuthentication):
+    """DRF session authentication with the same role selection as JWT."""
+
+    def authenticate(self, request):
+        result = super().authenticate(request)
+        if result is None:
+            return None
+        user, auth = result
+        resolve_active_role(request, user)
+        return user, auth
 
 
 def resolve_scope(user, claim_uuid):

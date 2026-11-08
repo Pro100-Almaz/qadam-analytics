@@ -60,13 +60,14 @@ def cohort(db):
         'teacher': teacher,
         'homeroom_class': homeroom_class,
         'homeroom_maths': SubjectAssignmentFactory(
-            offering=homeroom_maths, title='7A maths quiz',
+            offering=homeroom_maths, title='7A maths quiz', quarter=1,
         ),
         'homeroom_physics': SubjectAssignmentFactory(
             offering=homeroom_physics, title='7A physics test', category='exam',
+            quarter=1,
         ),
         'other_maths': SubjectAssignmentFactory(
-            offering=other_maths, title='7B maths quiz',
+            offering=other_maths, title='7B maths quiz', quarter=1,
         ),
     }
 

@@ -64,7 +64,9 @@ def subjects_list(request, status=None):
         # Teachers see only subjects they're assigned to teach
         try:
             teacher = Teacher.objects.get(user=user)
-            assignments = TeachingAssignment.objects.filter(teacher=teacher)
+            assignments = TeachingAssignment.objects.filter(
+                teacher=teacher, quarter__isnull=False,
+            )
             if year_id:
                 assignments = assignments.filter(offering__class_group__academic_year_id=year_id)
             subject_ids = set(a.offering.subject_id for a in assignments)
@@ -170,7 +172,7 @@ def my_subjects_list(request, status=None):
     try:
         teacher = Teacher.objects.get(user=user)
         assignments = TeachingAssignment.objects.filter(
-            teacher=teacher
+            teacher=teacher, quarter__isnull=False,
         ).select_related('offering', 'offering__subject')
 
         # Get unique subjects from assignments

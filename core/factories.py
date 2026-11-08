@@ -204,7 +204,9 @@ class AcademicYearFactory(DjangoModelFactory):
         django_get_or_create = ('school', 'year')
 
     school = factory.LazyFunction(_current_school)
-    year = factory.Sequence(lambda n: f'202{n}/202{n + 1}')
+    year = factory.Sequence(
+        lambda n: f'{2000 + n}/{2001 + n}'
+    )
     is_active = True
     archived = False
 
@@ -406,6 +408,7 @@ class TeachingAssignmentFactory(DjangoModelFactory):
     offering = factory.SubFactory(SubjectOfferingFactory)
     teacher = factory.SubFactory(TeacherFactory)
     role = 'primary'
+    quarter = 1
 
 
 class EnrollmentFactory(DjangoModelFactory):
@@ -427,6 +430,7 @@ class LessonFactory(DjangoModelFactory):
     unit = 1
     status = 'pending'
     order = factory.Sequence(lambda n: n)
+    date = factory.Faker('date_object')
 
 
 class TopicFactory(DjangoModelFactory):
@@ -484,6 +488,9 @@ class SubjectAssignmentFactory(DjangoModelFactory):
     max_grade = 100
     category = factory.SubFactory(AssignmentCategoryFactory)
     date = factory.Faker('date_object')
+    quarter = factory.LazyAttribute(
+        lambda obj: obj.offering.academic_year.quarter_of(obj.date) or 1
+    )
 
     @classmethod
     def _adjust_kwargs(cls, **kwargs):
@@ -512,6 +519,14 @@ class HomeworkFactory(DjangoModelFactory):
     max_grade = 10
     due_date = factory.Faker('date_object')
     is_active = True
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        homework = super()._create(model_class, *args, **kwargs)
+        SubjectAssignment.objects.filter(
+            category__code='homework', detail_id=homework.pk,
+        ).update(quarter=homework.teaching_assignment.quarter)
+        return homework
 
 
 class HomeworkGradeFactory(DjangoModelFactory):

@@ -43,6 +43,11 @@ def world(year):
     class_group = ClassGroupFactory(academic_year=year)
     offering = SubjectOfferingFactory(class_group=class_group)
     teaching_assignment = TeachingAssignmentFactory(offering=offering)
+    for quarter in (2, 3, 4):
+        TeachingAssignmentFactory(
+            offering=offering, teacher=teaching_assignment.teacher,
+            quarter=quarter,
+        )
     student = EnrollmentFactory(class_group=class_group).student
     return {
         'offering': offering,
@@ -76,8 +81,7 @@ def test_ac2_quarter_is_derived_from_date_when_omitted(world, authenticated_clie
 
     assert inside.status_code == 201, inside.data
     assert inside.data['quarter'] == 3
-    assert between.status_code == 201, between.data
-    assert between.data['quarter'] is None
+    assert between.status_code == 403, between.data
 
 
 def test_ac3_explicit_quarter_overrides_the_date(world, authenticated_client):
@@ -149,7 +153,11 @@ def quartered(world):
     """One graded assignment in Q1, one in Q2, one with no quarter."""
     rows = {}
     for title, day in [('q1', D(2026, 9, 15)), ('q2', D(2026, 12, 1)), ('none', D(2026, 11, 5))]:
-        rows[title] = SubjectAssignmentFactory(offering=world['offering'], title=title, date=day)
+        extra = {'quarter': None} if title == 'none' else {}
+        rows[title] = SubjectAssignmentFactory(
+            offering=world['offering'], title=title, date=day,
+            **extra,
+        )
         SubjectGradeFactory(assignment=rows[title], student=world['student'], grade=5)
     assert rows['none'].quarter is None
     return rows
@@ -168,7 +176,7 @@ def test_ac5_quarter_filters_assignment_lists(world, quartered, authenticated_cl
 
     assert response.status_code == 200
     assert [row['title'] for row in response.data['results']] == ['q2']
-    assert len(client.get(url).data['results']) == 3
+    assert len(client.get(url).data['results']) == 2
 
 
 def test_ac5_quarter_filters_subject_grades(world, quartered, authenticated_client):
@@ -206,7 +214,9 @@ def test_ac6_invalid_quarter_filter_is_400(world, authenticated_client, value):
 
 def test_ac8_migration_backfills_quarter_from_date(world):
     assignment = SubjectAssignmentFactory(offering=world['offering'], date=D(2027, 2, 1))
-    outside = SubjectAssignmentFactory(offering=world['offering'], date=D(2027, 7, 1))
+    outside = SubjectAssignmentFactory(
+        offering=world['offering'], date=D(2027, 7, 1), quarter=None,
+    )
     SubjectAssignment.objects.filter(pk=assignment.pk).update(quarter=None)
 
     migration = importlib.import_module('apps.home.migrations.0045_subjectassignment_quarter')

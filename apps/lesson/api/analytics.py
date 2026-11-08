@@ -520,7 +520,8 @@ class OfferingTopicHeatmapAPIView(APIView):
             SubjectOffering.objects.select_related(*OFFERING_SELECT_RELATED),
             pk=offering_id,
         )
-        if not can_read_class_wide(request.user, offering):
+        requested_quarter = _int_param(request.query_params, 'quarter', 1, 4)
+        if not can_read_class_wide(request.user, offering, requested_quarter):
             return Response(
                 {'detail': NO_PERMISSION}, status=status.HTTP_403_FORBIDDEN,
             )

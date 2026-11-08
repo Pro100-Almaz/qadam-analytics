@@ -17,6 +17,7 @@ from apps.lesson.services import (
 from apps.home.models import (
     ClassGroup, SubjectOffering, Enrollment, TeachingAssignment,
 )
+from apps.home.teaching_assignments import request_can_write
 from apps.authentication.models import Student
 from core.error_messages import ATTENDANCE_ALREADY_RECORDED
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
@@ -684,12 +685,12 @@ class TeachingAssignmentListSerializer(serializers.ModelSerializer):
     academic_year_id = serializers.IntegerField(
         source='offering.academic_year_id', read_only=True,
     )
-
     class Meta:
         model = TeachingAssignment
         fields = [
             'id', 'subject_name', 'class_group_name',
             'teacher_name', 'academic_year', 'academic_year_id',
+            'quarter',
         ]
 
 
@@ -874,6 +875,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
     subject_id = serializers.IntegerField(source='offering.subject_id', read_only=True)
     teacher = serializers.SerializerMethodField()
     attachments = HomeworkAttachmentSerializer(many=True, read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = Homework
@@ -881,6 +883,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
             'id', 'description', 'offering', 'class_group_id', 'subject_id',
             'teaching_assignment', 'teacher', 'max_grade', 'due_date',
             'is_active', 'attachments', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
 
@@ -890,6 +893,12 @@ class HomeworkSerializer(serializers.ModelSerializer):
             return None
         teacher = obj.teaching_assignment.teacher
         return {'id': teacher.user_id, 'full_name': teacher.user.get_full_name()}
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.offering, getattr(obj, 'access_quarter', None),
+        ))
 
 
 class StudentHomeworkSerializer(HomeworkSerializer):
@@ -1034,6 +1043,7 @@ class HomeworkGradeSerializer(serializers.ModelSerializer):
         source='homework.offering.subject.name', read_only=True
     )
     due_date = serializers.DateField(source='homework.due_date', read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = HomeworkGrade
@@ -1041,8 +1051,16 @@ class HomeworkGradeSerializer(serializers.ModelSerializer):
             'id', 'homework', 'offering_id', 'subject_name', 'due_date',
             'student', 'student_user_id', 'student_name',
             'grade', 'comments', 'homework_max_grade', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.homework.offering,
+            getattr(obj, 'access_quarter', None),
+        ))
 
 
 class HomeworkGradeWriteSerializer(serializers.ModelSerializer):

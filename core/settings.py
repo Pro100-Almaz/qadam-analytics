@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from decouple import config
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -292,6 +293,7 @@ else:
     )
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = (*default_headers, 'x-active-role')
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -299,7 +301,7 @@ REST_FRAMEWORK = {
         # Subclass of JWTAuthentication that also enters the school scope once
         # the signature is verified and the user row is loaded.
         'apps.authentication.api.authentication.SchoolScopedJWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'apps.authentication.api.authentication.ActiveRoleSessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

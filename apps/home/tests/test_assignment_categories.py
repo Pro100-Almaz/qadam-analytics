@@ -130,8 +130,12 @@ def test_ac5_category_is_a_code_on_the_wire_and_filters_by_code(
     teacher, teaching_assignment, authenticated_client,
 ):
     offering = teaching_assignment.offering
-    SubjectAssignmentFactory(offering=offering, category='exam', title='Exam')
-    SubjectAssignmentFactory(offering=offering, category='lesson', title='Lesson')
+    SubjectAssignmentFactory(
+        offering=offering, category='exam', title='Exam', quarter=1,
+    )
+    SubjectAssignmentFactory(
+        offering=offering, category='lesson', title='Lesson', quarter=1,
+    )
     client = authenticated_client(teacher.user)
 
     response = client.get(ASSIGNMENTS_URL, {'category': 'exam'})
@@ -234,7 +238,9 @@ def test_ac11_category_cannot_move_into_or_out_of_homework_in_the_api(
     teacher, teaching_assignment, authenticated_client,
 ):
     client = authenticated_client(teacher.user)
-    plain = SubjectAssignmentFactory(offering=teaching_assignment.offering, category='exam')
+    plain = SubjectAssignmentFactory(
+        offering=teaching_assignment.offering, category='exam', quarter=1,
+    )
     homework = HomeworkFactory(teaching_assignment=teaching_assignment)
     mirror = SubjectAssignment.objects.get(category__code='homework', detail_id=homework.pk)
 

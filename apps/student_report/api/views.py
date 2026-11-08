@@ -19,7 +19,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.authentication.models import Student
 from core.error_messages import NO_ACCESS_STUDENT
 from core.permissions import (
-    IsTeacherAdminOrSupervisor, can_view_student,
+    IsTeacherAdminOrSupervisor, can_view_student, CanAccessStudent,
 )
 
 
@@ -96,7 +96,7 @@ class GenerateReportView(GenericAPIView):
 
 
 class ReportDetailView(RetrieveAPIView):
-    permission_classes = [IsTeacherAdminOrSupervisor]
+    permission_classes = [CanAccessStudent]
     serializer_class = StudentReportSerializer
 
     def get_queryset(self):

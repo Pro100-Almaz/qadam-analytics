@@ -1,4 +1,4 @@
-from django.db.models import Max
+from django.db.models import Avg, Max
 from rest_framework import serializers
 
 from apps.authentication.api.serializers import UserSerializer
@@ -11,6 +11,7 @@ from apps.home.models import (
     SubjectAssignment, SubjectGrade, QuarterGrade, AssignmentCategory,
 )
 from apps.home.services import current_offerings
+from apps.home.teaching_assignments import request_can_write
 from apps.lesson.models import Lesson, TopicGrade, Topic
 from core.serializer_fields import ScopedPrimaryKeyRelatedField
 
@@ -88,7 +89,10 @@ class TeachingAssignmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeachingAssignment
-        fields = ['id', 'offering', 'teacher', 'role']
+        fields = [
+            'id', 'offering', 'teacher', 'role',
+            'quarter',
+        ]
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -160,14 +164,26 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             for row in QuarterGrade.objects.filter(student=student, offering__in=offerings)
         }
 
+        # Mean over the students who have a mark; None when nobody does.
+        class_means = {
+            (row['offering_id'], row['quarter']): row['mean']
+            for row in QuarterGrade.objects.filter(offering__in=offerings)
+            .values('offering_id', 'quarter').annotate(mean=Avg('grade'))
+        }
+
         def average(values, digits):
             return round(sum(values) / len(values), digits) if values else 0
 
         subject_quarter_grades = {}
+        subject_class_means = {}
         for quarter in [1, 2, 3, 4]:
             subject_quarter_grades[quarter] = {
                 offering.subject.name: marks[offering.id, quarter]
                 for offering in offerings if (offering.id, quarter) in marks
+            }
+            subject_class_means[quarter] = {
+                offering.subject.name: class_means.get((offering.id, quarter))
+                for offering in offerings
             }
 
         total_quarter_grades = {
@@ -186,6 +202,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
         self._grade_cache = {
             'offerings': offerings,
             'subject_quarter_grades': subject_quarter_grades,
+            'subject_class_means': subject_class_means,
             'total_quarter_grades': total_quarter_grades,
             'cumulative_subject_grades': cumulative_subject_grades,
             'student_total_grade': student_total_grade,
@@ -205,9 +222,14 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     def get_subject_quarter_grades(self, obj):
         ctx = self._get_grade_context(obj)
         result = {}
-        for quarter, subjects in ctx['subject_quarter_grades'].items():
+        for quarter, means in ctx['subject_class_means'].items():
+            grades = ctx['subject_quarter_grades'][quarter]
             result[str(quarter)] = {
-                name: round(grade, 1) for name, grade in subjects.items()
+                name: {
+                    'grade': round(grades[name], 1) if name in grades else None,
+                    'class_mean': round(mean, 1) if mean is not None else None,
+                }
+                for name, mean in means.items()
             }
         return result
 
@@ -319,7 +341,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
 
     def get_assignments(self, obj):
         assignments = TeachingAssignment.objects.filter(
-            teacher=obj
+            teacher=obj, quarter__isnull=False,
         ).select_related(
             'offering', 'offering__subject', 'offering__class_group',
         )
@@ -327,7 +349,7 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
 
     def get_subjects(self, obj):
         subject_ids = TeachingAssignment.objects.filter(
-            teacher=obj
+            teacher=obj, quarter__isnull=False,
         ).values_list('offering__subject_id', flat=True).distinct()
         subjects = Subject.objects.filter(id__in=subject_ids)
         return SubjectSerializer(subjects, many=True).data
@@ -391,7 +413,10 @@ class SubjectCreateSerializer(serializers.Serializer):
                             TeachingAssignment.objects.get_or_create(
                                 offering=offering,
                                 teacher=teacher,
-                                defaults={'role': 'primary'},
+                                defaults={
+                                    'role': 'primary',
+                                    'quarter': None,
+                                },
                             )
                         except Teacher.DoesNotExist:
                             # Deliberately silent, unlike the other four: `user`
@@ -812,6 +837,7 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
     class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
     class_group_name = serializers.SerializerMethodField()
     academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectAssignment
@@ -821,12 +847,19 @@ class SubjectAssignmentSerializer(serializers.ModelSerializer):
             'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
 
     def get_class_group_name(self, obj):
         class_group = obj.offering.class_group
         return f"{class_group.grade_level}{class_group.letter}"
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.offering, obj.quarter,
+        ))
 
 
 class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
@@ -940,14 +973,22 @@ class SubjectGradeSerializer(serializers.ModelSerializer):
     student_user_id = serializers.IntegerField(source='student.user_id', read_only=True)
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
     assignment = SubjectAssignmentSerializer(read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectGrade
         fields = [
             'id', 'assignment', 'student', 'student_user_id', 'student_name',
             'grade', 'comments', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.assignment.offering, obj.assignment.quarter,
+        ))
 
 
 class OfferingGradebookGradeSerializer(serializers.ModelSerializer):
@@ -1075,6 +1116,7 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
     class_group_id = serializers.IntegerField(source='offering.class_group_id', read_only=True)
     class_group_name = serializers.SerializerMethodField()
     academic_year_id = serializers.IntegerField(source='offering.academic_year_id', read_only=True)
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = QuarterGrade
@@ -1084,12 +1126,19 @@ class QuarterGradeSerializer(serializers.ModelSerializer):
             'offering_id', 'subject_id', 'subject_name',
             'class_group_id', 'class_group_name',
             'academic_year_id', 'created_at',
+            'can_edit',
         ]
         read_only_fields = fields
 
     def get_class_group_name(self, obj):
         class_group = obj.offering.class_group
         return f"{class_group.grade_level}{class_group.letter}"
+
+    def get_can_edit(self, obj):
+        request = self.context.get('request')
+        return bool(request and request_can_write(
+            request, obj.offering, obj.quarter,
+        ))
 
 
 class QuarterGradeBulkSerializer(serializers.Serializer):

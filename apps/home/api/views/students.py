@@ -239,8 +239,8 @@ class StudentMySubjectsAPIView(APIView):
         offering_ids = [o.id for o in offerings]
 
         primary_assignments = TeachingAssignment.objects.filter(
-            offering_id__in=offering_ids, role='primary',
-        ).select_related('teacher__user')
+            offering_id__in=offering_ids, role='primary', quarter__isnull=False,
+        ).select_related('teacher__user').order_by('offering_id', 'quarter')
         teacher_by_offering = {ta.offering_id: ta.teacher for ta in primary_assignments}
 
         # The marks teachers entered (spec 0008), not ones derived from topics.
@@ -292,6 +292,7 @@ class StudentMyTeachersAPIView(APIView):
         assignments = TeachingAssignment.objects.filter(
             offering__class_group=enrollment.class_group,
             offering__class_group__academic_year=enrollment.academic_year,
+            quarter__isnull=False,
         ).select_related('teacher__user', 'offering__subject')
 
         teacher_map = {}

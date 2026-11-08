@@ -285,11 +285,16 @@ def authenticated_client(api_client):
 
     from apps.authentication.school_cache import uuid_for_school_pk
 
-    def _auth(user):
+    def _auth(user, active_role=None):
         refresh = RefreshToken.for_user(user)
         if user.school_id:
             refresh['school_uuid'] = uuid_for_school_pk(user.school_id)
-        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        credentials = {
+            'HTTP_AUTHORIZATION': f'Bearer {refresh.access_token}',
+        }
+        if active_role is not None:
+            credentials['HTTP_X_ACTIVE_ROLE'] = active_role
+        api_client.credentials(**credentials)
         return api_client
     return _auth
 

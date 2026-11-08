@@ -2,7 +2,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from apps.authentication.models import Teacher, Student
@@ -444,12 +444,16 @@ class SubjectOffering(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
         return self.lessons.all().order_by('date', 'order')
 
     def get_teachers(self):
-        """Get all teachers assigned to this offering."""
-        return self.teaching_assignments.select_related('teacher', 'teacher__user')
+        """Get teachers assigned to at least one quarter of this offering."""
+        return self.teaching_assignments.filter(
+            quarter__isnull=False,
+        ).select_related('teacher', 'teacher__user').distinct()
 
     def get_primary_teacher(self):
         """Get the primary teacher for this offering."""
-        assignment = self.teaching_assignments.filter(role='primary').first()
+        assignment = self.teaching_assignments.filter(
+            role='primary', quarter__isnull=False,
+        ).order_by('-quarter', '-id').first()
         return assignment.teacher if assignment else None
 
 
@@ -481,12 +485,20 @@ class TeachingAssignment(SoftDeleteMixin, SchoolConsistentModel):
         related_name='teaching_assignments'
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='primary')
+    quarter = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        null=True,
+        blank=True,
+    )
+
+    history = HistoricalRecords()
 
     class Meta:
         constraints = [
             live_unique_constraint(
-                fields=['offering', 'teacher'],
-                name='teachingassignment_unique_live_offering_teacher',
+                fields=['offering', 'quarter'],
+                condition=Q(quarter__isnull=False),
+                name='teachingassignment_unique_live_offering_quarter',
             ),
         ]
 
@@ -954,6 +966,7 @@ class SubjectGrade(SoftDeleteMixin, SchoolConsistentModel):
     comments = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
 
     class Meta:
         constraints = [
@@ -1007,6 +1020,7 @@ class QuarterGrade(SoftDeleteMixin, SchoolConsistentModel):
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name="quarter_grades")
 
     created_at = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
 
     class Meta:
         constraints = [

@@ -6,7 +6,9 @@ from django.utils.text import Truncator
 from apps.achievement.models import Attachment
 
 from apps.lesson.models import Homework, HomeworkGrade, Topic, TopicGrade, MergedLessonComment
-from core.admin_mixins import SchoolScopedAdminMixin, SoftDeleteAdminMixin
+from core.admin_mixins import (
+    AuditedGradeAdminMixin, SchoolScopedAdminMixin, SoftDeleteAdminMixin,
+)
 
 
 class SubtopicInline(admin.TabularInline):
@@ -49,7 +51,9 @@ class TopicAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(TopicGrade)
-class TopicGradeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+class TopicGradeAdmin(
+    AuditedGradeAdminMixin, SoftDeleteAdminMixin, admin.ModelAdmin,
+):
     list_display = ('topic', 'student', 'grade', 'comment_selected')
     list_filter = ('topic__lesson', 'comment_selected')
     search_fields = ('topic__title', 'student__user__first_name', 'student__user__last_name')
@@ -73,9 +77,14 @@ class HomeworkAttachmentInline(GenericTabularInline):
 class HomeworkGradeInline(admin.TabularInline):
     model = HomeworkGrade
     extra = 0
-    fields = ('student', 'grade', 'created_at')
-    readonly_fields = ('created_at',)
-    autocomplete_fields = ('student',)
+    fields = ('student', 'grade', 'comments', 'created_at')
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Homework)
@@ -133,7 +142,9 @@ class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(HomeworkGrade)
-class HomeworkGradeAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+class HomeworkGradeAdmin(
+    AuditedGradeAdminMixin, SoftDeleteAdminMixin, admin.ModelAdmin,
+):
     list_display = ('student', 'homework', 'subject', 'grade', 'max_grade', 'created_at')
     list_filter = (
         'homework__offering__class_group__academic_year',

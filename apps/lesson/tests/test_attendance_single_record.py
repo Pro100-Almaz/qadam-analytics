@@ -335,17 +335,18 @@ def test_ac8_student_list_order_is_stable_on_ties(slot, authenticated_client):
     heap, scrambling physical order against id order, so without the tiebreak
     Postgres hands them back in whatever order the scan found them.
     """
-    sessions = [slot.session] + [
-        ScheduleSessionFactory(
-            schedule=SubjectScheduleFactory(
-                offering=SubjectOfferingFactory(class_group=slot.class_group),
-            ),
+    sessions = [slot.session]
+    for _ in range(5):
+        offering = SubjectOfferingFactory(class_group=slot.class_group)
+        TeachingAssignmentFactory(
+            offering=offering, teacher=slot.teacher, quarter=1,
+        )
+        sessions.append(ScheduleSessionFactory(
+            schedule=SubjectScheduleFactory(offering=offering, quarter=1),
             weekday=slot.session.weekday,
             time_start=slot.session.time_start,
             time_end=slot.session.time_end,
-        )
-        for _ in range(5)
-    ]
+        ))
     rows = [
         ScheduleAttendanceFactory(session=session, student=slot.student, date=DAY)
         for session in sessions

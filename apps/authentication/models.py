@@ -253,8 +253,9 @@ class CustomUser(SoftDeleteMixin, AbstractUser):
         return self.first_name + " " + self.last_name
 
     def _has_group(self, group_name):
-        """Check if user belongs to a specific group."""
-        return self.groups.filter(name=group_name).exists()
+        """Check a group within the request's active role, when present."""
+        from apps.authentication.active_role import user_has_active_group
+        return user_has_active_group(self, group_name)
 
     @property
     def primary_group(self):
@@ -269,6 +270,10 @@ class CustomUser(SoftDeleteMixin, AbstractUser):
     @property
     def role(self):
         """Backwards-compatible property that returns the primary group name in lowercase."""
+        if getattr(self, '_active_role_context_set', False):
+            active_role = getattr(self, '_active_role', None)
+            if active_role is not None:
+                return active_role
         group = self.primary_group
         if group:
             # Convert group name to lowercase role format for backwards compatibility
