@@ -1,0 +1,12 @@
+/* New teaching assignments are added only by copying an existing row. */
+#teaching_assignments-group .add-row {
+    display: none;
+}
+
+.ta-copy {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    padding: 0 4px;
+}
