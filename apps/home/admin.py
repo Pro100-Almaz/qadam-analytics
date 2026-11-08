@@ -114,14 +114,97 @@ class SubjectAdmin(SoftDeleteAdminMixin, SchoolScopedAdminMixin, admin.ModelAdmi
     search_fields = ("name",)
 
 
+class TeachingAssignmentInlineForm(forms.ModelForm):
+    """Only the quarter is editable; a new row is a copy of an existing one.
+
+    `teacher` and `role` are not form fields, so a POST cannot set them: a new
+    row takes both from the `copy_from` row of the same offering.
+    """
+
+    copy_from = forms.IntegerField(widget=forms.HiddenInput, required=False)
+
+    class Meta:
+        model = TeachingAssignment
+        fields = ('quarter',)
+        widgets = {'quarter': forms.NumberInput(attrs={'min': 1, 'max': 4})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk is None:
+            self.fields['quarter'].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.instance.pk is None:
+            source = TeachingAssignment.objects.filter(
+                pk=cleaned_data.get('copy_from'),
+                offering_id=self.instance.offering_id,
+            ).first()
+            if source is None:
+                raise ValidationError(
+                    "Use the copy icon on an existing row to add an assignment."
+                )
+            self.instance.teacher_id = source.teacher_id
+            self.instance.role = source.role
+        return cleaned_data
+
+
+class TeachingAssignmentInlineFormSet(forms.BaseInlineFormSet):
+    """Check the live (offering, quarter, teacher) rule before saving.
+
+    ModelForm skips that constraint because `teacher` is not a form field, so
+    a duplicate would otherwise surface as an IntegrityError.
+    """
+
+    def clean(self):
+        super().clean()
+        taken = set()
+        if self.instance.pk is not None:  # unsaved on the offering add page
+            in_formset = {f.instance.pk for f in self.forms if f.instance.pk}
+            taken = set(
+                TeachingAssignment.objects.filter(
+                    offering=self.instance, quarter__isnull=False,
+                ).exclude(pk__in=in_formset).values_list('teacher_id', 'quarter')
+            )
+        for form in self.forms:
+            if not hasattr(form, 'cleaned_data') or self._should_delete_form(form):
+                continue
+            if form.instance.pk is None and not form.has_changed():
+                continue
+            quarter = form.cleaned_data.get('quarter')
+            if quarter is None or form.instance.teacher_id is None:
+                continue
+            key = (form.instance.teacher_id, quarter)
+            if key in taken:
+                form.add_error(
+                    'quarter',
+                    f"{form.instance.teacher} already has quarter {quarter}.",
+                )
+            taken.add(key)
+
+
 class TeachingAssignmentInline(admin.TabularInline):
     model = TeachingAssignment
+    form = TeachingAssignmentInlineForm
+    formset = TeachingAssignmentInlineFormSet
     extra = 0
-    fields = ("teacher", "role", "quarter")
-    readonly_fields = fields
+    # `copy_from` is hidden; the admin renders only hidden fields it is told about.
+    fields = ("teacher", "role", "quarter", "copy", "copy_from")
+    readonly_fields = ("teacher", "role", "copy")
 
-    def has_add_permission(self, request, obj=None):
-        return False
+    class Media:
+        js = ("js/admin/teaching_assignment_copy.js",)
+        css = {"all": ("css/admin/teaching_assignment_copy.css",)}
+
+    @admin.display(description="Copy")
+    def copy(self, obj):
+        if obj is None or obj.pk is None:
+            return ""
+        return format_html(
+            '<button type="button" class="ta-copy" data-id="{}" data-teacher="{}" '
+            'data-role="{}" title="Copy to another quarter">&#x2398;</button>',
+            obj.pk, obj.teacher, obj.get_role_display(),
+        )
 
 
 class LessonInline(admin.TabularInline):
