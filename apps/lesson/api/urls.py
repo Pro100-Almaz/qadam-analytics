@@ -120,7 +120,7 @@ urlpatterns = [
     ),
 
     # ── Teaching assignments ──
-    # GET /api/v1/teaching-assignments/  filters: academic_year, class_group
+    # GET /api/v1/teaching-assignments/  filters: academic_year, class_group, quarter
     #                                    active subjects, primary teacher only
     path(
         'teaching-assignments/',

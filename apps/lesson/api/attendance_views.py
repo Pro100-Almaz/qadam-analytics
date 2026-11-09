@@ -352,12 +352,13 @@ class TeachingAssignmentListAPIView(APIView):
         parameters=[
             OpenApiParameter('academic_year', int),
             OpenApiParameter('class_group', int),
+            OpenApiParameter('quarter', int),
             OpenApiParameter('page', int),
             OpenApiParameter('page_size', int),
         ],
     )
     def get(self, request):
-        rows = CustomQueryset.teaching_assignment_queryset(request.user).filter(
+        rows =CustomQueryset.teaching_assignment_queryset(request.user).filter(
             role='primary',
             quarter__isnull=False,
             offering__subject__status='active',
@@ -368,6 +369,17 @@ class TeachingAssignmentListAPIView(APIView):
             rows = rows.filter(offering__class_group__academic_year_id=params['academic_year'])
         if params.get('class_group'):
             rows = rows.filter(offering__class_group_id=params['class_group'])
+        if params.get('quarter'):
+            try:
+                quarter = int(params['quarter'])
+            except (TypeError, ValueError):
+                quarter = None
+            if quarter not in (1, 2, 3, 4):
+                return Response(
+                    {'detail': 'Invalid quarter. Use 1, 2, 3, or 4.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            rows = rows.filter(quarter=quarter)
 
         rows = rows.order_by(
             'offering__subject__name', 'offering__class_group_id', 'quarter',
