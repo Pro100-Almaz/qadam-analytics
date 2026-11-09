@@ -607,14 +607,27 @@ class SubjectScheduleSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
     other_sessions = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = SubjectSchedule
         fields = [
             'id', 'type', 'title', 'offering', 'offering_id',
             'class_group', 'class_group_id', 'description',
-            'quarter', 'sessions', 'other_sessions',
+            'quarter', 'sessions', 'other_sessions', 'can_edit',
         ]
+
+    def get_can_edit(self, obj):
+        """
+        Whether the caller may edit this schedule and mark its attendance:
+        the offering's teacher for that quarter, the class's homeroom teacher,
+        or an admin role — the same rule the write endpoints enforce.
+        """
+        request = self.context.get('request')
+        if request is None:
+            return False
+        from apps.lesson.api.attendance_views import can_manage_schedule
+        return can_manage_schedule(request.user, obj)
 
     def get_type(self, obj):
         """'subject' for an offering's timetable, 'other' for a free entry."""
