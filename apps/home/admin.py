@@ -350,9 +350,55 @@ class AcademicYearAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = ("is_active", "archived")
 
 
+class ClassGroupEnrollmentFormSet(forms.BaseInlineFormSet):
+    """Turns enrollment save errors into form errors instead of a 500.
+
+    Django cannot do it for us here: the inline's FK is excluded from model
+    validation, so `validate_constraints()` skips any constraint naming
+    `class_group` (`unique_active_enrollment_per_class_group`), and
+    `Enrollment.save()` runs `validate_single_major` only after validation.
+    """
+
+    def clean(self):
+        super().clean()
+        seen = set()
+        active_forms = []
+        for form in self.forms:
+            if not form.cleaned_data or self._should_delete_form(form):
+                continue
+            student = form.cleaned_data.get('student')
+            if student is None or form.cleaned_data.get('status') != 'active':
+                continue
+            if student.pk in seen:
+                form.add_error('student', 'Этот ученик уже указан выше как активный.')
+                continue
+            seen.add(student.pk)
+            active_forms.append(form)
+
+        if not active_forms or self.instance.pk is None:
+            return
+        # Rows in this formset are judged by their submitted values, not their
+        # stored ones — one may be leaving 'active' or being deleted right now.
+        in_formset = {form.instance.pk for form in self.initial_forms}
+        taken = set(
+            Enrollment.objects.filter(
+                class_group=self.instance, status='active', student_id__in=seen,
+            ).exclude(pk__in=in_formset).values_list('student_id', flat=True)
+        )
+        for form in active_forms:
+            if form.cleaned_data['student'].pk in taken:
+                form.add_error('student', 'Ученик уже активно зачислен в эту группу.')
+                continue
+            try:
+                form.instance.validate_single_major()
+            except ValidationError as exc:
+                form.add_error('student', exc.messages)
+
+
 class ClassGroupEnrollmentInline(admin.TabularInline):
     """Enroll students straight from the class / subgroup page."""
     model = Enrollment
+    formset = ClassGroupEnrollmentFormSet
     extra = 0
     fields = ("student", "status", "start_date", "end_date")
     raw_id_fields = ("student",)
