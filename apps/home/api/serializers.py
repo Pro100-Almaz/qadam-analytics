@@ -473,10 +473,22 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
                     student_ids_seen.add(e.student.id)
                     students.append(e.student)
 
-        total_lessons = list(Lesson.objects.filter(offering__in=offerings))
+        # `quarter` (set by SubjectDetailAPIView) narrows the lesson count and
+        # the primary teacher to that quarter; offerings and students are
+        # year-long and stay as they are.
+        quarter = self.context.get('quarter')
+        lessons = Lesson.objects.filter(offering__in=offerings)
+        if quarter is not None:
+            lessons = lessons.filter(quarter=quarter)
+        total_lessons = list(lessons)
 
         primary_teacher = None
-        if offerings:
+        if offerings and quarter is not None:
+            assignment = offerings[0].teaching_assignments.filter(
+                role='primary', quarter=quarter,
+            ).select_related('teacher').order_by('-id').first()
+            primary_teacher = assignment.teacher if assignment else None
+        elif offerings:
             primary_teacher = offerings[0].get_primary_teacher()
 
         self._detail_cache = {

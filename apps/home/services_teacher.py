@@ -91,8 +91,14 @@ def get_lesson_teacher_dashboard(teacher):
     }
 
 
-def get_homeroom_dashboard(teacher):
-    """Dashboard for a homeroom teacher: their class students and cross-subject grades."""
+def get_homeroom_dashboard(teacher, *, quarter=None):
+    """
+    Dashboard for a homeroom teacher: their class students and cross-subject grades.
+
+    `quarter` narrows the averages to that quarter's lessons and each
+    offering's teachers to those assigned in it. Every offering of the class
+    is still listed, so the subject columns stay the same between quarters.
+    """
     year = _get_active_year()
     if not year:
         return {'class_group': None, 'students': []}
@@ -113,18 +119,22 @@ def get_homeroom_dashboard(teacher):
 
     students = [e.student for e in enrollments]
 
+    teaching_assignments = TeachingAssignment.objects.select_related(
+        'teacher__user',
+    ).order_by('id')
+    if quarter is not None:
+        teaching_assignments = teaching_assignments.filter(quarter=quarter)
+
     offerings = list(SubjectOffering.objects.filter(
         class_group=cg, class_group__academic_year=year,
     ).select_related('subject').prefetch_related(
-        Prefetch(
-            'teaching_assignments',
-            queryset=TeachingAssignment.objects.select_related(
-                'teacher__user',
-            ).order_by('id'),
-        ),
+        Prefetch('teaching_assignments', queryset=teaching_assignments),
     ).order_by('subject__name', 'id'))
 
-    all_lessons = list(Lesson.objects.filter(offering__in=offerings))
+    lessons = Lesson.objects.filter(offering__in=offerings)
+    if quarter is not None:
+        lessons = lessons.filter(quarter=quarter)
+    all_lessons = list(lessons)
     grades_map = get_cached_grades_bulk(all_lessons, students) if all_lessons and students else {}
 
     students_data = []
@@ -310,8 +320,13 @@ def get_psychologist_student_detail(student_id):
     }
 
 
-def get_teacher_classes(teacher, *, include_homeroom=False):
-    """Get all class groups a teacher is associated with (via offerings or homeroom)."""
+def get_teacher_classes(teacher, *, include_homeroom=False, quarter=None):
+    """
+    Get all class groups a teacher is associated with (via offerings or homeroom).
+
+    `quarter` narrows the offerings to those the teacher is assigned to in that
+    quarter. Homeroom classes are year-long, so they are kept whatever it is.
+    """
     year = _get_active_year()
     if not year:
         return []
@@ -322,7 +337,10 @@ def get_teacher_classes(teacher, *, include_homeroom=False):
         teacher=teacher,
         quarter__isnull=False,
         offering__class_group__academic_year=year,
-    ).select_related(
+    )
+    if quarter is not None:
+        assignments = assignments.filter(quarter=quarter)
+    assignments = assignments.select_related(
         'offering__class_group',
         'offering__class_group__grade_level',
         'offering__subject',
