@@ -69,6 +69,18 @@ class HomeroomMyClassAPIView(APIView):
     """GET /api/v1/homeroom/my-class/ — the homeroom class, its students and offerings (spec 0012)."""
     permission_classes = [IsAuthenticated, IsHomeroomTeacher]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                'quarter', int, enum=[1, 2, 3, 4],
+                description=(
+                    'Averages over this quarter\'s lessons and teachers '
+                    'assigned in it. Every offering is still listed. '
+                    'Anything else is a 400.'
+                ),
+            ),
+        ],
+    )
     def get(self, request):
         teacher = Teacher.objects.filter(user=request.user).first()
         if not teacher:
@@ -77,7 +89,10 @@ class HomeroomMyClassAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        data = get_homeroom_dashboard(teacher)
+        data = get_homeroom_dashboard(
+            teacher,
+            quarter=int_param(request.query_params, 'quarter', 1, 4),
+        )
         if not data.get('class_group'):
             return Response(
                 {'detail': 'No homeroom class assigned for the current year.'},
@@ -113,8 +128,10 @@ class TeacherOfferingListAPIView(APIView):
             OpenApiParameter(
                 'quarter', int, enum=[1, 2, 3, 4],
                 description=(
-                    'With include_empty=false, count only assignments and '
-                    'quarter grades of this quarter. Anything else is a 400.'
+                    'Only offerings the caller is assigned to in this '
+                    'quarter; with include_empty=false, count only '
+                    'assignments and quarter grades of this quarter too. '
+                    'Anything else is a 400.'
                 ),
             ),
         ],
@@ -160,7 +177,7 @@ class TeacherOfferingListAPIView(APIView):
             quarter__isnull=False,
         )
         if quarter is not None:
-            teaching_assignments = teaching_assignments.filter(quarter__gte=quarter)
+            teaching_assignments = teaching_assignments.filter(quarter=quarter)
         roles_by_offering = dict(
             teaching_assignments.order_by('quarter', 'id').values_list(
                 'offering_id', 'role',
@@ -245,6 +262,18 @@ class TeacherMyClassesAPIView(APIView):
     """GET /api/v1/teacher/my-classes/ — list of class groups the teacher is associated with."""
     permission_classes = [IsAuthenticated, IsStaffOrAdmin]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                'quarter', int, enum=[1, 2, 3, 4],
+                description=(
+                    'Only the offerings the caller is assigned to in this '
+                    'quarter. Homeroom classes are always included. Anything '
+                    'else is a 400.'
+                ),
+            ),
+        ],
+    )
     def get(self, request):
         teacher = Teacher.objects.filter(user=request.user).first()
         if not teacher:
@@ -255,6 +284,7 @@ class TeacherMyClassesAPIView(APIView):
         data = get_teacher_classes(
             teacher,
             include_homeroom=is_teacher_role(request.user),
+            quarter=int_param(request.query_params, 'quarter', 1, 4),
         )
         return Response(data)
 

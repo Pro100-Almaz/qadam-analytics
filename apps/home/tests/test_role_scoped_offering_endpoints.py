@@ -13,7 +13,7 @@ from django.urls import Resolver404, resolve, reverse
 from apps.home.models import HomeroomTeacherAssignment, QuarterGrade
 from core.factories import (
     AcademicYearFactory, AdminUserFactory, ClassGroupFactory, EnrollmentFactory,
-    StudentFactory, SubjectAssignmentFactory, SubjectFactory,
+    LessonFactory, StudentFactory, SubjectAssignmentFactory, SubjectFactory,
     SubjectOfferingFactory, TeacherFactory, TeachingAssignmentFactory,
 )
 
@@ -277,3 +277,73 @@ def test_ac7_homeroom_my_class_is_404_without_a_class(
 def test_ac8_old_routes_are_gone(path):
     with pytest.raises(Resolver404):
         resolve(path)
+
+
+# ── quarter matches the assignment's own quarter exactly ──
+
+def test_ac3_quarter_lists_only_offerings_assigned_in_that_quarter(
+    setup, authenticated_client,
+):
+    later = SubjectOfferingFactory(
+        subject=SubjectFactory(name='Biology'), class_group=setup['class_group'],
+    )
+    TeachingAssignmentFactory(teacher=setup['teacher'], offering=later, quarter=3)
+    client = authenticated_client(setup['teacher'].user)
+
+    first = client.get(offerings_url(), {'quarter': 1})
+    third = client.get(offerings_url(), {'quarter': 3})
+
+    assert [row['id'] for row in first.data['offerings']] == [setup['taught'].id]
+    assert [row['id'] for row in third.data['offerings']] == [later.id]
+
+
+# ── homeroom/my-class/?quarter= ──
+
+def test_ac9_homeroom_quarter_narrows_lessons_and_teachers(
+    setup, authenticated_client,
+):
+    make_homeroom_teacher(setup['teacher'], setup['class_group'])
+    EnrollmentFactory(student=StudentFactory(), class_group=setup['class_group'])
+    q2_teacher = TeacherFactory()
+    TeachingAssignmentFactory(
+        teacher=q2_teacher, offering=setup['taught'], quarter=2,
+    )
+    LessonFactory(offering=setup['taught'], quarter=2)
+    client = authenticated_client(setup['teacher'].user)
+
+    first = client.get(my_class_url(), {'quarter': 1})
+    second = client.get(my_class_url(), {'quarter': 2})
+
+    def taught(response, key):
+        rows = response.data[key] if key == 'offerings' else (
+            response.data['students'][0]['subjects']
+        )
+        return next(
+            row for row in rows
+            if row.get('id', row.get('offering_id')) == setup['taught'].id
+        )
+
+    assert first.status_code == second.status_code == 200
+    # Every offering is listed whatever the quarter.
+    assert len(first.data['offerings']) == len(second.data['offerings'])
+    assert taught(first, 'subjects')['average'] is None
+    assert taught(second, 'subjects')['average'] is not None
+    assert [t['id'] for t in taught(first, 'offerings')['teachers']] == [
+        setup['teacher'].id,
+    ]
+    assert [t['id'] for t in taught(second, 'offerings')['teachers']] == [
+        q2_teacher.id,
+    ]
+
+
+@pytest.mark.parametrize('quarter', ['0', '5', 'x'])
+def test_ac9_homeroom_invalid_quarter_is_400(
+    setup, authenticated_client, quarter,
+):
+    make_homeroom_teacher(setup['teacher'], setup['class_group'])
+
+    response = authenticated_client(setup['teacher'].user).get(
+        my_class_url(), {'quarter': quarter},
+    )
+
+    assert response.status_code == 400

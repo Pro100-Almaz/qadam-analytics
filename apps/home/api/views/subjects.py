@@ -1,5 +1,6 @@
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, DestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ from apps.home.models import (
     AcademicYear, Subject, SubjectOffering, TeachingAssignment, Enrollment,
 )
 from apps.home.services import get_subject_grades
+from apps.lesson.api.analytics_common import int_param
 from core.permissions import (
     IsTeacherRole, can_access_subject, can_modify_subject, is_admin_role,
     is_teacher_role,
@@ -139,6 +141,23 @@ class SubjectDetailAPIView(RetrieveAPIView):
         # would bake the school scope when the module loads.
         return Subject.objects.select_related('added_by')
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['quarter'] = int_param(self.request.query_params, 'quarter', 1, 4)
+        return context
+
+    @extend_schema(parameters=[
+        OpenApiParameter(
+            'quarter', int, enum=[1, 2, 3, 4],
+            description=(
+                'Count lessons and pick the primary teacher of this quarter '
+                'only. Anything else is a 400.'
+            ),
+        ),
+    ])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def check_object_permissions(self, request, obj):
         super().check_object_permissions(request, obj)
         if not can_access_subject(request.user, obj):
@@ -219,6 +238,9 @@ class MySubjectsListAPIView(ListAPIView):
         assignments = TeachingAssignment.objects.filter(
             teacher=teacher, quarter__isnull=False,
         ).select_related('offering__subject')
+        quarter = int_param(self.request.query_params, 'quarter', 1, 4)
+        if quarter is not None:
+            assignments = assignments.filter(quarter=quarter)
         subject_ids = set(a.offering.subject_id for a in assignments)
         qs = Subject.objects.filter(id__in=subject_ids)
         if status_filter != 'all':

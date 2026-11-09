@@ -5,7 +5,7 @@ title: Role-scoped offering endpoints for teachers and homeroom teachers
 status: in-progress
 owner: bekzhan
 created: 2026-10-05
-updated: 2026-10-21
+updated: 2026-11-09
 supersedes: 0010
 ---
 
@@ -63,8 +63,10 @@ nested under each student.
   offerings of their homeroom class that they do not teach.
 - **AC-3** — `include_empty=false` drops offerings that have neither a
   subject assignment nor a quarter grade. With `quarter=<1-4>` only
-  assignments and quarter grades of that quarter count; anything else for
-  `quarter` is a 400. The default for `include_empty` is `true`.
+  offerings the caller has a `TeachingAssignment` on in exactly that quarter
+  are listed, and only assignments and quarter grades of that quarter count;
+  anything else for `quarter` is a 400. The default for `include_empty` is
+  `true`.
 - **AC-4** — Each row carries `teaching_role` and no `access` or
   `is_homeroom_class` key.
 - **AC-5** — `teacher/offerings/` is 403 for a user outside the Teacher and
@@ -77,6 +79,9 @@ nested under each student.
   teacher with no class this year.
 - **AC-8** — Neither `/api/v1/teacher/my-class/` nor
   `/api/v1/analytics/assignment-offerings/` resolves.
+- **AC-9** — `homeroom/my-class/?quarter=<1-4>` still lists every offering
+  of the class, but averages only that quarter's lessons and lists only the
+  teachers assigned in that quarter; anything else for `quarter` is a 400.
 
 ## API contract
 
