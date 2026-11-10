@@ -894,23 +894,23 @@ class HomeworkSerializer(serializers.ModelSerializer):
         model = Homework
         fields = [
             'id', 'description', 'offering', 'class_group_id', 'subject_id',
-            'teaching_assignment', 'teacher', 'max_grade', 'due_date',
+            'teacher', 'quarter', 'max_grade', 'due_date',
             'is_active', 'attachments', 'created_at',
             'can_edit',
         ]
         read_only_fields = fields
 
     def get_teacher(self, obj):
-        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
-        if obj.teaching_assignment is None:
+        # NULL once the author themselves is purged (spec 0017, AC-3).
+        teacher = obj.created_by
+        if teacher is None:
             return None
-        teacher = obj.teaching_assignment.teacher
         return {'id': teacher.user_id, 'full_name': teacher.user.get_full_name()}
 
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.offering, getattr(obj, 'access_quarter', None),
+            request, obj.offering, obj.quarter,
         ))
 
 
@@ -959,6 +959,10 @@ class HomeworkCreateSerializer(serializers.Serializer):
     description = serializers.CharField()
     max_grade = serializers.IntegerField(min_value=1, max_value=100)
     due_date = serializers.DateField()
+    quarter = serializers.IntegerField(
+        min_value=1, max_value=4,
+        help_text='Quarter, 1-4. Required; never derived from `due_date`.',
+    )
     is_active = serializers.BooleanField(required=False, default=False)
     attachments = serializers.ListField(
         child=serializers.FileField(),
@@ -1014,9 +1018,16 @@ class HomeworkWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Homework
         fields = [
-            'description', 'max_grade', 'due_date', 'is_active',
+            'description', 'max_grade', 'due_date', 'quarter', 'is_active',
             'attachments', 'remove_attachments',
         ]
+        extra_kwargs = {
+            'quarter': {
+                'required': False, 'allow_null': False,
+                'min_value': 1, 'max_value': 4,
+                'help_text': 'Quarter, 1-4. Omit it to keep the stored one.',
+            },
+        }
 
     def validate(self, attrs):
         """
@@ -1071,8 +1082,7 @@ class HomeworkGradeSerializer(serializers.ModelSerializer):
     def get_can_edit(self, obj):
         request = self.context.get('request')
         return bool(request and request_can_write(
-            request, obj.homework.offering,
-            getattr(obj, 'access_quarter', None),
+            request, obj.homework.offering, obj.homework.quarter,
         ))
 
 

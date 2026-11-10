@@ -509,24 +509,24 @@ class SubjectGradeFactory(DjangoModelFactory):
 
 
 class HomeworkFactory(DjangoModelFactory):
-    """A homework; its save() also creates the SubjectAssignment mirror."""
+    """A homework; its save() also creates the SubjectAssignment mirror.
+
+    `teaching_assignment` is a factory parameter, not a field: the author,
+    offering and quarter default to the ones it names (spec 0017).
+    """
     class Meta:
         model = Homework
 
-    teaching_assignment = factory.SubFactory(TeachingAssignmentFactory)
+    class Params:
+        teaching_assignment = factory.SubFactory(TeachingAssignmentFactory)
+
+    created_by = factory.LazyAttribute(lambda o: o.teaching_assignment.teacher)
     offering = factory.LazyAttribute(lambda o: o.teaching_assignment.offering)
+    quarter = factory.LazyAttribute(lambda o: o.teaching_assignment.quarter)
     description = factory.Sequence(lambda n: f'Homework {n}')
     max_grade = 10
     due_date = factory.Faker('date_object')
     is_active = True
-
-    @classmethod
-    def _create(cls, model_class, *args, **kwargs):
-        homework = super()._create(model_class, *args, **kwargs)
-        SubjectAssignment.objects.filter(
-            category__code='homework', detail_id=homework.pk,
-        ).update(quarter=homework.teaching_assignment.quarter)
-        return homework
 
 
 class HomeworkGradeFactory(DjangoModelFactory):

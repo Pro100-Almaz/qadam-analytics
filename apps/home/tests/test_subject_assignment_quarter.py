@@ -1,7 +1,11 @@
 """
-Spec 0011 — SubjectAssignment.quarter: stored on the row, derived from the
-date when the client does not send one, and filterable on every assignment
-and subject-grade list. Each test is named after the AC it pins down.
+Spec 0011 — SubjectAssignment.quarter: stored on the row and filterable on
+every assignment and subject-grade list. Each test is named after the AC it
+pins down.
+
+AC-2, AC-4 and AC-7 (deriving the quarter from the date) were reversed by
+spec 0017; their replacements live in
+apps/lesson/tests/test_homework_created_by_quarter.py.
 """
 
 import datetime
@@ -13,7 +17,7 @@ from django.urls import reverse
 
 from apps.home.models import HomeroomTeacherAssignment, SubjectAssignment
 from core.factories import (
-    ClassGroupFactory, HomeworkFactory, SubjectAssignmentFactory,
+    ClassGroupFactory, SubjectAssignmentFactory,
     SubjectGradeFactory, SubjectOfferingFactory, TeacherFactory,
     TeachingAssignmentFactory, EnrollmentFactory,
 )
@@ -73,17 +77,6 @@ def test_ac1_response_carries_quarter(world, authenticated_client):
     assert response.data['quarter'] == 2
 
 
-def test_ac2_quarter_is_derived_from_date_when_omitted(world, authenticated_client):
-    client = authenticated_client(world['teacher'].user)
-
-    inside = create(client, world['offering'], date='2027-02-01')
-    between = create(client, world['offering'], date='2026-11-05')
-
-    assert inside.status_code == 201, inside.data
-    assert inside.data['quarter'] == 3
-    assert between.status_code == 403, between.data
-
-
 def test_ac3_explicit_quarter_overrides_the_date(world, authenticated_client):
     client = authenticated_client(world['teacher'].user)
 
@@ -105,47 +98,6 @@ def test_ac6_quarter_outside_1_to_4_is_rejected_on_write(world, authenticated_cl
 
     assert response.status_code == 400
     assert 'quarter' in response.data
-
-
-def test_ac4_patch_date_rederives_patch_quarter_sets_it(world, authenticated_client):
-    client = authenticated_client(world['teacher'].user)
-    assignment = SubjectAssignmentFactory(offering=world['offering'], date=D(2026, 9, 15))
-    assert assignment.quarter == 1
-
-    moved = client.patch(detail_url(assignment), {'date': '2027-04-10'}, format='json')
-    assert moved.status_code == 200, moved.data
-    assert moved.data['quarter'] == 4
-
-    set_ = client.patch(detail_url(assignment), {'quarter': 3}, format='json')
-    assert set_.status_code == 200, set_.data
-    assert set_.data['quarter'] == 3
-
-    both = client.patch(
-        detail_url(assignment), {'date': '2026-09-20', 'quarter': 2}, format='json',
-    )
-    assert both.status_code == 200, both.data
-    assert both.data['quarter'] == 2
-
-
-def test_ac7_homework_due_date_change_rederives_mirror_quarter(world):
-    homework = HomeworkFactory(
-        teaching_assignment=world['teaching_assignment'], due_date=D(2026, 9, 15),
-    )
-    mirror = SubjectAssignment.objects.get(detail_id=homework.pk, category__code='homework')
-    assert mirror.quarter == 1
-
-    homework.due_date = D(2026, 12, 1)
-    homework.save()
-    mirror.refresh_from_db()
-    assert mirror.quarter == 2
-
-    # Any other edit keeps a quarter set on the assignment by hand.
-    mirror.quarter = 3
-    mirror.save(sync=False)
-    homework.description = 'renamed'
-    homework.save()
-    mirror.refresh_from_db()
-    assert mirror.quarter == 3
 
 
 @pytest.fixture

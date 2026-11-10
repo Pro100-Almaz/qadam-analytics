@@ -831,11 +831,11 @@ def _max_grade_field(**kwargs):
     )
 
 
-def _quarter_field():
+def _quarter_field(required):
     return serializers.IntegerField(
-        min_value=1, max_value=4, required=False,
-        help_text='Quarter, 1-4. Omit it to derive it from `date` and the '
-                  'academic year\'s quarter bounds.',
+        min_value=1, max_value=4, required=required,
+        help_text='Quarter, 1-4. Never derived from `date`. '
+                  + ('Required.' if required else 'Omit it to keep the stored one.'),
     )
 
 
@@ -897,7 +897,7 @@ class SubjectAssignmentCreateSerializer(serializers.ModelSerializer):
     date = serializers.DateField(
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
-    quarter = _quarter_field()
+    quarter = _quarter_field(required=True)
     is_active = serializers.BooleanField(
         required=False, default=True,
         help_text='False keeps it a draft, hidden from students and parents.',
@@ -928,7 +928,7 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         required=False,
         help_text='The day this assignment took place, YYYY-MM-DD.',
     )
-    quarter = _quarter_field()
+    quarter = _quarter_field(required=False)
     is_active = serializers.BooleanField(required=False)
 
     class Meta:
@@ -950,10 +950,6 @@ class SubjectAssignmentWriteSerializer(serializers.ModelSerializer):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         max_grade = attrs.get('max_grade', getattr(self.instance, 'max_grade', None))
         _check_homework_max_grade(category, max_grade)
-        if 'date' in attrs and 'quarter' not in attrs:
-            # A new date without a quarter: let save() derive it again rather
-            # than keep the quarter of the old date.
-            attrs['quarter'] = None
         return attrs
 
     def validate_max_grade(self, max_grade):

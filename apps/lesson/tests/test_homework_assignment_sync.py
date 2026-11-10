@@ -87,7 +87,7 @@ def test_ac13_bulk_homework_create_mirrors_every_offering(
     response = authenticated_client(teacher.user).post(HOMEWORK_CREATE_URL, {
         'offerings': [teaching_assignment.offering_id, second.offering_id],
         'description': 'Exercises 1-10', 'max_grade': 20,
-        'due_date': '2026-10-07', 'is_active': True,
+        'due_date': '2026-10-07', 'quarter': 1, 'is_active': True,
     }, format='json')
 
     assert response.status_code == 201, response.data
@@ -131,13 +131,13 @@ def test_ac16_homework_category_assignment_creates_the_homework(
 ):
     response = authenticated_client(teacher.user).post(ASSIGNMENTS_URL, {
         'offering': teaching_assignment.offering_id, 'title': 'Essay',
-        'max_grade': 25, 'date': '2026-10-10', 'category': 'homework',
-        'is_active': False,
+        'max_grade': 25, 'date': '2026-10-10', 'quarter': 1,
+        'category': 'homework', 'is_active': False,
     }, format='json')
 
     assert response.status_code == 201, response.data
     homework = Homework.objects.get(pk=response.data['detail_id'])
-    assert homework.teaching_assignment_id == teaching_assignment.pk
+    assert homework.created_by_id == teaching_assignment.teacher_id
     assert homework.description == 'Essay'
     assert homework.is_active is False
     assert response.data['id'] == assert_mirrors(homework).pk
@@ -148,7 +148,8 @@ def test_ac16_homework_category_max_grade_is_capped_at_100(
 ):
     response = authenticated_client(teacher.user).post(ASSIGNMENTS_URL, {
         'offering': teaching_assignment.offering_id, 'title': 'Essay',
-        'max_grade': 101, 'date': '2026-10-10', 'category': 'homework',
+        'max_grade': 101, 'date': '2026-10-10', 'quarter': 1,
+        'category': 'homework',
     }, format='json')
 
     assert response.status_code == 400
@@ -258,7 +259,10 @@ def test_ac22_sync_command_detects_and_fixes_drift(homework, pupil, capsys):
     # (QuerySet.delete() is soft since spec 0014 and takes the mirror along).
     SubjectAssignment.objects.filter(pk=mirror(homework).pk).update(title='drifted')
     SubjectGrade.objects.filter(assignment=mirror(homework)).update(grade=1)
-    gone = HomeworkFactory(teaching_assignment=homework.teaching_assignment)
+    gone = HomeworkFactory(
+        created_by=homework.created_by, offering=homework.offering,
+        quarter=homework.quarter,
+    )
     Homework._base_manager.filter(pk=gone.pk).delete()
 
     with pytest.raises(CommandError):

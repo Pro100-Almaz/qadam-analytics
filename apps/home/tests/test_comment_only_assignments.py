@@ -77,7 +77,7 @@ def comment_only(world, **kwargs):
 def create(client, offering, **body):
     payload = {
         'offering': offering.id, 'title': 'Essay feedback',
-        'date': '2026-09-15', **body,
+        'date': '2026-09-15', 'quarter': 1, **body,
     }
     return client.post(ASSIGNMENTS_URL, payload, format='json')
 

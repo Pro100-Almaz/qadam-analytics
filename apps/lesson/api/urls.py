@@ -207,7 +207,7 @@ urlpatterns = [
 
     # GET    /api/v1/homeworks/<pk>/  single homework
     # PUT    /api/v1/homeworks/<pk>/  replace description / max_grade / due_date /
-    #                                 is_active, plus attachment add/remove
+    #                                 quarter / is_active, plus attachment add/remove
     # DELETE /api/v1/homeworks/<pk>/  delete homework
     path(
         'homeworks/<int:pk>/',
