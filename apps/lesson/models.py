@@ -8,7 +8,7 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from simple_history.models import HistoricalRecords
 
-from apps.home.models import ClassGroup, SubjectOffering, TeachingAssignment
+from apps.home.models import ClassGroup, SubjectOffering
 from core.models import (
     SchoolConsistentModel, SchoolDerivedMixin, SoftDeleteMixin,
     live_unique_constraint,
@@ -469,15 +469,22 @@ class ScheduleAttendance(SoftDeleteMixin, SchoolConsistentModel):
 
 class Homework(SoftDeleteMixin, SchoolConsistentModel):
     SCHOOL_PATH = 'offering__school'
-    SCHOOL_CONSISTENT_FIELDS = ('offering', 'teaching_assignment')
+    SCHOOL_CONSISTENT_FIELDS = ('offering', 'created_by')
 
     description = models.TextField()
     offering = models.ForeignKey(SubjectOffering, on_delete=models.CASCADE, related_name='homeworks')
-    #: SET_NULL (spec 0014): a homework outlives the teacher's assignment to
-    #: the offering, with its grades and files.
-    teaching_assignment = models.ForeignKey(
-        TeachingAssignment, on_delete=models.SET_NULL, related_name='homeworks',
+    #: The author. SET_NULL: a homework outlives its teacher, with its grades
+    #: and files (spec 0017).
+    created_by = models.ForeignKey(
+        'authentication.Teacher', on_delete=models.SET_NULL,
+        related_name='homeworks', null=True, blank=True,
+    )
+    #: 1-4, set by the client and mirrored with the SubjectAssignment's
+    #: quarter (spec 0017) — never derived from `due_date`. NULL only on
+    #: legacy rows that had no quarter at all.
+    quarter = models.PositiveSmallIntegerField(
         null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
     )
     max_grade = models.PositiveIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(100)],

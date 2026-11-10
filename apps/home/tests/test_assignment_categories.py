@@ -67,7 +67,7 @@ def test_ac1_admin_added_category_is_shared_by_every_school(
 
     response = authenticated_client(teacher.user).post(ASSIGNMENTS_URL, {
         'offering': teaching_assignment.offering_id, 'title': 'Poster',
-        'max_grade': 20, 'date': '2026-10-01', 'category': 'project',
+        'max_grade': 20, 'date': '2026-10-01', 'quarter': 1, 'category': 'project',
     }, format='json')
     assert response.status_code == 201, response.data
     assert response.data['category'] == 'project'
@@ -149,7 +149,7 @@ def test_ac5_category_is_a_code_on_the_wire_and_filters_by_code(
 def test_ac5_create_defaults_to_lesson(teacher, teaching_assignment, authenticated_client):
     response = authenticated_client(teacher.user).post(ASSIGNMENTS_URL, {
         'offering': teaching_assignment.offering_id, 'title': 'Classwork',
-        'max_grade': 10, 'date': '2026-10-01',
+        'max_grade': 10, 'date': '2026-10-01', 'quarter': 1,
     }, format='json')
 
     assert response.status_code == 201, response.data

@@ -61,15 +61,16 @@ def test_ac7_teaching_assignment_delete_keeps_homework(
 
     homework.refresh_from_db()
     assert not TeachingAssignment._base_manager.filter(pk=teaching_assignment.pk).exists()
-    assert homework.teaching_assignment_id is None
     assert not homework.is_deleted
 
+    # Since spec 0017 (AC-2) the author survives the assignment's purge.
+    assert homework.created_by_id == teaching_assignment.teacher_id
     response = authenticated_client(admin_user).get(
         reverse('lesson-api:homework-detail', args=[homework.pk]),
     )
     assert response.status_code == 200
-    assert response.data['teaching_assignment'] is None
-    assert response.data['teacher'] is None
+    assert 'teaching_assignment' not in response.data
+    assert response.data['teacher']['id'] == teaching_assignment.teacher.user_id
 
 
 def test_ac8_homework_files_kept_until_purge(

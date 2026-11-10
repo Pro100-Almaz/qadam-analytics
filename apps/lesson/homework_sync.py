@@ -26,10 +26,9 @@ Field map:
     Homework.max_grade    <-> SubjectAssignment.max_grade
     Homework.due_date     <-> SubjectAssignment.date
     Homework.is_active    <-> SubjectAssignment.is_active
+    Homework.quarter      <-> SubjectAssignment.quarter (spec 0017; never
+                              derived from the date on either side)
     Homework.offering      -> SubjectAssignment.offering (fixed after creation)
-    Homework.due_date      -> SubjectAssignment.quarter, re-derived whenever the
-                              date moves; Homework has no quarter of its own, so
-                              a quarter set on the assignment stays until then.
 
     HomeworkGrade.grade / comments <-> SubjectGrade.grade / comments,
     matched on (homework <-> assignment.detail_id, student).
@@ -72,6 +71,7 @@ def _assignment_fields(homework):
         'max_grade': homework.max_grade,
         'date': homework.due_date,
         'is_active': homework.is_active,
+        'quarter': homework.quarter,
     }
 
 
@@ -82,8 +82,6 @@ def assignment_from_homework(homework):
         assignment = SubjectAssignment(
             category=homework_category(), detail_id=homework.pk,
         )
-    elif assignment.date != homework.due_date:
-        assignment.quarter = None  # save() derives it again from the new date
     for field, value in _assignment_fields(homework).items():
         setattr(assignment, field, value)
     assignment.save(sync=False)
@@ -97,34 +95,30 @@ def homework_from_assignment(assignment):
     homework.max_grade = assignment.max_grade
     homework.due_date = assignment.date
     homework.is_active = assignment.is_active
+    homework.quarter = assignment.quarter
     homework.save(sync=False)
     return homework
 
 
 def create_homework_with_assignment(
-    *, offering, teaching_assignment, title, max_grade, date, is_active=True,
-    quarter=None,
+    *, offering, created_by, title, max_grade, date, quarter, is_active=True,
 ):
     """
     The POST subject-assignments/ path for category `homework`: the Homework
     is created first, and its save() creates the mirror, which is returned.
-    `quarter` overrides the one derived from `date`.
     """
     with transaction.atomic():
         homework = Homework(
             offering=offering,
-            teaching_assignment=teaching_assignment,
+            created_by=created_by,
             description=title,
             max_grade=max_grade,
             due_date=date,
+            quarter=quarter,
             is_active=is_active,
         )
         homework.save()
-        assignment = mirror_of(homework.pk)
-        if quarter is not None and assignment.quarter != quarter:
-            assignment.quarter = quarter
-            assignment.save(sync=False)
-        return assignment
+        return mirror_of(homework.pk)
 
 
 def assignments_from_homeworks(homeworks):

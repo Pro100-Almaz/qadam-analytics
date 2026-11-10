@@ -90,31 +90,31 @@ class HomeworkGradeInline(admin.TabularInline):
 @admin.register(Homework)
 class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
-        'short_description', 'offering', 'teacher', 'due_date',
+        'short_description', 'offering', 'teacher', 'quarter', 'due_date',
         'max_grade', 'is_active', 'grade_count',
     )
     list_filter = (
-        'is_active', 'due_date', 'offering__class_group__academic_year',
+        'is_active', 'quarter', 'due_date', 'offering__class_group__academic_year',
         'offering__subject', 'offering__class_group',
     )
     search_fields = (
         'description',
         'offering__subject__name',
-        'teaching_assignment__teacher__user__first_name',
-        'teaching_assignment__teacher__user__last_name',
+        'created_by__user__first_name',
+        'created_by__user__last_name',
     )
     date_hierarchy = 'due_date'
     ordering = ('-due_date', '-id')
-    autocomplete_fields = ('offering', 'teaching_assignment')
+    autocomplete_fields = ('offering', 'created_by')
     readonly_fields = ('created_at',)
     inlines = [HomeworkAttachmentInline, HomeworkGradeInline]
 
     fieldsets = (
         (None, {
-            'fields': ('description', 'offering', 'teaching_assignment')
+            'fields': ('description', 'offering', 'created_by')
         }),
         ('Settings', {
-            'fields': ('max_grade', 'due_date', 'is_active', 'created_at')
+            'fields': ('quarter', 'max_grade', 'due_date', 'is_active', 'created_at')
         }),
     )
 
@@ -122,7 +122,7 @@ class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'offering', 'offering__subject', 'offering__class_group',
             'offering__class_group__academic_year',
-            'teaching_assignment__teacher__user',
+            'created_by__user',
         ).annotate(_grade_count=Count('grades', filter=Q(grades__is_deleted=False)))
 
     @admin.display(description='Description', ordering='description')
@@ -131,10 +131,10 @@ class HomeworkAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
     @admin.display(description='Teacher')
     def teacher(self, obj):
-        # NULL once the teacher's assignment is purged (spec 0014, AC-7).
-        if obj.teaching_assignment is None:
+        # NULL once the teacher themselves is purged (spec 0017, AC-3).
+        if obj.created_by is None:
             return '—'
-        return obj.teaching_assignment.teacher
+        return obj.created_by
 
     @admin.display(description='Grades', ordering='_grade_count')
     def grade_count(self, obj):

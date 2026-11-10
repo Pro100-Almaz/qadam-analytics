@@ -810,10 +810,9 @@ class SubjectAssignment(SoftDeleteMixin, models.Model):
         AssignmentCategory, on_delete=models.PROTECT, related_name='assignments',
     )
     date = models.DateField()
-    #: 1-4. Stored, not computed on read, so a later edit of the year's quarter
-    #: bounds does not move existing work. save() fills it from `date` when it
-    #: is empty; None means the date is outside every quarter of the year (or
-    #: the year has no bounds yet).
+    #: 1-4, set by the client and never derived from `date` (spec 0017): the
+    #: quarter and the date are independent. None only on legacy rows. A
+    #: homework's mirror carries its Homework's quarter.
     quarter = models.PositiveSmallIntegerField(
         null=True, blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(4)],
@@ -920,17 +919,10 @@ class SubjectAssignment(SoftDeleteMixin, models.Model):
             self.validate_detail()
             self.validate_max_grade()
 
-    def derive_quarter(self):
-        """The quarter `date` falls in, by the offering's academic year bounds."""
-        year = self.offering.academic_year if self.offering_id else None
-        return year.quarter_of(self.date) if year is not None else None
-
     def save(self, *args, sync=True, **kwargs):
         """`sync=False` is for the homework sync itself, so a write never echoes back."""
         self.validate_detail()
         self.validate_max_grade()
-        if self.quarter is None:
-            self.quarter = self.derive_quarter()
         with transaction.atomic():
             super().save(*args, **kwargs)
             if sync and self.is_homework:

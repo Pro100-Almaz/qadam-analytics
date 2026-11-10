@@ -185,7 +185,8 @@ def build_world(school, marker):
         created[Topic] = topic
         created[TopicGrade] = f.TopicGradeFactory(topic=topic, student=student)
         homework = Homework.objects.create(
-            offering=offering, teaching_assignment=assignment,
+            offering=offering, created_by=assignment.teacher,
+            quarter=assignment.quarter,
             description=f'Homework {marker}', max_grade=10,
             due_date=datetime.date.today() + datetime.timedelta(days=7))
         created[Homework] = homework

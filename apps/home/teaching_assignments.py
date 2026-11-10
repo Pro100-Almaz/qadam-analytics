@@ -33,20 +33,6 @@ def teacher_can_write(user, offering, quarter):
     ) is not None
 
 
-def quarter_for_date_or_single_assignment(user, offering, day):
-    """Resolve legacy date-only writes without granting ambiguous authority."""
-    quarter = offering.academic_year.quarter_of(day)
-    if quarter is not None:
-        return quarter
-    teacher = Teacher.objects.filter(user=user).first()
-    if teacher is None:
-        return None
-    quarters = list(TeachingAssignment.objects.filter(
-        teacher=teacher, offering=offering, quarter__isnull=False,
-    ).values_list('quarter', flat=True)[:2])
-    return quarters[0] if len(quarters) == 1 else None
-
-
 def request_can_write(request, offering, quarter):
     """Serializer-friendly exact-quarter check cached once per request."""
     if quarter is None or offering.academic_year.archived:

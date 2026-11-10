@@ -54,8 +54,7 @@ from apps.home.models import (
     SubjectOffering, TeachingAssignment,
 )
 from apps.home.teaching_assignments import (
-    assignment_for, quarter_for_date_or_single_assignment,
-    restrict_to_teacher_quarters,
+    assignment_for, restrict_to_teacher_quarters,
 )
 from core.error_messages import (
     HOMEWORK_ASSIGNMENT_DELETE, NO_PERMISSION, OWN_OFFERINGS_ONLY,
@@ -433,9 +432,8 @@ class SubjectAssignmentListCreateAPIView(APIView):
         responses={201: SubjectAssignmentSerializer},
         description=(
             'Creates an assignment. The caller must be an assigned teacher of '
-            'the target offering, otherwise the request is a 403. `quarter` '
-            'is optional: without it the quarter is derived from `date`, and '
-            'is null when the date is outside every quarter of the year.'
+            'the target offering for `quarter`, otherwise the request is a '
+            '403. `quarter` is required and is never derived from `date`.'
         ),
     )
     def post(self, request):
@@ -444,12 +442,7 @@ class SubjectAssignmentListCreateAPIView(APIView):
 
         data = serializer.validated_data
         offering = data['offering']
-        quarter = data.get('quarter')
-        if quarter is None:
-            quarter = quarter_for_date_or_single_assignment(
-                request.user, offering, data['date'],
-            )
-            data['quarter'] = quarter
+        quarter = data['quarter']
         teaching_assignment = teacher_assignment_for(
             request.user, offering, quarter,
         )
@@ -464,12 +457,12 @@ class SubjectAssignmentListCreateAPIView(APIView):
             from apps.lesson.homework_sync import create_homework_with_assignment
             assignment = create_homework_with_assignment(
                 offering=offering,
-                teaching_assignment=teaching_assignment,
+                created_by=teaching_assignment.teacher,
                 title=data['title'],
                 max_grade=data['max_grade'],
                 date=data['date'],
                 is_active=data['is_active'],
-                quarter=data.get('quarter'),
+                quarter=quarter,
             )
         else:
             assignment = serializer.save()
@@ -485,7 +478,7 @@ class SubjectAssignmentDetailAPIView(APIView):
     PATCH  subject-assignments/<pk>/  — change title / category / max_grade /
                                        date / quarter / is_active
 
-    A PATCH that moves `date` without sending `quarter` re-derives the quarter.
+    A PATCH without `quarter` keeps the stored one, even when `date` moves.
     DELETE subject-assignments/<pk>/  — delete it, cascading to its grades
 
     On a homework assignment PATCH reaches the Homework behind it too, and
@@ -521,12 +514,7 @@ class SubjectAssignmentDetailAPIView(APIView):
             context={'request': request},
         )
         serializer.is_valid(raise_exception=True)
-        new_date = serializer.validated_data.get('date', assignment.date)
         new_quarter = serializer.validated_data.get('quarter', assignment.quarter)
-        if new_quarter is None:
-            new_quarter = quarter_for_date_or_single_assignment(
-                request.user, assignment.offering, new_date,
-            )
         if teacher_assignment_for(
             request.user, assignment.offering, new_quarter,
         ) is None:
