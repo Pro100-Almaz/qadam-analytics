@@ -8,8 +8,10 @@ class only in Q1 still sees it listed when the frontend asks for Q2.
 import pytest
 from django.urls import reverse
 
+from apps.home.models import ClassGroup
 from core.factories import (
-    ClassGroupFactory, SubjectOfferingFactory, TeachingAssignmentFactory,
+    ClassGroupFactory, MinorClassGroupFactory, SubjectOfferingFactory,
+    TeachingAssignmentFactory,
 )
 
 
@@ -50,3 +52,20 @@ def test_invalid_quarter_is_rejected(quarter, teacher, authenticated_client):
     response = authenticated_client(teacher.user).get(URL, {'quarter': quarter})
 
     assert response.status_code == 400
+
+
+def test_each_class_reports_its_class_group_type(teacher, academic_year, authenticated_client):
+    major = ClassGroupFactory(academic_year=academic_year)
+    minor = MinorClassGroupFactory(academic_year=academic_year)
+    for cg in (major, minor):
+        TeachingAssignmentFactory(
+            teacher=teacher, offering=SubjectOfferingFactory(class_group=cg), quarter=2,
+        )
+
+    response = authenticated_client(teacher.user).get(URL, {'quarter': 2})
+
+    assert response.status_code == 200
+    assert {row['class_group_id']: row['class_group_type'] for row in response.data} == {
+        major.id: ClassGroup.MAJOR_CHOICE,
+        minor.id: ClassGroup.MINOR_CHOICE,
+    }
