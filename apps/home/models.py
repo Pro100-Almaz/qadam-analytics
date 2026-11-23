@@ -428,6 +428,30 @@ class SubjectOffering(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
     def academic_year_id(self):
         return self.class_group.academic_year_id
 
+    def save(self, *args, **kwargs):
+        """Saving a new class group moves the offering's schedules with it (spec 0018)."""
+        previous_class_group_id = None
+        if self.pk is not None:
+            previous_class_group_id = (
+                type(self).unscoped.filter(pk=self.pk)
+                .values_list('class_group_id', flat=True).first()
+            )
+        moved = (
+            previous_class_group_id is not None
+            and previous_class_group_id != self.class_group_id
+        )
+        if not moved:
+            return super().save(*args, **kwargs)
+
+        from apps.lesson.models import SubjectSchedule
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            # Every schedule, soft-deleted ones included, so a restore cannot
+            # bring back a row in the old class group.
+            SubjectSchedule.unscoped.filter(offering=self).update(
+                class_group_id=self.class_group_id,
+            )
+
     def __str__(self):
         return f"{self.subject} - {self.class_group} ({self.academic_year})"
 

@@ -9,6 +9,7 @@ import pytest
 from django.urls import reverse
 
 from apps.home.models import ClassGroup, ClassGroupCollection
+from apps.lesson.models import SubjectSchedule
 from core.factories import (
     AdminUserFactory, ClassGroupFactory, MinorClassGroupFactory, SubjectFactory,
     SubjectOfferingFactory, SubjectScheduleFactory,
@@ -146,7 +147,10 @@ def test_rows_predating_the_class_group_field_are_still_matched(admin_api_client
     offering = SubjectOfferingFactory(
         subject=SubjectFactory(name='Математика'), class_group=major_a,
     )
-    legacy = SubjectScheduleFactory(offering=offering, class_group=None, quarter=1)
+    legacy = SubjectScheduleFactory(offering=offering, quarter=1)
+    # save() now fills class_group from the offering, so recreate the legacy
+    # NULL directly.
+    SubjectSchedule.unscoped.filter(pk=legacy.pk).update(class_group=None)
 
     response = admin_api_client.get(SCHEDULES_URL, {'class_group': major_a.id})
 

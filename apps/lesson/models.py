@@ -392,6 +392,28 @@ class SubjectSchedule(SoftDeleteMixin, SchoolDerivedMixin, models.Model):
             ),
         ]
 
+    def save(self, *args, **kwargs):
+        """An offering-bound schedule sits in its offering's class group (spec 0018).
+
+        Whatever `class_group` was set is overwritten, so no write path — API,
+        admin, scripts, factories — can store a disagreement. The exception is
+        a class group from another school: that is left in place for the
+        tenancy check in `super().save()` to reject, not quietly repaired.
+        """
+        if self.offering_id is not None:
+            class_group_id = self.offering.class_group_id
+            given = self.class_group if self.class_group_id is not None else None
+            cross_school = (
+                given is not None and given.school_id != self.offering.school_id
+            )
+            if self.class_group_id != class_group_id and not cross_school:
+                self.class_group_id = class_group_id
+                # A partial save has to write the corrected column too.
+                update_fields = kwargs.get('update_fields')
+                if update_fields is not None and 'class_group' not in update_fields:
+                    kwargs['update_fields'] = list(update_fields) + ['class_group']
+        super().save(*args, **kwargs)
+
     def __str__(self):
         if self.offering:
             return f"{self.offering} - {self.quarter}"
