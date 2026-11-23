@@ -19,7 +19,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.authentication.models import Student
 from core.error_messages import NO_ACCESS_STUDENT
 from core.permissions import (
-    IsTeacherAdminOrSupervisor, can_view_student, CanAccessStudent,
+    IsTeacherAdminOrSupervisor, can_view_student,
 )
 
 
@@ -96,7 +96,12 @@ class GenerateReportView(GenericAPIView):
 
 
 class ReportDetailView(RetrieveAPIView):
-    permission_classes = [CanAccessStudent]
+    # The object here is a StudentReport, not a Student, so CanAccessStudent
+    # cannot guard it: it handed the report to can_access_student(), which
+    # crashed for teachers and students and compared a parent's children
+    # against the *report's* pk. Access is checked against report.student,
+    # with the same rule as the list endpoint.
+    permission_classes = [IsAuthenticated]
     serializer_class = StudentReportSerializer
 
     def get_queryset(self):
@@ -106,6 +111,12 @@ class ReportDetailView(RetrieveAPIView):
             'student__user', 'student__school_group',
             'academic_year', 'generated_by',
         )
+
+    def get_object(self):
+        report = super().get_object()
+        if not can_view_student(self.request.user, report.student):
+            raise PermissionDenied(NO_ACCESS_STUDENT)
+        return report
 
 
 class StudentReportListView(ListAPIView):

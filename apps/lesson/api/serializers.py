@@ -714,9 +714,12 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    # Optional here because an offering supplies it; validate() requires it
+    # for a free entry.
     class_group = ScopedPrimaryKeyRelatedField(
         ClassGroup,
         select_related=('grade_level', 'academic_year',),
+        required=False,
     )
 
     class Meta:
@@ -742,10 +745,10 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
         quarter. On a PATCH the fields already stored count too — a request that
         only changes the quarter must not have to resend them.
 
-        `class_group` is required, but an offering already names one: when the
-        offering is given and the class group is not, it is filled in from the
-        offering. Sending both means they must agree — a schedule cannot sit in
-        one class group while its offering is taught to another.
+        An offering-bound schedule's class group is always its offering's
+        (spec 0018): whatever `class_group` the request sends, or the row has
+        stored, is replaced by the offering's. Only a free entry takes
+        `class_group` from the request, and there it is required.
         """
         offering = attrs.get('offering', getattr(self.instance, 'offering', None))
         description = attrs.get(
@@ -757,16 +760,10 @@ class SubjectScheduleWriteSerializer(serializers.ModelSerializer):
         )
 
         if offering is not None:
-            if 'class_group' not in attrs:
-                # Derive from the offering: on create there is nothing stored
-                # yet, and on a PATCH that moves the schedule to another
-                # offering the stored class group would go stale.
-                class_group = offering.class_group
-                attrs['class_group'] = class_group
-            elif class_group is not None and class_group != offering.class_group:
-                raise serializers.ValidationError(
-                    {'class_group': "Must match the offering's class group."}
-                )
+            # The offering wins on create, on a PATCH that moves the schedule
+            # to another offering, and on a PATCH that sends only class_group.
+            class_group = offering.class_group
+            attrs['class_group'] = class_group
 
         if class_group is None:
             raise serializers.ValidationError({'class_group': 'This field is required.'})
