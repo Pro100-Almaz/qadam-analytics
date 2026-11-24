@@ -14,10 +14,12 @@ from apps.home.models import (
     AcademicYear, ClassGroup, SubjectOffering, TeachingAssignment, Enrollment,
     QuarterGrade,
 )
-from apps.home.services import get_students_for_role
+from apps.home.services import build_student_overview, get_students_for_role
 from core.permissions import (
-    can_access_student, can_view_student, IsPsychologist, CanModifyStudent,
+    can_access_student, can_view_student, can_view_student_overview,
+    IsPsychologist, CanModifyStudent,
 )
+from core.pagination import StudentListPagination
 from core.error_messages import NO_ACCESS_STUDENT, STUDENT_NOT_FOUND
 
 from apps.home.api.permissions import (
@@ -32,6 +34,8 @@ from apps.home.api.serializers import (
     StudentMySubjectSerializer,
     StudentMyTeacherSerializer,
     StudentClassmateSerializer,
+    StudentOverviewQuerySerializer,
+    psychological_state_record,
 )
 
 
@@ -62,6 +66,46 @@ class StudentDetailAPIView(RetrieveAPIView):
             self.permission_denied(request, message=(
                 NO_ACCESS_STUDENT
             ))
+
+
+class StudentOverviewAPIView(APIView):
+    """
+    GET students/<user_id>/overview/?quarter=N — one student's quarter at a
+    glance, with the flags that need attention (spec 0019). Narrower than the
+    detail view: see can_view_student_overview.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        params = StudentOverviewQuerySerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        student = get_object_or_404(Student.objects.select_related('user'), user_id=pk)
+        if not can_view_student_overview(request.user, student):
+            return Response({'detail': NO_ACCESS_STUDENT}, status=status.HTTP_403_FORBIDDEN)
+        return Response(build_student_overview(student, params.validated_data.get('quarter')))
+
+
+class StudentPsychologicalStateListAPIView(ListAPIView):
+    """
+    GET students/<student_pk>/psychological-states/?name= — the history,
+    newest first, paginated (spec 0019). Same access as the detail view.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StudentListPagination
+
+    def get_queryset(self):
+        student = get_object_or_404(Student, pk=self.kwargs['pk'])
+        if not can_view_student(self.request.user, student):
+            self.permission_denied(self.request, message=NO_ACCESS_STUDENT)
+        states = PsychologicalState.objects.filter(
+            student=student,
+        ).select_related('added_by').order_by('-time_added', '-id')
+        name = self.request.query_params.get('name')
+        return states.filter(name=name) if name else states
+
+    def list(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.get_queryset())
+        return self.get_paginated_response([psychological_state_record(s) for s in page])
 
 
 class StudentProfileUpdateAPIView(APIView):

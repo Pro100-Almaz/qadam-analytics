@@ -39,6 +39,14 @@ urlpatterns = [
     path('students/', views.StudentListAPIView.as_view(), name='student-list'),
     path('students/<int:pk>/', views.StudentDetailAPIView.as_view(), name='student-detail'),
     path('students/<int:pk>/update/', views.StudentProfileUpdateAPIView.as_view(), name='student-update'),
+    # GET /api/v1/students/<user_id>/overview/?quarter=N  (spec 0019)
+    path('students/<int:pk>/overview/', views.StudentOverviewAPIView.as_view(), name='student-overview'),
+    # GET /api/v1/students/<student_pk>/psychological-states/?name=  (spec 0019)
+    path(
+        'students/<int:pk>/psychological-states/',
+        views.StudentPsychologicalStateListAPIView.as_view(),
+        name='student-psychological-states',
+    ),
     path(
         'students/<int:pk>/psychological-state/',
         views.PsychologicalStateCreateAPIView.as_view(),

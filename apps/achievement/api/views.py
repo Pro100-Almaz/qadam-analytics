@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from apps.achievement.models import Achievement, Attachment, ClubEntry, ReadingEntry
 from apps.authentication.models import Student
+from core.pagination import StudentListPagination
 from core.permissions import can_access_student, can_view_student
 from core.error_messages import (
     NO_ACCESS_STUDENT, NO_MODIFY_ACHIEVEMENT, NO_MODIFY_READING,
@@ -63,8 +64,13 @@ class AchievementListCreateAPIView(APIView):
         if category:
             qs = qs.filter(category=category)
 
-        serializer = AchievementListSerializer(qs, many=True, context={"request": request})
-        return Response(serializer.data)
+        # `-id` breaks created_at ties so pages never overlap (spec 0019).
+        paginator = StudentListPagination()
+        page = paginator.paginate_queryset(
+            qs.order_by('-created_at', '-id'), request, view=self,
+        )
+        serializer = AchievementListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request, student_pk):
         student = get_object_or_404(Student, pk=student_pk)
@@ -212,8 +218,12 @@ class ReadingEntryListCreateAPIView(APIView):
         if month:
             qs = qs.filter(month=month)
 
-        serializer = ReadingEntrySerializer(qs, many=True, context={"request": request})
-        return Response(serializer.data)
+        paginator = StudentListPagination()
+        page = paginator.paginate_queryset(
+            qs.order_by('academic_year', 'month', 'title', 'id'), request, view=self,
+        )
+        serializer = ReadingEntrySerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request, student_pk):
         student = get_object_or_404(Student, pk=student_pk)

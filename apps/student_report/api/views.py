@@ -18,6 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.authentication.models import Student
 from core.error_messages import NO_ACCESS_STUDENT
+from core.pagination import StudentListPagination
 from core.permissions import (
     IsTeacherAdminOrSupervisor, can_view_student,
 )
@@ -127,6 +128,7 @@ class StudentReportListView(ListAPIView):
     # enforced against the student named in the URL.
     permission_classes = [IsAuthenticated]
     serializer_class = StudentReportListSerializer
+    pagination_class = StudentListPagination
 
     def get_queryset(self):
         student = get_object_or_404(Student, pk=self.kwargs['student_id'])
@@ -138,4 +140,4 @@ class StudentReportListView(ListAPIView):
         ).select_related(
             'student__user', 'student__school_group',
             'academic_year', 'generated_by',
-        ).order_by('-created_at')
+        ).order_by('-created_at', '-id')

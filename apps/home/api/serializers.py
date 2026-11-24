@@ -273,17 +273,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             else:
                 history[state.name].append(state)
 
-        def _record(r):
-            return {
-                'id': r.id,
-                'name': r.name,
-                'score': r.score,
-                'comment': r.comment or '',
-                'added_by': (
-                    r.added_by.get_full_name() or r.added_by.username
-                ) if r.added_by else '',
-                'time_added': r.time_added.isoformat() if r.time_added else None,
-            }
+        _record = psychological_state_record
 
         return {
             'current': [_record(s) for s in latest_states],
@@ -532,6 +522,25 @@ class DashboardStatsSerializer(serializers.Serializer):
 
 
 # ── Psychological State ──
+
+def psychological_state_record(state):
+    """One psychological state as the student payloads show it: embedded in
+    the detail view and listed by students/<pk>/psychological-states/."""
+    return {
+        'id': state.id,
+        'name': state.name,
+        'score': state.score,
+        'comment': state.comment or '',
+        'added_by': (
+            state.added_by.get_full_name() or state.added_by.username
+        ) if state.added_by else '',
+        'time_added': state.time_added.isoformat() if state.time_added else None,
+    }
+
+
+class StudentOverviewQuerySerializer(serializers.Serializer):
+    quarter = serializers.IntegerField(min_value=1, max_value=4, required=False)
+
 
 class PsychologicalStateCreateSerializer(serializers.Serializer):
     state_name = serializers.CharField()

@@ -320,6 +320,17 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# When the student overview raises an attention flag (spec 0019). Grades are on
+# the 2-5 quarter scale, rates are percentages, wellbeing scores are 1-5.
+STUDENT_ATTENTION_THRESHOLDS = {
+    'low_grade': {'critical': 2},             # quarter grade at or below
+    'falling_grade': {'warning': 1},          # drop vs previous quarter, at least
+    'absence_streak': {'warning': 3, 'critical': 5},   # absent days in a row
+    'low_attendance': {'warning': 85, 'critical': 70},  # rate below
+    'overdue_homework': {'warning': 3},       # overdue count, at least
+    'wellbeing_drop': {'warning': 2},         # latest score at or below
+}
+
 # Simple JWT
 from datetime import timedelta
 
