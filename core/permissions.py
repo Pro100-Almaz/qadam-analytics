@@ -471,6 +471,37 @@ def can_view_student(user, student):
     return is_teacher_role(user) or can_access_student(user, student)
 
 
+def can_view_student_overview(user, student):
+    """
+    The student overview (spec 0019): admin roles, psychologists, the
+    student's own parents, and the homeroom teacher of the student's class in
+    the active year. Narrower than can_view_student: subject teachers and the
+    student themselves are refused.
+
+    Every branch goes through the active role (spec 0016). There is no
+    separate homeroom role, so `teacher` plus a live HomeroomTeacherAssignment
+    for the class is what makes a homeroom teacher.
+    """
+    if is_admin_role(user) or user_has_active_role(user, 'psychologist'):
+        return True
+
+    if user_has_active_role(user, 'parent'):
+        from apps.authentication.models import Parent
+        return Parent.objects.filter(user=user, students=student).exists()
+
+    if user_has_active_role(user, 'teacher'):
+        enrollment = student.get_current_enrollment()
+        if enrollment is None:
+            return False
+        return HomeroomTeacherAssignment.objects.filter(
+            teacher__user=user,
+            class_group_id=enrollment.class_group_id,
+            class_group__academic_year__is_active=True,
+        ).exists()
+
+    return False
+
+
 class CanAccessStudent(BasePermission):
     def has_object_permission(self, request, view, obj):
         return can_access_student(request.user, obj)

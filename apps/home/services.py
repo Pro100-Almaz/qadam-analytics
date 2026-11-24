@@ -370,3 +370,202 @@ def get_teacher_workload(teacher, week_start=None, week_end=None):
         },
         'subjects': subjects,
     }
+
+
+# ── Student overview (spec 0019) ──
+
+SEVERITY_ORDER = {'critical': 0, 'warning': 1}
+
+
+def resolve_quarter(academic_year, requested=None, today=None):
+    """
+    The quarter the overview reports on. `requested` wins. Otherwise the
+    current quarter; between quarters the last one that has ended; else 1.
+    """
+    if requested:
+        return requested
+    if academic_year is None:
+        return 1
+    today = today or timezone.localdate()
+    current = academic_year.quarter_of(today)
+    if current:
+        return current
+    ended = [
+        q for q in (1, 2, 3, 4)
+        if getattr(academic_year, f'q{q}_end')
+        and getattr(academic_year, f'q{q}_end') < today
+    ]
+    return max(ended) if ended else 1
+
+
+def absence_streak(days):
+    """
+    Absent days in a row, ending at the most recent recorded day. A day is
+    absent when every slot recorded on it is. `days` is [(date, recorded,
+    absent)] oldest first; days with no record are simply not in it.
+    """
+    streak = 0
+    for _, recorded, absent in reversed(days):
+        if absent != recorded:
+            break
+        streak += 1
+    return streak
+
+
+def _flag(code, severity, params, subject=None):
+    return {
+        'code': code,
+        'severity': severity,
+        'subject_id': subject['subject_id'] if subject else None,
+        'subject_name': subject['subject_name'] if subject else None,
+        'params': params,
+    }
+
+
+def attention_flags(metrics, thresholds):
+    """
+    The overview's attention list from already-computed numbers. Pure, so
+    the thresholds can be tested without a database.
+
+    metrics: {
+        'subjects': [{subject_id, subject_name, grade, previous_grade}],
+        'absence_streak': int,
+        'attendance_rate': float | None,
+        'overdue_homework': int,
+        'wellbeing': {'name', 'score'} | None,
+    }
+    """
+    t = thresholds
+    flags = []
+
+    for subject in metrics['subjects']:
+        grade, previous = subject['grade'], subject['previous_grade']
+        if grade is None:
+            continue
+        if grade <= t['low_grade']['critical']:
+            flags.append(_flag('low_grade', 'critical', {'grade': grade}, subject))
+        if previous is not None and previous - grade >= t['falling_grade']['warning']:
+            flags.append(_flag(
+                'falling_grade', 'warning', {'from': previous, 'to': grade}, subject,
+            ))
+
+    streak = metrics['absence_streak']
+    if streak >= t['absence_streak']['critical']:
+        flags.append(_flag('absence_streak', 'critical', {'days': streak}))
+    elif streak >= t['absence_streak']['warning']:
+        flags.append(_flag('absence_streak', 'warning', {'days': streak}))
+
+    rate = metrics['attendance_rate']
+    if rate is not None:
+        if rate < t['low_attendance']['critical']:
+            flags.append(_flag('low_attendance', 'critical', {'rate': rate}))
+        elif rate < t['low_attendance']['warning']:
+            flags.append(_flag('low_attendance', 'warning', {'rate': rate}))
+
+    overdue = metrics['overdue_homework']
+    if overdue >= t['overdue_homework']['warning']:
+        flags.append(_flag('overdue_homework', 'warning', {'count': overdue}))
+
+    wellbeing = metrics['wellbeing']
+    if wellbeing and wellbeing['score'] <= t['wellbeing_drop']['warning']:
+        flags.append(_flag(
+            'wellbeing_drop', 'warning',
+            {'score': wellbeing['score'], 'name': wellbeing['name']},
+        ))
+
+    return sorted(flags, key=lambda f: (
+        SEVERITY_ORDER[f['severity']], f['code'], f['subject_name'] or '',
+    ))
+
+
+def _rate(counts):
+    registered = counts['present'] + counts['absent']
+    return round(100 * counts['present'] / registered, 1) if registered else None
+
+
+def build_student_overview(student, quarter=None):
+    """The payload of GET students/<user_id>/overview/ (spec 0019)."""
+    from django.conf import settings
+
+    from apps.home.repo import student_overview as repo
+    from apps.lesson.api.analytics_common import enrolled_students
+
+    academic_year = AcademicYear.objects.filter(is_active=True).first()
+    quarter = resolve_quarter(academic_year, quarter)
+    previous = quarter - 1 if quarter > 1 else None
+    today = timezone.localdate()
+
+    offerings = current_offerings(student)
+    # All four quarters in one query: the per-quarter averages follow
+    # compute_child_grades (unmarked subjects skipped), and the attention
+    # flags read the selected and previous quarter from the same rows.
+    grades = repo.subject_quarter_grades(student, offerings, (1, 2, 3, 4))
+    own = {}
+    for q in (1, 2, 3, 4):
+        marks = [g for (_, gq), g in grades.items() if gq == q]
+        own[q] = round(sum(marks) / len(marks), 1) if marks else None
+    enrollment = student.get_current_enrollment()
+    cohort_ids = [
+        s.id for s in enrolled_students(enrollment.class_group_id, academic_year.id)
+    ] if enrollment and academic_year else []
+    class_avg = (
+        repo.class_quarter_averages(cohort_ids) if cohort_ids
+        else dict.fromkeys((1, 2, 3, 4))
+    )
+
+    own_attendance = repo.attendance_counts([student.id], quarter)
+    class_attendance = (
+        repo.attendance_counts(cohort_ids, quarter) if cohort_ids
+        else {'present': 0, 'absent': 0}
+    )
+    attendance_rate = _rate(own_attendance)
+    homework = repo.homework_counts(student, offerings, quarter, today)
+    latest = repo.latest_psychological_state(student)
+    wellbeing = {
+        'name': latest.name,
+        'score': latest.score,
+        'time_added': latest.time_added.isoformat() if latest.time_added else None,
+    } if latest else None
+
+    subjects = [
+        {
+            'subject_id': o.subject_id,
+            'subject_name': o.subject.name,
+            'grade': grades.get((o.id, quarter)),
+            'previous_grade': grades.get((o.id, previous)) if previous else None,
+        }
+        for o in offerings
+    ]
+    thresholds = settings.STUDENT_ATTENTION_THRESHOLDS
+
+    return {
+        'student_id': student.user_id,
+        'quarter': quarter,
+        'grades': {
+            'average': own[quarter],
+            'class_average': class_avg[quarter],
+            'previous_quarter_average': own[previous] if previous else None,
+            'by_quarter': [
+                {'quarter': q, 'average': own[q], 'class_average': class_avg[q]}
+                for q in (1, 2, 3, 4)
+            ],
+        },
+        'attendance': {
+            'rate': attendance_rate,
+            'class_rate': _rate(class_attendance),
+            'present': own_attendance['present'],
+            # ScheduleAttendance has no late status (spec 0019).
+            'late': 0,
+            'absent': own_attendance['absent'],
+            'total': own_attendance['present'] + own_attendance['absent'],
+        },
+        'homework': {**homework, 'total': sum(homework.values())},
+        'wellbeing': {'latest': wellbeing},
+        'attention': attention_flags({
+            'subjects': subjects,
+            'absence_streak': absence_streak(repo.attendance_days(student, quarter)),
+            'attendance_rate': attendance_rate,
+            'overdue_homework': homework['overdue'],
+            'wellbeing': wellbeing,
+        }, thresholds),
+    }

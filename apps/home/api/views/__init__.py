@@ -9,6 +9,8 @@ from apps.home.api.views.academic import (
 from apps.home.api.views.students import (
     StudentListAPIView,
     StudentDetailAPIView,
+    StudentOverviewAPIView,
+    StudentPsychologicalStateListAPIView,
     StudentProfileUpdateAPIView,
     PsychologicalStateCreateAPIView,
     PsychologicalStateDeleteAPIView,
@@ -73,6 +75,8 @@ __all__ = [
     'ClassGroupStudentListAPIView',
     'StudentListAPIView',
     'StudentDetailAPIView',
+    'StudentOverviewAPIView',
+    'StudentPsychologicalStateListAPIView',
     'StudentProfileUpdateAPIView',
     'PsychologicalStateCreateAPIView',
     'PsychologicalStateDeleteAPIView',
